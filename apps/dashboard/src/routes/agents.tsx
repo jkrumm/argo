@@ -17,6 +17,7 @@ import {
   feedAside,
   summaryParts,
   longestRunMs,
+  hoursWithNeedsYou,
 } from '../features/agents/model'
 import { FeedNotice } from '../features/agents/feed-notice'
 import { StaleBanner } from '../features/agents/stale-banner'
@@ -61,6 +62,7 @@ function AgentsPage() {
     agents.filter((a) => a.state === 'working'),
     now,
   )
+  const needsYouCoverage = hoursWithNeedsYou(historyQuery.data?.data, HISTORY_HOURS, now)
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   const summary = summaryParts({
@@ -109,11 +111,10 @@ function AgentsPage() {
               <FleetStrip
                 needsYou={latest === null ? null : needsYouItems}
                 fleet={fleet}
-                history={historyQuery.data?.data}
+                coverage={needsYouCoverage}
                 hours={HISTORY_HOURS}
                 oldest={oldest}
                 longestRunMs={longestRun}
-                now={now}
               />
             )}
             <NeedsYouSection

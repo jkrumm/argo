@@ -1047,17 +1047,17 @@ What to re-score, page by page (the open items each re-score must check first):
 - **Landed (master, deployed, `/api/health` verified, last code commit `e0fdcd0`):**
   - Step 1, the 2.20.0 adoption: `84c3379` bump + `sync`, `891ff50` astro `StatusDot` (2.20's `basalt/shadow-basalt-export`
     lint failed on the two local `StatusDot`s; the Hermes one was an icon and is now `StatusIcon`), #81 agents + warden, #82 garmin
-    + calendar, #83 home + strength + body composition + walking pad, #84 reading + usage + astro + m365 + hermes, `c5670de` the
-    `relativeTime` wrapper deleted (`lib/format.ts` keeps only `APP_LOCALE`; a test pins that basalt follows the configured locale).
-    **Line delta: `apps/` +1500 / −3424 (net −1924).** Deleted: every local strip prototype (garmin, agents, warden, home,
-    walking-pad, body-composition, strength, reading, usage, m365, astro Night anatomy) for `StatGroup variant="strip"`,
-    `FactsLine` for `ChartCard facts`, the local status dots, the muted fills and caption-null pairs the export covers, all redundant
-    card insets. Not deletable (each a row in `UPSTREAM.md` § "Wave 23 — basalt-ui 2.20.0 adoption"): `CacheRing` (no ring tick),
-    `SkyScale` (no `stops`), per-zone/segment muted fills, Meter caption-null pairs that must keep zone labels, the strip's missing
-    `action` / pill / context / `state` slots, facts that cannot dim or take a tone.
+    - calendar, #83 home + strength + body composition + walking pad, #84 reading + usage + astro + m365 + hermes, `c5670de` the
+      `relativeTime` wrapper deleted (`lib/format.ts` keeps only `APP_LOCALE`; a test pins that basalt follows the configured locale).
+      **Line delta: `apps/` +1500 / −3424 (net −1924).** Deleted: every local strip prototype (garmin, agents, warden, home,
+      walking-pad, body-composition, strength, reading, usage, m365, astro Night anatomy) for `StatGroup variant="strip"`,
+      `FactsLine` for `ChartCard facts`, the local status dots, the muted fills and caption-null pairs the export covers, all redundant
+      card insets. Not deletable (each a row in `UPSTREAM.md` § "Wave 23 — basalt-ui 2.20.0 adoption"): `CacheRing` (no ring tick),
+      `SkyScale` (no `stops`), per-zone/segment muted fills, Meter caption-null pairs that must keep zone labels, the strip's missing
+      `action` / pill / context / `state` slots, facts that cannot dim or take a tone.
   - Step 2, the re-score: #85 warden, #86 home + agents, #87 calendar + strength + walking pad + body composition + reading, #88 astro
-    + m365, #89 usage + hermes (round-1 fixes; `apps/` +1258 / −592, mostly new tests and model helpers). What each fixed is in
-    `docs/design/<page>.md` § "Wave 23 rounds".
+    - m365, #89 usage + hermes (round-1 fixes; `apps/` +1258 / −592, mostly new tests and model helpers). What each fixed is in
+      `docs/design/<page>.md` § "Wave 23 rounds".
 - **Rounds:** r0 (`w23-r0-core`, the four core pages right after the bump), r1 (all 13 pages after step 1), r2 (all 13 after the
   fixes). Live production, `basalt-ui shot --base https://argo.jkrumm.com` with the `argo-auth` localStorage seeded from
   `secrets-run read op://common/api/SECRET` via env (never printed or written), 1440 + 390, both schemes. Each round scored by fresh
@@ -1181,7 +1181,6 @@ Each page's detail is in `docs/design/<page>.md` § "Wave 24 round".
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**
-
 
 # Part 1, continued
 

@@ -698,7 +698,7 @@ across boundary colours turns a mask into a haze. Now honestly transparent, so i
 pollution ramp rather than under it.
 
 **No decode factor may ever be zero** — MapLibre re-packs decoded elevation back into RGB through
-the *same* factor vector (`pack()`/`getUnpackVector()`), so an isolating `0/0/1` degenerates the
+the _same_ factor vector (`pack()`/`getUnpackVector()`), so an isolating `0/0/1` degenerates the
 repack and saturates every pixel. Use `1/1/1` and separate classes on the channel SUM instead
 (cloud → 765, clear land → 192, clear sea → 255; ramp threshold at 400).
 
@@ -760,7 +760,7 @@ applied only while the ramp is on — makes both legible at once, with no contro
 
 The shipped hillshade paint (`igor` at 0.7) is not wrong in isolation — verified over the Karwendel
 at z11, it turns a flat blue-grey basemap into legible alpine relief. The failure is stack order:
-`TERRAIN_STACK_INDEX` was 5 and `LP_STACK_INDEX` 15, so relief drew *under* the near-opaque
+`TERRAIN_STACK_INDEX` was 5 and `LP_STACK_INDEX` 15, so relief drew _under_ the near-opaque
 pollution ramp (alpha .56–.74 at every stop, §9.2) — invisible by construction, not by taste. Same
 root cause as "topographic and light pollution don't blend": the base's own baked relief was being
 flattened by the ramp too.
@@ -783,10 +783,10 @@ Windy's cloud layer is not satellite cloud at all — it's NWP model output (ECM
 ~13 km, ICON-D2 2.2 km, AROME ~1.25 km) as pre-rendered, bilinearly-filtered XYZ tiles, stepping
 discretely between forecast hours. `msg_fes:clm` is a Level-2 **categorical** product instead
 (clear-water/clear-land/cloud/no-data per 3 km pixel) — a class label can't be interpolated, so
-nearest-neighbour is correct and the reprojected edges are blocky *by construction*. Confirmed:
+nearest-neighbour is correct and the reprojected edges are blocky _by construction_. Confirmed:
 switching the mask's `resampling` from `nearest` to `linear` changes almost nothing on screen — the
 blocks are the data, not the filter. The fix is a model source, not a better satellite source:
-every layer the map carries is an *observation* (satellite now, radar past), and observations have
+every layer the map carries is an _observation_ (satellite now, radar past), and observations have
 no forecast.
 
 ### 10.3 Forecast tile sources, re-probed live 2026-08-20
@@ -841,9 +841,9 @@ the `else` branch silently falls back to `meta.valid_times[0]`, rendering a perf
 but frozen field. The protocol wants `time_step=valid_times_<index>`, not a bare index.
 
 Two things let it ship green: the POC's two panes ("now", "+12h") both drew clouds, which reads
-as "working" without proving they draw *different* clouds (a four-pane test differing only in
+as "working" without proving they draw _different_ clouds (a four-pane test differing only in
 param spelling is what actually catches it); and the unit test asserted `omTileUrl(…)` against a
-hand-written string containing the same bug, so it was green *because* it encoded the mistake —
+hand-written string containing the same bug, so it was green _because_ it encoded the mistake —
 the fix is to assert against the protocol's own regex instead.
 
 The resolved `.om` files are per-step and per-run, verified live: `dwd_icon_d2/2026/08/20/0900Z/`

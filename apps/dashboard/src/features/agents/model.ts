@@ -154,9 +154,16 @@ export function fleetParts(
   return { parts, total: parts.reduce((sum, p) => sum + p.value, 0) }
 }
 
-/** The one fleet fact the meter does not show: how long the longest-running working agent has been up. */
-export const fleetFact = (longestRunMs: number | null): string =>
-  longestRunMs === null ? 'no agent working' : `longest run ${formatWaitDuration(longestRunMs)}`
+/**
+ * The one fleet fact the meter does not show: how long the longest-running working agent has been
+ * up. With agents working but none reporting a start time it says so rather than guess.
+ */
+export const fleetFact = (longestRunMs: number | null, working: number): string => {
+  if (working === 0) return 'no agent working'
+  return longestRunMs === null
+    ? 'longest run not reported'
+    : `longest run ${formatWaitDuration(longestRunMs)}`
+}
 
 // ── Needs-you window ──────────────────────────────────────────────────────────────────────────
 
@@ -180,20 +187,23 @@ export function hoursWithNeedsYou(
     const atMs = parseMs(p.receivedAt)
     if (!isCount(n) || atMs === null) continue
     const hour = Math.floor(atMs / HOUR_MS) * HOUR_MS
-    if (hour < startHour || hour > endHour) continue
+    if (atMs > now || hour < startHour || hour > endHour) continue
     seen.add(hour)
     if (n > 0) waiting.add(hour)
   }
   return seen.size === 0 ? null : { observed: seen.size, waiting: waiting.size }
 }
 
-/** The needs-you cell's footer; a window claim is made only for hours that were observed. */
+/**
+ * The needs-you cell's footer. History carries agent counts only (the human queue is not in it), so
+ * the wording is for agents; a window claim is made only for hours that were observed.
+ */
 export function needsYouWindowFact(coverage: NeedsYouCoverage | null, hours: number): string {
   if (coverage === null) return `no data in ${hours} h`
-  if (coverage.observed < hours)
-    return `waiting in ${coverage.waiting} of ${coverage.observed} h observed`
-  if (coverage.waiting === 0) return `none waiting in ${hours} h`
-  return `waiting in ${coverage.waiting} of ${hours} h`
+  const partial = coverage.observed < hours
+  const scope = partial ? `${coverage.observed} h observed` : `${hours} h`
+  if (coverage.waiting === 0) return `no agent waiting in ${scope}`
+  return `agents waiting in ${coverage.waiting} of ${scope}`
 }
 
 export type HourBucket = { hourMs: number; working: number | null }
@@ -341,12 +351,9 @@ export function groupProjects(
   return { active: sorted.filter((g) => g.active), quiet: sorted.filter((g) => !g.active) }
 }
 
-/** How long the longest-running working agent has been up (`startedAt`, else its last activity); `null` without a clock. */
+/** How long the longest-running working agent has been up (`startedAt` only: last activity is not a run); `null` when none reports a start. */
 export function longestRunMs(agents: readonly AgentRow[], now: number): number | null {
-  const ages = agents.flatMap((a) => {
-    const since = a.startedAt ?? a.lastActivityAt
-    return since == null ? [] : [Math.max(0, now - since)]
-  })
+  const ages = agents.flatMap((a) => (a.startedAt == null ? [] : [Math.max(0, now - a.startedAt)]))
   return ages.length === 0 ? null : Math.max(...ages)
 }
 
@@ -549,24 +556,28 @@ const nonEmptyLines = (text: string): string[] =>
     .map((l) => l.trim())
     .filter(Boolean)
 
+/** The blocker text the agent reports, as sent: the first of blocker, waiting-for and standing that has content. */
+const evidenceSource = (a: AgentRow): string | null =>
+  [a.blocker, a.waitingFor, a.standing].find((t) => t && nonEmptyLines(t).length > 0) ?? null
+
 /** The blocker the agent reports, one line; `null` when it reports none. */
 export function evidenceLine(a: AgentRow): string | null {
-  for (const text of [a.blocker, a.waitingFor, a.standing]) {
-    const line = text ? nonEmptyLines(text)[0] : undefined
-    if (line) return ellipsize(line, EVIDENCE_MAX)
-  }
-  return null
+  const source = evidenceSource(a)
+  const line = source ? nonEmptyLines(source)[0] : undefined
+  return line ? ellipsize(line, EVIDENCE_MAX) : null
 }
 
 /** The agent's last reply as context: its final paragraph, kept only when it adds to the evidence line. */
-export function previewOf(a: AgentRow, evidence: string | null): string | null {
-  const paragraphs = (a.lastReply ?? '')
+export function previewOf(a: AgentRow): string | null {
+  const last = (a.lastReply ?? '')
     .split(/\n\s*\n/)
     .map(flatten)
     .filter(Boolean)
-  const last = paragraphs.at(-1)
-  if (!last || last === evidence) return null
-  return ellipsize(last, PREVIEW_MAX)
+    .at(-1)
+  if (!last) return null
+  const source = evidenceSource(a)
+  const shown = source ? [flatten(source), flatten(nonEmptyLines(source)[0] ?? '')] : []
+  return shown.includes(last) ? null : ellipsize(last, PREVIEW_MAX)
 }
 
 type QueueItem = {
@@ -578,7 +589,7 @@ type QueueItem = {
 }
 
 export type CardContext = {
-  /** Producer host of the snapshot, used when an ask carries no host of its own. */
+  /** Producer host of the snapshot; named on agent cards only. An ask shows a host only when it carries one. */
   machine?: string | null
   /** Age of the snapshot, the evidence line's fallback. */
   snapshotAgeMs?: number | null
@@ -595,7 +606,7 @@ export function needsYouCards(
   const asks: NeedsYouCard[] = humanQueue.map((item) => {
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
-    const host = typeof item['host'] === 'string' ? item['host'] : machine
+    const host = typeof item['host'] === 'string' ? item['host'] : null
     const facts = ['human queue', host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(
       isText,
     )
@@ -638,7 +649,7 @@ export function needsYouCards(
         headline,
         facts,
         inset: blocker ?? fallback,
-        preview: previewOf(a, blocker),
+        preview: previewOf(a),
         copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
         fullAsk:
           headline === normalizeAsk(title)

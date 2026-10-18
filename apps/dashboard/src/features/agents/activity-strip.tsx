@@ -46,8 +46,8 @@ const STATES = [
 export function ActivityStrip({ history, hours, now }: Props) {
   const { buckets, peakHour, fact } = useMemo(() => {
     const hourly = hourlyWorking(history, hours, now)
-    const peakOfHours = peakWorking(hourly)
-    return { buckets: hourly, peakHour: peakOfHours, fact: activityFact(hourly, peakOfHours) }
+    const busiest = peakWorking(hourly)
+    return { buckets: hourly, peakHour: busiest, fact: activityFact(hourly, busiest) }
   }, [history, hours, now])
   const currentHourMs = buckets.at(-1)?.hourMs
   const gaps = gapHours(buckets, now)
