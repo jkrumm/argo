@@ -524,7 +524,7 @@ export const ASK_ROWS: readonly AskRow[] = [
 /**
  * Synthetic siblings (one Warden surface, primary `implement`) for the cases the snapshot does not
  * hold: long subjects that share every word that fits (told apart by the clause where they part,
- * never by an ordinal), and commit-labelled titles (the label is stripped from the subject, and
+ * never by an ordinal), a subject that is a word-prefix of its sibling's, and commit-labelled titles (the label is stripped from the subject, and
  * given back only when it is all that tells two titles apart).
  */
 export const APART_ROWS: readonly {
@@ -566,5 +566,35 @@ export const APART_ROWS: readonly {
     origin: 'github_issue',
     title: 'feat: retry the nightly export with backoff once the upstream batch is late',
     expected: 'Implement change: retry the nightly export with backoff once the upstream batch?',
+  },
+  // A word-prefix pair: never numbered, the longer subject shows its extra words.
+  {
+    id: 106,
+    origin: 'github_issue',
+    title:
+      'Weekly archive for site one and two lands on the cold bucket after the retention window',
+    expected: 'Implement change: Weekly archive for site one and two lands on the cold bucket?',
+  },
+  {
+    id: 107,
+    origin: 'github_issue',
+    title:
+      'Weekly archive for site one and two lands on the cold bucket after the retention window closes early',
+    expected: 'Implement: Weekly archive for site one and two lands on the cold … closes early?',
+  },
+  // No opening fits beside the distinguishing word (the old rule numbered both): the word alone.
+  {
+    id: 108,
+    origin: 'job',
+    title:
+      'Rebuild Weekly archive for site one and two lands on the cold bucket after the retention window',
+    expected: 'Implement change: Rebuild Weekly archive for site one and two lands on the cold?',
+  },
+  {
+    id: 109,
+    origin: 'job',
+    title:
+      'Rebuild Weekly archive for site one and two lands on the cold bucket after the retention window zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz',
+    expected: 'Implement: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz?',
   },
 ]

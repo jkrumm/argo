@@ -48,7 +48,7 @@ All new; no current chart is reused. The Calendar page keeps its week/month grid
 - Meeting rows: `<time> · <duration> min · <title> · <n> people`; placeholder in docs `<meeting>`.
 - Activity rows: `Warden moved <repo> item to working`, `Agent <project> needs you`; time `{age}`.
 - Empty stream: `No events since <time>.`
-- Decision card title: `Decide on <noun>: <subject>?` (`change`, `PR`, `failed run`, `alert`, `request`, `agent`) — the only button opens the item in Warden or Agents, so the title names what to decide and promises no verb. The rule is `questionTitles` (`lib/question-copy.ts`), table-tested against an anonymised live snapshot (`lib/question-rung.fixtures.ts`).
+- Decision card title: `Decide on <noun>: <subject>?` (`change`, `PR`, `failed run`, `alert`, `request`, `agent`) — the only button opens the item in Warden or Agents, so the title names what to decide and promises no verb. The rule is `questionTitles` (`lib/question-copy.ts`), table-tested against an anonymised live snapshot (`lib/__fixtures__/question-rung.ts`).
 
 ## Upstream candidates
 

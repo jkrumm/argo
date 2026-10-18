@@ -252,6 +252,11 @@ describe('the plain question (no subject)', () => {
   it('is never empty', () => {
     expect(plain('  ').question).toBe('Decide on this item?')
   })
+  it('never cuts inside a word or leaves a bracket open', () => {
+    expect(plain(`Retry [${'word '.repeat(30)}]`).question).toBe('Retry?')
+    expect(plain(`Retry ${'y'.repeat(120)}`).question).toBe('Retry?')
+    expect(plain('y'.repeat(120)).question).toBe('Decide on this item?')
+  })
 })
 
 describe('wardenQuestionForms', () => {
@@ -375,9 +380,40 @@ describe('questionTitles: the rule', () => {
         input(`${shared}, then the south mirror lags`, { key: 'b' }),
       ),
     ).toEqual([
-      'Implement: Nightly exports for region one and two land … then the north mirror?',
-      'Implement: Nightly exports for region one and two land … then the south mirror?',
+      'Implement: Nightly exports for region one and two … then the north mirror lags?',
+      'Implement: Nightly exports for region one and two … then the south mirror lags?',
     ])
+  })
+
+  it('5. never numbers a subject that is a word-prefix of a sibling’s: the longer one shows its extra words', () => {
+    const shared =
+      'Nightly exports for region one and two land on the shared bucket after the window'
+    expect(
+      titles(input(shared, { key: 'a' }), input(`${shared} closes early`, { key: 'b' })),
+    ).toEqual([
+      'Implement change: Nightly exports for region one and two land on the shared?',
+      'Implement: Nightly exports for region one and two land … closes early?',
+    ])
+  })
+
+  it('5. never numbers when no opening fits beside the distinguishing word: the word alone tells it', () => {
+    const shared =
+      'Nightly exports for region one and two land on the shared bucket after the window'
+    const token = 'x'.repeat(60)
+    expect(titles(input(shared, { key: 'a' }), input(`${shared} ${token}`, { key: 'b' }))).toEqual([
+      'Implement change: Nightly exports for region one and two land on the shared?',
+      `Implement: ${token}?`,
+    ])
+  })
+
+  it('5. leaves differing subjects unnumbered even when nothing can show their difference', () => {
+    const shared =
+      'Nightly exports for region one and two land on the shared bucket after the window'
+    const result = titles(
+      input(shared, { key: 'a' }),
+      input(`${shared} ${'x'.repeat(75)}`, { key: 'b' }),
+    )
+    for (const title of result) expect(title).not.toMatch(/\(\d+\)\?$/)
   })
 
   it('4. gives a commit label back only when it is all that tells two titles apart', () => {
@@ -715,6 +751,11 @@ describe('subjectOf: commit labels', () => {
     expect(subjectOf('ci: cache key')).toBe('cache key')
     expect(subjectOf('feat!: breaking export')).toBe('breaking export')
     expect(subjectOf('Flaky: one test')).toBe('Flaky: one test')
+    // Only conventional-commit types are labels; any other leading word is part of the subject.
+    expect(subjectOf('warning: disk almost full')).toBe('warning: disk almost full')
+    expect(subjectOf('host: unreachable since noon')).toBe('host: unreachable since noon')
+    expect(subjectOf('release(v2)!: cut the branch')).toBe('cut the branch')
+    expect(commitLabelOf('warning: disk almost full')).toBeNull()
     expect(commitLabelOf('fix(scope): x')).toBe('fix(scope)')
     expect(commitLabelOf('Plain title')).toBeNull()
   })
