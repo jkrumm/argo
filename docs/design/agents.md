@@ -220,3 +220,10 @@ No basalt gaps this round.
 
 - **Reviewer:** fail. Fixed: titles no longer restate their evidence line; card 3 reads `Answer: {subject}?` instead of the generic fallback; the project card's running footer whole; the 390 activity-strip footer no longer orphans `h`. Partly fixed: the headline carries a figure, but it is the with-a-command sub-count, not the needs-you count or the oldest wait the concept asks for. Carried: the needs-you tile part-empty (`emptyRatio` 0.53 — basalt row); the activity-strip focus tooltip over the heading (basalt); card 3 offers one action. **New:** the running footer splits one duration across two lines (`{h} h` / `{m} min`). Unscored: `Answer:` above a `Copy command` / `Copy ask` primary — the verb does not match the button.
 - **Against Keel:** does not yet — the headline's figure is not the one that matters; titles are `Answer:` plus the ask text.
+
+### Wave 30 fixes
+
+- **Compound durations whole** — fixed: `formatDuration` joins its parts with a no-break space, so the project card's running footer (`{h} h {m} min`) and the fleet cells never split between the parts; `ago` stays breakable.
+- **Headline** — fixed: the with-a-command sub-count is gone (each card's primary button already says `Copy command` or `Copy ask`); the sentence now ends with the oldest wait in the cards' spelling (`Oldest wait {d} d {h} h.`), omitted when no clock is reported.
+- **`Answer: {subject}?` over a Copy primary** — fixed: the verb is the primary button's — `Copy command: {subject}?` when the ask carries a command, else `Copy ask: {subject}?`; no subject reads `Copy ask for {host} request?`. Home keeps `Decide on …`. Updated rows in `__fixtures__/question-rung.ts`.
+- **Title noise** — fixed for any ask or agent title: backticks unwrapped, a monitor's `[{monitor}]` prefix dropped.
