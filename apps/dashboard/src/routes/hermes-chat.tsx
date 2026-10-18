@@ -1,11 +1,9 @@
-import type { QueryClient } from '@tanstack/react-query'
 import { createFileRoute, type SearchSchemaInput } from '@tanstack/react-router'
 import { Suspense } from 'react'
 import { Center, Loader } from '@mantine/core'
 import { HermesChatPage } from '../features/hermes-chat'
 import { hermesChatStore } from '../features/hermes-chat/chat-store'
 import { hermesQueries } from '../lib/queries/hermes'
-import { shotLoader } from '../lib/shot-state'
 
 // Hermes Chat — thread-first chat with the Hermes agent core: a day-grouped thread list, and one
 // open thread (`?thread=`) with its transcript and composer. Streaming transport
@@ -21,9 +19,7 @@ type HermesChatSearchInput = Partial<ReturnType<typeof hermesChatStore.validateS
 
 export const Route = createFileRoute('/hermes-chat')({
   validateSearch: (raw: HermesChatSearchInput) => hermesChatStore.validateSearch(raw),
-  loader: shotLoader(({ context }: { context: { queryClient: QueryClient } }) =>
-    context.queryClient.ensureQueryData(hermesQueries.threads('active')),
-  ),
+  loader: ({ context }) => context.queryClient.ensureQueryData(hermesQueries.threads('active')),
   component: HermesChatRoute,
 })
 

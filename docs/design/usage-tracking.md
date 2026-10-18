@@ -199,5 +199,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 32 fixes
 
-- **Shot states:** `headline` declares `empty loading`; `strip`, `health` and `projects` render their pending branch under `loading` (the Suspense wrapper sits inside the anchor), `cost-chart`/`cost-list` are absent under `loading` (their Suspense fallback is the shared pending card). `empty` substitutes an empty series/breakdown where each query is read, so the real empty `ChartCard` / `BarList` render. `error` is not declared: the charts read through `useSuspenseQuery`, so a failed query is the app's crash screen, not a card state.
+- **Shot states:** `health` declares `empty`, and every card (`cost-chart`, `cost-list`, `health`, `projects`) renders its real empty branch (an empty series/breakdown substituted where each query is read — the same branch a window with no rows shows). `loading` and `error` are not declared: the route loader awaits the headline, so production shows the route pending screen / crash screen, not a card state.
 - **Token precision:** one rule per column — one decimal from 1 of the unit up, two decimals below it (`0.05 B`, `0.50 B`, `0.12 B`, `1.8 B`), never a mix of significant-digit counts.

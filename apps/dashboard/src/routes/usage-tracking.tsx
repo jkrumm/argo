@@ -1,4 +1,3 @@
-import type { QueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
 import { Box, Grid, Stack } from '@mantine/core'
@@ -8,7 +7,6 @@ import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
 import { usageQueries } from '../lib/queries/usage'
 import { printTotal } from '../features/usage-tracking/model'
-import { shotLoader } from '../lib/shot-state'
 import { usageStore } from '../lib/window-stores'
 import { UsageStrip } from '../features/usage-tracking/usage-strip'
 import { UsageHeadline } from '../features/usage-tracking/page-headline'
@@ -20,9 +18,7 @@ import TopProjects from '../features/usage-tracking/top-projects'
 export const Route = createFileRoute('/usage-tracking')({
   validateSearch: usageStore.validateSearch,
   loaderDeps: ({ search }) => search,
-  loader: shotLoader(({ context }: { context: { queryClient: QueryClient } }) =>
-    context.queryClient.ensureQueryData(usageQueries.headline()),
-  ),
+  loader: ({ context }) => context.queryClient.ensureQueryData(usageQueries.headline()),
   component: UsageTrackingPage,
 })
 
@@ -60,12 +56,8 @@ function UsageTrackingPage() {
       />
 
       <Stack gap="md">
-        <Box data-shot="headline" data-shot-states="empty loading">
-          <UsageHeadline />
-        </Box>
-        <Box data-shot="strip">
-          <UsageStrip />
-        </Box>
+        <UsageHeadline />
+        <UsageStrip />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
           <CostChart {...tsBase} groupBy={search.costGroupBy} printTotal={showTotal} />
@@ -77,23 +69,23 @@ function UsageTrackingPage() {
 
         <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 8 }}>
-            <Box data-shot="health">
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+              <Box data-shot="health" data-shot-states="empty">
                 <HealthCard {...tsBase} />
-              </Suspense>
-            </Box>
+              </Box>
+            </Suspense>
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 4 }}>
-            <Box data-shot="projects">
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+              <Box data-shot="projects">
                 <TopProjects
                   range={search.range}
                   billing={billing}
                   workspace={workspace}
                   printTotal={showTotal}
                 />
-              </Suspense>
-            </Box>
+              </Box>
+            </Suspense>
           </Grid.Col>
         </Grid>
       </Stack>

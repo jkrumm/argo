@@ -400,19 +400,17 @@ export function M365ExplorerPage(): ReactElement {
             <div
               ref={phoneRef}
               className={classes.phonePane}
-              {...(shown.shot === undefined
-                ? {}
-                : { 'data-shot': shown.shot, 'data-shot-absent': 'loading' })}
+              {...(shown.shot === undefined ? {} : { 'data-shot': shown.shot })}
             >
               {phonePanes[shownPane]}
             </div>
           </Section>
         ) : (
           <div className={classes.split}>
-            <Card className={classes.pane} data-shot="source-list" data-shot-absent="loading">
+            <Card className={classes.pane} data-shot="source-list">
               <Card.Section className={classes.paneBody}>{sourcesPane}</Card.Section>
             </Card>
-            <Card className={classes.pane} data-shot="detail-pane" data-shot-absent="loading">
+            <Card className={classes.pane} data-shot="detail-pane">
               <Card.Section className={classes.paneBody}>{detailPane}</Card.Section>
             </Card>
           </div>
