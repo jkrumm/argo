@@ -11,6 +11,7 @@ import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { SERIES } from '../../lib/series'
 import classes from './agenda.module.css'
 import { untilLabel } from './summary'
+import { sourceGapWord, type FeedGap } from './query-state'
 import {
   DAY_TARGET_H,
   dayLabel,
@@ -108,15 +109,15 @@ export function DayGroups({
   allDay,
   now,
   next,
-  incomplete = false,
+  gap = null,
 }: {
   days: readonly AgendaDay[]
   /** All-day items per day key. */
   allDay: Readonly<Record<DayKey, readonly CalendarItem[]>>
   now: Date
   next: NextEvent | null
-  /** A calendar has not answered: an empty day is unknown (`—`), never "free". */
-  incomplete?: boolean
+  /** A calendar has not answered: an empty day says why it is unknown, never "no events". */
+  gap?: FeedGap | null
 }) {
   return (
     <div>
@@ -126,7 +127,7 @@ export function DayGroups({
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              <span className={classes.muted}>{incomplete ? '—' : 'free'}</span>
+              <span className={classes.muted}>{gap ? gap.short : 'no events'}</span>
             </Box>
           )
         }
@@ -135,7 +136,11 @@ export function DayGroups({
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               <span className={classes.muted}>
-                {incomplete ? '—' : dayHeadLabel(day, formatMinutes, chips.length)}
+                {gap
+                  ? gap.state === 'loading'
+                    ? gap.short
+                    : 'partial'
+                  : dayHeadLabel(day, formatMinutes, chips.length)}
               </span>
             </Box>
             {chips.length > 0 && (
@@ -157,6 +162,7 @@ export function WeekStrip({
   split,
   todayKey,
   unknown,
+  failed,
 }: {
   title: string
   load: readonly DayLoad[]
@@ -164,6 +170,8 @@ export function WeekStrip({
   todayKey: DayKey
   /** Source classes whose feed failed; their figures read `—`, not 0. */
   unknown: ReadonlySet<keyof SourceSplit>
+  /** The unknown sources that failed rather than still load. */
+  failed: ReadonlySet<keyof SourceSplit>
 }) {
   const total = split.work + split.personal
   const showSplitBar = unknown.size === 0 && split.work > 0 && split.personal > 0
@@ -222,7 +230,7 @@ export function WeekStrip({
               <span key={key}>
                 {SPLIT_LABEL[key]}{' '}
                 {unknown.has(key)
-                  ? 'unavailable'
+                  ? sourceGapWord(key, failed)
                   : // Personal is the booked time minus work: without the work feed it is a floor.
                     `${formatMinutes(split[key])}${key === 'personal' && unknown.has('work') ? ' (partial)' : ''}`}
               </span>
@@ -239,12 +247,25 @@ const TIER_LABEL = { high: 'High', medium: 'Medium', low: 'Low', none: 'No prior
 
 const TONE_COLOR = { bad: VX.status.bad, warn: VX.status.warn, neutral: VX.neutral } as const
 
-export function TaskList({ tasks, todayKey }: { tasks: readonly TaskDue[]; todayKey: DayKey }) {
+export function TaskList({
+  tasks,
+  todayKey,
+  state,
+}: {
+  tasks: readonly TaskDue[]
+  todayKey: DayKey
+  /** The task read itself: a pending or failed one is not an empty list, so it has no count. */
+  state: 'loading' | 'error' | 'ready'
+}) {
   return (
-    <Card data-shot="tasks-due" data-shot-states="empty">
-      <Section title="Tasks due" count={tasks.length}>
+    <Card data-shot="tasks-due" data-shot-states="empty loading error">
+      <Section title="Tasks due" {...(state === 'ready' ? { count: tasks.length } : {})}>
         <Text className={classes.muted}>Overdue or due within 7 days</Text>
-        {tasks.length === 0 ? (
+        {state === 'loading' ? (
+          <Text className={classes.muted}>Loading tasks</Text>
+        ) : state === 'error' ? (
+          <Text className={classes.muted}>Tasks failed to load — reload to retry</Text>
+        ) : tasks.length === 0 ? (
           <Text className={classes.muted}>Nothing due in the next 7 days.</Text>
         ) : (
           <div role="list">
