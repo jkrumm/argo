@@ -3,7 +3,7 @@
 
 import { relativeTime } from 'basalt-ui/format'
 import { format, subMonths, subYears } from 'date-fns'
-import { NBSP } from '../../lib/format'
+import { APP_LOCALE, NBSP } from '../../lib/format'
 import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
@@ -502,15 +502,19 @@ export function emptyWindowHint(input: {
     : `The last walk is outside ${span}.`
 }
 
-const DAY_MONTH = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
+const DAY_MONTH = new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short' })
 
 /**
  * The record header's last-walk label: `last walk 2 days ago, 12 Oct`, or just the date when the
- * headline already gives the age. An unparseable `endedAt` drops the date instead of throwing.
+ * headline already gives the age (`relative` is `null`). An unparseable `endedAt` is validated
+ * before anything formats it: the label falls back to `last walk`, never throws.
  */
-export function lastWalkLabel(input: { endedAt: string; age: string | null }): string {
+export function lastWalkLabel(input: {
+  endedAt: string
+  relative: ((endedAt: string) => string) | null
+}): string {
   const ms = Date.parse(input.endedAt)
-  const day = Number.isFinite(ms) ? DAY_MONTH.format(ms) : null
-  const parts = [input.age, day].filter((p): p is string => p !== null)
-  return ['last walk', parts.join(', ')].filter(Boolean).join(' ')
+  if (!Number.isFinite(ms)) return 'last walk'
+  const when = [input.relative?.(input.endedAt), DAY_MONTH.format(ms)].filter(Boolean).join(', ')
+  return `last walk ${when}`
 }

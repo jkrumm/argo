@@ -259,8 +259,8 @@ export function recoveryGap(input: {
   /** The newest scored day in the window, if any. */
   last?: { value: number; date: string } | null
   windowDays?: number
-  /** The recovery inputs the scored day lacks, e.g. `['HRV', 'sleep']`; names why there is no score. */
-  missing?: readonly string[]
+  /** The inputs the unscored day could not score from, e.g. `['HRV', 'sleep']`; empty names nothing. */
+  missing?: readonly RecoveryInput[]
   today?: Date
 }): { headline: string; line: string | null } {
   const {
@@ -280,7 +280,11 @@ export function recoveryGap(input: {
   const day = date == null ? 'the latest day' : dayLabel(date, 'day', today)
   const headline = `no recovery score for ${day}`
   if (!settled) return { headline, line: null }
-  const why = missing.length > 0 ? ` · no ${missing.join(', ')}` : ''
+  // The suffix is about the unscored day (`date`), never the last scored one; no date, no subject.
+  const why =
+    date != null && missing.length > 0
+      ? ` · ${dayLabel(date, 'day', today).replaceAll(' ', NBSP)}: ${missing.join(', ')} not scored`
+      : ''
   if (last !== null) {
     const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
     return { headline, line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}${why}` }
@@ -291,14 +295,16 @@ export function recoveryGap(input: {
 
 // ── Strip ──────────────────────────────────────────────────────────────────
 
+export type RecoveryInput = 'HRV' | 'sleep' | 'RHR'
+
 type Components = { hrv: number | null; sleep: number | null; rhr: number | null }
 
 /** The recovery inputs a day did not measure, in the order the cell lists them. */
-export function missingInputs(components: Components): string[] {
+export function missingInputs(components: Components): RecoveryInput[] {
   return [
-    ...(components.hrv === null ? ['HRV'] : []),
-    ...(components.sleep === null ? ['sleep'] : []),
-    ...(components.rhr === null ? ['RHR'] : []),
+    ...(components.hrv === null ? (['HRV'] as const) : []),
+    ...(components.sleep === null ? (['sleep'] as const) : []),
+    ...(components.rhr === null ? (['RHR'] as const) : []),
   ]
 }
 

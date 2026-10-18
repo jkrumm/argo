@@ -89,7 +89,7 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
   }
   const label = lastWalkLabel({
     endedAt: walk.ended_at,
-    age: empty ? null : relativeTime(walk.ended_at),
+    relative: empty ? null : relativeTime,
   })
   return (
     <Row

@@ -134,11 +134,12 @@ export function rateCell({
           {
             from: -RATE_NEUTRAL_KG_WK,
             to: RATE_NEUTRAL_KG_WK,
-            label: 'Maintain',
+            label: `Maintenance \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`,
+            short: 'Maintain',
           },
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}
-        startCaption={`maintain \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`}
+        startCaption={null}
         emptyText="No rate yet"
       />
     ),
