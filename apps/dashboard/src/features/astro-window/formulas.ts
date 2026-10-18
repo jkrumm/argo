@@ -527,7 +527,7 @@ function lowCloudValue(night: Night): string | null {
   return mean === null ? null : fmtPercent(mean)
 }
 
-export type LowCloudStat = {
+type LowCloudStat = {
   value: string
   unit: string
   /** What the low value is a mean over: `shooting-window mean` or `dark-hours mean`. */
@@ -586,9 +586,13 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
   return fact === null ? {} : { facts: fact }
 }
 
+/** Every plain space → no-break space: one phrase that never wraps inside itself. */
+const glue = (text: string): string => text.replaceAll(' ', NBSP)
+
 /**
- * The Sky cell's footer: the dark-sky threshold the scale's unlabelled tick marks, the town glow
- * and the transparency. Each phrase is glued internally; the plain-space ` · ` between them may wrap.
+ * The Sky cell's footer: the dark-sky threshold (the scale's tick is unlabelled), the town glow
+ * and the transparency. Each phrase is glued internally, so a wrap only falls on the plain-space
+ * ` · ` between phrases.
  */
 export function skyCellFooter({
   domePenaltyMag,
@@ -599,25 +603,19 @@ export function skyCellFooter({
 }): string {
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
-  const glue = (text: string) => text.replaceAll(' ', NBSP)
   return [
-    glue(`dark ≥ ${SKY_DARK_THRESHOLD}`),
+    `dark ≥ ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')}`,
     glue(`town glow ${dome}`),
-    `${glue(`transparency ${clarity}`)} ${glue('(lower is clearer)')}`,
+    glue(`transparency ${clarity}, lower clearer`),
   ].join(' · ')
 }
 
-/** The cloud-layers headline: `{v} % low cloud · dark-hours mean`, each phrase glued, one break point between them. */
-export function cloudHeadline({ value, unit, basis }: LowCloudStat): {
-  value: string
-  unit: string
-  period: string
-} {
-  return {
-    value,
-    unit: unit.replaceAll(' ', NBSP),
-    period: `· ${basis.replaceAll(' ', NBSP)}`,
-  }
+/**
+ * The cloud-layers headline as a `ChartFact`: `{v} % low cloud · dark-hours mean`. ChartCard puts
+ * no separator between unit and period, so the period carries its own `· `; both phrases are glued.
+ */
+export function cloudHeadline({ value, unit, basis }: LowCloudStat): ChartFact {
+  return { value, unit: glue(unit), period: `· ${glue(basis)}` }
 }
 
 /**
@@ -646,9 +644,18 @@ function hasLowCloudFact(night: Night): boolean {
   return night.weather.cloudLow !== null && factor !== undefined && factor.value !== null
 }
 
-/** A ruled-out night carries no factors, but the API still sends its cloud figure: shown, as unscored. */
-function ungatedCloudFact(night: Night): boolean {
-  return night.verdict === 'out' && night.factors.length === 0 && night.weather.cloudLow !== null
+/**
+ * The state word of the verdict card's low-cloud row, or null when it has no row. Early returns,
+ * in order: the API calls the layer ruinous or it holds the score back (`lowCloudState`); a scored
+ * cloud factor that limits nothing (`not limiting`); a ruled-out night, which carries no factors
+ * though the API still sends its cloud figure (`not scored`).
+ */
+function cloudRowState(night: Night): string | null {
+  const flagged = lowCloudState(night)
+  if (flagged !== null) return flagged
+  if (hasLowCloudFact(night)) return 'not limiting'
+  const ruledOut = night.verdict === 'out' && night.factors.length === 0
+  return ruledOut && night.weather.cloudLow !== null ? 'not scored' : null
 }
 
 /** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
@@ -713,9 +720,7 @@ export function gateRows(
     gate(GATE_IDS[1], 'Core', coreGateDetail(night), dark),
     gate(GATE_IDS[2], 'Moon', moonGateDetail(night, moonLimit, hourly), dark),
   ]
-  const cloudState =
-    lowCloudState(night) ??
-    (hasLowCloudFact(night) ? 'not limiting' : ungatedCloudFact(night) ? 'not scored' : null)
+  const cloudState = cloudRowState(night)
   if (cloudState !== null) {
     rows.push({
       key: 'cloud-low',

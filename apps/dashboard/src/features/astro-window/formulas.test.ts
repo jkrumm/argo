@@ -48,6 +48,7 @@ import {
   fmtAzimuth,
   windowShare,
 } from './formulas'
+import { CORE_UNIT } from './constants'
 import type { HourlyPoint, Night, WindowResponse } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
@@ -640,10 +641,10 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: the threshold, dome and transparency', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'dark\u00a0≥\u00a021.6 · town\u00a0glow\u00a0+1.04\u00a0mag · transparency\u00a03/8 (lower\u00a0is\u00a0clearer)',
+      'dark ≥ 21.6\u00a0mag/arcsec² · town\u00a0glow\u00a0+1.04\u00a0mag · transparency\u00a03/8,\u00a0lower\u00a0clearer',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'dark\u00a0≥\u00a021.6 · town\u00a0glow\u00a0— · transparency\u00a0— (lower\u00a0is\u00a0clearer)',
+      'dark ≥ 21.6\u00a0mag/arcsec² · town\u00a0glow\u00a0— · transparency\u00a0—,\u00a0lower\u00a0clearer',
     )
   })
 })
@@ -927,7 +928,7 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: 'nearest its gate, needs > 9.8°',
+      unit: `${CORE_UNIT}, needs > 9.8°`,
     })
   })
   test('no dark stretch, no fact', () => {
