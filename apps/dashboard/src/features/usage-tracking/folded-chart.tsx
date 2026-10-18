@@ -91,11 +91,12 @@ export function FoldedChart({
   const hidden = folded.totals.length - rows.length
   // The chart stops at the last complete bucket (the running one would draw as a drop); the list
   // keeps the whole window. The route decides whether the window's total is printed.
-  const totalNote = printTotal ? ` · ${formatFor(folded.total)(folded.total)}` : ''
+  // The card title's total and the list rows are one surface: one formatter, from the window total.
+  const listFormat = formatFor(folded.total)
+  const totalNote = printTotal ? ` · ${listFormat(folded.total)}` : ''
   const perBucket = grain === 'day' ? 'day' : 'week'
   const drawn = dropPartialBucket(folded.points, now, grain)
   const plotFormat = formatFor(peakBucketTotal(drawn))
-  const listFormat = formatFor(folded.totals.reduce((m, t) => Math.max(m, t.value), 0))
   const series = groupBands(folded.keys, colorOf, labelOf, plotFormat)
 
   return (

@@ -51,48 +51,65 @@ const TOKEN_UNITS = [
   { unit: 'B', size: 1e9 },
   { unit: 'M', size: 1e6 },
   { unit: 'k', size: 1e3 },
+  { unit: '', size: 1 },
 ] as const
 
-type TokenUnit = (typeof TOKEN_UNITS)[number]
+/** The figure a unit prints, rounded the way it prints (whole tokens, else one decimal). */
+const roundedIn = (abs: number, index: number): number => {
+  const { unit, size } = TOKEN_UNITS[index] ?? TOKEN_UNITS[TOKEN_UNITS.length - 1]!
+  return Number((abs / size).toFixed(unit === '' ? 0 : 1))
+}
 
 /**
- * The one unit ladder: the largest unit the value reaches, judged on the ROUNDED figure, so
- * 999.96 M is `1.0 B`, never `1000.0 M`. `undefined` below 1 k.
+ * Roll up while the ROUNDED figure would print as 1000 of its unit: 999.96 M is `1.0 B`, 999.5 is
+ * `1.0 k`, never `1000.0 M` / `1000`.
  */
-function tokenUnitFor(abs: number): TokenUnit | undefined {
-  const index = TOKEN_UNITS.findIndex((u) => abs >= u.size)
-  const unit = TOKEN_UNITS[index]
-  if (!unit) return undefined
-  const larger = TOKEN_UNITS[index - 1]
-  return larger && Number((abs / unit.size).toFixed(1)) >= 1000 ? larger : unit
+function rollUp(abs: number, from: number): number {
+  let index = from
+  while (index > 0 && roundedIn(abs, index) >= 1000) index--
+  return index
+}
+
+/** The one unit ladder: the largest unit the value reaches, judged on the rounded figure. */
+function tokenUnitIndex(abs: number): number {
+  const reached = TOKEN_UNITS.findIndex((u) => abs >= u.size)
+  return rollUp(abs, reached === -1 ? TOKEN_UNITS.length - 1 : reached)
 }
 
 /** Token count as a number plus the unit that scales it (`B`, `M`, `k`, or none). */
 export function tokensQuantity(n: number | null | undefined): Quantity {
   if (n === null || n === undefined || !Number.isFinite(n)) return { value: EM_DASH, unit: '' }
-  const step = tokenUnitFor(Math.abs(n))
-  if (!step) return { value: n.toFixed(0), unit: '' }
-  return { value: (n / step.size).toFixed(1), unit: step.unit }
+  const step = TOKEN_UNITS[tokenUnitIndex(Math.abs(n))]!
+  return { value: (n / step.size).toFixed(step.unit === '' ? 0 : 1), unit: step.unit }
+}
+
+/** Whole tokens, never a false zero: a fraction of a token reads `<1`. */
+function wholeText(n: number): string {
+  if (n === 0) return '0'
+  if (Math.round(n) !== 0) return n.toFixed(0)
+  return n > 0 ? '<1' : '>-1'
 }
 
 /** A figure in a fixed unit: one decimal from 1 up, two significant digits below, never a false zero. */
 function scaledText(v: number): string {
   if (v === 0) return '0'
   const abs = Math.abs(v)
-  if (abs >= 1) return v.toFixed(1)
   if (abs < 0.01) return v > 0 ? '<0.01' : '>-0.01'
-  return String(Number(v.toPrecision(2)))
+  const significant = Number(v.toPrecision(2))
+  return Math.abs(significant) >= 1 || abs >= 1 ? v.toFixed(1) : String(significant)
 }
 
 /**
  * A token formatter fixed to the magnitude of `reference` (a surface's largest value), so every
- * number on one tooltip, axis or list reads in the same unit and can be compared by eye.
+ * number on one tooltip, axis or list reads in the same unit and can be compared by eye. A value
+ * that would round to 1000 of that unit rolls up to the next one instead.
  */
 export function tokensFormatterFor(reference: number): (n: number) => string {
-  const step = tokenUnitFor(Math.abs(reference))
+  const start = tokenUnitIndex(Math.abs(reference))
   return (n) => {
     if (!Number.isFinite(n)) return EM_DASH
-    if (!step) return n !== 0 && Math.round(n) === 0 ? (n > 0 ? '<1' : '>-1') : n.toFixed(0)
+    const step = TOKEN_UNITS[rollUp(Math.abs(n), start)]!
+    if (step.unit === '') return wholeText(n)
     return `${scaledText(n / step.size)}${NBSP}${step.unit}`
   }
 }
