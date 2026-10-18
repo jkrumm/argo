@@ -18,6 +18,7 @@ import { usageStore } from '../../lib/window-stores'
 import type { BillingValue, CostGroupBy, TokensGroupBy, WorkspaceValue } from './types'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
 import {
+  peakBucketTotal,
   dropPartialBucket,
   EM_DASH,
   fmtShare,
@@ -41,9 +42,8 @@ type Props = {
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
   color: (key: string) => string
-  format: (n: number) => string
-  /** One magnitude per chart: builds the axis and tooltip formatter from the largest bucket total. */
-  formatFor?: (reference: number) => (n: number) => string
+  /** Builds the surface's formatter from its largest value: one unit per chart and per list. */
+  formatFor: (reference: number) => (n: number) => string
   info: string
   listTitle: string
   height?: number
@@ -61,7 +61,6 @@ export function FoldedChart({
   billing,
   workspace,
   color,
-  format,
   formatFor,
   info,
   listTitle,
@@ -92,14 +91,11 @@ export function FoldedChart({
   const hidden = folded.totals.length - rows.length
   // The chart stops at the last complete bucket (the running one would draw as a drop); the list
   // keeps the whole window. The route decides whether the window's total is printed.
-  const totalNote = printTotal ? ` · ${format(folded.total)}` : ''
+  const totalNote = printTotal ? ` · ${formatFor(folded.total)(folded.total)}` : ''
   const perBucket = grain === 'day' ? 'day' : 'week'
   const drawn = dropPartialBucket(folded.points, now, grain)
-  const peakTotal = Math.max(
-    0,
-    ...drawn.map((p) => Object.values(p.groups).reduce<number>((sum, v) => sum + (v ?? 0), 0)),
-  )
-  const plotFormat = formatFor ? formatFor(peakTotal) : format
+  const plotFormat = formatFor(peakBucketTotal(drawn))
+  const listFormat = formatFor(folded.totals.reduce((m, t) => Math.max(m, t.value), 0))
   const series = groupBands(folded.keys, colorOf, labelOf, plotFormat)
 
   return (
@@ -134,7 +130,7 @@ export function FoldedChart({
         <ChartCard title={`${listTitle} · ${periodNoun(range)}${totalNote}`}>
           <BarList
             label={`${unitNoun} by ${groupNoun}, ${periodNoun(range)}`}
-            format={format}
+            format={listFormat}
             emptyText="No data in this window"
             items={rows.map((t) => ({
               key: t.key,

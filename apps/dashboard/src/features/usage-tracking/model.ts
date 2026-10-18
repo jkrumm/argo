@@ -47,44 +47,62 @@ export function fmtShare(ratio: number | null | undefined): string {
 
 export type Quantity = { value: string; unit: string }
 
-/** Token count as a number plus the unit that scales it (`B`, `M`, `k`, or none). */
-export function tokensQuantity(n: number | null | undefined): Quantity {
-  if (n === null || n === undefined || !Number.isFinite(n)) return { value: EM_DASH, unit: '' }
-  const abs = Math.abs(n)
-  if (abs >= 1e9) return { value: (n / 1e9).toFixed(1), unit: 'B' }
-  if (abs >= 1e6) return { value: (n / 1e6).toFixed(1), unit: 'M' }
-  if (abs >= 1e3) return { value: (n / 1e3).toFixed(1), unit: 'k' }
-  return { value: n.toFixed(0), unit: '' }
-}
-
 const TOKEN_UNITS = [
   { unit: 'B', size: 1e9 },
   { unit: 'M', size: 1e6 },
   { unit: 'k', size: 1e3 },
 ] as const
 
+type TokenUnit = (typeof TOKEN_UNITS)[number]
+
+/**
+ * The one unit ladder: the largest unit the value reaches, judged on the ROUNDED figure, so
+ * 999.96 M is `1.0 B`, never `1000.0 M`. `undefined` below 1 k.
+ */
+function tokenUnitFor(abs: number): TokenUnit | undefined {
+  const index = TOKEN_UNITS.findIndex((u) => abs >= u.size)
+  const unit = TOKEN_UNITS[index]
+  if (!unit) return undefined
+  const larger = TOKEN_UNITS[index - 1]
+  return larger && Number((abs / unit.size).toFixed(1)) >= 1000 ? larger : unit
+}
+
+/** Token count as a number plus the unit that scales it (`B`, `M`, `k`, or none). */
+export function tokensQuantity(n: number | null | undefined): Quantity {
+  if (n === null || n === undefined || !Number.isFinite(n)) return { value: EM_DASH, unit: '' }
+  const step = tokenUnitFor(Math.abs(n))
+  if (!step) return { value: n.toFixed(0), unit: '' }
+  return { value: (n / step.size).toFixed(1), unit: step.unit }
+}
+
+/** A figure in a fixed unit: one decimal from 1 up, two significant digits below, never a false zero. */
+function scaledText(v: number): string {
+  if (v === 0) return '0'
+  const abs = Math.abs(v)
+  if (abs >= 1) return v.toFixed(1)
+  if (abs < 0.01) return v > 0 ? '<0.01' : '>-0.01'
+  return String(Number(v.toPrecision(2)))
+}
+
 /**
  * A token formatter fixed to the magnitude of `reference` (a surface's largest value), so every
- * number on one tooltip, axis or footer pair reads in the same unit and can be compared by eye.
+ * number on one tooltip, axis or list reads in the same unit and can be compared by eye.
  */
 export function tokensFormatterFor(reference: number): (n: number) => string {
-  const abs = Math.abs(reference)
-  const step = TOKEN_UNITS.find((u) => abs >= u.size)
-  if (!step) return (n) => (Number.isFinite(n) ? n.toFixed(0) : EM_DASH)
+  const step = tokenUnitFor(Math.abs(reference))
   return (n) => {
     if (!Number.isFinite(n)) return EM_DASH
-    const v = n / step.size
-    // A non-zero value never prints as zero: two significant digits below 1, `<0.01` below that.
-    const text =
-      v === 0
-        ? '0'
-        : Math.abs(v) >= 1
-          ? v.toFixed(1)
-          : Math.abs(v) < 0.01
-            ? '<0.01'
-            : String(Number(v.toPrecision(2)))
-    return `${text}${NBSP}${step.unit}`
+    if (!step) return n !== 0 && Math.round(n) === 0 ? (n > 0 ? '<1' : '>-1') : n.toFixed(0)
+    return `${scaledText(n / step.size)}${NBSP}${step.unit}`
   }
+}
+
+/** The tallest stacked bucket of a series: the reference a chart's unit is chosen from. */
+export function peakBucketTotal(points: readonly TimePoint[]): number {
+  return points.reduce((peak, p) => {
+    const total = Object.values(p.groups).reduce<number>((sum, v) => sum + (v ?? 0), 0)
+    return Math.max(peak, total)
+  }, 0)
 }
 
 export function fmtTokens(n: number | null | undefined): string {

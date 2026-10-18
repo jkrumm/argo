@@ -44,6 +44,7 @@ import {
   recentMean,
   tokensQuantity,
   tokensFormatterFor,
+  peakBucketTotal,
 } from './model'
 import { RANK_PALETTE } from './constants'
 import type { TimePoint } from './types'
@@ -475,14 +476,43 @@ describe('prepareFolded', () => {
 })
 
 describe('tokensFormatterFor', () => {
+  const NB = '\u00a0'
   it('prints every value in the magnitude of the reference', () => {
     const f = tokensFormatterFor(5_600_000)
-    expect(f(360_000)).toBe('0.36\u00a0M')
-    expect(f(0)).toBe('0\u00a0M')
-    expect(f(20_000)).toBe('0.02\u00a0M')
-    expect(f(360_000)).toBe('0.36\u00a0M')
-    expect(f(1_000)).toBe('<0.01\u00a0M')
-    expect(tokensFormatterFor(2_340_000_000)(120_000_000)).toBe('0.12\u00a0B')
+    expect(f(5_600_000)).toBe(`5.6${NB}M`)
+    expect(f(360_000)).toBe(`0.36${NB}M`)
+    expect(f(0)).toBe(`0${NB}M`)
+    expect(f(20_000)).toBe(`0.02${NB}M`)
+    expect(tokensFormatterFor(2_340_000_000)(120_000_000)).toBe(`0.12${NB}B`)
     expect(tokensFormatterFor(900)(12)).toBe('12')
+  })
+  it('never prints a non-zero value as zero, and keeps the sign', () => {
+    const f = tokensFormatterFor(5_600_000)
+    expect(f(1_000)).toBe(`<0.01${NB}M`)
+    expect(f(-1_000)).toBe(`>-0.01${NB}M`)
+    expect(f(-20_000)).toBe(`-0.02${NB}M`)
+    expect(f(999_996)).toBe(`1${NB}M`)
+    expect(tokensFormatterFor(900)(0.4)).toBe('<1')
+    expect(tokensFormatterFor(900)(-0.4)).toBe('>-1')
+    expect(tokensFormatterFor(900)(0)).toBe('0')
+  })
+  it('picks the unit from the rounded value', () => {
+    expect(tokensQuantity(999_960)).toEqual({ value: '1.0', unit: 'M' })
+    expect(tokensQuantity(999_960_000)).toEqual({ value: '1.0', unit: 'B' })
+    expect(tokensQuantity(999_940)).toEqual({ value: '999.9', unit: 'k' })
+    expect(tokensFormatterFor(999_960_000)(1_000_000)).toBe(`<0.01${NB}B`)
+  })
+})
+
+describe('peakBucketTotal', () => {
+  it('is the tallest stacked bucket, null groups counting as zero', () => {
+    const d = new Date(2026, 0, 1)
+    expect(
+      peakBucketTotal([
+        { date: d, groups: { a: 1, b: null } },
+        { date: d, groups: { a: 2, b: 5 } },
+      ]),
+    ).toBe(7)
+    expect(peakBucketTotal([])).toBe(0)
   })
 })

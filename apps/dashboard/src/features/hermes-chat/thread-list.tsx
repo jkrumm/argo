@@ -110,8 +110,7 @@ export function ThreadList({
       title: 'Delete untitled chats',
       body: (
         <Text size="sm">
-          Delete {untitled.length} untitled {untitled.length === 1 ? 'chat' : 'chats'} and their
-          messages? This cannot be undone.
+          Delete {untitledFoldLabel(untitled.length)} and their messages? This cannot be undone.
         </Text>
       ),
       confirmLabel: 'Delete all',
