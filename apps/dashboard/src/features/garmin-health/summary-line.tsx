@@ -32,6 +32,7 @@ export function SummaryLine({ params }: { params: SummaryParams }) {
       <PageSummary
         {...summaryParts({
           recovery: recovery.data?.recovery ?? null,
+          recoveryDate: recovery.data?.date ?? null,
           acwr,
           rhrDelta: fitness.data?.rhrDelta ?? null,
           hrvDelta: fitness.data?.hrvDelta ?? null,
