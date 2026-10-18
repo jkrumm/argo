@@ -270,12 +270,14 @@ export function recoveryGap(input: {
   const day = date == null ? 'the latest day' : dayLabel(date, 'day', input.today)
   const headline = `no recovery score for ${day}`
   if (!settled) return { headline, line: null }
+  // Today's row exists but has no sleep, HRV or RHR yet: the next sync fills it. An older gap never does.
+  const fills = date != null && date === dayKey(input.today ?? new Date()) ? ' · fills on sync' : ''
   if (last !== null) {
     const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
-    return { headline, line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}` }
+    return { headline, line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}${fills}` }
   }
   const window = windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
-  return { headline, line: `No score in ${window}` }
+  return { headline, line: `No score in ${window}${fills}` }
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────

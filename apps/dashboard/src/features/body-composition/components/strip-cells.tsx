@@ -134,7 +134,7 @@ export function rateCell({
           {
             from: -RATE_NEUTRAL_KG_WK,
             to: RATE_NEUTRAL_KG_WK,
-            label: `Maintenance \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`,
+            label: `\u00b1${RATE_NEUTRAL_KG_WK}`,
           },
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}

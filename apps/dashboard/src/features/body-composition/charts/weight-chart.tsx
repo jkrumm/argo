@@ -14,7 +14,7 @@ import { markerRadiusFor, toWeightChartPoints, type WeightChartPoint } from './s
 const CHART_HEIGHT = { base: 220, regular: 280 }
 const PLACEHOLDER_HEIGHT = 280
 
-const fmtKg = (v: number): string => withKg(v, 2)
+const fmtKg = (v: number): string => withKg(v, 1)
 
 export default function WeightChart({
   params,
@@ -88,6 +88,7 @@ export default function WeightChart({
           data={chartData}
           height={CHART_HEIGHT}
           x={(d) => d.date}
+          formatX={(x) => format(x, span === null || span > 365 ? 'MMM yyyy' : 'd MMM')}
           series={series}
           tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
           {...(goal !== null && {

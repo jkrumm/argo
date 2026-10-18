@@ -129,6 +129,12 @@ describe('recoveryGap', () => {
     expect(recoveryGap(settled).line).toBe('Last scored 62/100 on Jan\u00a01')
   })
   test('no scored day states the window, or none when its length is unknown', () => {
+    expect(recoveryGap({ ...settled, date: '2026-01-06' }).line).toBe(
+      'Last scored 62/100 on Jan\u00a01 · fills on sync',
+    )
+    expect(recoveryGap({ ...settled, date: '2026-01-02' }).line).toBe(
+      'Last scored 62/100 on Jan\u00a01',
+    )
     expect(recoveryGap({ ...settled, last: null }).line).toBe('No score in this 30\u00a0d window')
     expect(recoveryGap({ ...settled, last: null, windowDays: 0 }).line).toBe(
       'No score in this window',

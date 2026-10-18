@@ -37,8 +37,10 @@ import {
   loadFooter,
   windowDayCount,
   fmtNum,
+  shortDate,
   signed,
 } from './model'
+import { withUnit } from '../../lib/format'
 import { activitiesRange } from '../../lib/queries/activities-window'
 import { VISIBLE_DATE_MIN } from './constants'
 import type { SummaryParams } from './types'
@@ -216,6 +218,8 @@ type SignalSpec = {
   /** Which way is good: RHR falling is good, HRV and VO2max rising are. */
   polarity: 'up-good' | 'up-bad'
   values: readonly (number | null)[]
+  /** ISO day per value, index-aligned; dates the sparkline's focus readout. */
+  dates: readonly string[]
   /** The span the sparkline and delta cover, e.g. "14 d". */
   period: string
   /** The hero already shows the reading, so the value column names the span instead. */
@@ -245,6 +249,8 @@ function signalRow(spec: SignalSpec): StatStripRow {
           height={28}
           color={VX.line}
           emphasizeLast
+          format={(v) => `${v.toFixed(spec.digits)} ${spec.unit}`}
+          labels={spec.dates.map(shortDate)}
           ariaLabel={`${spec.label} over ${spec.period}, now ${current === null ? 'unknown' : current.toFixed(spec.digits)} ${spec.unit}`}
         />
       ) : (
@@ -270,7 +276,7 @@ function signalRow(spec: SignalSpec): StatStripRow {
 }
 
 function useFitnessCell(): StatStripCell {
-  // Fixed windows keep the copy true ("14 d regression") whatever the page's selector says.
+  // Fixed windows keep the copy true ("vs 14 d") whatever the page's selector says.
   const range = fitnessRange()
   const direction = useQuery(fitnessDirectionQueries.summary(range))
   const series = useQuery(dailyMetricsQueries.series(range))
@@ -284,7 +290,7 @@ function useFitnessCell(): StatStripCell {
     const last = read.at(-1)
     const spanDays =
       first && last ? Math.round((Date.parse(last.date) - Date.parse(first.date)) / 86_400_000) : 0
-    return { values: read.map((p) => p.vo2Max), spanDays }
+    return { values: read.map((p) => p.vo2Max), dates: read.map((p) => p.date), spanDays }
   }, [history.data])
 
   const rows = useMemo(() => {
@@ -295,6 +301,7 @@ function useFitnessCell(): StatStripCell {
     return {
       rhr: last.map((p) => p.restingHr),
       hrv: last.map((p) => p.hrv),
+      dates: last.map((p) => p.date),
     }
   }, [series.data])
 
@@ -302,7 +309,7 @@ function useFitnessCell(): StatStripCell {
   return {
     key: 'fitness',
     caption: 'Fitness',
-    qualifier: `${d?.label || '—'} · ${FITNESS_DAYS} d regression`,
+    qualifier: `${d?.label || '—'} · vs ${withUnit(FITNESS_DAYS, 'd')}`,
     value: fmtNum(vo2Hero(vo2.values, d?.vo2max), 1),
     unit: 'VO2max ml/kg/min',
     loading: direction.isPending,
@@ -316,6 +323,7 @@ function useFitnessCell(): StatStripCell {
         polarity: 'up-bad',
         period: `${FITNESS_DAYS} d`,
         values: rows.rhr,
+        dates: rows.dates,
         delta: d?.rhrDelta ?? null,
       }),
       signalRow({
@@ -326,6 +334,7 @@ function useFitnessCell(): StatStripCell {
         polarity: 'up-good',
         period: `${FITNESS_DAYS} d`,
         values: rows.hrv,
+        dates: rows.dates,
         delta: d?.hrvDelta ?? null,
       }),
       signalRow({
@@ -337,6 +346,7 @@ function useFitnessCell(): StatStripCell {
         period: `${vo2.spanDays} d`,
         hideValue: true,
         values: vo2.values,
+        dates: vo2.dates,
         delta: firstToLast(vo2.values),
       }),
     ],
