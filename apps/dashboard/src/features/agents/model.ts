@@ -160,11 +160,15 @@ export function fleetParts(
 }
 
 /** The fleet's non-working states with counts, `2 idle · 1 stale`; empty when every agent is working. */
-export const fleetFooter = (parts: readonly FleetPart[]): string =>
-  parts
-    .filter((p) => p.key !== 'working' && p.value > 0)
-    .map((p) => `${p.value} ${p.label}`)
-    .join(' · ')
+export const fleetFooter = (parts: readonly FleetPart[]): string => {
+  if (parts.every((p) => p.value === 0)) return 'no agents in this snapshot'
+  return (
+    parts
+      .filter((p) => p.key !== 'working' && p.value > 0)
+      .map((p) => `${p.value} ${p.label}`)
+      .join(' · ') || 'every agent working'
+  )
+}
 
 // ── Needs-you trend ──────────────────────────────────────────────────────────────────────────
 
@@ -228,8 +232,10 @@ export function peakWorking(
 }
 
 /** Completed hours with no snapshot (the in-progress hour is not a gap). */
-export const gapHours = (buckets: readonly HourBucket[]): number =>
-  buckets.slice(0, -1).filter((b) => b.working === null).length
+export const gapHours = (buckets: readonly HourBucket[], now: number): number => {
+  const currentHourMs = Math.floor(now / HOUR_MS) * HOUR_MS
+  return buckets.filter((b) => b.working === null && b.hourMs !== currentHourMs).length
+}
 
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
 
@@ -335,7 +341,8 @@ const CLAUSE_END = /\s\(|: | — |; |, /g
  * up to {@link HEADLINE_WRAP_MAX} (the title wraps, the question reads whole) and only then
  * ellipsizes, at a word boundary.
  */
-export function headlineOf(text: string, max = HEADLINE_MAX): string {
+export function headlineOf(text: string): string {
+  const max = HEADLINE_MAX
   const flat = text.replace(/\s+/g, ' ').trim()
   const stop = flat.search(/[.!?](\s|$)/)
   const sentence = stop === -1 ? flat : flat.slice(0, stop + 1)
@@ -409,7 +416,7 @@ export function dayLabel(ms: number, now: number): string {
 }
 
 /** Heading of the group for items whose timestamp cannot be read. */
-export const UNDATED = '—'
+const UNDATED = '—'
 
 /** Newest first by `revisedAt`, grouped by local day; unreadable timestamps form a trailing `—` group. */
 export function groupByDay<T extends { revisedAt: string }>(
@@ -522,7 +529,7 @@ export function needsYouCards(
         fullAsk:
           headline === flatTitle
             ? null
-            : { label: `Full ask · ${flatTitle.length} chars`, text: title },
+            : { label: `Full ask · ${title.length} chars`, text: title },
         abandoned: isAbandonedWait(a, now),
         waitMs,
       }
@@ -572,4 +579,17 @@ export function feedState(q: {
   if (q.hasData) return q.isError ? 'stale' : 'ok'
   if (q.isError) return 'failed'
   return q.isPending ? 'pending' : 'ok'
+}
+
+/** The freshness word beside the headline: never `Live` for a failed or stale-served feed. */
+export function feedAside(
+  feed: FeedState,
+  ageMs: number | null,
+): { text: string; tone: 'live' | 'warn' } | null {
+  if (ageMs === null || feed === 'pending' || feed === 'failed') return null
+  const live = feed === 'ok' && ageMs < STALE_AFTER_MS
+  return {
+    text: `${live ? 'Live' : 'Stale'} · updated ${ageAgo(ageMs)}`,
+    tone: live ? 'live' : 'warn',
+  }
 }

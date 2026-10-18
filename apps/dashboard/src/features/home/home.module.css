@@ -118,15 +118,16 @@
 /* The subject gives way first; the outcome (the transition) is never clipped. */
 .feedSubject {
   flex: 0 1 auto;
-  min-width: 3ch;
+  min-width: 10ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .feedOutcome {
-  flex: none;
-  white-space: nowrap;
+  flex: 0 100 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .feedDetail {

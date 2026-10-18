@@ -19,6 +19,8 @@ import {
   summaryParts,
   fleetFooter,
   gapHours,
+  feedAside,
+  STALE_AFTER_MS,
   dayLabel,
   ageAgo,
   needsYouCards,
@@ -384,15 +386,23 @@ describe('fleetFooter', () => {
     ).toBe('2 idle · 1 done')
   })
 
-  it('is empty when every agent is working', () => {
-    expect(fleetFooter([{ key: 'working', label: 'working', value: 3 }])).toBe('')
+  it('says every agent is working when nothing else has agents', () => {
+    expect(fleetFooter([{ key: 'working', label: 'working', value: 3 }])).toBe(
+      'every agent working',
+    )
+  })
+
+  it('does not claim a working fleet when the snapshot has no agents', () => {
+    expect(fleetFooter([{ key: 'working', label: 'working', value: 0 }])).toBe(
+      'no agents in this snapshot',
+    )
   })
 })
 
 describe('gapHours', () => {
   it('counts completed hours without a snapshot, never the hour in progress', () => {
     const hours = [null, 2, null, null].map((working, i) => ({ hourMs: i * 3_600_000, working }))
-    expect(gapHours(hours)).toBe(2)
+    expect(gapHours(hours, 3 * 3_600_000 + 60_000)).toBe(2)
   })
 })
 
@@ -615,5 +625,24 @@ describe('feedState', () => {
     expect(feedState({ hasData: true, isPending: false, isError: true })).toBe('stale')
     expect(feedState({ hasData: true, isPending: false, isError: false })).toBe('ok')
     expect(feedState({ hasData: false, isPending: false, isError: false })).toBe('ok')
+  })
+})
+
+describe('feedAside', () => {
+  it('reads Live just under the stale threshold and Stale at it', () => {
+    expect(feedAside('ok', STALE_AFTER_MS - 1)?.tone).toBe('live')
+    expect(feedAside('ok', STALE_AFTER_MS)?.tone).toBe('warn')
+    expect(feedAside('ok', STALE_AFTER_MS)?.text.startsWith('Stale')).toBe(true)
+  })
+
+  it('never says Live for a feed whose last fetch failed', () => {
+    expect(feedAside('stale', 60_000)?.text.startsWith('Stale')).toBe(true)
+    expect(feedAside('stale', 60_000)?.tone).toBe('warn')
+  })
+
+  it('has nothing to say without data or while failed or pending', () => {
+    expect(feedAside('ok', null)).toBeNull()
+    expect(feedAside('failed', 60_000)).toBeNull()
+    expect(feedAside('pending', null)).toBeNull()
   })
 })

@@ -47,7 +47,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
     return { buckets: hourly, peakHour: peakWorking(hourly) }
   }, [history, hours, now])
   const currentHourMs = buckets.at(-1)?.hourMs
-  const gaps = gapHours(buckets)
+  const gaps = gapHours(buckets, now)
   const peak = peakHour?.value ?? 0
   const latest = buckets.at(-1)?.working ?? null
   const latestHour = latest === null ? '—' : plural(latest)
