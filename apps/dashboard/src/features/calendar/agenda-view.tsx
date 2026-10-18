@@ -1,11 +1,12 @@
 import { formatMinutes } from '../../lib/format'
 import { useMemo } from 'react'
-import { Anchor, Box, Card, Stack, Text } from '@mantine/core'
+import { Box, Card, Stack, Text } from '@mantine/core'
 import { Section, StatGroup, PageSummary } from 'basalt-ui'
 import { format } from 'date-fns'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { EMPTY_WINDOW, summaryParts, todayCardState } from './summary'
-import { feedGap } from './query-state'
+import { feedGap, type SignInStep } from './query-state'
+import { SignInStepView } from './sign-in-step'
 import { RetryButton } from './retry-button'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
@@ -34,7 +35,7 @@ import {
 
 const NEXT_DAYS = 7
 
-export type SourceError = { label: string; reason: string; reauthUrl?: string | undefined }
+export type SourceError = { label: string; reason: string; step?: SignInStep | undefined }
 
 const hhmm = (d: Date) => format(d, 'HH:mm')
 
@@ -106,14 +107,7 @@ export function AgendaView({
         {errors.map((error) => (
           <Text key={error.label} className={classes.muted}>
             {error.label} unavailable — {error.reason}
-            {error.reauthUrl && (
-              <>
-                {' '}
-                <Anchor href={error.reauthUrl} target="_blank" rel="noreferrer" size="sm">
-                  Re-authorize
-                </Anchor>
-              </>
-            )}
+            {error.step && <SignInStepView step={error.step} />}
           </Text>
         ))}
         {canRetryCalendar && (

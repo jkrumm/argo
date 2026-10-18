@@ -20,7 +20,15 @@ import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { calendarStore } from '../../lib/window-stores'
 import { AgendaView, type SourceError } from './agenda-view'
-import { failed, feedGap, taskFeedState, taskReadFailed, unanswered } from './query-state'
+import {
+  failed,
+  feedGap,
+  signInStep,
+  taskFeedState,
+  taskReadFailed,
+  unanswered,
+} from './query-state'
+import { SignInStepView } from './sign-in-step'
 import { DayGroups } from './agenda-parts'
 import {
   addDays,
@@ -137,11 +145,15 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     errors.push({
       label: 'Google',
       reason: failureReason(googleQuery.error, 'Google'),
-      reauthUrl: isAuthError(googleQuery.error) ? '/api/oauth/google/init' : undefined,
+      step: isAuthError(googleQuery.error) ? signInStep('personal') : undefined,
     })
   }
   if (m365Query.error && !shotEmpty) {
-    errors.push({ label: 'Microsoft 365', reason: failureReason(m365Query.error, 'Microsoft 365') })
+    errors.push({
+      label: 'Microsoft 365',
+      reason: failureReason(m365Query.error, 'Microsoft 365'),
+      step: isAuthError(m365Query.error) ? signInStep('work') : undefined,
+    })
   }
 
   // A source that has not answered (still loading, or failed with nothing of this window cached)
@@ -275,6 +287,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           {errors.map((error) => (
             <Text key={error.label} size="sm" c="dimmed">
               {error.label} unavailable — {error.reason}
+              {error.step && <SignInStepView step={error.step} />}
             </Text>
           ))}
         </Stack>
