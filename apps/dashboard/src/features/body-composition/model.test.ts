@@ -9,7 +9,6 @@ import {
   deltaFromMean,
   entryAgeDays,
   goalProgress,
-  entrySpanDays,
   intensityTier,
   rateFooter,
   isStale,
@@ -127,11 +126,10 @@ describe('summaryParts', () => {
         goal: 75,
         ageDays: 1,
         entries: 12,
-        entrySpanDays: 40,
       }),
     ).toEqual({
       sentence: 'Weight falling over 28 d, 5.0 kg from the 75.0 kg goal',
-      facts: ['12 weigh-ins in 40 d', 'last weigh-in 1 day ago'],
+      facts: ['12 weigh-ins', 'last weigh-in 1 day ago'],
     })
   })
   test('an old last weigh-in dates the rate window', () => {
@@ -144,11 +142,10 @@ describe('summaryParts', () => {
         ageDays: 20,
         latestKey: '2026-06-03',
         entries: 5,
-        entrySpanDays: 30,
       }),
     ).toEqual({
       sentence: 'Weight rising over the 28 d to 3 Jun',
-      facts: ['5 weigh-ins in 30 d', 'last weigh-in 20 days ago · stale'],
+      facts: ['5 weigh-ins', 'last weigh-in 20 days ago · stale'],
     })
   })
   test('inside the maintenance band the weight is holding steady', () => {
@@ -160,7 +157,6 @@ describe('summaryParts', () => {
         goal: null,
         ageDays: 0,
         entries: 5,
-        entrySpanDays: 30,
       }).sentence,
     ).toBe('Weight holding steady over 7 d')
   })
@@ -173,7 +169,6 @@ describe('summaryParts', () => {
         goal: 75,
         ageDays: 0,
         entries: 5,
-        entrySpanDays: 30,
       }).sentence,
     ).toContain('0.0 kg at the 75.0 kg goal')
   })
@@ -186,9 +181,8 @@ describe('summaryParts', () => {
         goal: null,
         ageDays: null,
         entries: 5,
-        entrySpanDays: 30,
       }),
-    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins in 30 d'] })
+    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins'] })
   })
   test('empty window', () => {
     expect(
@@ -339,14 +333,6 @@ describe('intensityTier is pinned to the API classification', () => {
   })
 })
 
-describe('entrySpanDays', () => {
-  test('counts calendar days from the oldest to the newest entry, inclusive', () => {
-    expect(entrySpanDays([{ date: '2026-06-10' }, { date: '2026-06-01' }])).toBe(10)
-    expect(entrySpanDays([{ date: '2026-06-01' }])).toBe(1)
-    expect(entrySpanDays([])).toBe(0)
-  })
-})
-
 describe('siteRows', () => {
   const points = [
     {
@@ -391,12 +377,12 @@ describe('one fixture, two live-review items', () => {
   })
 
   test('the RATE footer is the tier, or why there is no rate; loading and failure are their own', () => {
-    expect(rateFooter({ rate: -0.5, entries: 9 })).toBe('Standard pace, losing 0.4–0.8 kg/wk')
-    expect(rateFooter({ rate: 0.2, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3 kg/wk')
-    expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Under 0.1 kg/wk either way')
+    expect(rateFooter({ rate: -0.5, entries: 9 })).toBe('Standard pace, losing 0.4–0.8\u00a0kg/wk')
+    expect(rateFooter({ rate: 0.2, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3\u00a0kg/wk')
+    expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Under 0.1\u00a0kg/wk either way')
     // Decided from the number: the footer needs no label from the API.
-    expect(rateFooter({ rate: 0.1, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3 kg/wk')
-    expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Under 0.1 kg/wk either way')
+    expect(rateFooter({ rate: 0.1, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3\u00a0kg/wk')
+    expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Under 0.1\u00a0kg/wk either way')
     expect(rateFooter({ rate: null, entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3 days apart',
     )

@@ -12,7 +12,6 @@ import WeightChart from '../charts/weight-chart'
 import {
   dayKey,
   entryAgeDays,
-  entrySpanDays,
   latestDate,
   rateDays,
   siteRows,
@@ -55,7 +54,6 @@ export function BodyCompositionPage({ params }: { params: Params }) {
     ageDays,
     latestKey: latestDate(weightPoints),
     entries: weightPoints.length,
-    entrySpanDays: entrySpanDays(weightPoints),
   })
   const cells: StatStripCell[] = [
     weightCell({
