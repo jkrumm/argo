@@ -452,7 +452,10 @@ describe('windowFact', () => {
 
 describe('lowCloudStat', () => {
   const night = (cloudLow: number | null, scored = true) =>
-    ({ weather: { cloudLow }, window: scored ? {} : null }) as unknown as Night
+    ({
+      weather: { cloudLow, cloudMid: null, cloudHigh: null },
+      window: scored ? {} : null,
+    }) as unknown as Night
 
   test('the scored window mean with the limit tick', () => {
     expect(lowCloudStat(night(62.4), 55)).toEqual({
@@ -469,7 +472,7 @@ describe('lowCloudStat', () => {
       window: {},
     } as unknown as Night
     expect(lowCloudStat(n, 55)?.footer).toBe(
-      'mid 20\u00a0% · high 30\u00a0% · shooting-window mean',
+      'shooting-window mean · mid 20\u00a0% · high 30\u00a0%',
     )
   })
   test('floors, so a reading never shows at the limit while the engine says under', () => {
@@ -614,19 +617,22 @@ describe('lowCloudRuinous', () => {
 
 describe('moonGateDetail', () => {
   const night = (killers: Night['killers'], darkMinutes = 300) =>
-    ({ killers, darkMinutes, moon: { illumination: 0.456 } }) as unknown as Night
+    ({ killers, darkMinutes, window: null, moon: { illumination: 0.456 } }) as unknown as Night
 
   test('a failed gate keeps the API reason', () => {
     expect(moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'r' }]), 0.25)).toBe('r')
   })
-  test('a failed gate drops the illumination the Moon cell already prints', () => {
-    const reason = 'moon 46% illuminated and up to 12.3° above the horizon during the window'
-    expect(moonGateDetail(night([{ id: 'moon', label: 'Moon', reason }]), 0.25)).toBe(
-      'up to 12.3° above the horizon during the window',
-    )
+  test('a failed gate with a window states the moon peak from the number, not the prose', () => {
+    const n = {
+      ...night([{ id: 'moon', label: 'Moon', reason: 'prose' }]),
+      window: { maxMoonAltitude: 12.34 },
+    } as unknown as Night
+    expect(moonGateDetail(n, 0.25)).toBe('up to 12.3° during the window')
+  })
+  test('a failed gate without a window keeps the API reason verbatim', () => {
     expect(
       moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'moon 46% illuminated' }]), 0.25),
-    ).toBe('over limit')
+    ).toBe('moon 46% illuminated')
   })
   test('a pass under the limit says so in words', () => {
     expect(moonGateDetail(night([]), 0.5)).toBe('under limit')
@@ -638,7 +644,7 @@ describe('gateRows', () => {
     ...goNight,
     darkMinutes: 300,
     moon: { illumination: 0.1 },
-    weather: { cloudLow: 70 },
+    weather: { cloudLow: 70, cloudMid: null, cloudHigh: null },
     killers: [],
     factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0, ruinous: true }],
   } as unknown as Night
@@ -661,6 +667,7 @@ describe('gateRows', () => {
     expect(gateRows(limiting, 0.25).at(-1)).toMatchObject({
       key: 'cloud-low',
       state: 'limits the score',
+      detail: '70\u00a0%',
     })
   })
 
@@ -668,6 +675,7 @@ describe('gateRows', () => {
     const out = {
       ...night,
       killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
+      window: null,
       factors: [],
     } as unknown as Night
     expect(gateRows(out, 0.25).map((r) => r.state)).toEqual(['passed', 'passed', 'failed'])
@@ -778,7 +786,7 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: 'gate 9.8°',
+      unit: 'closest to gate, needs > 9.8°',
     })
   })
   test('no dark stretch, no fact', () => {
