@@ -104,9 +104,9 @@ export function windowPhrase(preset: string | undefined): string {
 }
 
 /**
- * `No walks in the last 30 days`: the empty window's short form. It is the leading clause of the
- * empty-window card's full sentence (the card title) and the reason in every strip cell that is
- * bound to the window, word for word.
+ * `No walks in the last 30 days`: the empty window's short form. It is the empty-window card's
+ * title (the leading clause of its full sentence) and the reason in every strip cell bound to the
+ * window, word for word.
  */
 export const emptyWindowShort = (preset: string | undefined): string =>
   `No walks in ${windowPhrase(preset)}`

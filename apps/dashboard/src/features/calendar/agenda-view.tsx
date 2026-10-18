@@ -59,6 +59,7 @@ export function AgendaView({
     return {
       summary,
       nextKeys,
+      emptyWindow: isEmptyWindow(events, summary, nextKeys) ? EMPTY_WINDOW : null,
       free: summary.incomplete ? null : longestFreeBlock(events, todayKey, now),
       today: agendaDay(events, todayKey),
       todayAllDay: allDayEvents(events, todayKey),
@@ -71,10 +72,9 @@ export function AgendaView({
     }
   }, [events, now, unknown])
 
-  const { summary, free } = model
-  const gap = feedGap(unknown, failed)
   // One gap across the strip, the next days and the headline: the whole window holds nothing.
-  const emptyWindow = isEmptyWindow(events, summary, model.nextKeys) ? EMPTY_WINDOW : null
+  const { summary, free, emptyWindow } = model
+  const gap = feedGap(unknown, failed)
   const parts = summaryParts(summary, gap, emptyWindow)
   const todayState = todayCardState(model.today.rows.length, summary.incomplete)
   return (
