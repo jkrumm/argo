@@ -208,3 +208,18 @@ fix workers; these need a basalt prop or default.
 | `SyncButton` (`PageBar sync`) | the age text (`synced {age}`) below `sm` — today `scope="page"` is icon-only there | m365 refresh at 390 | icon only |
 | `PageBar` filter `Select` | a pill wider than `max-width: 15rem` (or a fit-to-option mode) | astro site select clips long site names | the label shortened |
 | `basalt-ui shot` | focus/hover anchors time out (`boundingBox` / `scrollIntoViewIfNeeded` 30 s) on the Sparkline focus target and on hidden mobile panes; a 390 board is "not captured" | garmin strip-fitness, m365 detail/labeled panes, warden board | re-run |
+
+### Wave 23 — live re-score round 2 (`w23-r2`): new basalt-owned defects
+
+Round 2 re-confirmed the round-1 rows above (Meter end-tick and zone-label placement, the `Button` `rightSection` inset —
+now the single most common failure on agents and warden —, sticky clearance, the `BandStrip` tooltip, the phone `Select`
+inset, the heading slashed zero). New:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| chart tooltip | a series-name column that never collapses (`white-space: nowrap` + a min width); today it shrinks to one character and spells names vertically | strength ACWR hover | as rendered |
+| `AxisConfig` | y tick labels outside the plot (a gutter), so a line never runs through a tick label | usage latency line | as rendered |
+| chart cards | axis ticks (11) and the legend (12) on one size step, so a chart card stays at three sizes | strength sections, calendar agenda (group label 11 + meta 12) | as rendered |
+| `Sparkline` focus | keyboard focus starts on the last point (the readout already shows it) and the plot insets so the marker clears the focus outline | strength lift strip | as rendered |
+| focus ring | the sky focus ring in dark at mobile width (today a white ring there) | strength strip and diagnostics at dark 390 | as rendered |
+| `basalt-ui shot` | anchors taller than the viewport paint blank below the first screen; fixed chrome (page bar, bottom nav) is drawn over crops | calendar next-days, strength sections | items marked unverified |
