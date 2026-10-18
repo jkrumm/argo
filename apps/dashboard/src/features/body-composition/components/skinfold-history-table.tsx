@@ -21,7 +21,8 @@ const columnHelper = createColumnHelper<SkinfoldRow>()
 
 export function SkinfoldHistoryTable() {
   const { data } = useSuspenseQuery(skinfoldLogQueries.list({ page: 1, limit: 20 }))
-  const readings = (shotState() === 'empty' ? [] : (data?.data ?? [])) as SkinfoldRow[]
+  const logged = (data?.data ?? []) as SkinfoldRow[]
+  const readings: SkinfoldRow[] = shotState() === 'empty' ? [] : logged
 
   const deleteSkinfoldLog = useDeleteSkinfoldLog()
 
@@ -61,7 +62,7 @@ export function SkinfoldHistoryTable() {
   ]
 
   return (
-    <Stack gap="xs" data-shot="skinfold-history" data-shot-absent="empty">
+    <Stack gap="xs" data-shot="skinfold-history">
       <BasaltDataTable
         data={readings}
         columns={columns}

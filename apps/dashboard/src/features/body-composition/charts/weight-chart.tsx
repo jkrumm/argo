@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
+import { shotState } from '../../../lib/shot-state'
 import { NBSP } from '../../../lib/format'
 import { METRIC_TOOLTIPS } from '../constants'
 import { weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
@@ -19,6 +20,9 @@ import {
 const CHART_HEIGHT = { base: 220, regular: 280 }
 const PLACEHOLDER_HEIGHT = 280
 
+// Stable reference: `apiPoints` feeds `useMemo` deps.
+const NO_POINTS: [] = []
+
 const fmtKg = (v: number): string => withKg(v, 1)
 
 export default function WeightChart({
@@ -29,7 +33,7 @@ export default function WeightChart({
   goal: number | null
 }) {
   const query = useQuery(weightLogQueries.series(params))
-  const apiPoints = query.data?.points
+  const apiPoints = shotState() === 'empty' ? NO_POINTS : query.data?.points
 
   const span = windowDays(params)
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
