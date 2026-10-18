@@ -270,9 +270,9 @@ describe('agentsSummaryParts', () => {
     expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 1 }).sentence).toBe(
       'Agents in 2 projects are waiting on you, 1 of them abandoned.',
     )
-    // All of them abandoned is the strip's oldest-wait bar, not a new figure.
+    // All abandoned is the most urgent case: it is said.
     expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 3 }).sentence).toBe(
-      'Agents in 2 projects are waiting on you.',
+      'Agents in 2 projects are waiting on you, all abandoned.',
     )
     expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, hosts: 2 }).sentence).toBe(
       'Requests from 2 hosts are waiting for your answer.',

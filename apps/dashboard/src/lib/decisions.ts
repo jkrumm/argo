@@ -24,7 +24,7 @@ import {
   type AgentRow,
 } from '../features/agents/model'
 import { resolveCopies, type CardCopy, type Disambiguation } from './question-copy'
-import { formatDuration, withUnit } from './format'
+import { formatAgo, formatDuration, withUnit } from './format'
 import { asText } from './text'
 import type { HumanQueueItem, OverviewSnapshot } from './queries/agents'
 import type { WardenRaw } from './queries/warden'
@@ -176,7 +176,7 @@ function toDecision(
       source: 'queue',
       facts: capFacts([
         `queue${host ? ` · ${host}` : ''}`,
-        ageMs === null ? '' : `asked ${formatDuration(ageMs)} ago`,
+        ageMs === null ? '' : `asked ${formatAgo(ageMs)}`,
       ]),
       ageMs,
       href: '/agents',

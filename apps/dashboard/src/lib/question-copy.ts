@@ -120,7 +120,7 @@ function fittingLead(source: string, clauses: number, room: number): string | nu
 export type QuestionParts = { stem: string; lead: string | null; ordinal: number | null }
 
 /** `<stem>: <lead> (<n>)?`; a missing lead or ordinal leaves its part out. */
-export const assemble = ({ stem, lead, ordinal }: QuestionParts): string =>
+const assemble = ({ stem, lead, ordinal }: QuestionParts): string =>
   `${stem}${lead === null ? '' : `: ${lead}`}${ordinal === null ? '' : ` (${ordinal})`}?`
 
 /**
@@ -271,17 +271,18 @@ export function collidingCopies(
 }
 
 /**
- * `text` without `lead` and the full stop after it, when it opens with it (a leading `[tag]` aside)
- * and the lead ends a sentence. A lead that stops mid-sentence leaves the line as written: the
- * remainder would be a fragment.
+ * `text` without the repeated `lead` and the full stop after it, when it opens with it and the lead
+ * ends a sentence. A leading `[tag]` run is a fact the question does not say, so it stays. A lead
+ * that stops mid-sentence leaves the line as written: the remainder would be a fragment.
  */
 function withoutLead(text: string, lead: string): string {
-  for (const candidate of [text, text.replace(LEADING_BRACKET_TAGS, '')]) {
-    const head = candidate.slice(0, lead.length)
-    if (head.toLowerCase() !== lead.toLowerCase()) continue
-    const rest = candidate.slice(lead.length)
-    const endsSentence = /^\s*(?:[.!?]|$)/.test(rest)
-    return endsSentence ? rest.replace(/^[\s.!?]+/, '') : text
+  const tags = LEADING_BRACKET_TAGS.exec(text)?.[0] ?? ''
+  for (const prefix of tags === '' ? [''] : ['', tags]) {
+    const body = text.slice(prefix.length)
+    if (body.slice(0, lead.length).toLowerCase() !== lead.toLowerCase()) continue
+    const rest = body.slice(lead.length)
+    if (!/^\s*(?:[.!?]|$)/.test(rest)) return text
+    return `${prefix}${rest.replace(/^[\s.!?]+/, '')}`.trim()
   }
   return text
 }
