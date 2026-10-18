@@ -22,6 +22,7 @@ import {
 import { compareByDate, type SkinfoldPoint } from '../charts/series-data'
 import type { SkinfoldSummary, WeightSummary } from '../types'
 
+// Exactly what `GET /weight-log/summary` answers for a window with no entries.
 const NO_WEIGHT_SUMMARY: WeightSummary = {
   current: null,
   ma7: null,
@@ -31,7 +32,7 @@ const NO_WEIGHT_SUMMARY: WeightSummary = {
   monthlyDelta: null,
   kgPerWeek: null,
   phase: 'maintaining',
-  intensity: '',
+  intensity: 'No trend',
 }
 import classes from './body-composition.module.css'
 import { SkinfoldHistoryTable } from './skinfold-history-table'

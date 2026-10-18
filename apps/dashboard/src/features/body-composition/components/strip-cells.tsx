@@ -13,7 +13,7 @@ import {
   deltaFromMean,
   fixed,
   goalProgress,
-  NO_WEIGHT_ENTRIES,
+  NO_WEIGHT_ENTRIES_SHORT,
   RATE_NEUTRAL_KG_WK,
   rateFooter,
   RATE_SCALE_KG_WK,
@@ -55,7 +55,7 @@ export function weightCell({
 
   const meanFooter =
     summary.current === null && stats.mean7 === null
-      ? NO_WEIGHT_ENTRIES
+      ? NO_WEIGHT_ENTRIES_SHORT
       : `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
 
   return {
