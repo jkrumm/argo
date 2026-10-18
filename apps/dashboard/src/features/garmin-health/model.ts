@@ -331,8 +331,10 @@ export function fitnessGap(input: {
   hasReading: boolean
 }): string | undefined {
   const { status, placeholder, hasReading } = input
+  // Readings that did load stay: a partial failure replaces the cell only when nothing is left to show.
+  if (hasReading) return undefined
   if (status === 'error') return 'The fitness readings failed to load'
-  if (status === 'pending' || placeholder || hasReading) return undefined
+  if (status === 'pending' || placeholder) return undefined
   return `No RHR or HRV in this ${withUnit(FITNESS_DAYS, 'd')} window and no VO2max in ${withUnit(VO2_DAYS, 'd')}${SYNC_NEXT_STEP}`
 }
 

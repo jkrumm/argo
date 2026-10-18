@@ -439,6 +439,8 @@ describe('fitnessGap', () => {
     expect(fitnessGap({ ...settled, status: 'pending' })).toBeUndefined()
     expect(fitnessGap({ ...settled, placeholder: true })).toBeUndefined()
     expect(fitnessGap({ ...settled, status: 'error' })).toBe('The fitness readings failed to load')
+    // A partial failure keeps the readings that loaded.
+    expect(fitnessGap({ ...settled, status: 'error', hasReading: true })).toBeUndefined()
   })
 })
 

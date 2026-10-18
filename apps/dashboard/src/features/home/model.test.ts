@@ -15,7 +15,9 @@ import {
   recoveryReading,
   restLabel,
   staleFeeds,
+  feedEmptyLine,
   homeSummaryParts,
+  needsYouEmptyTitle,
   taskCounts,
   tasksLine,
   todayAgenda,
@@ -124,6 +126,38 @@ describe('countdownLabel', () => {
     expect(countdownLabel(25 * MIN)).toBe('in 25\u00a0min')
     expect(countdownLabel(90 * MIN)).toBe('in 1\u00a0h\u00a030\u00a0min')
     expect(countdownLabel(120 * MIN)).toBe('in 2\u00a0h')
+  })
+})
+
+describe('needsYouEmptyTitle', () => {
+  it('says Nothing needs you only when every source settled OK', () => {
+    expect(needsYouEmptyTitle({ unavailable: [], loading: [] })).toBe('Nothing needs you')
+    expect(needsYouEmptyTitle({ unavailable: [], loading: ['Warden'] })).toBe(
+      'Nothing from Agents needs you',
+    )
+    expect(needsYouEmptyTitle({ unavailable: ['Agents'], loading: [] })).toBe(
+      'Nothing from Warden needs you',
+    )
+    expect(needsYouEmptyTitle({ unavailable: [], loading: ['Warden', 'Agents'] })).toBe('Loading')
+    expect(needsYouEmptyTitle({ unavailable: ['Warden'], loading: ['Agents'] })).toBe("Can't tell")
+  })
+})
+
+describe('feedEmptyLine', () => {
+  const none = { failed: [], pending: [], now: NOW }
+  it('names every unknown source after the empty window, with the retry only for a failure', () => {
+    const line = feedEmptyLine({ loaded: true, ...none, failed: ['Agents'], pending: ['Warden'] })
+    expect(line).toStartWith('No events since ')
+    expect(line).toEndWith('Agents failed to load, Warden loading — reload to retry.')
+    expect(feedEmptyLine({ loaded: true, ...none, pending: ['Warden'] })).toEndWith(
+      ' Warden loading.',
+    )
+  })
+  it('with no feed and no cause known, waits for the first snapshot', () => {
+    expect(feedEmptyLine({ loaded: false, ...none })).toStartWith('Waiting for the first snapshot')
+    expect(feedEmptyLine({ loaded: false, ...none, pending: ['Warden', 'Agents'] })).toBe(
+      'Warden and Agents loading.',
+    )
   })
 })
 
@@ -256,7 +290,7 @@ describe('homeSummaryParts', () => {
 
   it('names an unavailable source instead of implying an empty inbox', () => {
     expect(homeSummaryParts({ unavailable: ['Warden'], loading: [], decisions: [] }).sentence).toBe(
-      'Nothing needs you (Warden failed to load).',
+      'Nothing from Agents needs you; Warden failed to load.',
     )
   })
 
@@ -271,7 +305,7 @@ describe('homeSummaryParts', () => {
 
   it('says loading, never an empty inbox, while a source is pending', () => {
     expect(homeSummaryParts({ unavailable: [], loading: ['Warden'], decisions: [] }).sentence).toBe(
-      'Nothing needs you (Warden loading).',
+      'Nothing from Agents needs you; Warden loading.',
     )
     expect(
       homeSummaryParts({ unavailable: [], loading: ['Warden', 'Agents'], decisions: [] }),
@@ -471,7 +505,7 @@ describe('staleFeeds and unavailable sources', () => {
 
   it('names the one source that is down', () => {
     expect(homeSummaryParts({ ...base, unavailable: ['Agents'] }).sentence).toBe(
-      'Nothing needs you (Agents failed to load).',
+      'Nothing from Warden needs you; Agents failed to load.',
     )
   })
 })

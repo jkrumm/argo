@@ -1,5 +1,5 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
-import { clockTime, dayLabel, headlineOf } from '../agents/model'
+import { clockTime, dayLabel, headlineOf, noSnapshotText } from '../agents/model'
 import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
@@ -467,6 +467,26 @@ export function activityStream(
   return { groups, total: live.length }
 }
 
+/**
+ * The activity card's line with nothing to count: the empty window when a feed loaded, then every
+ * source that is unknown (`— reload to retry` only when one failed); with no feed and no cause
+ * known, the no-snapshot wording.
+ */
+export function feedEmptyLine(input: {
+  loaded: boolean
+  failed: readonly string[]
+  pending: readonly string[]
+  now: number
+}): string {
+  const { loaded, failed, pending, now } = input
+  const unknown = unknownPhrase(failed, pending)
+  if (!loaded && unknown === '') return `${noSnapshotText()}.`
+  const retry = failed.length > 0 ? ' — reload to retry' : ''
+  return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]
+    .filter(Boolean)
+    .join(' ')
+}
+
 /** With a feed loaded and nothing in the window: the horizon, and where new events appear. */
 export const emptyStreamLabel = (now: number) =>
   `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday — Warden, narrator and calendar events appear here.`
@@ -515,6 +535,25 @@ export const allUnknown = (s: Pick<HomeSummaryInput, 'unavailable' | 'loading'>)
 
 export type HomeSummaryParts = { sentence: string; facts: string[] }
 
+/** The sources behind the needs-you list, by the names the gap wording uses. */
+const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
+
+/** The sources that answered: neither failed nor still loading. */
+const knownSources = (s: Pick<HomeSummaryInput, 'unavailable' | 'loading'>): string[] =>
+  NEEDS_YOU_SOURCE_NAMES.filter((n) => !s.unavailable.includes(n) && !s.loading.includes(n))
+
+/**
+ * The empty needs-you list's title: `Nothing needs you` only when every source settled OK; with one
+ * unknown it speaks only for the source that answered, and with all unknown it can't tell.
+ */
+export function needsYouEmptyTitle(s: Pick<HomeSummaryInput, 'unavailable' | 'loading'>): string {
+  if (allUnknown(s)) return s.unavailable.length === 0 ? 'Loading' : "Can't tell"
+  const known = knownSources(s)
+  return known.length === NEEDS_YOU_SOURCE_NAMES.length
+    ? 'Nothing needs you'
+    : `Nothing from ${known.join(' and ')} needs you`
+}
+
 /**
  * The headline (count + oldest wait, or why it can't be told) and one fact under it: where the
  * waiting items sit. The fleet, the next meeting and recovery each have a strip cell of their own,
@@ -531,6 +570,8 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
       facts: [],
     }
   }
+  if (s.decisions.length === 0 && phrase !== '')
+    return { sentence: `${needsYouEmptyTitle(s)}; ${phrase}.`, facts: [] }
   const gap = phrase === '' ? '' : ` (${phrase})`
   const ages = s.decisions.flatMap((d) => (d.ageMs === null ? [] : [d.ageMs]))
   const oldest = ages.length === 0 ? null : formatDuration(Math.max(...ages))
