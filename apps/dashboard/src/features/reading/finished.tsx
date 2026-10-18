@@ -26,13 +26,22 @@ export function Finished({
   undated: number
 }) {
   const total = groups.reduce((sum, g) => sum + g.rows.length, 0)
-  const note = undated > 0 ? `${undated} more finished without a read date` : null
+  const unknownDays = groups.reduce(
+    (sum, g) => sum + g.rows.filter((r) => r.days === null).length,
+    0,
+  )
+  const note = [
+    ...(undated > 0 ? [`${undated} finished without a read date, not listed`] : []),
+    ...(unknownDays > 0
+      ? [`days to finish need a start date; ${unknownDays} of ${total} have none`]
+      : []),
+  ].join(' · ')
   const scope = scopeLabel(groups)
   return (
     <Section
       title={scope === '' ? 'Finished' : `Finished · ${scope}`}
       count={total}
-      {...(note !== null && { summary: <Text className={classes.facts}>{note}</Text> })}
+      {...(note !== '' && { summary: <Text className={classes.facts}>{note}</Text> })}
     >
       {total === 0 ? (
         <Text size="sm" c="dimmed">

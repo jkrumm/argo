@@ -425,7 +425,16 @@ describe('ratingsFooter', () => {
     ]
     expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8 ★ on 2 of the same books')
   })
-  test('says nothing without a community rating', () => {
+  test('names the half-star rounding only when a half star is rated', () => {
+    expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBe(
+      'half stars count in the star below',
+    )
     expect(ratingsFooter(ratingShape([book({ rating: 4 })]))).toBeUndefined()
+  })
+  test('joins both facts', () => {
+    const shelf = [book({ rating: 2.5, communityRating: 3 })]
+    expect(ratingsFooter(ratingShape(shelf))).toBe(
+      'half stars count in the star below · community mean 3.0 ★ on 1 of the same books',
+    )
   })
 })

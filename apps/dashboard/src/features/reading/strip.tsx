@@ -57,6 +57,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
     unit: '★ mean',
     visual: (
       <div
+        className={classes.ratingsCell}
         role="img"
         aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${i + 1} ★ ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >

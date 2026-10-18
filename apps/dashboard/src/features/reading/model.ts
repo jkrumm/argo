@@ -240,6 +240,8 @@ export type RatingShape = {
   mean: number | null
   /** Mean community rating over the same rated books that have one, with how many that is. */
   community: { mean: number; n: number } | null
+  /** Some rating is a half star, which the whole-star buckets round down. */
+  hasHalfStars: boolean
 }
 
 export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
@@ -253,6 +255,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   return {
     buckets,
     n: rated.length,
+    hasHalfStars: rated.some((b) => (b.rating as number) % 1 !== 0),
     mean:
       rated.length === 0
         ? null
@@ -269,10 +272,17 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   }
 }
 
-/** The ratings cell's one footer fact: how the community rated the same books, or nothing. */
+/** The ratings cell's footer facts: the half-star rounding when it applies, the community mean. */
 export function ratingsFooter(shape: RatingShape): string | undefined {
-  if (shape.community === null) return undefined
-  return `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`
+  const parts = [
+    ...(shape.hasHalfStars ? ['half stars count in the star below'] : []),
+    ...(shape.community === null
+      ? []
+      : [
+          `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`,
+        ]),
+  ]
+  return parts.length === 0 ? undefined : parts.join(' · ')
 }
 
 // ── Shelf counts: the one source of every repeated figure ───────────────────────────────────

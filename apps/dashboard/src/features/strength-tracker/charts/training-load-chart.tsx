@@ -10,14 +10,8 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
 import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
-import {
-  ACWR_FLOOR,
-  ACWR_METHOD,
-  ACWR_OPTIMAL_TO,
-  acwrZoneWord,
-  acwrReading,
-  shortDate,
-} from '../model'
+import { ACWR_METHOD, acwrZoneWord, acwrReading, shortDate } from '../model'
+import { ACWR_FLOOR, ACWR_OPTIMAL_TO } from '../bands'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
 
 const HEIGHT = 280
@@ -117,7 +111,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         // Keys are Monday week-starts (`weeklyTonnageSeries` -> `weekStart`), i.e. a bucket's
         // LEADING edge, so a back-half hover must not resolve to the following week.
         cursorResolution="leading"
-        ariaLabel="Acute:chronic workload ratio per exercise with training-load zones"
+        ariaLabel="Acute:chronic workload ratio per lift with training-load zones; the headline figure sums all lifts"
         data={merged}
         height={HEIGHT}
         x={(d) => d.day}

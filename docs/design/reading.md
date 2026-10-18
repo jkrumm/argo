@@ -132,9 +132,9 @@ No new basalt rows.
 
 ### Wave 25 fixes
 
-- Ratings cell: the footer is the community mean and its base, or nothing (`ratingsFooter`, tested); the binning note is gone. At container widths below 480 px the even-star tick labels hide (the bars and the aria label keep all five).
+- Ratings cell: the footer is the community mean and its base, plus a half-star rounding fact only when a half star is rated (`ratingsFooter`, tested). The cell is its own container; under 240 px the even-star tick labels hide (the bars and the aria label keep all five).
 - Pace cell: the footer states the total read time only; the dot/tick explanation is gone.
-- Finished list: the days-to-finish note is dropped; the one remaining note is a count of books finished without a read date.
+- Finished list: the summary line carries `{n} finished without a read date, not listed` and, only when some rows lack a start date, `days to finish need a start date; {n} of {m} have none`.
 - Title link: `:focus-visible` is a 2 px accent outline with offset around the link text. The clamp clips overflow, so its wrapper carries 3 px padding with a matching negative margin to leave room for the ring (it was clipped to a bar before).
 
 No new basalt rows.
