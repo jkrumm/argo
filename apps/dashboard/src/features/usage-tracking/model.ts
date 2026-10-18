@@ -165,6 +165,19 @@ export function meanOf(values: readonly (number | null)[]): number | null {
   return present.length === 0 ? null : present.reduce((a, b) => a + b, 0) / present.length
 }
 
+/**
+ * The last `n` readings against the whole window, both as plain means of the daily ratios: the cache
+ * cell's comparison, because the headline carries no prior-30 d cache ratio. `delta` is in points.
+ */
+export function recentVsWindow(
+  values: readonly (number | null)[],
+  n = 7,
+): { recent: number | null; window: number | null; delta: number | null } {
+  const window = meanOf(values)
+  const recent = meanOf(values.slice(-n))
+  return { recent, window, delta: pointsDelta(recent, window) }
+}
+
 // ── Billing split ────────────────────────────────────────────────────────────────────────────
 
 export type BillingCosts = { max: number; iu: number; openrouter: number; total: number }
@@ -280,30 +293,32 @@ export type SummaryInput = {
   lastEvent: string | null
 }
 
-/** `$X over 30 days, $Y in the last 7 · ZB tokens · R% errors in 30 d · last event {age}`. */
-export function summarySentence(s: SummaryInput): string {
-  const parts = [
-    `${fmtUsdWhole(s.cost30d)} over 30 days, ${fmtUsdWhole(s.cost7d)} in the last 7 days`,
+/** `{$} spent in 30 days, {$} in the last 7 days` — the page's answer, always with a live number. */
+export function summarySentence(s: Pick<SummaryInput, 'cost30d' | 'cost7d'>): string {
+  return `${fmtUsdWhole(s.cost30d)} spent in 30 days, ${fmtUsdWhole(s.cost7d)} in the last 7 days`
+}
+
+/** The facts line under the sentence: tokens, error rate, active sources, last event. */
+export function summaryFacts(
+  s: Pick<SummaryInput, 'tokens30d' | 'errorRate30d' | 'lastEvent'> & { sources: number | null },
+): string[] {
+  return [
     `${fmtTokens(s.tokens30d)} tokens`,
-    `${fmtPct(s.errorRate30d)} errors in 30 d`,
+    `${fmtPct(s.errorRate30d)} errors`,
+    s.sources === null ? null : `${s.sources} sources active`,
     s.lastEvent === null ? 'no events recorded' : `last event ${s.lastEvent}`,
-  ]
-  return parts.join(' · ')
+  ].filter((f): f is string => f !== null)
+}
+
+/** The freshness word for the headline's aside: `fresh`, `stale 40 min`, `stale 3 h`, or `no events`. */
+export function freshnessWord(iso: string | null | undefined, now: number): string {
+  const age = ageMinutes(iso, now)
+  if (age === null) return 'no events'
+  if (age <= STALE_AFTER_MIN) return 'fresh'
+  if (age < 120) return `stale ${Math.round(age)} min`
+  return `stale ${Math.round(age / 60)} h`
 }
 
 export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {
   return range === 'all' ? 'all time' : range.replace('d', ' d')
-}
-
-export function footerLine(input: {
-  records: number
-  sources: number
-  lastEvent: string | null
-}): string {
-  const parts = [
-    `${input.records.toLocaleString('en-GB')} records in total`,
-    `${input.sources} sources active in 30 d`,
-    input.lastEvent === null ? 'no events recorded' : `last event ${input.lastEvent}`,
-  ]
-  return parts.join(' · ')
 }

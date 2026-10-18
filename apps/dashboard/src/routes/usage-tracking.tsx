@@ -9,7 +9,7 @@ import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
 import { usageQueries } from '../lib/queries/usage'
 import { usageStore } from '../lib/window-stores'
 import { UsageStrip } from '../features/usage-tracking/usage-strip'
-import { FreshnessFooter, SummaryLine } from '../features/usage-tracking/summary-line'
+import { UsageHeadline } from '../features/usage-tracking/page-headline'
 import CostChart from '../features/usage-tracking/cost-chart'
 import TokensChart from '../features/usage-tracking/tokens-chart'
 import HealthCard from '../features/usage-tracking/health-card'
@@ -55,9 +55,7 @@ function UsageTrackingPage() {
       />
 
       <Stack gap="md">
-        <Box data-shot="summary">
-          <SummaryLine />
-        </Box>
+        <UsageHeadline />
         <UsageStrip />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
@@ -93,10 +91,6 @@ function UsageTrackingPage() {
             </Suspense>
           </Grid.Col>
         </Grid>
-
-        <Box data-shot="freshness">
-          <FreshnessFooter />
-        </Box>
       </Stack>
     </>
   )

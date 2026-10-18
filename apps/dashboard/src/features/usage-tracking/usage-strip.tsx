@@ -5,7 +5,7 @@
  * missing reading is `—`, never 0.
  */
 import { useQuery } from '@tanstack/react-query'
-import { Skeleton, Stack, Text } from '@mantine/core'
+import { Box, Group, Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { usageQueries } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
@@ -32,6 +32,7 @@ import {
   pctDelta,
   errorComparison,
   priorNote,
+  recentVsWindow,
   secondsDelta,
   secondsQuantity,
   tokensQuantity,
@@ -46,7 +47,9 @@ type Headline = NonNullable<ReturnType<typeof useHeadline>['data']>
 
 type Series = { days: Daily[]; loading: boolean; failed: boolean }
 
-function useDaily(metric: 'cost' | 'tokens' | 'latency_p95' | 'error_rate'): Series {
+function useDaily(
+  metric: 'cost' | 'tokens' | 'latency_p95' | 'error_rate' | 'cache_ratio',
+): Series {
   const query = useQuery(
     usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none' }),
   )
@@ -257,16 +260,42 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
   }
 }
 
-function cacheCell({ h, loading }: Ctx): StatStripCell {
+function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
   const ratio = h?.cacheHitRatio30d ?? null
+  const trend = recentVsWindow(cache.days.map((d) => d.value))
   return {
     key: 'cache',
     caption: 'Cache hit',
     qualifier: '30 d',
     value: fmtPct(ratio),
+    delta:
+      trend.delta === null ? undefined : (
+        <DeltaBadge
+          value={trend.delta}
+          format={fmtPointsBadge}
+          polarity="up-good"
+          period="last 7 d vs 30 d"
+        />
+      ),
     loading,
-    visual: ratio === null ? undefined : <CacheRing ratio={ratio} />,
-    footer: footerOf([`target ${fmtPct(CACHE_HIT_TARGET, 0)}`, 'read ÷ (read + input)']),
+    visual:
+      ratio === null ? undefined : (
+        <Group gap="sm" wrap="nowrap" align="center">
+          <CacheRing ratio={ratio} />
+          <Box flex={1} miw={0}>
+            <Trend
+              label="Cache hit ratio per day over the last 30 days"
+              days={cache.days}
+              loading={cache.loading}
+              format={(v) => fmtPct(v)}
+            />
+          </Box>
+        </Group>
+      ),
+    footer: footerOf([
+      `target ${fmtPct(CACHE_HIT_TARGET, 0)}`,
+      trend.recent === null ? null : `last 7 d mean ${fmtPct(trend.recent)}`,
+    ]),
   }
 }
 
@@ -306,7 +335,7 @@ function billingFooter({ h, loading }: Ctx) {
             segments={parts
               .filter((p) => p.value > 0)
               .map((p) => ({ label: p.label, value: p.value, color: BILLING_COLOR[p.key] }))}
-            startCaption={`total ${fmtUsdWhole(h.costUsd30d)}`}
+            startCaption={`${fmtUsdWhole(h.costUsd30d)} total spend, last 30 d`}
           />
         )}
       </Stack>
@@ -320,6 +349,7 @@ export function UsageStrip() {
   const tokens = useDaily('tokens')
   const p95 = useDaily('latency_p95')
   const errors = useDaily('error_rate')
+  const cache = useDaily('cache_ratio')
   const ctx: Ctx = { h: headline.data, loading: headline.isPending }
 
   return (
@@ -332,7 +362,7 @@ export function UsageStrip() {
         tokensCell(ctx, tokens),
         errorsCell(ctx, errors),
         p95Cell(ctx, p95),
-        cacheCell(ctx),
+        cacheCell(ctx, cache),
       ]}
       footer={[billingFooter(ctx)]}
     />

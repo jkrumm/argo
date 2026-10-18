@@ -121,3 +121,16 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail: cache-hit cell has no sparkline or delta; the billing footer is a bare `total {amount}`; health has one x tick and the worst verdict tiers are the palest bars; the freshness dot has no word; basalt: the BandStrip tooltip covers the hero, y tick labels inside the plot, the phone select inset.
 - **Against Keel:** holds up, mostly; no headline sentence and lighter chart craft than Keel.
 - **Open for Wave 24:** the four argo items above.
+
+### Wave 24 fixes
+
+- Headline: `SummaryLine` replaced by `PageSummary` (`page-headline.tsx`): sentence `{$} spent in 30 days, {$} in the last 7 days`, facts `{tokens} tokens · {rate} errors · {n} sources active · last event {age}`, aside is the freshness word (`fresh`, `stale {n} min`, `stale {n} h`, `no events`; `freshnessWord`, tested).
+- `FreshnessFooter` and `footerLine` deleted: records total was the only fact the headline does not carry, and it was a count nobody acts on.
+- Cache hit cell: the ring now sits beside a daily-ratio sparkline (`cache_ratio` timeseries) and a `DeltaBadge` in points, last 7 d against the 30 d window (`recentVsWindow`, tested); the footer names the 7 d mean next to the target. The headline carries no prior-30 d cache ratio, so the badge states its own period instead of "prior 30 d".
+- Billing footer: `{$} total spend, last 30 d`.
+- Health card: five x ticks on both charts; bar ink moved from the tinted `VX.warn` / `VX.bad` (an 8 % / 18 % wash) to `VX.warnSolid` / `VX.badSolid`, and the neutral tier is a 50 % muted, so severity now orders the salience. The strip's error band got the same solid inks.
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `VX.warn` / `VX.bad` | a solid-ink alias for series fills | bar and band fills read as the palest marks | `VX.warnSolid` / `VX.badSolid` per mark |
+| `Meter` (ring) | `target` tick | cache hit ring | still the local `CacheRing`, now beside the trend |
