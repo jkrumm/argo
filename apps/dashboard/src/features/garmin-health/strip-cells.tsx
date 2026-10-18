@@ -34,11 +34,13 @@ import {
   contributorItems,
   firstToLast,
   lastScored,
-  loadVsBaseline,
+  windowDayCount,
   fmtNum,
   mean,
   signed,
 } from './model'
+import { activitiesRange } from '../../lib/queries/activities-window'
+import { VISIBLE_DATE_MIN } from './constants'
 import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
 
@@ -90,22 +92,19 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   const summary = useQuery(recoveryQueries.summary(params))
   const series = useQuery(recoveryQueries.series(params))
 
-  const window = useMemo(() => {
-    const values = applyVisibilityFilter(series.data?.points ?? [], (p) => p.date).map(
-      (p) => p.recovery,
-    )
+  const trend = useMemo(() => {
+    const visible = applyVisibilityFilter(series.data?.points ?? [], (p) => p.date)
+    const values = visible.map((p) => p.recovery)
     return {
       mean: mean(values),
       days: values.filter((v) => v !== null).length,
       values,
-      last: lastScored(
-        applyVisibilityFilter(series.data?.points ?? [], (p) => p.date).map((p) => ({
-          date: p.date,
-          recovery: p.recovery,
-        })),
-      ),
+      last: lastScored(visible),
     }
   }, [series.data])
+  // The footer states a fact about the window, so it waits for the window's own settled data.
+  const seriesSettled = series.isSuccess && !series.isPlaceholderData
+  const windowDays = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
 
   const data = summary.data
   const score = data?.recovery ?? null
@@ -115,17 +114,17 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   return {
     key: 'recovery',
     caption: 'Recovery',
-    qualifier:
-      window.mean === null ? when : `${when} · ${window.days} d mean ${fmtNum(window.mean)}`,
+    qualifier: trend.mean === null ? when : `${when} · ${trend.days} d mean ${fmtNum(trend.mean)}`,
     value: score === null ? null : fmtNum(score),
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
     ...(score === null &&
-      !summary.isPending && {
-        footer: window.last
-          ? `Last scored ${window.last.value.toFixed(0)}/100 on ${dayLabel(window.last.date)}`
-          : `No score in the last ${window.values.length} d`,
+      !summary.isPending &&
+      seriesSettled && {
+        footer: trend.last
+          ? `Last scored ${fmtNum(trend.last.value)}/100 on ${dayLabel(trend.last.date)}`
+          : `No score in the last ${windowDays} d`,
       }),
     visual:
       score === null && !summary.isPending ? (
@@ -133,13 +132,13 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
           <Text size="xs" c="dimmed">
             {gap.reason} {gap.fills}
           </Text>
-          {window.days > 1 && (
+          {trend.days > 1 && (
             <Sparkline
-              data={window.values.map((v) => v ?? Number.NaN)}
+              data={trend.values.map((v) => v ?? Number.NaN)}
               height={28}
               color={VX.line}
               emphasizeLast
-              ariaLabel={`Recovery score over ${window.values.length} d`}
+              ariaLabel={`Recovery score over ${trend.values.length} d`}
             />
           )}
         </>
@@ -193,14 +192,15 @@ function useLoadCell(params: SummaryParams): StatStripCell {
   return {
     key: 'load',
     caption: 'Training load',
-    qualifier: '7 d load vs 28 d baseline',
+    qualifier: 'recent ÷ long-run load',
     value: fmtNum(acwr, 2),
     unit: 'ACWR',
     loading: query.isPending,
     stale: isPlaceholderData,
-    ...(loadVsBaseline(acwr) !== null && {
-      footer: `Last 7 d load is ${loadVsBaseline(acwr)}`,
-    }),
+    footer:
+      acwr === null
+        ? 'No day in this window has a load ratio yet'
+        : `Both loads are exponentially weighted. Optimal is ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}; above ${ACWR_CAUTION_TO} is the danger zone.`,
     visual: (
       <>
         <Meter

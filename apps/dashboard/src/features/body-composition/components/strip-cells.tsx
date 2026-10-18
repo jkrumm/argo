@@ -135,11 +135,10 @@ export function rateCell({
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}
         startCaption={null}
-        endCaption={null}
         emptyText="No rate yet"
       />
     ),
-    footer: rateFooter({ rate, intensity: summary.intensity, entries }),
+    footer: rateFooter({ rate, entries }),
   }
 }
 

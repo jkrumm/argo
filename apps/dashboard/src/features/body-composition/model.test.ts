@@ -9,7 +9,7 @@ import {
   deltaFromMean,
   entryAgeDays,
   goalProgress,
-  intensityBand,
+  intensityTier,
   rateFooter,
   isStale,
   meanOverDays,
@@ -141,30 +141,53 @@ describe('summaryParts', () => {
         goal: null,
         ageDays: 20,
         latestKey: '2026-06-03',
+        entries: 5,
       }),
     ).toEqual({
       sentence: 'Weight rising over the 28 d to 3 Jun',
-      facts: ['last weigh-in 20 days ago · stale'],
+      facts: ['5 weigh-ins', 'last weigh-in 20 days ago · stale'],
     })
   })
   test('inside the maintenance band the weight is holding steady', () => {
     expect(
-      summaryParts({ current: 80, kgPerWeek: 0.05, rateDays: 7, goal: null, ageDays: 0 }).sentence,
+      summaryParts({
+        current: 80,
+        kgPerWeek: 0.05,
+        rateDays: 7,
+        goal: null,
+        ageDays: 0,
+        entries: 5,
+      }).sentence,
     ).toBe('Weight holding steady over 7 d')
   })
   test('at the goal is within the module tolerance, not exact equality', () => {
     expect(
-      summaryParts({ current: 75.02, kgPerWeek: 0, rateDays: 28, goal: 75, ageDays: 0 }).sentence,
+      summaryParts({ current: 75.02, kgPerWeek: 0, rateDays: 28, goal: 75, ageDays: 0, entries: 5 })
+        .sentence,
     ).toContain('0.0 kg at the 75.0 kg goal')
   })
   test('unknown rate says there is no trend yet, never 0', () => {
     expect(
-      summaryParts({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }),
-    ).toEqual({ sentence: 'Weight trend not available yet', facts: [] })
+      summaryParts({
+        current: 80,
+        kgPerWeek: null,
+        rateDays: 28,
+        goal: null,
+        ageDays: null,
+        entries: 5,
+      }),
+    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins'] })
   })
   test('empty window', () => {
     expect(
-      summaryParts({ current: null, kgPerWeek: null, rateDays: 28, goal: 75, ageDays: null }),
+      summaryParts({
+        current: null,
+        kgPerWeek: null,
+        rateDays: 28,
+        goal: 75,
+        ageDays: null,
+        entries: 0,
+      }),
     ).toEqual({ sentence: 'No weigh-ins in this window', facts: [] })
   })
 })
@@ -180,7 +203,17 @@ describe('weightHeaderFact', () => {
         ],
         now,
       ),
-    ).toEqual({ value: '−2.0', period: 'net change, 1 Jun to 10 Jun · 2 entries' })
+    ).toEqual({ value: '−2.0', period: 'net change, 1 Jun to 10 Jun' })
+  })
+  test('a stale last weigh-in is stated in words beside the span', () => {
+    const pts = [
+      { date: '2026-06-10', weightKg: 79 },
+      { date: '2026-06-01', weightKg: 81 },
+    ]
+    expect(weightHeaderFact(pts, now, 20)?.period).toBe(
+      'net change, 1 Jun to 10 Jun · last weigh-in 20 days ago',
+    )
+    expect(weightHeaderFact(pts, now, 3)?.period).toBe('net change, 1 Jun to 10 Jun')
   })
   test('a single entry shows that weight and its day', () => {
     expect(weightHeaderFact([{ date: '2026-06-01', weightKg: 81 }], now)).toEqual({
@@ -252,15 +285,24 @@ describe('day-based window stats', () => {
   })
 })
 
-describe('intensityBand', () => {
-  test('cut and bulk tiers follow the API thresholds', () => {
-    expect(intensityBand(0.05)).toBe('< 0.1 kg/wk')
-    expect(intensityBand(0.2)).toBe('0.1–0.3 kg/wk')
-    expect(intensityBand(0.5)).toBe('0.3–0.6 kg/wk')
-    expect(intensityBand(0.7)).toBe('≥ 0.6 kg/wk')
-    expect(intensityBand(-0.3)).toBe('0.1–0.4 kg/wk')
-    expect(intensityBand(-0.9)).toBe('≥ 0.8 kg/wk')
-    expect(intensityBand(null)).toBeNull()
+describe('intensityTier', () => {
+  test('the tier and its range follow the API thresholds', () => {
+    expect(intensityTier(0.05)).toEqual({ tier: 'maintenance', band: '< 0.1 kg/wk' })
+    expect(intensityTier(0.2)).toEqual({ tier: 'lean', band: '0.1–0.3 kg/wk' })
+    expect(intensityTier(0.5)).toEqual({ tier: 'standard', band: '0.3–0.6 kg/wk' })
+    expect(intensityTier(0.7)).toEqual({ tier: 'aggressive', band: '≥ 0.6 kg/wk' })
+    expect(intensityTier(-0.3)).toEqual({ tier: 'lean', band: '0.1–0.4 kg/wk' })
+    expect(intensityTier(-0.9)).toEqual({ tier: 'aggressive', band: '≥ 0.8 kg/wk' })
+    expect(intensityTier(null)).toBeNull()
+  })
+  test('boundaries belong to the next tier up', () => {
+    expect(intensityTier(0.0999)?.tier).toBe('maintenance')
+    expect(intensityTier(0.1)?.tier).toBe('lean')
+    expect(intensityTier(-0.1)?.tier).toBe('lean')
+    expect(intensityTier(0.3)?.tier).toBe('standard')
+    expect(intensityTier(-0.4)?.tier).toBe('standard')
+    expect(intensityTier(0.6)?.tier).toBe('aggressive')
+    expect(intensityTier(-0.8)?.tier).toBe('aggressive')
   })
 })
 
@@ -308,27 +350,18 @@ describe('one fixture, two live-review items', () => {
   })
 
   test('the RATE footer is the tier, or why there is no rate; loading and failure are their own', () => {
-    expect(rateFooter({ rate: -0.5, intensity: 'Standard cut', entries: 9 })).toBe(
-      'Standard pace, losing 0.4–0.8 kg/wk',
-    )
-    expect(rateFooter({ rate: 0.2, intensity: 'Lean bulk', entries: 9 })).toBe(
-      'Lean pace, gaining 0.1–0.3 kg/wk',
-    )
-    expect(rateFooter({ rate: 0.05, intensity: 'Maintenance', entries: 9 })).toBe(
-      'Under 0.1 kg/wk either way',
-    )
-    expect(rateFooter({ rate: null, intensity: 'x', entries: 1 })).toBe(
+    expect(rateFooter({ rate: -0.5, entries: 9 })).toBe('Standard pace, losing 0.4–0.8 kg/wk')
+    expect(rateFooter({ rate: 0.2, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3 kg/wk')
+    expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Under 0.1 kg/wk either way')
+    // Decided from the number: the footer needs no label from the API.
+    expect(rateFooter({ rate: 0.1, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3 kg/wk')
+    expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Under 0.1 kg/wk either way')
+    expect(rateFooter({ rate: null, entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3 days apart',
     )
-    expect(rateFooter({ rate: null, intensity: 'x', entries: 0 })).toBe(
-      'No weigh-ins in this window',
-    )
-    expect(rateFooter({ rate: null, intensity: 'x', entries: 0, status: 'pending' })).toBe(
-      'Loading the rate',
-    )
-    expect(rateFooter({ rate: null, intensity: 'x', entries: 0, status: 'error' })).toBe(
-      'The rate failed to load',
-    )
+    expect(rateFooter({ rate: null, entries: 0 })).toBe('No weigh-ins in this window')
+    expect(rateFooter({ rate: null, entries: 0, status: 'pending' })).toBe('Loading the rate')
+    expect(rateFooter({ rate: null, entries: 0, status: 'error' })).toBe('The rate failed to load')
   })
 
   test('where the header says a dash, the chart line has a gap', () => {

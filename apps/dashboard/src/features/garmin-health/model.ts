@@ -234,19 +234,11 @@ export function recoverySentence(input: {
 export function lastScored(
   points: readonly { date: string; recovery: number | null }[],
 ): { value: number; date: string } | null {
-  const hit = points.findLast((p) => p.recovery !== null)
-  return hit === undefined || hit.recovery === null ? null : { value: hit.recovery, date: hit.date }
-}
-
-/**
- * How far the 7 d load sits from the 28 d baseline, in plain words (`12% above`); `null` when the
- * ratio is unknown. Within a whole percent of the baseline reads as level.
- */
-export function loadVsBaseline(acwr: number | null): string | null {
-  if (acwr === null || !Number.isFinite(acwr)) return null
-  const pct = Math.round(Math.abs(acwr - 1) * 100)
-  if (pct === 0) return 'level with your 28 d baseline'
-  return `${pct}% ${acwr > 1 ? 'above' : 'below'} your 28 d baseline`
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i]
+    if (p?.recovery != null) return { value: p.recovery, date: p.date }
+  }
+  return null
 }
 
 /** Whole calendar days from a `YYYY-MM-DD` key to `today`. */

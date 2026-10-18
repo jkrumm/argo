@@ -154,7 +154,7 @@ export function summaryParts({
   /** The newest weigh-in's day; dates the rate window when the weigh-in is not recent. */
   latestKey?: string | null
   /** Weigh-ins in the window; a fact the strip does not show. */
-  entries?: number
+  entries: number
 }): { sentence: string; facts: string[] } {
   if (current === null) return { sentence: 'No weigh-ins in this window', facts: [] }
   const span =
@@ -169,7 +169,7 @@ export function summaryParts({
   return {
     sentence,
     facts: [
-      ...(entries === undefined ? [] : [`${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'}`]),
+      `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'}`,
       ...(ageDays === null
         ? []
         : [`last weigh-in ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`]),
@@ -190,6 +190,7 @@ function rateClause({ kgPerWeek, span }: { kgPerWeek: number | null; span: strin
 export function weightHeaderFact(
   points: readonly { date: string; weightKg: number }[],
   now: Date = new Date(),
+  ageDays: number | null = null,
 ): { value: string; period: string } | null {
   const sorted = points.toSorted(compareByDate)
   const first = sorted[0]
@@ -200,7 +201,7 @@ export function weightHeaderFact(
   }
   return {
     value: signed(last.weightKg - first.weightKg, 1),
-    period: `net change, ${shortDay(first.date, now)} to ${shortDay(last.date, now)} · ${sorted.length} entries`,
+    period: `net change, ${shortDay(first.date, now)} to ${shortDay(last.date, now)}${ageDays !== null && isStale(ageDays) ? ` · last weigh-in ${ageLabel(ageDays)}` : ''}`,
   }
 }
 
@@ -281,48 +282,52 @@ export function meanOverDays(
 }
 
 /**
- * The RATE cell footer: the API's intensity tier, or why there is no rate. One window per cell, and a
+ * The RATE cell footer: the pace class and its range, or why there is no rate. One window per cell, and a
  * loading or failed summary never reads as a data gap.
  */
 export function rateFooter(input: {
   rate: number | null
-  intensity: string
   /** Weigh-ins in the window. */
   entries: number
   status?: 'pending' | 'error' | 'success'
 }): string {
-  const { rate, intensity, entries, status = 'success' } = input
+  const { rate, entries, status = 'success' } = input
   if (status === 'pending') return 'Loading the rate'
   if (status === 'error') return 'The rate failed to load'
-  if (rate !== null) return paceFooter(rate, intensity)
+  if (rate !== null) return paceFooter(rate)
   return entries === 0
     ? 'No weigh-ins in this window'
     : 'A rate needs two weigh-ins at least 3 days apart'
+}
+
+export type IntensityTier = {
+  tier: 'maintenance' | 'lean' | 'standard' | 'aggressive'
+  band: string
+}
+
+/** The API's intensity tier for a rate and the kg/week range it covers, decided from the number. */
+export function intensityTier(rate: number | null): IntensityTier | null {
+  if (rate === null) return null
+  const abs = Math.abs(rate)
+  if (abs < RATE_NEUTRAL_KG_WK)
+    return { tier: 'maintenance', band: `< ${RATE_NEUTRAL_KG_WK} kg/wk` }
+  const [lean, standard] = rate < 0 ? [0.4, 0.8] : [0.3, 0.6]
+  if (abs < lean) return { tier: 'lean', band: `${RATE_NEUTRAL_KG_WK}\u2013${lean} kg/wk` }
+  if (abs < standard) return { tier: 'standard', band: `${lean}\u2013${standard} kg/wk` }
+  return { tier: 'aggressive', band: `\u2265 ${standard} kg/wk` }
 }
 
 /**
  * The pace class in plain words: `Lean pace, gaining 0.1–0.3 kg/wk`. The meter's zone already names
  * cut/bulk/maintenance, so the footer carries the class and the range it covers instead.
  */
-export function paceFooter(rate: number, intensity: string): string {
-  const band = intensityBand(rate)
-  const pace = intensity.split(' ')[0]
-  if (band === null || pace === undefined || !['Lean', 'Standard', 'Aggressive'].includes(pace)) {
+function paceFooter(rate: number): string {
+  const found = intensityTier(rate)
+  if (found === null || found.tier === 'maintenance') {
     return `Under ${RATE_NEUTRAL_KG_WK} kg/wk either way`
   }
-  return `${pace} pace, ${rate < 0 ? 'losing' : 'gaining'} ${band}`
-}
-
-/** The kg/week range of the API's intensity tier for a rate ("0.1\u20130.3 kg/wk", "\u2265 0.6 kg/wk"). */
-export function intensityBand(rate: number | null): string | null {
-  if (rate === null) return null
-  const abs = Math.abs(rate)
-  if (abs < RATE_NEUTRAL_KG_WK) return `< ${RATE_NEUTRAL_KG_WK} kg/wk`
-  const edges = rate < 0 ? [0.4, 0.8] : [0.3, 0.6]
-  const [lean, standard] = edges as [number, number]
-  if (abs < lean) return `${RATE_NEUTRAL_KG_WK}\u2013${lean} kg/wk`
-  if (abs < standard) return `${lean}\u2013${standard} kg/wk`
-  return `\u2265 ${standard} kg/wk`
+  const name = found.tier.charAt(0).toUpperCase() + found.tier.slice(1)
+  return `${name} pace, ${rate < 0 ? 'losing' : 'gaining'} ${found.band}`
 }
 
 /** The day-based means and slopes the strip and the chart header both state. */

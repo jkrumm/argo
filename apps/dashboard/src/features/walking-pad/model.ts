@@ -6,6 +6,7 @@ import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
 const MS_PER_DAY = 86_400_000
+const MS_PER_MINUTE = 60_000
 /** Day buckets drawn by the "Days" view; a longer window shows its latest 90 days. */
 export const DAY_VIEW_MAX = 90
 /** The session list is not windowed server-side: the histogram facts read this many newest rows. */
@@ -463,14 +464,8 @@ export function emptyWindowParts(input: { last: LastWalk; nowMs: number }): {
   if (last.state === 'never') return { sentence: 'No walks recorded yet', facts: [] }
   const endedMs = last.state === 'last' ? Math.min(Date.parse(last.endedAt), nowMs) : Number.NaN
   if (!Number.isFinite(endedMs)) return { sentence: 'Last walk not available', facts: [] }
-  const ago = relativeTime(endedMs, { now: nowMs })
-  return {
-    sentence:
-      ago === relativeTime(nowMs, { now: nowMs })
-        ? 'The last walk just ended'
-        : `The last walk was ${ago}`,
-    facts: [],
-  }
+  if (nowMs - endedMs < MS_PER_MINUTE) return { sentence: 'The last walk just ended', facts: [] }
+  return { sentence: `The last walk was ${relativeTime(endedMs, { now: nowMs })}`, facts: [] }
 }
 
 const PRESET_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '6m': 183, '1y': 365 }
@@ -486,12 +481,15 @@ export function emptyWindowHint(input: {
   nowMs: number
 }): string | undefined {
   const { last, wider, nowMs } = input
-  if (last.state === 'loading' || last.state === 'never' || wider === null) return undefined
+  // "all" always contains the last walk, so there is nothing to state about it.
+  if (last.state === 'loading' || last.state === 'never' || wider === null || wider === 'all') {
+    return undefined
+  }
   if (last.state === 'failed') {
     return 'The last walk could not be loaded; widen the window to look further back.'
   }
   const days = PRESET_DAYS[wider]
-  const span = wider === 'all' ? 'all time' : `the last ${WIDEN_LABEL[wider] ?? 'range'}`
+  const span = windowPhrase(wider)
   const contained = days === undefined || Date.parse(last.endedAt) >= nowMs - days * MS_PER_DAY
   return contained ? `The last walk falls inside ${span}.` : `The last walk is older than ${span}.`
 }
