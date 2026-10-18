@@ -124,7 +124,7 @@ describe('nightNote', () => {
       killers: [],
       window: { minutes: 150 },
     } as unknown as Night
-    expect(nightNote(night)).toBe('2\u00a0h 30\u00a0min')
+    expect(nightNote(night)).toBe('2\u00a0h\u00a030\u00a0min')
   })
 })
 
@@ -195,7 +195,7 @@ const goNight = {
 
 describe('verdictHeadline', () => {
   test('a GO night states its window once: day, clock range, length', () => {
-    expect(verdictHeadline(goNight)).toBe('Sat 13, 23:10–01:40 · 2\u00a0h 30\u00a0min')
+    expect(verdictHeadline(goNight)).toBe('Sat 13, 23:10–01:40 · 2\u00a0h\u00a030\u00a0min')
   })
 
   test('a GO night without a window names the day only', () => {
@@ -456,7 +456,9 @@ describe('nextUsableText', () => {
   const later = { ...goNight, date: '2026-06-20' } as Night
   test('names the first usable night after the selected one, with its window', () => {
     const out = outNight('2026-06-13', 8, 4)
-    expect(nextUsableText([out, later], out.date)).toBe('next usable Sat 20, 2\u00a0h 30\u00a0min')
+    expect(nextUsableText([out, later], out.date)).toBe(
+      'next usable Sat 20, 2\u00a0h\u00a030\u00a0min',
+    )
   })
 
   test('says so when none of the nights ahead is usable', () => {
@@ -470,7 +472,7 @@ describe('nextUsableText', () => {
 describe('windowFact', () => {
   test('a GO night states length and range; an OUT night with no window states the missed gate', () => {
     expect(windowFact(goNight, { withMiss: true })).toEqual({
-      value: '2\u00a0h 30\u00a0min',
+      value: '2\u00a0h\u00a030\u00a0min',
       period: 'shooting window 23:10–01:40',
     })
     expect(windowFact(outNight('2026-06-13', 8, 4.1), { withMiss: true })).toEqual({
@@ -580,7 +582,7 @@ describe('windowFact on a moon-gated night', () => {
       killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
     } as unknown as Night
     expect(windowFact(moonOut, { withMiss: true })).toEqual({
-      value: '2\u00a0h 30\u00a0min',
+      value: '2\u00a0h\u00a030\u00a0min',
       period: '23:10–01:40 · moon',
     })
     expect(windowFact(moonOut, { withMiss: false }).period).toBe('shooting window 23:10–01:40')
