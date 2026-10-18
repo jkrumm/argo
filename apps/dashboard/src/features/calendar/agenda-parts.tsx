@@ -146,7 +146,6 @@ export function DayGroups({
   now,
   next,
   gap = null,
-  emptyWindow = null,
 }: {
   days: readonly AgendaDay[]
   /** All-day items per day key. */
@@ -158,8 +157,6 @@ export function DayGroups({
    * listed as `No events`. Days that do hold items still show them.
    */
   gap?: FeedGap | null
-  /** Nothing in the whole window: each empty day carries the headline's short form. */
-  emptyWindow?: EmptyWindow | null
 }) {
   // An unanswered calendar cannot say a day is empty, so those days are not listed.
   const visible = gap
@@ -175,7 +172,7 @@ export function DayGroups({
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              <span className={classes.muted}>{emptyWindow ? emptyWindow.short : NO_EVENTS}</span>
+              <span className={classes.muted}>{NO_EVENTS}</span>
             </Box>
           )
         }
@@ -284,12 +281,7 @@ export function WeekStrip({
                   </span>
                 )
               })}
-            {gap &&
-              (gap.state === 'loading' ? (
-                <GapLine gap={gap} />
-              ) : (
-                <span className={classes.muted}>{gap.card}</span>
-              ))}
+            {gap && <GapLine gap={gap} inline />}
           </Box>
         ) : emptyWeek ? (
           <Text className={classes.muted}>
