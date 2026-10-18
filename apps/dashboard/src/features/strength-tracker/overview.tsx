@@ -148,14 +148,14 @@ function TodaysCall(props: Params) {
         {facts.text === '' ? null : (
           <Group gap={4} wrap="wrap" align="center">
             <Text size="xs" c="dimmed">
-              {facts.text}
+              {facts.inol === null ? facts.text : `${facts.text} ·`}
             </Text>
             {facts.inol === null ? null : (
               <Term
                 name="INOL"
                 label={
                   <Text size="xs" c="dimmed">
-                    · {facts.inol}
+                    {facts.inol}
                   </Text>
                 }
                 definition={TERM_DEFINITIONS.inol}

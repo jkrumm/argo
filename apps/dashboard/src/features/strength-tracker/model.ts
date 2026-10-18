@@ -471,12 +471,8 @@ export function shortDate(date: string): string {
   return dayLabel(date).split(' ').slice(1).join(' ')
 }
 
-/** The diagnostics section's title: the period is named only when the window is a real one. */
-export function diagnosticsTitle(window: string, period: string): string {
-  return window === 'all'
-    ? 'Velocity, tonnage and INOL against your 90-day norm'
-    : `Velocity, tonnage and INOL against your 90-day norm, ${period}`
-}
+/** The diagnostics section's title: the three measures and their baseline, short enough to stay whole at 390. */
+export const DIAGNOSTICS_TITLE = 'Velocity, tonnage, INOL vs 90-day norm'
 
 /** The balance card's one statement of the tolerance behind `borderline`. */
 export function borderlineNote(): string {
