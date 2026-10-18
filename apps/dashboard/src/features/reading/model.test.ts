@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { relativeTime } from 'basalt-ui/format'
 import {
+  RATING_TICKS,
   approxHours,
   booksPerMonth,
   finishedFooter,
@@ -215,17 +216,20 @@ describe('ratingShape', () => {
     expect(ratingShape([book()]).meanAt).toBeNull()
   })
 
-  test('every bin label spells its two half steps, whatever the data', () => {
-    const expected = ['0.5–1', '1.5–2', '2.5–3', '3.5–4', '4.5–5']
-    expect(ratingShape([book({ rating: 3 })]).labels.map((l) => l.span)).toEqual(expected)
-    expect(ratingShape([book()]).labels.map((l) => l.span)).toEqual(expected)
-    expect(ratingShape([book()]).labels.map((l) => l.aria)).toEqual([
+  test('every bin spells its two half steps for screen readers, whatever the data', () => {
+    const expected = [
       '0.5 to 1 star',
       '1.5 to 2 stars',
       '2.5 to 3 stars',
       '3.5 to 4 stars',
       '4.5 to 5 stars',
-    ])
+    ]
+    expect(ratingShape([book({ rating: 3 })]).spans).toEqual(expected)
+    expect(ratingShape([book()]).spans).toEqual(expected)
+  })
+
+  test('the axis ticks are the six column edges of the 0…5 track', () => {
+    expect(RATING_TICKS).toEqual([0, 1, 2, 3, 4, 5])
   })
 
   test('community mean covers the same rated books', () => {
