@@ -207,3 +207,9 @@ No basalt gaps.
 - **Verdict-card cloud row absent on gated nights** — fixed: the API still sends the night's low-cloud figure for a ruled-out night, so the row shows it as `Low cloud · not scored` with the figure. Nights that are not ruled out and carry no cloud factor still get no row.
 - **`closest to gate` beside the shortfall figure** — fixed: the Core cell and the panorama fact now label the reading `nearest its gate`; the shortfall (`core {g}° under its gate`) is stated once, in the verdict headline.
 - **Not argo's, left:** `Lines` end labels, info tooltips at 390, `Map` tab alignment, budget greys shade-only (basalt rows, see `UPSTREAM.md`); night-strip hover.
+
+Follow-up (w30-r1):
+
+- **Sky footer clipped at 1440** — fixed: the transparency phrase splits into `transparency {n}/8` (glued) + a breakable space + `(lower = clearer)` (glued); `dark ≥ {t} mag/arcsec²` and `town glow +{d} mag` stay one glued run each; every glued run ≤ 24 characters. Every fact kept (`skyCellFooter`).
+- **Moon footer opened a line with `· sets`** — fixed: each `·` is bound to the text before it (`moonFooter`).
+- **Core footer split `at transit`** — fixed: `at transit` is glued (`coreTransitFooter`).

@@ -416,7 +416,7 @@ export function offscreenNightsText(count: number): { visible: string; spoken: s
 
 /** The Core cell's footer: the transit altitude. Transit can fall in daylight, so it is never "the night's" best. */
 export function coreTransitFooter(night: Night): string {
-  return `${fmtDegrees(night.maxCoreAltitude)} at transit`
+  return `${fmtDegrees(night.maxCoreAltitude)} ${glue('at transit')}`
 }
 
 /**
@@ -589,10 +589,13 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
 /** Every plain space → no-break space: one phrase that never wraps inside itself. */
 const glue = (text: string): string => text.replaceAll(' ', NBSP)
 
+/** Footer phrases joined by `·`, each dot bound to the phrase before it so a wrapped line never opens on one. */
+const joinPhrases = (phrases: readonly string[]): string => phrases.join(`${NBSP}· `)
+
 /**
  * The Sky cell's footer: the dark-sky threshold (the scale's tick is unlabelled), the town glow
- * and the transparency. Each phrase is glued internally, so a wrap only falls on the plain-space
- * ` · ` between phrases.
+ * and the transparency. Each run is glued internally (≤ 24 characters), so a wrap falls only on a
+ * plain space: after a ` · `, or inside the transparency phrase between its value and its hint.
  */
 export function skyCellFooter({
   domePenaltyMag,
@@ -603,11 +606,28 @@ export function skyCellFooter({
 }): string {
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
-  return [
+  return joinPhrases([
     glue(`dark ≥ ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')}`),
     glue(`town glow ${dome}`),
-    glue(`transparency ${clarity}, lower clearer`),
-  ].join(' · ')
+    `${glue(`transparency ${clarity}`)} ${glue('(lower = clearer)')}`,
+  ])
+}
+
+/** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */
+export function moonFooter({
+  limit,
+  phase,
+  set,
+}: {
+  limit: string
+  phase: string
+  set: string | null
+}): string {
+  return joinPhrases([
+    `limit${NBSP}${limit}`,
+    glue(phase),
+    ...(set === null ? [] : [`sets${NBSP}${set}`]),
+  ])
 }
 
 /**
