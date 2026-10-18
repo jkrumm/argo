@@ -195,7 +195,7 @@ describe('liftDelta', () => {
     expect(r).toEqual({ delta: null, phrase: 'first session 10 Oct', stale: false })
   })
   test('empty is a dash', () => {
-    expect(liftDelta([], NOW).phrase).toBe('— kg in 28 d')
+    expect(liftDelta([], NOW).phrase).toBe('no sessions yet')
   })
 })
 
