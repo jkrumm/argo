@@ -12,11 +12,11 @@ import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { LP_RAMP } from '../map-layers'
 import { METRIC_TOOLTIPS, PANORAMA_HEIGHT } from '../constants'
-import { fmtDegrees, fmtShortDay } from '../formulas'
+import { fmtAzimuth, fmtDegrees, fmtShortDay } from '../formulas'
 import type { HourlyPoint, Site } from '../types'
 import {
-  ALT_DOMAIN,
   bandValue,
+  fitAltDomain,
   darkness,
   gateAt,
   glowAt,
@@ -151,15 +151,16 @@ function initialScrubIndex(samples: readonly HourlyPoint[]): number {
 
 type Track = { i: number; az: number; alt: number | null }
 
-/** One body's night as an azimuth × altitude path; a sample below the plot floor is a gap. */
+/** One body's night as an azimuth × altitude path; a sample outside the plot's altitude domain is a gap. */
 function trackOf(
   samples: readonly HourlyPoint[],
   at: (s: HourlyPoint) => { az: number; alt: number },
+  domain: readonly [number, number],
   keep: (s: HourlyPoint) => boolean = () => true,
 ): Track[] {
   return samples.map((s, i) => {
     const { az, alt } = at(s)
-    return { i, az, alt: alt >= ALT_DOMAIN[0] && keep(s) ? alt : null }
+    return { i, az, alt: alt >= domain[0] && alt <= domain[1] && keep(s) ? alt : null }
   })
 }
 
@@ -271,6 +272,8 @@ function PanoramaLoaded({
   const gate = (az: number) => gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az)
 
   const sample = samples[idx] ?? samples[0]!
+  const highest = samples[initialScrubIndex(samples)]
+  const peak = highest?.astroDark === true ? highest : null
   const dark = darkness(sample.sunAltitude)
   const ridge = skyline(sample.coreAzimuth)
   const clearance = sample.coreAltitude - ridge
@@ -280,6 +283,17 @@ function PanoramaLoaded({
     sample.moonAltitude < 0 ? 'down' : sample.moonBehindTerrain ? 'behind terrain' : 'up'
   const moonGood = moonState !== 'up'
   const coreClearsNow = sample.astroDark && sample.coreAltitude >= gate(sample.coreAzimuth)
+
+  // The altitude axis fits what is drawn: skyline, gate and the night's own tracks.
+  const altDomain = useMemo(() => {
+    const row = (az: number) => [
+      bandValue(profile, 'altitudeDeg', az),
+      gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az),
+    ]
+    const ridge = Array.from({ length: 181 }, (_, i) => row(i * 2)).flat()
+    const bodies = samples.flatMap((d) => [d.coreAltitude, d.moonAltitude])
+    return fitAltDomain([...ridge, ...bodies])
+  }, [profile, atmosphericFloorDeg, framingMarginDeg, samples])
 
   // Static geometry — depends on the site and night, never on the scrub index, so dragging the
   // slider recomputes none of it.
@@ -291,25 +305,29 @@ function PanoramaLoaded({
   // call, so the field is one mark per 0.1 mag bucket rather than one per distinct colour.
   const glowGroups = useMemo(
     () =>
-      glowBuckets(glowCells(rose)).map(({ mpsas, cells }) => ({ fill: rampFill(mpsas), cells })),
-    [rose],
+      glowBuckets(glowCells(rose, altDomain[1])).map(({ mpsas, cells }) => ({
+        fill: rampFill(mpsas),
+        cells,
+      })),
+    [rose, altDomain],
   )
   const sunTrack = useMemo(
-    () => trackOf(samples, (s) => ({ az: s.sunAzimuth, alt: s.sunAltitude })),
-    [samples],
+    () => trackOf(samples, (s) => ({ az: s.sunAzimuth, alt: s.sunAltitude }), altDomain),
+    [samples, altDomain],
   )
   const moonTrack = useMemo(
-    () => trackOf(samples, (s) => ({ az: s.moonAzimuth, alt: s.moonAltitude })),
-    [samples],
+    () => trackOf(samples, (s) => ({ az: s.moonAzimuth, alt: s.moonAltitude }), altDomain),
+    [samples, altDomain],
   )
   const coreTrack = useMemo(
-    () => trackOf(samples, (s) => ({ az: s.coreAzimuth, alt: s.coreAltitude })),
-    [samples],
+    () => trackOf(samples, (s) => ({ az: s.coreAzimuth, alt: s.coreAltitude }), altDomain),
+    [samples, altDomain],
   )
   // Plain computation: `gate` is a closure over the profile, and ~60 samples are cheap.
   const coreInGate = trackOf(
     samples,
     (s) => ({ az: s.coreAzimuth, alt: s.coreAltitude }),
+    altDomain,
     (s) => s.astroDark && s.coreAltitude >= gate(s.coreAzimuth),
   )
 
@@ -322,8 +340,8 @@ function PanoramaLoaded({
       rect([0], {
         x1: () => 0,
         x2: () => 360,
-        y1: () => ALT_DOMAIN[0],
-        y2: () => ALT_DOMAIN[1],
+        y1: () => altDomain[0],
+        y2: () => altDomain[1],
         fill: washFill,
       }),
     ]
@@ -366,7 +384,7 @@ function PanoramaLoaded({
           id: 'near',
           x: 'az',
           y: 'near',
-          y1: ALT_DOMAIN[0],
+          y1: altDomain[0],
           fill: alpha(VX.neutral, 0.35),
         }),
       )
@@ -377,7 +395,7 @@ function PanoramaLoaded({
           id: 'skyline',
           x: 'az',
           y: 'skyline',
-          y1: ALT_DOMAIN[0],
+          y1: altDomain[0],
           fill: VX.surface.elevated,
         }),
         lineY(rows, { id: 'ridge', x: 'az', y: 'skyline', stroke: VX.neutral, strokeWidth: 1.5 }),
@@ -437,10 +455,10 @@ function PanoramaLoaded({
     }
 
     // 8. Instant markers.
-    if (on('sun') && sample.sunAltitude >= ALT_DOMAIN[0]) {
+    if (on('sun') && sample.sunAltitude >= altDomain[0] && sample.sunAltitude <= altDomain[1]) {
       out.push(marker('sun-now', sample.sunAzimuth, sample.sunAltitude, 6, VX.muted))
     }
-    if (on('moon') && sample.moonAltitude >= ALT_DOMAIN[0]) {
+    if (on('moon') && sample.moonAltitude >= altDomain[0] && sample.moonAltitude <= altDomain[1]) {
       out.push(
         marker(
           'moon-now',
@@ -451,7 +469,7 @@ function PanoramaLoaded({
         ),
       )
     }
-    if (on('core') && sample.coreAltitude >= ALT_DOMAIN[0]) {
+    if (on('core') && sample.coreAltitude >= altDomain[0] && sample.coreAltitude <= altDomain[1]) {
       out.push(
         marker(
           'core-now',
@@ -470,6 +488,13 @@ function PanoramaLoaded({
     <ChartCard
       title={`Skyline, skyglow and tracks · ${fmtShortDay(detailDate)}`}
       info={METRIC_TOOLTIPS.skyPanorama}
+      {...(peak !== null && {
+        facts: {
+          value: fmtDegrees(peak.coreAltitude),
+          unit: 'core at its highest in the dark',
+          period: `${peak.localTime} · ${fmtAzimuth(peak.coreAzimuth)}`,
+        },
+      })}
     >
       <CartesianChart
         ariaLabel="Azimuth by altitude panorama of the terrain skyline, artificial skyglow, and the sun, moon and galactic-core tracks across the night"
@@ -479,7 +504,7 @@ function PanoramaLoaded({
         xTicks={COMPASS_TICKS}
         formatX={compassLabel}
         series={PANORAMA_SERIES}
-        y={{ domain: ALT_DOMAIN, ticks: ALT_TICKS, format: (v) => `${v}°` }}
+        y={{ domain: altDomain, ticks: ALT_TICKS, format: (v) => `${v}°` }}
         tooltip={false}
         marks={marks}
       />
@@ -500,7 +525,7 @@ function PanoramaLoaded({
           {sample.localTime}
         </Text>
         <Text size="sm">
-          Core <b>{fmtDegrees(sample.coreAltitude)}</b> / {fmtDegrees(sample.coreAzimuth)}
+          Core <b>{fmtDegrees(sample.coreAltitude)}</b> · {fmtAzimuth(sample.coreAzimuth)}
         </Text>
         <Text size="sm">
           Skyline there <b>{fmtDegrees(ridge)}</b>

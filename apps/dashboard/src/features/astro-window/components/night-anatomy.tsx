@@ -1,8 +1,14 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripRow } from 'basalt-ui'
-import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
-import { coreTransitFooter, fmtLocalClock, fmtMinutes, moonPhaseLabel } from '../formulas'
+import { CORE_METER_MAX_DEG, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
+import {
+  coreTransitFooter,
+  fmtDegrees,
+  fmtLocalClock,
+  fmtMinutes,
+  moonPhaseLabel,
+} from '../formulas'
 import { LP_RAMP, LP_RAMP_MAX, LP_RAMP_MIN } from '../map-layers'
 import type { Location, Night } from '../types'
 import classes from './night-anatomy.module.css'
@@ -40,15 +46,7 @@ function SkyScale({ mpsas }: { mpsas: number | null }) {
 }
 
 function cloudRow(label: string, value: number | null): StatStripRow {
-  return {
-    key: label,
-    label,
-    value: value === null ? null : `${Math.round(value)} %`,
-    visual:
-      value === null ? undefined : (
-        <Meter label={`Cloud cover, ${label}`} value={value} max={100} tone="muted" size="row" />
-      ),
-  }
+  return { key: label, label, value: value === null ? null : `${Math.round(value)} %` }
 }
 
 /** A reading against a limit: a muted fill with a tick at `target`. A missing reading keeps the track and tick. */
@@ -66,8 +64,7 @@ function gauge(label: string, value: number | null, max: number, target: number 
 }
 
 /**
- * The selected night in five readings — Dark, Core transit, Moon, Cloud, Sky — as a `StatGroup` strip. The core altitude against its gate is
- * stated once, on the verdict card. Every micro-visual is a reading against a target: the moon against its limit, the sky against the dark threshold.
+ * The selected night in five readings — Dark, Core transit, Moon, Cloud, Sky — as a `StatGroup` strip. The verdict card draws the core at its closest sample; the Core cell draws the transit altitude. Every micro-visual is a reading against a target: the moon against its limit, the sky against the dark threshold.
  */
 export function NightAnatomy({
   night,
@@ -84,6 +81,7 @@ export function NightAnatomy({
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
   const moonSet = night.moon.set === null ? null : fmtLocalClock(night.moon.set, timeZone)
   const { weather } = night
+  const gate = night.coreGateDeg
 
   return (
     <Box data-shot="night-anatomy">
@@ -109,7 +107,17 @@ export function NightAnatomy({
             caption: 'Core',
             value: night.localTransit,
             unit: 'transit',
-            footer: coreTransitFooter(night),
+            ...(gate === null
+              ? {}
+              : {
+                  visual: gauge(
+                    `Core ${fmtDegrees(night.maxCoreAltitude)} at transit against a ${fmtDegrees(gate)} gate`,
+                    night.maxCoreAltitude,
+                    CORE_METER_MAX_DEG,
+                    gate,
+                  ),
+                }),
+            footer: `${coreTransitFooter(night)}${gate === null ? '' : ` · gate ${fmtDegrees(gate)}`}`,
           },
           {
             key: 'moon',
@@ -126,7 +134,7 @@ export function NightAnatomy({
           },
           {
             key: 'cloud',
-            caption: 'Cloud',
+            caption: 'Cloud cover',
             rows: [
               cloudRow('low', weather.cloudLow),
               cloudRow('mid', weather.cloudMid),
@@ -139,7 +147,7 @@ export function NightAnatomy({
             value: sky === null ? null : sky.toFixed(2),
             ...(sky === null ? {} : { unit: 'mag/arcsec²' }),
             visual: <SkyScale mpsas={sky} />,
-            footer: `${
+            footer: `dark sky from ${SKY_DARK_THRESHOLD} · ${
               location.domePenaltyMag === null
                 ? 'dome —'
                 : `dome +${location.domePenaltyMag.toFixed(2)} mag brighter`

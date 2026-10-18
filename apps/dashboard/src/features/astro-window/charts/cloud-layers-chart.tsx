@@ -2,7 +2,7 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { percent } from 'basalt-ui/format'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { fmtShortDay, hourlyTicks, hourlyTimeLabel } from '../formulas'
+import { fmtShortDay, hourlyTicks, hourlyTimeLabel, peakLowCloud } from '../formulas'
 import type { HourlyPoint } from '../types'
 
 // The 0 gridline is not the plot floor — a series pinned at 0% (a common outcome for "low cloud")
@@ -20,9 +20,9 @@ type CloudSeriesDef = { key: CloudSeriesKey; label: string; strokeWidth: number;
  * near-identical oranges that shape alone would not separate.
  */
 const SERIES_DEFS: CloudSeriesDef[] = [
-  { key: 'cloudLow', label: 'Low cloud', strokeWidth: 2.5 },
-  { key: 'cloudMid', label: 'Mid cloud', strokeWidth: 1.5 },
-  { key: 'cloudHigh', label: 'High cloud', strokeWidth: 1.5, dash: 'dashed' },
+  { key: 'cloudLow', label: 'Low', strokeWidth: 2.5 },
+  { key: 'cloudMid', label: 'Mid', strokeWidth: 1.5 },
+  { key: 'cloudHigh', label: 'High', strokeWidth: 1.5, dash: 'dashed' },
 ]
 
 /**
@@ -74,6 +74,7 @@ export default function CloudLayersChart({
   hourly: HourlyPoint[]
   date: string
 }) {
+  const peak = peakLowCloud(hourly)
   const series = SERIES_DEFS.filter((def) => hourly.some((d) => d[def.key] !== null)).map((def) =>
     toSeries(def, hourly),
   )
@@ -82,6 +83,13 @@ export default function CloudLayersChart({
     <ChartCard
       title={`Cloud cover by layer · ${fmtShortDay(date)}`}
       info={METRIC_TOOLTIPS.cloudLayers}
+      {...(peak !== null && {
+        facts: {
+          value: `${peak.pct} %`,
+          unit: 'peak low cloud',
+          period: peak.dark ? 'during astronomical dark' : 'over the night',
+        },
+      })}
       state={{ empty: series.length === 0 && 'No cloud data for this night' }}
       placeholderHeight={CHART_HEIGHT}
     >

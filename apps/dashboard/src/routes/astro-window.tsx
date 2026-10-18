@@ -332,7 +332,7 @@ function AstroWindowPage() {
           <PageSummary sentence={summary.sentence} facts={summary.facts} aside={summary.aside} />
           {search.tab === 'tonight' && selectedNight && (
             <TonightTop
-              verdict={<VerdictCard night={selectedNight} />}
+              verdict={<VerdictCard night={selectedNight} nights={data.nights} />}
               gates={<GatesCard night={selectedNight} moonLimit={data.moonMaxIllumination} />}
               timeline={<NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />}
             />

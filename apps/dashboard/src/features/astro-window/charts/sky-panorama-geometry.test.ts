@@ -3,6 +3,7 @@ import {
   ALT_DOMAIN,
   bandValue,
   darkness,
+  fitAltDomain,
   glowAt,
   gateAt,
   glowBuckets,
@@ -118,5 +119,22 @@ describe('glowBuckets', () => {
     for (const b of glowBuckets(glowCells(gradient))) {
       for (const c of b.cells) expect(Math.abs(c.mpsas - b.mpsas)).toBeLessThanOrEqual(0.05 + 1e-9)
     }
+  })
+})
+
+describe('fitAltDomain', () => {
+  test('fits the top to the data with headroom, on a 4° step', () => {
+    expect(fitAltDomain([8, 21, 13.5])).toEqual([-4, 24])
+  })
+
+  test('never goes under the gate floor or over the widest domain', () => {
+    expect(fitAltDomain([8, 3])).toEqual([-4, 16])
+    expect(fitAltDomain([80])).toEqual([-4, ALT_DOMAIN[1]])
+  })
+})
+
+describe('glowCells to a fitted top', () => {
+  test('stops at the fitted top', () => {
+    expect(Math.max(...glowCells(ROSE, 16).map((c) => c.alt1))).toBe(16)
   })
 })

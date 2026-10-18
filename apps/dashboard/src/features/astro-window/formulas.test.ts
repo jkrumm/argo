@@ -16,9 +16,17 @@ import {
   shortfallScale,
   shortfallShare,
   verdictHeadline,
+  verdictStatus,
+  windowFact,
+  peakLowCloud,
+  peakMonth,
+  nextUsableText,
+  gateMissText,
+  compassWord,
+  fmtAzimuth,
   windowShare,
 } from './formulas'
-import type { Night, WindowResponse } from './types'
+import type { HourlyPoint, Night, WindowResponse } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
 const FALL_BACK = [
@@ -157,20 +165,20 @@ const goNight = {
 
 describe('verdictHeadline', () => {
   test('a GO night states its window once: day, clock range, length', () => {
-    expect(verdictHeadline(goNight)).toBe('GO · Sat 13, 23:10–01:40 · 2h 30m')
+    expect(verdictHeadline(goNight)).toBe('Sat 13, 23:10–01:40 · 2h 30m')
   })
 
   test('a GO night without a window names the day only', () => {
-    expect(verdictHeadline({ ...goNight, window: null })).toBe('GO · Sat 13')
+    expect(verdictHeadline({ ...goNight, window: null })).toBe('Sat 13')
   })
 
   test('a 0.0° gap falls back to the killer label, not "0.0° under the gate"', () => {
-    expect(verdictHeadline(outNight('2026-06-13', 8, 8))).toBe('OUT · core altitude')
+    expect(verdictHeadline(outNight('2026-06-13', 8, 8))).toBe('core altitude')
     expect(nightNote(outNight('2026-06-13', 8, 8))).toBe('core low')
   })
 
   test('an OUT night on the core gate states the gap', () => {
-    expect(verdictHeadline(outNight('2026-06-13', 8, 4.1))).toBe('OUT · core 3.9° under the gate')
+    expect(verdictHeadline(outNight('2026-06-13', 8, 4.1))).toBe('core 3.9° under its gate')
   })
 })
 
@@ -200,8 +208,8 @@ describe('pageSummary', () => {
   test('an all-out week names the night with the smallest gap, not the first', () => {
     const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6)]
     const summary = pageSummary(response(nights, '2026-06-13'), { withWindow: false })
-    expect(summary.sentence).toBe('No usable night in the next 2')
-    expect(summary.facts).toEqual(['closest Sun 14'])
+    expect(summary.sentence).toBe('No usable night in the next 2 nights')
+    expect(summary.facts).toEqual(['closest Sun 14, core 2.0° under its gate'])
   })
 
   test('one night reads in the singular and takes the range from the marked night', () => {
@@ -315,5 +323,81 @@ describe('window share', () => {
   test('an out night or a night without a window has no share', () => {
     expect(windowShare(outNight('2026-06-13', 8, 4), 300)).toBeNull()
     expect(windowShare({ ...goNight, window: null }, 300)).toBeNull()
+  })
+})
+
+describe('verdictStatus', () => {
+  test('a usable night is GO, a ruled-out night OUT', () => {
+    expect(verdictStatus(goNight)).toEqual({ word: 'GO', tone: 'good' })
+    expect(verdictStatus(outNight('2026-06-13', 8, 4))).toEqual({ word: 'OUT', tone: 'muted' })
+  })
+})
+
+describe('gateMissText', () => {
+  test('names the core shortfall, else the first killer', () => {
+    expect(gateMissText(outNight('2026-06-13', 8, 4.1))).toBe('core 3.9° under its gate')
+    expect(gateMissText(outNight('2026-06-13', 8, 8))).toBe('core altitude')
+  })
+})
+
+describe('azimuth words', () => {
+  test('8-point compass, wrapping at north', () => {
+    expect(compassWord(0)).toBe('N')
+    expect(compassWord(359)).toBe('N')
+    expect(compassWord(200)).toBe('S')
+    expect(compassWord(225)).toBe('SW')
+    expect(compassWord(-90)).toBe('W')
+  })
+
+  test('carries the unit and the word', () => {
+    expect(fmtAzimuth(179.6)).toBe('az 180° S')
+  })
+})
+
+describe('nextUsableText', () => {
+  const later = { ...goNight, date: '2026-06-20' } as Night
+  test('names the first usable night after the selected one, with its window', () => {
+    const out = outNight('2026-06-13', 8, 4)
+    expect(nextUsableText([out, later], out.date)).toBe('next usable Sat 20, 2h 30m')
+  })
+
+  test('says so when none of the nights ahead is usable', () => {
+    const out = outNight('2026-06-13', 8, 4)
+    expect(nextUsableText([out, outNight('2026-06-14', 8, 5)], out.date)).toBe(
+      'no usable night in the next 2 nights',
+    )
+  })
+})
+
+describe('windowFact', () => {
+  test('a GO night states length and range; an OUT night states the missed gate', () => {
+    expect(windowFact(goNight)).toEqual({ value: '2h 30m', period: 'shooting window 23:10–01:40' })
+    expect(windowFact(outNight('2026-06-13', 8, 4.1))).toEqual({
+      value: 'No window',
+      period: 'core 3.9° under its gate',
+    })
+  })
+})
+
+describe('peakLowCloud', () => {
+  const hour = (astroDark: boolean, cloudLow: number | null) =>
+    ({ astroDark, cloudLow }) as unknown as HourlyPoint
+  test('reads the thickest low cloud inside the dark', () => {
+    expect(peakLowCloud([hour(false, 90), hour(true, 10), hour(true, 30.4)])).toEqual({
+      pct: 30,
+      dark: true,
+    })
+  })
+
+  test('falls back to the whole night when nothing is dark, and to null without data', () => {
+    expect(peakLowCloud([hour(false, 90)])).toEqual({ pct: 90, dark: false })
+    expect(peakLowCloud([hour(true, null)])).toBeNull()
+  })
+})
+
+describe('peakMonth', () => {
+  test('picks the month with the most minutes, skipping gaps', () => {
+    expect(peakMonth([60, undefined, 150, 90])).toEqual({ monthIndex: 2, hours: 2.5 })
+    expect(peakMonth([])).toBeNull()
   })
 })
