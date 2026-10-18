@@ -29,5 +29,6 @@ declare const classes: {
   readonly live: string
   readonly pulse: string
   readonly pulseOff: string
+  readonly composite: string
 }
 export default classes

@@ -7,6 +7,7 @@ import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { leadOf, subjectOf } from '../../lib/question-copy'
+import { CANCELLED_PREFIX } from '../calendar/derive'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
@@ -56,7 +57,7 @@ export type Agenda = {
   loaded: SourceClass[]
   /** Source classes whose calendar has not: an empty day is then partial, not free. */
   unavailable: SourceClass[]
-  /** Timed meetings starting today, earliest first. */
+  /** Timed meetings starting today, earliest first; cancelled ones (Calendar's `Canceled:` / `Abgesagt:` rule) are not meetings and are left out. */
   meetings: Meeting[]
   /** Titles of all-day events covering today. */
   allDay: string[]
@@ -73,6 +74,9 @@ export function noMeetingsLabel(a: Pick<Agenda, 'loaded' | 'unavailable'>): stri
   return `No ${a.loaded.map((c) => CLASS_LABEL[c]).join(' or ')} meetings today · ${classLabels(a.unavailable)} unavailable`
 }
 
+/** Outlook keeps a cancelled meeting on the calendar and prefixes its title; Calendar's rule, so Home counts the same meetings. */
+const isCancelledTitle = (title: string) => CANCELLED_PREFIX.test(title)
+
 export type LaterMeeting = { title: string; startMs: number }
 
 /** The first timed meeting after today in the fetched window (7 days), or `null` when there is none. */
@@ -81,7 +85,7 @@ export function laterMeeting(feeds: readonly CalendarFeed[], now: number): Later
   let best: LaterMeeting | null = null
   for (const { events } of feeds) {
     for (const e of events) {
-      if (e.isAllDay || isDateOnly(e.start)) continue
+      if (e.isAllDay || isDateOnly(e.start) || isCancelledTitle(e.title)) continue
       const startMs = parseMs(e.start)
       if (startMs === null || startMs < from) continue
       if (best === null || startMs < best.startMs) best = { title: e.title, startMs }
@@ -116,6 +120,7 @@ export function todayAgenda(
   const allDay: string[] = []
   for (const { sourceClass, events } of feeds) {
     for (const e of events) {
+      if (isCancelledTitle(e.title)) continue
       if (e.isAllDay || isDateOnly(e.start)) {
         const from = isDateOnly(e.start) ? dateOnlyMs(e.start) : parseMs(e.start)
         const to = isDateOnly(e.end) ? dateOnlyMs(e.end) : parseMs(e.end)

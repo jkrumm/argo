@@ -1,5 +1,5 @@
 import { withUnit } from '../../lib/format'
-import { Text } from '@mantine/core'
+import { Box, Text } from '@mantine/core'
 import { DayAxis } from './strip-visuals'
 import { Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
@@ -64,19 +64,15 @@ export function agentsCell(
       key: 'agents',
       caption: 'Agents working · now',
       value: null,
-      visual: (
-        <Meter
-          label="Agents by state"
-          value={null}
-          emptyText={
-            feed === 'none'
-              ? noSnapshotText()
-              : feed === 'failed'
-                ? 'Agents failed to load — reload to retry'
-                : 'No fleet counts in this snapshot'
-          }
-        />
-      ),
+      state: {
+        kind: 'empty',
+        reason:
+          feed === 'none'
+            ? noSnapshotText()
+            : feed === 'failed'
+              ? 'Agents failed to load — reload to retry'
+              : 'No fleet counts in this snapshot',
+      },
     }
   }
   return {
@@ -127,6 +123,10 @@ export function budgetCell(
     caption: 'Dispatch · today',
     value: used === null ? null : String(used),
     ...(max !== null && { unit: `/ ${max}` }),
+    ...(!(used !== null && max !== null && max > 0) &&
+      feed !== 'loading' && {
+        state: { kind: 'empty' as const, reason: budgetGap(feed) },
+      }),
     visual:
       used !== null && max !== null && max > 0 ? (
         <Meter
@@ -139,11 +139,11 @@ export function budgetCell(
           endCaption={`cap ${max}`}
           {...(dispatch?.warn ? { color: VX.warn } : { tone: 'muted' as const })}
         />
-      ) : (
+      ) : feed === 'loading' ? (
         <Text size="sm" c="dimmed">
           {budgetGap(feed)}
         </Text>
-      ),
+      ) : undefined,
     // With no budget and no poller there is no snapshot: the cell's line already says what to wait for.
     ...((poller !== undefined || budget !== undefined) && {
       footer: (
@@ -174,7 +174,7 @@ export function meetingCell(
       key: 'meeting',
       caption: 'Next meeting',
       value: null,
-      footer: 'calendar unavailable',
+      state: { kind: 'empty', reason: 'calendar unavailable' },
     }
   }
   if (agenda.meetings.length === 0) {
@@ -191,10 +191,13 @@ export function meetingCell(
       key: 'meeting',
       caption: 'Next meeting',
       value: null,
-      footer:
-        agenda.unavailable.length === 0
-          ? 'none in 7 days'
-          : `none today · ${classLabels(agenda.unavailable)} unavailable`,
+      state: {
+        kind: 'empty',
+        reason:
+          agenda.unavailable.length === 0
+            ? 'none in 7 days'
+            : `none today · ${classLabels(agenda.unavailable)} unavailable`,
+      },
     }
   }
   const remaining = agenda.meetings.filter((m) => m.startMs > now).length
@@ -271,11 +274,14 @@ export function recoveryCell(
   form: GapForm,
 ): StatStripCell {
   if (reading === null || reading.score === null) {
+    const line = gapLine(noScoreCellGap(reading, loading, series), form)
     return {
       key: 'recovery',
       caption: 'Recovery · today',
       value: null,
-      footer: gapLine(noScoreCellGap(reading, loading, series), form),
+      ...(reading === null && loading
+        ? { footer: line }
+        : { state: { kind: 'empty' as const, reason: line } }),
     }
   }
   const { score, trend, date, isToday } = reading
@@ -285,7 +291,7 @@ export function recoveryCell(
     value: String(Math.round(score)),
     unit: '/100',
     visual: (
-      <>
+      <Box className={classes.composite}>
         <Meter
           {...recoveryMeterProps(score)}
           value={Math.round(score)}
@@ -300,7 +306,7 @@ export function recoveryCell(
             emphasizeLast
           />
         ) : null}
-      </>
+      </Box>
     ),
     // Broken evenly, so the narrow footer splits between its phrases and never strands a word.
     footer: <span className={classes.balanced}>{recoveryFooter(reading)}</span>,
@@ -340,12 +346,16 @@ export function acwrCell(
   form: GapForm,
 ): StatStripCell {
   const gap = acwrCellGap(reading, feed, windowDays, placeholder)
+  const loadingGap = reading === null ? feed === 'loading' : placeholder
   if (reading === null || reading.acwr === null) {
     return {
       key: 'acwr',
       caption: `Training load · ${withUnit(7, 'd')} / ${withUnit(28, 'd')}`,
       value: null,
-      footer: gap === null ? undefined : gapLine(gap, form),
+      ...(gap !== null &&
+        (loadingGap
+          ? { footer: gapLine(gap, form) }
+          : { state: { kind: 'empty' as const, reason: gapLine(gap, form) } })),
     }
   }
   return {

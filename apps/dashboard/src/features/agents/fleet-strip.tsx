@@ -74,11 +74,16 @@ export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longes
           ...(oldestTone !== undefined && { tone: oldestTone }),
           footer: oldestWaitFooter(hasSnapshot, oldest),
           // No snapshot: the waiting line is the footer (as in the needs-you cell), so no empty meter.
+          // A snapshot with no wait to plot says why in the value's place.
+          ...(needsYou !== null &&
+            oldest === null && {
+              state: { kind: 'empty' as const, reason: oldestWaitEmptyText(needsYou) },
+            }),
           visual:
-            needsYou === null ? undefined : (
+            needsYou === null || oldest === null ? undefined : (
               <Meter
                 label="Oldest agent wait against the warn and abandoned marks"
-                value={oldest?.ms ?? null}
+                value={oldest.ms}
                 max={ABANDONED_AFTER_MS}
                 ticks={[
                   {
@@ -93,7 +98,6 @@ export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longes
                 format={formatDuration}
                 startCaption={null}
                 endCaption={null}
-                emptyText={oldestWaitEmptyText(needsYou)}
                 {...(oldestTone !== undefined && { color: VX.status[oldestTone] })}
               />
             ),
@@ -115,19 +119,10 @@ function fleetCell(
       key: 'fleet',
       caption: 'Fleet',
       value: null,
-      // No snapshot: the waiting line is the footer, the one size the needs-you cell uses; a snapshot
-      // without counts keeps its meter and says so there.
-      ...(hasSnapshot
-        ? {
-            visual: (
-              <Meter
-                label="Agents by state"
-                value={null}
-                emptyText="No fleet counts in this snapshot"
-              />
-            ),
-          }
-        : { footer: NO_SNAPSHOT_SHORT }),
+      state: {
+        kind: 'empty',
+        reason: hasSnapshot ? 'No fleet counts in this snapshot' : NO_SNAPSHOT_SHORT,
+      },
     }
   }
   const { parts, total } = fleet

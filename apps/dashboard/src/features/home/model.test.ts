@@ -66,6 +66,43 @@ const decision = (ageMs: number | null): Decision => ({
   abandoned: false,
 })
 
+describe('todayAgenda cancelled meetings', () => {
+  it('leaves Outlook-cancelled meetings out of the agenda, the next meeting and the remaining count', () => {
+    const NOW_T = Date.parse(at(9))
+    const agenda = todayAgendaOf(
+      [
+        [
+          event({ id: 'live', title: '{live}', start: at(14), end: at(15) }),
+          event({ id: 'c1', title: 'Canceled: {meeting}', start: at(10), end: at(11) }),
+          event({ id: 'c2', title: 'Abgesagt: {meeting}', start: at(11), end: at(12) }),
+        ],
+      ],
+      NOW_T,
+    )
+    expect(agenda.meetings.map((m) => m.key)).toEqual(['live'])
+    const next = nextMeeting(agenda.meetings, NOW_T)
+    expect(next?.key).toBe('live')
+    expect(meetingCell(agenda, next, null, NOW_T).footer).toBe('{live} · 1 remaining')
+  })
+
+  it('skips a cancelled meeting as the next one after today', () => {
+    const feeds = [
+      {
+        sourceClass: 'work' as const,
+        events: [
+          event({
+            id: 'c',
+            title: 'Cancelled: {meeting}',
+            start: new Date(2026, 0, 16, 10).toISOString(),
+            end: new Date(2026, 0, 16, 11).toISOString(),
+          }),
+        ],
+      },
+    ]
+    expect(laterMeeting(feeds, Date.parse(at(9)))).toBeNull()
+  })
+})
+
 describe('todayAgenda', () => {
   it('keeps timed events starting today, sorted, with attendee count and duration', () => {
     const { meetings } = todayAgendaOf(

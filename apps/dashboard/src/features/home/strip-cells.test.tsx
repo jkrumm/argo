@@ -1,6 +1,7 @@
 import { BUDGET_MISSING } from '../warden/page-model'
 import { describe, expect, it } from 'bun:test'
 import type { ReactElement } from 'react'
+import type { StatStripCell } from 'basalt-ui'
 import { RECOVERY_VERDICT_NAME, allocateForms, recoveryVerdict } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import type { RecoveryReading } from './model'
@@ -18,6 +19,10 @@ import {
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
 
+/** What a cell says without a reading: its empty-state reason, else its footer. */
+const said = (cell: StatStripCell) =>
+  cell.state?.kind === 'empty' ? cell.state.reason : cell.footer
+
 const SETTLED: SeriesState = { settled: true, failed: false }
 
 const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
@@ -34,13 +39,17 @@ const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
 
 describe('budget cell gap per Warden feed', () => {
   const gap = (feed: Parameters<typeof budgetCell>[2]) =>
-    (budgetCell(undefined, undefined, feed).visual as ReactElement<{ children: string }>).props
-      .children
+    (budgetCell(undefined, undefined, feed).state as { reason: string }).reason
 
   it('words each feed state once: no snapshot leads with the clause and the cadence, failed and pending never alias', () => {
     expect(gap('no-snapshot')).toBe('No snapshot yet — Warden pushes every 10\u00a0min')
     expect(gap('failed')).toBe('Warden failed to load — reload to retry')
-    expect(gap('loading')).toBe('Loading')
+  })
+
+  it('keeps the pending read as a loading line, not an empty state', () => {
+    const cell = budgetCell(undefined, undefined, 'loading')
+    expect(cell.state).toBeUndefined()
+    expect((cell.visual as ReactElement<{ children: string }>).props.children).toBe('Loading')
   })
 
   it('keeps the budget-missing wording for a snapshot that omits the budget', () => {
@@ -50,8 +59,7 @@ describe('budget cell gap per Warden feed', () => {
 
 describe('agents cell without a fleet', () => {
   const emptyText = (feed: 'none' | 'failed' | null) =>
-    (agentsCell(undefined, null, feed).visual as ReactElement<{ emptyText: string }>).props
-      .emptyText
+    (agentsCell(undefined, null, feed).state as { reason: string }).reason
 
   it('names the cause and the next step, one wording per feed state', () => {
     expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10\u00a0min')
@@ -97,19 +105,19 @@ describe('recovery cell forms', () => {
   const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
   const series = { settled: true, failed: false, windowDays: 30 }
   it('prints the full sentence when it leads and its leading clause when it does not', () => {
-    expect(recoveryCell(unscored, false, series, 'full').footer).toBe(
+    expect(said(recoveryCell(unscored, false, series, 'full'))).toBe(
       'No recovery score in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
-    expect(recoveryCell(unscored, false, series, 'short').footer).toBe(
+    expect(said(recoveryCell(unscored, false, series, 'short'))).toBe(
       'No recovery score in this 30\u00a0d window',
     )
   })
   it('ACWR leads with the full sentence and trails with the short form', () => {
     const empty = { acwr: null, zone: null, date: null }
-    expect(acwrCell(empty, NOW, 'error', 30, false, 'full').footer).toBe(
+    expect(said(acwrCell(empty, NOW, 'error', 30, false, 'full'))).toBe(
       'No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
-    expect(acwrCell(empty, NOW, 'error', 30, false, 'short').footer).toBe(
+    expect(said(acwrCell(empty, NOW, 'error', 30, false, 'short'))).toBe(
       'No training load in this 30\u00a0d window',
     )
   })
@@ -119,8 +127,7 @@ describe('recovery cell window wording', () => {
   it('states the window length with the shared Garmin wording', () => {
     const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
     expect(
-      recoveryCell(unscored, false, { settled: true, failed: false, windowDays: 30 }, 'full')
-        .footer,
+      said(recoveryCell(unscored, false, { settled: true, failed: false, windowDays: 30 }, 'full')),
     ).toBe('No recovery score in this 30\u00a0d window — Garmin syncs every 6\u00a0h')
   })
 })
@@ -139,17 +146,17 @@ describe('strip cells with no reading', () => {
     expect(budgetCell(undefined, undefined, 'ready')).toMatchObject({ value: null })
     expect(meetingCell(null, null, null, NOW)).toMatchObject({
       value: null,
-      footer: 'calendar unavailable',
+      state: { kind: 'empty', reason: 'calendar unavailable' },
     })
     expect(
       meetingCell({ meetings: [], loaded: ['work', 'personal'], unavailable: [] }, null, null, NOW),
     ).toMatchObject({
       value: null,
-      footer: 'none in 7 days',
+      state: { kind: 'empty', reason: 'none in 7 days' },
     })
     expect(recoveryCell(null, false, SETTLED, 'full')).toMatchObject({
       value: null,
-      footer: 'Garmin data not loaded; reload to retry',
+      state: { kind: 'empty', reason: 'Garmin data not loaded; reload to retry' },
     })
     expect(
       recoveryCell(
@@ -160,31 +167,36 @@ describe('strip cells with no reading', () => {
       ),
     ).toMatchObject({
       value: null,
-      footer: 'No recovery score in this window — Garmin syncs every 6\u00a0h',
+      state: {
+        kind: 'empty',
+        reason: 'No recovery score in this window — Garmin syncs every 6\u00a0h',
+      },
     })
     // The pre-sync gap names the last score and its day, in Garmin Health's wording.
     expect(
-      recoveryCell(
-        reading({
-          score: null,
-          mean: null,
-          days: 0,
-          trend: [],
-          date: '2026-01-15',
-          isToday: false,
-          last: { value: 62, date: '2026-01-13' },
-        }),
-        false,
-        SETTLED,
-        'full',
-      ).footer,
+      said(
+        recoveryCell(
+          reading({
+            score: null,
+            mean: null,
+            days: 0,
+            trend: [],
+            date: '2026-01-15',
+            isToday: false,
+            last: { value: 62, date: '2026-01-13' },
+          }),
+          false,
+          SETTLED,
+          'full',
+        ),
+      ),
     ).toBe('Last scored 62/100 on 13\u00a0Jan — Garmin syncs every 6\u00a0h')
     // The gap waits for the series: unsettled names only the cadence, a failed read says so.
     const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
-    expect(recoveryCell(unscored, false, { settled: false, failed: false }, 'full').footer).toBe(
+    expect(said(recoveryCell(unscored, false, { settled: false, failed: false }, 'full'))).toBe(
       'Garmin syncs every 6\u00a0h',
     )
-    expect(recoveryCell(unscored, false, { settled: true, failed: true }, 'full').footer).toBe(
+    expect(said(recoveryCell(unscored, false, { settled: true, failed: true }, 'full'))).toBe(
       'The recovery score failed to load',
     )
     expect(recoveryCell(null, true, SETTLED, 'full')).toMatchObject({
@@ -195,7 +207,7 @@ describe('strip cells with no reading', () => {
     })
     expect(acwrCell(null, NOW, 'error', 30, false, 'short')).toMatchObject({
       value: null,
-      footer: 'training load failed to load; reload to retry',
+      state: { kind: 'empty', reason: 'training load failed to load; reload to retry' },
     })
   })
 
@@ -222,15 +234,15 @@ describe('strip cells with no reading', () => {
   it('words a settled, empty training load in Garmin’s wording', () => {
     // The recovery cell leads with the cadence sentence; this cell takes its leading clause.
     expect(
-      acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, false, 'short').footer,
+      said(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, false, 'short')),
     ).toBe('No training load in this 30\u00a0d window')
     // Only when no earlier cell carries the cadence does this one print it.
     expect(
-      acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, false, 'full').footer,
+      said(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, false, 'full')),
     ).toBe('No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h')
     // The previous window's rows while this one loads: no gap to state yet.
     expect(
-      acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, true, 'short').footer,
+      said(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, true, 'short')),
     ).toBe('loading training load')
   })
 
@@ -254,17 +266,17 @@ describe('strip cells with no reading', () => {
       ).unit,
     ).toBe('Low')
     expect(
-      acwrCell({ ...reading, date: '2026-01-15' }, NOW, 'error', 30, false, 'short').footer,
+      said(acwrCell({ ...reading, date: '2026-01-15' }, NOW, 'error', 30, false, 'short')),
     ).toBe('range 0.8–1.3')
     expect(
-      acwrCell({ ...reading, date: '2026-01-14' }, NOW, 'error', 30, false, 'short').footer,
+      said(acwrCell({ ...reading, date: '2026-01-14' }, NOW, 'error', 30, false, 'short')),
     ).toBe('range 0.8–1.3 · Wed 14 Jan')
   })
 
   it('says which calendar is missing when the empty day is partial', () => {
     expect(
       meetingCell({ meetings: [], loaded: ['work'], unavailable: ['personal'] }, null, null, NOW),
-    ).toMatchObject({ footer: 'none today · Personal unavailable' })
+    ).toMatchObject({ state: { reason: 'none today · Personal unavailable' } })
   })
 
   it('names the next meeting after today when today is empty', () => {
