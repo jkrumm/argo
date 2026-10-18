@@ -22,11 +22,11 @@ const local = createLocalStore({
   fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
 })
 
-const HEIGHT = 260
-/** Top pane share of the inner plot — keeps the e1RM line dominant over the velocity histogram. */
-const TOP_FRACTION = 0.83
+const HEIGHT = 320
+/** Top pane share of the inner plot: the lower pane keeps room for a −, 0 and + tick. */
+const TOP_FRACTION = 0.7
 /** Zero-noise floor so a flat velocity plateau doesn't amplify the bottom pane to full height. */
-const BOTTOM_MAX_ABS_FLOOR = 0.1
+const BOTTOM_MAX_ABS_FLOOR = 3
 
 type MomentumPoint = {
   day: Date
@@ -35,10 +35,13 @@ type MomentumPoint = {
   velocity: number | null
 }
 
+const DAYS_PER_MONTH = 30
+
 const fmtE1rm = (v: number) => `${v.toFixed(1)} kg`
 const fmtTop = (v: number) => `${Math.round(v)} kg`
-const fmtVelocity = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
-const fmtVelocityBar = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(3)} %/day`
+/** The bars read in the page's one velocity unit, `%/mo`, like the header beside them. */
+const fmtVelocity = (v: number) => (v === 0 ? '0%' : `${signed(v, 1)}%`)
+const fmtVelocityBar = (v: number) => `${signed(v, 1)} %/mo`
 
 export default function MomentumChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.seriesDetailed(params))
@@ -135,7 +138,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
         top={{ format: fmtTop }}
         bar={{
           label: 'Velocity',
-          getValue: (d) => d.velocity,
+          getValue: (d) => (d.velocity === null ? null : d.velocity * DAYS_PER_MONTH),
           positive: VX.goodSolid,
           negative: VX.badSolid,
           format: fmtVelocity,

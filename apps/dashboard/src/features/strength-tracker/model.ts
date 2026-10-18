@@ -264,20 +264,15 @@ export function lastSession(
 
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
-export function summarySentence(input: {
+export function summaryParts(input: {
   leader: string | null
   e1rm: number | null
   delta: LiftDelta
   acwr: number | null
   call: TodaysCall
   score: number | null
-}): string {
+}): { sentence: string; facts: string[] } {
   const { leader, e1rm, delta, acwr, call, score } = input
-  const lift =
-    leader === null
-      ? 'e1RM'
-      : `${exerciseLabel(leader)} e1RM ${e1rm === null ? EM_DASH : `${e1rm.toFixed(1)} kg`}`
-  const move = leader === null || e1rm === null ? '' : `, ${delta.phrase}`
   const load = acwr === null ? 'ACWR —' : `ACWR ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`
   const figure = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`}`
   const when = call.asOf === null ? '' : `, ${call.asOf}`
@@ -289,7 +284,12 @@ export function summarySentence(input: {
             ? `overridden to ${call.verdict} by the deload signal`
             : `capped to ${call.verdict} by a monitor signal`
         }`
-  return `${lift}${move} · ${load} · ${ready}`
+  // The headline is the leader lift's e1RM and its move; without one, the call leads.
+  if (leader === null || e1rm === null) return { sentence: ready, facts: [load] }
+  return {
+    sentence: `${exerciseLabel(leader)} e1RM ${e1rm.toFixed(1)} kg, ${delta.phrase}`,
+    facts: [load, ready],
+  }
 }
 
 // ── Balance ──────────────────────────────────────────────────────────────────────────────────

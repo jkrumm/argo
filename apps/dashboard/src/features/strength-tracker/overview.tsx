@@ -9,6 +9,7 @@ import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
 import { DecisionCard } from '../../components/upstream/decision-card'
+import { PageSummary } from '../../components/upstream/page-summary'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { workoutsQueries } from '../../lib/queries/workouts'
 import { exerciseLabel } from './formulas'
@@ -34,7 +35,7 @@ import {
   acwrReading,
   readinessReading,
   sessionCount,
-  summarySentence,
+  summaryParts,
   todaysCall,
   type Point,
 } from './model'
@@ -77,7 +78,7 @@ function useOverview({ params, exercises }: Params) {
   const leader =
     exercises.find((e) => e === heroes.strengthDirection.leaderExercise) ?? exercises[0] ?? null
   const leaderPoints = series.byExercise.find((l) => l.exercise_id === leader)?.points ?? []
-  const sentence = summarySentence({
+  const summaryLine = summaryParts({
     leader,
     e1rm: latestE1rm(leaderPoints),
     delta: liftDelta(leaderPoints, now),
@@ -94,18 +95,14 @@ function useOverview({ params, exercises }: Params) {
     call,
     acwr,
     acwrWeek,
-    sentence,
+    summaryLine,
     now,
   }
 }
 
 export function SummaryLine(props: Params) {
-  const { sentence } = useOverview(props)
-  return (
-    <Text size="lg" fw={600} lh={1.3} data-shot="strength-summary">
-      {sentence}
-    </Text>
-  )
+  const { summaryLine } = useOverview(props)
+  return <PageSummary {...summaryLine} />
 }
 
 export function TodaysCall(props: Params) {
@@ -114,6 +111,7 @@ export function TodaysCall(props: Params) {
   const session = lastSession(series.byExercise)
 
   const facts = [
+    call.title,
     ...(readiness?.driver ? [`driver ${readiness.driver}`] : []),
     ...(session === null
       ? []
@@ -133,16 +131,16 @@ export function TodaysCall(props: Params) {
   return (
     <Box data-shot="strength-call">
       <DecisionCard
-        question={call.title}
+        question="Readiness"
         facts={facts}
         evidence={
           <Stack gap="md">
             <Box className={classes.meterBlock}>
-              <Text size="sm" fw={600}>
-                Readiness {readinessHeader(readiness)?.text ?? EM_DASH}
+              <Text size="xs" fw={600}>
+                Score {readinessHeader(readiness)?.text ?? EM_DASH}
               </Text>
               {score === null ? (
-                <Text size="sm" c="dimmed">
+                <Text size="xs" c="dimmed">
                   Readiness needs 7 days of Garmin metrics
                 </Text>
               ) : (
@@ -171,7 +169,7 @@ export function TodaysCall(props: Params) {
               </Text>
             </Box>
             <Box className={classes.meterBlock}>
-              <Text size="sm" fw={600}>
+              <Text size="xs" fw={600}>
                 ACWR {acwr === null ? EM_DASH : acwr.toFixed(2)}
               </Text>
               {acwr === null ? null : (
