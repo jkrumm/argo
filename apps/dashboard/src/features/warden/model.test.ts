@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
   AWAITING_OWNER_STALE_DAYS,
-  buildItemFacts as buildFacts,
+  buildItemFacts,
   deriveAwaitingOwner,
   formatAgeDays,
   formatSourceLine,
@@ -328,12 +328,11 @@ describe('formatVerdictLine', () => {
   })
 })
 
-const FACTS_NOW = Date.parse('2026-09-06T00:00:00Z')
-const buildItemFacts = (item: Row | null, event: Row | null) => buildFacts(item, event, FACTS_NOW)
+const NOW = Date.parse('2026-09-06T00:00:00Z')
 
 describe('buildItemFacts', () => {
   it('reads every field as absent when both item and event are null', () => {
-    const facts = buildItemFacts(null, null)
+    const facts = buildItemFacts(null, null, NOW)
     expect(facts).toEqual({
       title: null,
       source: null,
@@ -350,21 +349,22 @@ describe('buildItemFacts', () => {
   })
 
   it("prefers the event's title over the item's", () => {
-    expect(buildItemFacts({ title: 'item title' }, { title: 'event title' }).title).toBe(
+    expect(buildItemFacts({ title: 'item title' }, { title: 'event title' }, NOW).title).toBe(
       'event title',
     )
-    expect(buildItemFacts({ title: 'item title' }, null).title).toBe('item title')
+    expect(buildItemFacts({ title: 'item title' }, null, NOW).title).toBe('item title')
   })
 
   it('reads a numeric external_id as a string', () => {
-    expect(buildItemFacts(null, { external_id: 42 }).externalId).toBe('42')
-    expect(buildItemFacts(null, { external_id: '42' }).externalId).toBe('42')
+    expect(buildItemFacts(null, { external_id: 42 }, NOW).externalId).toBe('42')
+    expect(buildItemFacts(null, { external_id: '42' }, NOW).externalId).toBe('42')
   })
 
   it('combines seen and occurrence facts into one line, in order', () => {
     const facts = buildItemFacts(
       { first_seen: '2026-09-01T00:00:00Z', last_seen: '2026-09-02T00:00:00Z', occurrences: 3 },
       null,
+      NOW,
     )
     expect(facts.lines[0]).toContain('first seen')
     expect(facts.lines[0]).toContain('last seen')
@@ -372,12 +372,12 @@ describe('buildItemFacts', () => {
   })
 
   it('renders occurrences alone when neither seen timestamp is present', () => {
-    const facts = buildItemFacts({ occurrences: 1 }, null)
+    const facts = buildItemFacts({ occurrences: 1 }, null, NOW)
     expect(facts.lines).toEqual(['1 occurrence'])
   })
 
   it('never renders a seen/occurrences line when none of the three are present', () => {
-    expect(buildItemFacts({}, {}).lines).toEqual([])
+    expect(buildItemFacts({}, {}, NOW).lines).toEqual([])
   })
 
   it('reports resolved, the alert reminder count and strikes/retry as separate lines', () => {
@@ -388,6 +388,7 @@ describe('buildItemFacts', () => {
         reminder_count: 5,
         last_reminder_at: '2026-09-03T00:00:00Z',
       },
+      NOW,
     )
     expect(facts.lines.some((line) => line.startsWith('resolved '))).toBe(true)
     expect(facts.lines.some((line) => line.startsWith('Alert reminders: 5'))).toBe(true)
@@ -397,31 +398,35 @@ describe('buildItemFacts', () => {
   })
 
   it('never renders a reminder or strike line for a zero or absent count', () => {
-    const facts = buildItemFacts({ strikes: 0 }, { reminder_count: 0 })
+    const facts = buildItemFacts({ strikes: 0 }, { reminder_count: 0 }, NOW)
     expect(facts.lines).toEqual([])
   })
 
   it("shows a closed item's close_reason on its state", () => {
-    expect(buildItemFacts({ state: 'closed', close_reason: 'duplicate' }, null).state).toBe(
+    expect(buildItemFacts({ state: 'closed', close_reason: 'duplicate' }, null, NOW).state).toBe(
       'closed · duplicate',
     )
-    expect(buildItemFacts({ state: 'working', close_reason: null }, null).state).toBe('working')
+    expect(buildItemFacts({ state: 'working', close_reason: null }, null, NOW).state).toBe(
+      'working',
+    )
   })
 
   it('summarizes the event payload only for a brief-less alert-origin item', () => {
     const payload = { status: 'firing' }
-    expect(buildItemFacts({ origin: 'alert' }, { payload }).payloadSummary).toBe('status: firing')
+    expect(buildItemFacts({ origin: 'alert' }, { payload }, NOW).payloadSummary).toBe(
+      'status: firing',
+    )
     expect(
-      buildItemFacts({ origin: 'alert', brief: 'has a brief' }, { payload }).payloadSummary,
+      buildItemFacts({ origin: 'alert', brief: 'has a brief' }, { payload }, NOW).payloadSummary,
     ).toBeNull()
-    expect(buildItemFacts({ origin: 'other' }, { payload }).payloadSummary).toBeNull()
+    expect(buildItemFacts({ origin: 'other' }, { payload }, NOW).payloadSummary).toBeNull()
   })
 
   it('flags an alert item unmapped only when it has neither a repo nor a verb', () => {
-    expect(buildItemFacts({ origin: 'alert' }, null).unmapped).toBe(true)
-    expect(buildItemFacts({ origin: 'alert', repo: 'argo' }, null).unmapped).toBe(false)
-    expect(buildItemFacts({ origin: 'alert', verb: 'restart' }, null).unmapped).toBe(false)
-    expect(buildItemFacts({ origin: 'other' }, null).unmapped).toBe(false)
+    expect(buildItemFacts({ origin: 'alert' }, null, NOW).unmapped).toBe(true)
+    expect(buildItemFacts({ origin: 'alert', repo: 'argo' }, null, NOW).unmapped).toBe(false)
+    expect(buildItemFacts({ origin: 'alert', verb: 'restart' }, null, NOW).unmapped).toBe(false)
+    expect(buildItemFacts({ origin: 'other' }, null, NOW).unmapped).toBe(false)
   })
 })
 

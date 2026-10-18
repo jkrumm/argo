@@ -345,7 +345,8 @@ function ItemBody({ facts }: { facts: ItemFacts }) {
  * composes the small pieces above it.
  */
 function ItemSummary({ item, event }: { item: Row | null; event: Row | null }) {
-  const facts = buildItemFacts(item, event, useNow())
+  const now = useNow()
+  const facts = buildItemFacts(item, event, now)
   return (
     <Stack gap={4}>
       <ItemIdentity facts={facts} />

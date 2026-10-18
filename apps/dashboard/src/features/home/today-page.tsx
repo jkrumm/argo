@@ -36,8 +36,8 @@ import { applyVisibilityFilter } from '../garmin-health/visibility'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
 import classes from './home.module.css'
 
-/** Recovery and its baselines are window-wide: Today reads the 30 d window, the Garmin page's default. */
-const GARMIN_WINDOW = { window: '30d' } as const
+/** The Garmin page's default window, the fallback for a dateless custom range. */
+const GARMIN_DEFAULT_WINDOW = '30d'
 const RECOVERY_DAYS = 7
 /** Seven days from today's midnight: today's agenda plus the lookup for the next meeting after it. */
 const CALENDAR_DAYS = 7
@@ -75,16 +75,17 @@ export function TodayPage() {
     queries: projects.map((project) => calendarQueries.ticktickProjectTasks(project.id)),
   })
 
-  const recoveryNow = useQuery(recoveryQueries.summary(GARMIN_WINDOW))
-  const recoverySeries = useQuery(recoveryQueries.series(GARMIN_WINDOW))
-  // ACWR is an EWMA seeded at the window's first day, so its value depends on the window: Today
-  // reads the Garmin page's own window (its URL ⊳ stored ⊳ 30 d), or the two pages print different figures.
+  // Recovery (window-wide baselines) and the ACWR (an EWMA seeded at the window's first day) both
+  // depend on the window: Today reads the Garmin page's own (URL ⊳ stored ⊳ 30 d), so both pages
+  // print the same figures.
   const garmin = garminStore.useValues()
-  const loadParams = toApiWindow(
+  const garminParams = toApiWindow(
     garminStore.field.window.toWindow({ preset: garmin.window, from: garmin.from, to: garmin.to }),
-    '30d',
+    GARMIN_DEFAULT_WINDOW,
   )
-  const loadQuery = useQuery(trainingLoadQueries.summary(loadParams))
+  const recoveryNow = useQuery(recoveryQueries.summary(garminParams))
+  const recoverySeries = useQuery(recoveryQueries.series(garminParams))
+  const loadQuery = useQuery(trainingLoadQueries.summary(garminParams))
 
   // ── Sources ────────────────────────────────────────────────────────────────────────────────
   const agentsRecord = agentsQuery.data?.latest ?? null

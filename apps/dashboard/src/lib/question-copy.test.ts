@@ -586,3 +586,16 @@ describe('terse stems', () => {
     expect(copy.evidenceLine).toBe('Disk full — host a is down. Free space.')
   })
 })
+
+describe('evidence after a handle', () => {
+  it('keeps the leading tag run, a fact the question does not say', () => {
+    const copy = cardCopy({
+      body: '[alert] [blocker] Disk full. Free some space.',
+      title: '[alert] Disk full',
+      plain: 'Implement fix for {r} alert?',
+      handle: { source: '[alert] Disk full', clauses: 1, ordinal: null },
+    })
+    expect(copy.question).toBe('Implement fix for {r} alert: Disk full?')
+    expect(copy.evidenceLine).toBe('[alert] [blocker] Free some space.')
+  })
+})

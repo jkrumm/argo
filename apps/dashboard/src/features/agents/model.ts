@@ -416,11 +416,16 @@ export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } 
   }
   // With no named project there is no figure to give: the sentence says only who waits.
   const where = projects === 0 ? '' : ` in ${projects} ${nounFor(projects, 'project', 'projects')}`
-  // All of them abandoned is the strip's oldest-wait bar, not a new figure.
-  const gone = abandoned === 0 || abandoned === agentWaits ? '' : `, ${abandoned} of them abandoned`
-  if (asks > 0) return { sentence: `Agents${where} and the human queue are waiting on you${gone}.` }
+  const abandonedClause =
+    abandoned === 0
+      ? ''
+      : abandoned === agentWaits
+        ? ', all abandoned'
+        : `, ${abandoned} of them abandoned`
+  if (asks > 0)
+    return { sentence: `Agents${where} and the human queue are waiting on you${abandonedClause}.` }
   return {
-    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you${gone}.`,
+    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you${abandonedClause}.`,
   }
 }
 
