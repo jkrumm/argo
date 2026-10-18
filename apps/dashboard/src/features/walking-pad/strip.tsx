@@ -18,6 +18,7 @@ import {
   paceValues,
   priorLabel,
   weekSummary,
+  weekTargetLine,
   weekTicks,
   withKm,
   withKmh,
@@ -81,7 +82,7 @@ function useWeekCell(): StatStripCell {
           <Box>
             {week === null
               ? 'this week not reported'
-              : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)}${NBSP}%${NBSP}of${NBSP}target`}
+              : weekTargetLine(week.sessions, km ?? 0, targetKm)}
           </Box>
         )}
         <Box ml="auto">

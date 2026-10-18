@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { relativeTime } from 'basalt-ui/format'
 import {
+  gapsBefore,
+  RATING_MAX,
   RATING_TICKS,
   approxHours,
   booksPerMonth,
@@ -208,10 +210,10 @@ describe('ratingShape', () => {
     expect(ratingBin(6)).toBe(4)
   })
 
-  test('the mean marker is positioned by the model on the 0…5 track', () => {
-    expect(ratingShape([book({ rating: 2.5 })]).meanAt).toBe(50)
-    expect(ratingShape([book({ rating: 5 })]).meanAt).toBe(100)
-    expect(ratingShape([book({ rating: 0.5 })]).meanAt).toBeCloseTo(10)
+  test('the mean marker is positioned by the model in column widths on the 0…5 track', () => {
+    expect(ratingShape([book({ rating: 2.5 })]).meanAt).toBe(2.5)
+    expect(ratingShape([book({ rating: 5 })]).meanAt).toBe(RATING_MAX)
+    expect(ratingShape([book({ rating: 0.5 })]).meanAt).toBe(0.5)
     expect(ratingShape([book()]).meanAt).toBeNull()
   })
 
@@ -227,8 +229,13 @@ describe('ratingShape', () => {
     expect(ratingShape([book()]).spans).toEqual(expected)
   })
 
-  test('the axis ticks are the six column edges of the 0…5 track', () => {
-    expect(RATING_TICKS).toEqual([0, 1, 2, 3, 4, 5])
+  test('the axis ticks are the six column edges, positioned on the mean marker basis', () => {
+    expect(RATING_TICKS).toEqual([0, 1, 2, 3, 4, 5].map((value) => ({ value, at: value })))
+    expect(RATING_MAX).toBe(5)
+  })
+
+  test('gaps before a position: none at the left edge, one per column passed, four at the right', () => {
+    expect([0, 0.5, 1, 1.5, 2, 3, 4, 4.5, 5].map(gapsBefore)).toEqual([0, 0, 0, 1, 1, 2, 3, 4, 4])
   })
 
   test('community mean covers the same rated books', () => {

@@ -247,18 +247,29 @@ export function lastReadFact(lastRead: number | null, now: number): string {
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
 
 /** Five bins on a 0…5 track; bin `i` is `(i, i + 1]`, so each holds two half steps. The one source of the bin rule, its edges and the mean marker. */
-const RATING_BINS = 5
+export const RATING_MAX = 5
+const RATING_BINS = RATING_MAX
 
-/** A 0–100 position on a track; the one clamp for the mean marker. */
-const toPercent = (v: number): number => Math.min(100, Math.max(0, v))
+/**
+ * A position on the histogram track, in column widths from its left edge (0…{@link RATING_MAX}).
+ * The columns have a gap, so a position is `at` columns plus {@link gapsBefore} gaps: a value on a
+ * column edge sits at that column's right edge, and the mean marker uses the same rule.
+ */
+const trackAt = (value: number): number => Math.min(RATING_MAX, Math.max(0, value))
+
+/** How many column gaps lie left of a track position (`0` at the left edge, `4` at the right). */
+export const gapsBefore = (at: number): number => Math.max(0, Math.ceil(at) - 1)
 
 /** `(0.5, 1]` → 0 … `(4.5, 5]` → 4; a rating outside 0.5–5 clamps to the end bin. */
 export function ratingBin(rating: number): number {
   return Math.min(RATING_BINS, Math.max(1, Math.ceil(rating))) - 1
 }
 
-/** The axis ticks sit on the column edges of the 0…5 track (`0` … `5`), the scale the mean marker reads against. */
-export const RATING_TICKS: readonly number[] = Array.from({ length: RATING_BINS + 1 }, (_, i) => i)
+/** The axis ticks `0` … `5` at the column edges, the scale the mean marker reads against. */
+export const RATING_TICKS: readonly { value: number; at: number }[] = Array.from(
+  { length: RATING_MAX + 1 },
+  (_, value) => ({ value, at: trackAt(value) }),
+)
 
 /** One bin's span as screen-reader text (`1.5 to 2 stars`); the axis itself shows only the edge ticks. */
 function binSpan(bin: number): string {
@@ -272,7 +283,7 @@ export type RatingShape = {
   buckets: [number, number, number, number, number]
   n: number
   mean: number | null
-  /** The mean's position on the 0…5 track, 0–100; null with nothing rated. */
+  /** The mean's track position (see `trackAt`), the same basis as the ticks; null with nothing rated. */
   meanAt: number | null
   /** The span per bucket, as screen-reader text. */
   spans: [string, string, string, string, string]
@@ -294,7 +305,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
     spans: tuple5(binSpan),
     n: rated.length,
     mean,
-    meanAt: mean === null ? null : toPercent((mean / RATING_BINS) * 100),
+    meanAt: mean === null ? null : trackAt(mean),
     community:
       community.length === 0
         ? null
@@ -430,5 +441,3 @@ export function paceRange(paces: readonly number[]): string | null {
   if (paces.length < 2) return null
   return `slowest ${paceEndpoint(Math.min(...paces))}, fastest ${withUnit(paceEndpoint(Math.max(...paces)), 'pages/h')}`
 }
-
-// ── Ratings: bin labels ──────────────────────────────────────────────────────────────────────
