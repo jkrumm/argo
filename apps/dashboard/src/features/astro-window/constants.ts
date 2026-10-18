@@ -47,3 +47,6 @@ export const OFFSCREEN_TOLERANCE_PX = 1
 
 /** The shortest bar the strip draws for a non-zero value, so a small shortfall or window stays visible. */
 export const MIN_BAR_SHARE = 0.06
+
+/** The Core reading's unit, shared by the Tonight Core cell and the Forecast panorama header. */
+export const CORE_UNIT = 'at closest approach'

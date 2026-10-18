@@ -33,8 +33,7 @@ import {
   minutesToHours,
   withFacts,
   windowFact,
-  peakLowCloud,
-  lowCloudPeakFact,
+  lowCloudStat,
   peakMonth,
   nextUsableText,
   gateMissText,
@@ -42,7 +41,8 @@ import {
   fmtAzimuth,
   windowShare,
 } from './formulas'
-import type { HourlyPoint, Night, WindowResponse } from './types'
+import { CORE_UNIT } from './constants'
+import type { Night, WindowResponse } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
 const FALL_BACK = [
@@ -451,40 +451,24 @@ describe('windowFact', () => {
   })
 })
 
-describe('lowCloudPeakFact', () => {
-  const hour = (astroDark: boolean, cloudLow: number | null) =>
-    ({ astroDark, cloudLow }) as unknown as HourlyPoint
+describe('lowCloudStat', () => {
+  const night = (cloudLow: number | null, scored = true) =>
+    ({ weather: { cloudLow }, window: scored ? {} : null }) as unknown as Night
 
-  test('one statistic and window for the cell and the chart: the dark-hours peak', () => {
-    expect(lowCloudPeakFact([hour(false, 90), hour(true, 30.4)])).toEqual({
-      value: '30\u00a0%',
-      unit: 'peak low cloud',
-      period: 'during astronomical dark',
+  test('the scored window mean with the limit tick', () => {
+    expect(lowCloudStat(night(62.4), 55)).toEqual({
+      value: '62\u00a0%',
+      unit: 'low cloud',
+      footer: 'shooting-window mean',
+      reading: 62.4,
+      target: 55,
     })
   })
-  test('without dark readings it is the whole night; without data it is null', () => {
-    expect(lowCloudPeakFact([hour(false, 40)])?.period).toBe('over the night')
-    expect(lowCloudPeakFact([hour(true, null)])).toBeNull()
+  test('no shooting window: the value stays, the tick goes', () => {
+    expect(lowCloudStat(night(12, false), 55)).toMatchObject({ reading: 12, target: null })
   })
-})
-
-describe('peakLowCloud', () => {
-  const hour = (astroDark: boolean, cloudLow: number | null) =>
-    ({ astroDark, cloudLow }) as unknown as HourlyPoint
-  test('reads the thickest low cloud inside the dark', () => {
-    expect(peakLowCloud([hour(false, 90), hour(true, 10), hour(true, 30.4)])).toEqual({
-      pct: 30,
-      dark: true,
-    })
-  })
-
-  test('a dark stretch with no readings falls back to the whole night', () => {
-    expect(peakLowCloud([hour(true, null), hour(false, 40)])).toEqual({ pct: 40, dark: false })
-  })
-
-  test('falls back to the whole night when nothing is dark, and to null without data', () => {
-    expect(peakLowCloud([hour(false, 90)])).toEqual({ pct: 90, dark: false })
-    expect(peakLowCloud([hour(true, null)])).toBeNull()
+  test('no reading, no stat', () => {
+    expect(lowCloudStat(night(null), 55)).toBeNull()
   })
 })
 
@@ -609,13 +593,13 @@ describe('moonGateDetail', () => {
   const night = (killers: Night['killers'], darkMinutes = 300) =>
     ({ killers, darkMinutes, moon: { illumination: 0.456 } }) as unknown as Night
 
-  test('a failed gate says why, without repeating the Moon cell figures', () => {
+  test('a failed gate keeps the API reason', () => {
     expect(
       moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'moon 46% up' }]), 0.25),
-    ).toBe('over the limit while up and clear of the skyline')
+    ).toBe('moon 46% up')
   })
   test('a pass under the limit says so in words', () => {
-    expect(moonGateDetail(night([]), 0.5)).toBe('under the limit')
+    expect(moonGateDetail(night([]), 0.5)).toBe('under limit')
   })
 })
 
@@ -696,13 +680,9 @@ describe('moon gate row on a pass', () => {
     }) as unknown as Night
 
   test('over the limit it says why it passed, never a bare contradiction', () => {
-    expect(moonGateDetail(passed(-10), 0.25)).toBe(
-      'over the limit · down through the shooting window',
-    )
-    expect(moonGateDetail(passed(12), 0.25)).toBe(
-      'over the limit · behind the skyline in the shooting window',
-    )
-    expect(moonGateDetail(passed(0, true), 0.25)).toBe('over the limit · passed on its position')
+    expect(moonGateDetail(passed(-10), 0.25)).toBe('over limit, below horizon')
+    expect(moonGateDetail(passed(12), 0.25)).toBe('over limit, behind skyline')
+    expect(moonGateDetail(passed(0, true), 0.25)).toBe('over limit, position passed')
   })
 })
 
@@ -759,7 +739,7 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: 'core at its closest',
+      unit: CORE_UNIT,
       period: 'gate 9.8°',
     })
   })

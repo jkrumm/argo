@@ -27,7 +27,7 @@ export function SourcesFooter({
   return (
     <Group gap="sm" data-shot="sources-footer">
       <Text size="xs" c="dimmed">
-        {['Forecast', 'run', fmtLocalClock(generatedAt, timeZone)].join(NBSP)}
+        {`Forecast${NBSP}run${NBSP}${fmtLocalClock(generatedAt, timeZone)}`}
       </Text>
       {SOURCES.map(({ key, name }) => (
         <Group key={key} gap={6} wrap="nowrap">
