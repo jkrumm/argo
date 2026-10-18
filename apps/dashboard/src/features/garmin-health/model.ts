@@ -28,6 +28,8 @@ export const ACWR_FLOOR = 0.8
 export const ACWR_OPTIMAL_TO = 1.3
 export const ACWR_CAUTION_TO = 1.5
 
+export const ACWR_METER_MAX = 2
+
 /** The chart legend's zone names, from the same `ACWR_ZONE_NAME` vocabulary the load meters use. */
 export const ACWR_LEGEND = {
   undertrained: `${ACWR_ZONE_NAME.undertrained} (< ${ACWR_FLOOR})`,
@@ -35,7 +37,6 @@ export const ACWR_LEGEND = {
   caution: `${ACWR_ZONE_NAME.caution} (${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO})`,
   danger: `${ACWR_ZONE_NAME.danger} (> ${ACWR_CAUTION_TO})`,
 } as const satisfies Record<AcwrZone, string>
-export const ACWR_METER_MAX = 2
 
 /** Stress zone edges: below 25 rest, 25–49 low, 50–74 moderate, from 75 high. */
 export const STRESS_REST_BELOW = 25
