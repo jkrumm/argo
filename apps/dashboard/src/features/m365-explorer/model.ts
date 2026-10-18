@@ -283,7 +283,7 @@ export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
   return view === 'feed' ? 'Feed sources' : view === 'chats' ? 'Chats' : 'Teams'
 }
 
-/** `3–17 Oct` within a month, `28 Sep – 17 Oct` across two, `17 Oct 2025 – 3 Oct 2026` across years. Day↔month is glued. */
+/** `3–17 Oct` within a month, `28 Sep – 17 Oct` across two, `17 Oct 2025 – 3 Oct 2026` across years. Every space inside a date is glued; only the spaces around the range dash can break. */
 function spanDates(from: number, to: number): string {
   const day = (ms: number, pattern: string) => format(ms, pattern).replaceAll(' ', NBSP)
   if (format(from, 'yyyy') !== format(to, 'yyyy'))
