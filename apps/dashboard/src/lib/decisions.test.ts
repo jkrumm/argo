@@ -400,3 +400,39 @@ describe('deriveDecisions: questions that tell items apart', () => {
     expect(byOrigin?.headline).toBe('Handle {repo} alert?')
   })
 })
+
+describe('deriveDecisions: evidence and second action', () => {
+  it('gives an agent with a blank blocker its next evidence source, or states there is none', () => {
+    const [withStanding, bare] = deriveDecisions({
+      warden: null,
+      agents: agents({
+        agents: [
+          agent({
+            id: 'a',
+            blocker: '',
+            standing: 'Waiting on {thing}.',
+            lastActivityAt: NOW - 2 * HOUR,
+          }),
+          agent({ id: 'b', blocker: '   ', lastActivityAt: NOW - HOUR }),
+        ],
+      }),
+      now: NOW,
+    })
+    expect(withStanding?.evidenceLine).toBe('Waiting on {thing}.')
+    expect(withStanding?.evidence).toBe('Waiting on {thing}.')
+    expect(bare?.evidenceLine).toBe('No blocker reported.')
+    expect(bare?.evidence).toBeNull()
+  })
+
+  it('hands a Warden item its PR link to copy, only when it is a safe URL', () => {
+    const pr = (url: string | null) =>
+      deriveDecisions({
+        warden: warden({ awaiting_owner: [awaiting({ pr_url: url })] }),
+        agents: null,
+        now: NOW,
+      })[0]?.evidence
+    expect(pr('https://example.com/pr/1')).toBe('https://example.com/pr/1')
+    expect(pr('javascript:alert(1)')).toBeNull()
+    expect(pr(null)).toBeNull()
+  })
+})

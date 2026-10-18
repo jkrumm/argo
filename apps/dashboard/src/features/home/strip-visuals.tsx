@@ -44,7 +44,6 @@ export function DayAxis({
       </div>
       <div className={classes.axisLabels}>
         <span>{String(axis.from).padStart(2, '0')}</span>
-        <span>dot now · bars starts</span>
         <span>{String(axis.to).padStart(2, '0')}</span>
       </div>
     </div>

@@ -8,7 +8,6 @@ import {
   classLabels,
   meetingState,
   noMeetingsLabel,
-  weekdayTime,
   type Agenda,
   type LaterMeeting,
   type Meeting,
@@ -72,11 +71,7 @@ type Props = {
 export function Meetings({ agenda, later, tasks, now }: Props) {
   return (
     <Card>
-      <Section
-        title="Meetings today"
-        {...(agenda !== null && { count: agenda.meetings.length })}
-        {...(agenda === null && { value: '—' })}
-      >
+      <Section title="Today" {...(agenda === null && { value: '—' })}>
         <Stack gap="sm" data-shot="meetings">
           {agenda === null ? (
             <Text size="sm" c="dimmed">
@@ -96,7 +91,7 @@ export function Meetings({ agenda, later, tasks, now }: Props) {
               {agenda.meetings.length === 0 ? (
                 <Text size="sm" c="dimmed">
                   {agenda.unavailable.length === 0 && later !== null
-                    ? `None today · next ${weekdayTime(later.startMs)}`
+                    ? 'No meetings today.'
                     : `${noMeetingsLabel(agenda)}.`}
                 </Text>
               ) : (

@@ -12,7 +12,7 @@ import {
 } from './model'
 
 /** Neutral ink at stepped strengths for the calm states; a hue only for needs-you and stale. */
-const FLEET_COLOR: Record<FleetState, string> = {
+export const FLEET_COLOR: Record<FleetState, string> = {
   working: VX.line,
   needs_you: VX.status.bad,
   idle: alpha(VX.line, 0.55),

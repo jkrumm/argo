@@ -19,7 +19,6 @@ import {
   todayAgenda,
   type ActivityEvent,
   type RawCalendarEvent,
-  shortName,
   fleetPulse,
   narrativeEvents,
 } from './model'
@@ -206,7 +205,7 @@ describe('homeSummaryParts', () => {
     href: '/agents',
   })
 
-  it('states count and oldest wait in the sentence and where the items sit as the one fact', () => {
+  it('names the oldest wait in the sentence, the count only in the heading, and the split across sources as the one fact', () => {
     expect(
       homeSummaryParts({
         ...base,
@@ -218,7 +217,7 @@ describe('homeSummaryParts', () => {
         ],
       }),
     ).toEqual({
-      sentence: '4 items need you, oldest 2 h 0 m.',
+      sentence: 'Oldest wait on you 2 h 0 m.',
       facts: ['2 in Warden', '1 with agents', '1 in the human queue'],
     })
   })
@@ -248,9 +247,15 @@ describe('homeSummaryParts', () => {
     })
   })
 
-  it('uses singular for one item and omits an unknown age', () => {
+  it('omits an unknown age rather than printing a figure it lacks', () => {
     expect(homeSummaryParts({ ...base, decisions: [decision(null)] }).sentence).toBe(
-      '1 item needs you.',
+      'Items are waiting on you.',
+    )
+  })
+
+  it('leaves the split out when one source holds every item', () => {
+    expect(homeSummaryParts({ ...base, decisions: [decision(MIN), decision(MIN)] }).facts).toEqual(
+      [],
     )
   })
 })
@@ -289,16 +294,15 @@ describe('wardenEvents', () => {
   })
 })
 
-describe('long names in the feed', () => {
-  it('shortens a long repo in the title and keeps the full sentence for the tooltip', () => {
+describe('names in the feed', () => {
+  it('keeps a long repo whole: the row wraps at its spaces, a name is never cut', () => {
     const repo = 'a-very-long-repository-name-indeed'
     const long = {
       board: { items: [{ event_id: 9, repo, title: '{t}' }] },
       items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0]
     const [row] = wardenEvents(long)
-    expect(row?.title).toBe('moved a-very-long… item')
-    expect(row?.full).toBe(`warden moved ${repo} item · new → triaged`)
+    expect(row?.title).toBe(`moved ${repo} item`)
   })
 
   it('strips a shortcode from the repo and the item title', () => {
@@ -310,32 +314,19 @@ describe('long names in the feed', () => {
     expect(row?.detail).toBe('{t}')
   })
 
-  it('keeps a short repo whole and sets no tooltip text', () => {
+  it('names a short repo whole', () => {
     const [row] = wardenEvents({
       board: { items: [{ event_id: 9, repo: '{repo}', title: '{t}' }] },
       items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0])
     expect(row?.title).toBe('moved {repo} item')
-    expect(row?.full).toBeUndefined()
   })
 
-  it('shortens a long project chip', () => {
+  it('keeps a long project chip whole', () => {
     const [row] = narrativeEvents([
       { project: 'an-extremely-long-project-name', summary: '{s}', revisedAt: ago(5) },
     ] as unknown as Parameters<typeof narrativeEvents>[0])
-    expect(row?.chip).toBe('an-extremely…')
-    expect(row?.full).toContain('an-extremely-long-project-name')
-  })
-})
-
-describe('shortName', () => {
-  it('keeps a name that fits', () => {
-    expect(shortName('argo')).toBe('argo')
-  })
-  it('cuts after a separator past half the limit, else hard-cuts', () => {
-    expect(shortName('alpha-beta-gamma-delta-epsilon')).toBe('alpha-beta-gamma…')
-    expect(shortName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopq…')
-    expect(shortName('ab-cdefghijklmnopqrstuvwxyz')).toBe('ab-cdefghijklmnop…')
+    expect(row?.chip).toBe('an-extremely-long-project-name')
   })
 })
 

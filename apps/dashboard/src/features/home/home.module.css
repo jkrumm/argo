@@ -133,9 +133,7 @@
 .feedDetail {
   grid-column: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }

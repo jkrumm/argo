@@ -21,10 +21,12 @@ type Props = {
   unavailable: readonly string[]
 }
 
+const COPY_LABEL = { queue: 'Copy command', agent: 'Copy blocker', warden: 'Copy PR link' } as const
+
 /**
  * The card's two actions, explicit. A human-queue ask leads with the command it carries (copying is
  * the in-place verb) and opens its page second; an agent leads with opening and offers its blocker
- * to copy; a Warden item carries nothing to copy, so opening is its one action.
+ * to copy, a Warden item its PR link; with nothing to copy, opening is the one action.
  */
 function actionsFor(
   source: Decision['source'],
@@ -42,10 +44,7 @@ function Card({ decision }: { decision: Decision }) {
     label: `Open in ${PAGE_LABEL[decision.href]}`,
     href: decision.href,
   }
-  const copy = useCopyAction(
-    decision.source === 'queue' ? 'Copy command' : 'Copy blocker',
-    decision.source === 'warden' ? null : decision.evidence,
-  )
+  const copy = useCopyAction(COPY_LABEL[decision.source], decision.evidence)
   const actions = actionsFor(decision.source, open, copy)
   const view = historyView(decision.history)
   return (

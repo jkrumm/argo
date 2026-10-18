@@ -278,7 +278,7 @@ export type ActivityEvent = {
   key: string
   ms: number
   actor: 'warden' | 'narrator' | 'calendar'
-  /** The subject: shortens first (ellipsis) when the row is narrow. */
+  /** The subject; wraps at its spaces, never cut. */
   title: string
   /** The end of the sentence (a transition path, a dispatch): always rendered whole, never clipped. */
   outcome?: string
@@ -286,23 +286,6 @@ export type ActivityEvent = {
   chip?: string
   /** A muted second line: the item's own title. */
   detail?: string
-  /** The row's whole sentence with every name unshortened: the tooltip when `title` or `chip` was shortened. */
-  full?: string
-}
-
-/** Longest name a feed row shows before the model shortens it (the full name rides in `full`). */
-const NAME_MAX = 18
-
-/**
- * A repo or project name that fits a feed row: whole when it fits, else cut after its last `-`,
- * `_`, `/` or `.` separator that leaves at least half the limit; with no such separator the name is
- * hard-cut. Either way the cut ends in an ellipsis.
- */
-export function shortName(name: string, max = NAME_MAX): string {
-  if (name.length <= max) return name
-  const head = name.slice(0, max - 1)
-  const sep = Math.max(...['-', '_', '/', '.'].map((c) => head.lastIndexOf(c)))
-  return `${sep >= max / 2 ? head.slice(0, sep) : head}…`
 }
 
 /** Rows older than the start of yesterday are history, not "today's stream". */
@@ -375,8 +358,7 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
       const path = pathOf(burst)
       const dispatches = burst.flatMap((s) => (s.dispatch ? [s.dispatch] : []))
       const verb = path ? 'moved' : 'dispatched'
-      const shown = repo === null ? null : shortName(repo)
-      const title = `${verb}${shown ? ` ${shown}` : ''} item`
+      const title = `${verb}${repo ? ` ${repo}` : ''} item`
       const outcome = [path, dispatches.length > 0 ? dispatches.join(', ') : '']
         .filter(Boolean)
         .join(' · ')
@@ -387,9 +369,6 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
         title,
         ...(outcome ? { outcome } : {}),
         ...(itemTitle ? { detail: itemTitle } : {}),
-        ...(shown !== repo
-          ? { full: `warden ${verb} ${repo} item${outcome ? ` · ${outcome}` : ''}` }
-          : {}),
       })
     }
   }
@@ -401,15 +380,13 @@ export function narrativeEvents(narratives: readonly Narrative[] | undefined): A
     const ms = parseMs(n.revisedAt)
     if (ms === null) return []
     const title = headlineOf(n.summary)
-    const chip = shortName(n.project)
     return [
       {
         key: `n-${n.project}`,
         ms,
         actor: 'narrator' as const,
         title,
-        chip,
-        ...(chip !== n.project ? { full: `narrator ${title} · ${n.project}` } : {}),
+        chip: n.project,
       },
     ]
   })
@@ -503,7 +480,9 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
     ? `Can't tell — ${s.unavailable.join(' and ')} unavailable.`
     : n === 0
       ? `Nothing needs you${gap}.`
-      : `${n} ${n === 1 ? 'item needs' : 'items need'} you${gap}${oldest === null ? '' : `, oldest ${formatWaitDuration(oldest)}`}.`
+      : oldest === null
+        ? `Items are waiting on you${gap}.`
+        : `Oldest wait on you ${formatWaitDuration(oldest)}${gap}.`
   const count = (source: Decision['source']) =>
     s.decisions.filter((d) => d.source === source).length
   const where = [
@@ -511,7 +490,8 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
     [count('agent'), 'with agents'],
     [count('queue'), 'in the human queue'],
   ].flatMap(([n, label]) => (n === 0 ? [] : [`${n} ${label}`]))
-  return { sentence, facts: cantTell ? [] : where }
+  // One source alone is the heading count already; the split only says something across two.
+  return { sentence, facts: cantTell || where.length < 2 ? [] : where }
 }
 
 // ── Agents strip ─────────────────────────────────────────────────────────────────────────────

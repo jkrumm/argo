@@ -196,7 +196,7 @@ export function TodayPage() {
           label="Today at a glance"
           cols={5}
           cells={[
-            agentsCell(snapshot?.summary, fleet?.total ?? null, historyQuery.data?.data, now),
+            agentsCell(snapshot?.summary, fleet, historyQuery.data?.data, now),
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
             recoveryCell(recovery, recoveryNow.isPending),
