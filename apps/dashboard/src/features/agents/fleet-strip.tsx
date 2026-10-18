@@ -22,6 +22,9 @@ export const FLEET_COLOR: Record<FleetState, string> = {
   unknown: alpha(VX.line, 0.18),
 }
 
+const HOUR_MS = 3_600_000
+const DAY_MS = 24 * HOUR_MS
+
 type Props = {
   /** Items the Needs-you section renders: agents plus human-queue asks. `null` when unknown. */
   needsYou: number | null
@@ -68,12 +71,18 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
           footer: oldest === null ? undefined : `in ${oldest.project}`,
           visual: (
             <Meter
-              label="Oldest agent wait against the 24 h and 7 d marks"
+              label="Oldest agent wait against the warn and abandoned marks"
               value={oldest?.ms ?? null}
               max={ABANDONED_AFTER_MS}
               ticks={[
-                { at: OLDEST_WAIT_WARN_MS, label: `warn at ${withUnit(24, 'h')}` },
-                { at: ABANDONED_AFTER_MS, label: `abandoned at ${withUnit(7, 'd')}` },
+                {
+                  at: OLDEST_WAIT_WARN_MS,
+                  label: `warn at ${withUnit(OLDEST_WAIT_WARN_MS / HOUR_MS, 'h')}`,
+                },
+                {
+                  at: ABANDONED_AFTER_MS,
+                  label: `abandoned at ${withUnit(ABANDONED_AFTER_MS / DAY_MS, 'd')}`,
+                },
               ]}
               format={formatWaitDuration}
               startCaption={null}

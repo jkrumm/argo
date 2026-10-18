@@ -1,4 +1,4 @@
-import { asText, flatten, leadClauses, stripShortcodes } from './text'
+import { asText, flatten, lastWhitespace, leadClauses, stripShortcodes } from './text'
 import type { WardenActionVerb } from './queries/warden'
 
 // THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
@@ -18,7 +18,7 @@ export function leadOf(text: string, max: number): string {
   const flat = flatten(text)
   if (flat.length <= max) return flat
   const head = flat.slice(0, max)
-  const lastSpace = head.lastIndexOf(' ')
+  const lastSpace = lastWhitespace(head)
   const atWord = lastSpace > max / 2
   const kept = atWord ? head.slice(0, lastSpace) : head.slice(0, max - 1)
   const withoutTail = kept.replace(/[\s,;:.\-–—]+$/, '')
@@ -89,7 +89,7 @@ export type Disambiguation = { clauses: number; ordinal: number | null }
 function wordLead(text: string, max: number): string | null {
   if (text.length <= max) return text
   const cut = text.slice(0, max - 1)
-  const space = cut.lastIndexOf(' ')
+  const space = lastWhitespace(cut)
   const head = (space === -1 ? '' : cut.slice(0, space)).replace(/[\s,;:.\-–—]+$/, '')
   return head === '' ? null : `${head}…`
 }
@@ -105,15 +105,17 @@ function withHandle(
   source: string,
   { clauses, ordinal }: Disambiguation,
 ): { question: string; handled: boolean } {
-  const stem = flatten(plain).replace(/[?\s]+$/, '')
   const tail = ordinal === null ? '' : ` (${ordinal})`
-  const room = QUESTION_MAX - 1 - stem.length - 2 - tail.length
+  // The tail's room is reserved before anything is cut, so an ordinal is never the part that goes.
+  const stemMax = QUESTION_MAX - 1 - tail.length
+  const whole = flatten(plain).replace(/[?\s]+$/, '')
+  const stem = whole.length > stemMax ? leadOf(whole, stemMax) : whole
+  const room = stemMax - stem.length - 2
   const cut = room < HANDLE_MIN ? null : wordLead(leadClauses(source, clauses), room)
   // A handle with no letter or digit in it names nothing.
   const lead = cut !== null && /[\p{L}\p{N}]/u.test(cut) ? cut : null
   if (lead === null && ordinal === null) return { question: boundedQuestion(plain), handled: false }
-  const body = lead === null ? `${stem}${tail}` : `${stem}: ${lead}${tail}`
-  return { question: boundedQuestion(body), handled: true }
+  return { question: `${lead === null ? stem : `${stem}: ${lead}`}${tail}?`, handled: true }
 }
 
 export type CardCopySource = 'authored' | 'ask' | 'title' | 'plain'
@@ -255,31 +257,35 @@ export function resolveCopies<T, R extends { copy: CardCopy }>(
   },
 ): R[] {
   const results = items.map((item) => derive(item, { handle: null }))
-  const reDerive = (flags: readonly boolean[], handleFor: (index: number) => Disambiguation) =>
-    flags.forEach((flag, i) => {
-      if (flag) results[i] = derive(items[i]!, { handle: handleFor(i) })
-    })
   const clashes = () => collidingCopies(results.map((r) => r.copy))
   let last: Disambiguation = { clauses: 1, ordinal: null }
   for (const clauses of LADDER) {
     const flags = clashes()
     if (!flags.some(Boolean)) return results
     last = { clauses, ordinal: null }
-    reDerive(flags, () => last)
+    flags.forEach((flag, i) => {
+      if (flag) results[i] = derive(items[i]!, { handle: last })
+    })
   }
+  // Still identical: number them in key order. Each takes the lowest ordinal whose question no other
+  // card on the surface already reads, so `Disk full`, `Disk full` and `Disk full (1)` stay distinct.
+  const taken = new Set(results.map((r) => r.copy.question.toLowerCase()))
   const flags = clashes()
-  const groups = new Map<string, number[]>()
-  flags.forEach((flag, i) => {
-    if (!flag) return
-    const question = results[i]!.copy.question.toLowerCase()
-    groups.set(question, [...(groups.get(question) ?? []), i])
-  })
-  for (const indices of groups.values()) {
-    indices
-      .toSorted((a, b) => key(items[a]!).localeCompare(key(items[b]!)))
-      .forEach((index, rank) => {
-        results[index] = derive(items[index]!, { handle: { ...last, ordinal: rank + 1 } })
-      })
+  const order = items
+    .map((_, i) => i)
+    .filter((i) => flags[i])
+    .toSorted((a, b) => key(items[a]!).localeCompare(key(items[b]!)))
+  for (const index of order) {
+    const item = items[index]!
+    // The first of an identical group keeps the question the others will be measured against.
+    let ordinal = 1
+    let next = derive(item, { handle: { ...last, ordinal } })
+    while (taken.has(next.copy.question.toLowerCase()) && ordinal < items.length + 1) {
+      ordinal += 1
+      next = derive(item, { handle: { ...last, ordinal } })
+    }
+    taken.add(next.copy.question.toLowerCase())
+    results[index] = next
   }
   return results
 }
@@ -305,13 +311,14 @@ const ALERT_PLAIN: Record<WardenActionVerb, string> = {
 }
 
 const ALERT_WORD = /^(?:alert|incident|outage)s?$/i
-/** A title that leads with the kind (`Alert: …`, `Outage — …`): the fallback when no field names it. */
-const ALERT_TITLE_PREFIX = /^\W*(?:alert|incident|outage)s?\s*[:\-–—]/i
+/** A title that leads with the kind and a colon or a spaced dash (`Alert: …`, `Outage — …`; a hyphen inside a word is not one): the fallback when no field names it. */
+const ALERT_TITLE_PREFIX = /^\W*(?:alert|incident|outage)s?(?:\s*:|\s+[—–-]\s)/i
 
 /**
  * Whether an item is an alert, incident or outage. The first explicit kind field (`origin`, `kind`,
  * `type`) decides — a `github_issue` titled `Alert: …` is an issue; only with no field at all does a
- * title that leads with the kind count.
+ * title that leads with the kind count. Callers pass the item's raw `kinds` (a missing or blank one
+ * reads as none) and its title; shortcodes are stripped here.
  */
 export function isAlert({
   kinds = [],

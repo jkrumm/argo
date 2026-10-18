@@ -19,6 +19,8 @@ declare const classes: {
   readonly feedRow: string
   readonly feedSentence: string
   readonly feedOutcome: string
+  readonly chip: string
+  readonly chipLabel: string
   readonly feedDetail: string
   readonly feedActor: string
   readonly feedTime: string

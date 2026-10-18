@@ -205,7 +205,7 @@ export function TodayPage() {
         <div className={classes.columns}>
           <NeedsYou decisions={decisions} unavailable={unavailable} />
           <Stack gap="md">
-            <Meetings agenda={agenda} later={later} tasks={tasks} now={now} />
+            <Meetings agenda={agenda} tasks={tasks} now={now} />
             <ActivityFeed
               groups={stream.groups}
               total={stream.total}

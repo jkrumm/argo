@@ -48,6 +48,9 @@ export function authoredQuestion(value: unknown): string | null {
   return clean === '' ? null : clean
 }
 
+/** Index of the last whitespace character of `text` (not only a plain space), `-1` when it has none. */
+export const lastWhitespace = (text: string): number => text.search(/\s\S*$/)
+
 /** A wire value read as text: anything that is not a string is none. */
 export const asText = (value: unknown): string => (typeof value === 'string' ? value : '')
 

@@ -17,6 +17,7 @@ import {
 import {
   asText,
   authoredQuestion,
+  lastWhitespace,
   firstSentence,
   flatten,
   restAfterFirstSentence,
@@ -104,8 +105,9 @@ export type OldestWait = { ms: number; project: string }
 export function oldestNeedsYouWait(agents: AgentRow[], now = Date.now()): OldestWait | null {
   let oldest: OldestWait | null = null
   for (const agent of agents) {
-    if (agent.state !== 'needs_you' || agent.lastActivityAt == null) continue
-    const ms = Math.max(0, now - agent.lastActivityAt)
+    const activeAt = clockMs(agent.lastActivityAt)
+    if (agent.state !== 'needs_you' || activeAt === null) continue
+    const ms = Math.max(0, now - activeAt)
     if (oldest === null || ms > oldest.ms) oldest = { ms, project: agent.project }
   }
   return oldest
@@ -114,13 +116,18 @@ export function oldestNeedsYouWait(agents: AgentRow[], now = Date.now()): Oldest
 /** Whether a `needs_you` agent has waited past {@link ABANDONED_AFTER_MS} — the predicate
  * `NeedsYouSection` uses to split the abandoned items out from the live ones. */
 export function isAbandonedWait(agent: AgentRow, now = Date.now()): boolean {
-  if (agent.state !== 'needs_you' || agent.lastActivityAt == null) return false
-  return now - agent.lastActivityAt > ABANDONED_AFTER_MS
+  const activeAt = clockMs(agent.lastActivityAt)
+  if (agent.state !== 'needs_you' || activeAt === null) return false
+  return now - activeAt > ABANDONED_AFTER_MS
 }
 
-/** Epoch ms of an ISO timestamp, `null` when absent or unparseable. */
-const parseMs = (iso: string | null | undefined): number | null => {
-  if (!iso) return null
+/** An epoch-ms clock off the wire: only a finite number counts (not `'yesterday'`, not `NaN`). */
+export const clockMs = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
+/** Epoch ms of an ISO timestamp, `null` when absent, not a string or unparseable. */
+const parseMs = (iso: unknown): number | null => {
+  if (typeof iso !== 'string' || iso === '') return null
   const ms = Date.parse(iso)
   return Number.isFinite(ms) ? ms : null
 }
@@ -299,12 +306,13 @@ function buildGroup(name: string, agents: AgentRow[], git: OverviewProject['git'
     counts[state] += 1
     const source = (a.source ?? 'unknown').split(/[\s:·]/)[0] || 'unknown'
     sources[source] = (sources[source] ?? 0) + 1
-    if (a.lastActivityAt != null && (lastActivityAt === null || a.lastActivityAt > lastActivityAt))
-      lastActivityAt = a.lastActivityAt
+    const activeAt = clockMs(a.lastActivityAt)
+    if (activeAt !== null && (lastActivityAt === null || activeAt > lastActivityAt))
+      lastActivityAt = activeAt
   }
   const live = agents
     .filter((a) => a.state === 'working' || a.state === 'needs_you')
-    .toSorted((a, b) => (b.lastActivityAt ?? 0) - (a.lastActivityAt ?? 0))
+    .toSorted((a, b) => (clockMs(b.lastActivityAt) ?? 0) - (clockMs(a.lastActivityAt) ?? 0))
   return {
     name,
     agents,
@@ -353,9 +361,8 @@ const HEADLINE_MAX = 90
 /** A sentence with no clause boundary stays whole up to this (the card title wraps); past it, ellipsis. */
 const HEADLINE_WRAP_MAX = 2 * HEADLINE_MAX
 
-/** `item` / `items`, and with the count: `1 item` / `3 items`. */
+/** `item` / `items`. */
 export const itemNoun = (n: number): string => (n === 1 ? 'item' : 'items')
-export const items = (n: number): string => `${n} ${itemNoun(n)}`
 
 /** Where a long sentence may end without cutting a thought: before a parenthesis, colon, dash, semicolon or comma. */
 const CLAUSE_END = /\s\(|: | — |; |, /g
@@ -380,7 +387,7 @@ export function headlineOf(text: string): string {
   if (clauseEnd !== -1) return sentence.slice(0, clauseEnd).replace(/[\s,;:—-]+$/, '')
   if (sentence.length <= HEADLINE_WRAP_MAX) return sentence
   const cut = sentence.slice(0, HEADLINE_WRAP_MAX - 1)
-  const space = cut.lastIndexOf(' ')
+  const space = lastWhitespace(cut)
   return `${(space > 0 ? cut.slice(0, space) : cut).trimEnd()}…`
 }
 
@@ -415,10 +422,11 @@ export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } 
   if (agentWaits === 0 && asks === 0) return { sentence: 'Nothing needs you.' }
   if (agentWaits === 0)
     return { sentence: `${nounFor(asks, 'A request is', 'Requests are')} waiting for your answer.` }
-  const where = `in ${projects} ${nounFor(projects, 'project', 'projects')}`
-  if (asks > 0) return { sentence: `Agents ${where} and the human queue are waiting on you.` }
+  // With no named project there is no figure to give: the sentence says only who waits.
+  const where = projects === 0 ? '' : ` in ${projects} ${nounFor(projects, 'project', 'projects')}`
+  if (asks > 0) return { sentence: `Agents${where} and the human queue are waiting on you.` }
   return {
-    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')} ${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you.`,
+    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you.`,
   }
 }
 
@@ -525,7 +533,7 @@ const WORD_CUT_FLOOR = 0.5
 function ellipsize(text: string, max: number): string {
   if (text.length <= max) return text
   const cut = text.slice(0, max - 1)
-  const space = cut.lastIndexOf(' ')
+  const space = lastWhitespace(cut)
   return `${(space > max * WORD_CUT_FLOOR ? cut.slice(0, space) : cut).trimEnd()}…`
 }
 
@@ -588,20 +596,20 @@ export function humanQueueCopy(
   const plain = alert
     ? plainQuestion('Handle', host ? `${host} alert` : 'this alert')
     : plainQuestion('Answer', host ? `${host} request` : 'this request')
-  const handleSource = flatten(title) || askText
+  const handleSource = flatten(title) || askText || `Item #${asText(item.id)}`
   const copy = cardCopy({
     ask: firstSentence(askText),
     body: restAfterFirstSentence(askText),
     title: title === '' ? null : title,
     plain,
-    handle: handle !== null && handleSource !== '' ? { source: handleSource, ...handle } : null,
+    handle: handle === null ? null : { source: handleSource, ...handle },
   })
   return { copy, askText }
 }
 
 /** The agent's project, `''` when it names none (`—` is the flattening's placeholder). */
 const projectOf = (a: AgentRow): string => {
-  const project = asText(a.project)
+  const project = asText(a.project).trim()
   return project === '—' ? '' : project
 }
 
@@ -610,7 +618,7 @@ const titleOf = (a: AgentRow): string =>
   [a.title, a.lastPrompt, a.id].map(asText).find((t) => t.trim() !== '') ?? ''
 
 /** What a card says when the agent reported no blocker: the absence is the fact. */
-export const NO_BLOCKER = 'No blocker reported.'
+const NO_BLOCKER = 'No blocker reported.'
 
 /** The agent's blocker as evidence, or {@link NO_BLOCKER}: one rule for this page and Home. */
 export const blockerEvidence = (a: AgentRow): string => evidenceSource(a) ?? NO_BLOCKER
@@ -628,7 +636,7 @@ export function agentCopy(
     body,
     title,
     plain: plainQuestion('Unblock', project === '' ? 'this agent' : `${project} agent`),
-    handle: handle !== null && title !== '' ? { source: title, ...handle } : null,
+    handle: handle === null ? null : { source: title || `Item #${asText(a.id)}`, ...handle },
     keepQuestionEvidence: true,
   })
 }
@@ -686,7 +694,8 @@ export function needsYouCards(
     }
   })
   const waiting: NeedsYouCard[] = needing.map((a, j) => {
-    const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
+    const activeAt = clockMs(a.lastActivityAt)
+    const waitMs = activeAt === null ? -1 : Math.max(0, now - activeAt)
     const facts = [
       projectOf(a),
       waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,

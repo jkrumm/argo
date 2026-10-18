@@ -130,6 +130,18 @@
   color: var(--vx-muted);
 }
 
+/* A project name wraps inside its chip instead of clipping. */
+.chip {
+  height: auto;
+  max-width: 100%;
+}
+
+.chipLabel {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-overflow: clip;
+}
+
 .feedDetail {
   grid-column: 1;
   min-width: 0;

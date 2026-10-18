@@ -505,3 +505,48 @@ describe('deriveDecisions: loose wire values and distinct questions', () => {
     expect(d?.headline).toBe('Implement {repo} change?')
   })
 })
+
+describe('deriveDecisions: untitled and sourceless items', () => {
+  it('tells untitled Warden items and sourceless asks apart by id', () => {
+    const list = deriveDecisions({
+      warden: warden({
+        awaiting_owner: [
+          awaiting({
+            event_id: 1,
+            title: null,
+            reason: 'Evidence.',
+            availableActions: ['implement'],
+          }),
+          awaiting({
+            event_id: 2,
+            title: ':fire:',
+            reason: 'Evidence.',
+            availableActions: ['implement'],
+          }),
+        ],
+      }),
+      agents: agents({
+        humanQueue: [
+          { id: 'a', question: '' },
+          { id: 'b', question: '' },
+        ],
+      }),
+      now: NOW,
+    })
+    expect(list).toHaveLength(4)
+    expect(new Set(list.map((d) => d.headline)).size).toBe(4)
+  })
+
+  it('reads a non-number agent clock and a non-string ask time as no age', () => {
+    const list = deriveDecisions({
+      warden: null,
+      agents: agents({
+        humanQueue: [{ id: 'q', question: 'Run it?', askedAt: 'yesterday' }],
+        agents: [agent({ lastActivityAt: 'yesterday' })],
+      }),
+      now: NOW,
+    })
+    expect(list.map((d) => d.ageMs)).toEqual([null, null])
+    expect(JSON.stringify(list)).not.toContain('NaN')
+  })
+})

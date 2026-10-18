@@ -17,6 +17,7 @@ import {
   fleetFact,
   needsYouSplit,
   waitingProjects,
+  clockMs,
   activityFact,
   previewOf,
   gapHours,
@@ -512,8 +513,8 @@ describe('needsYouCards', () => {
     )
     expect(cards.map((c) => c.question)).toEqual([
       'Deploy now?',
-      'Answer this request?',
-      'Answer this request?',
+      'Answer this request: Item #b?',
+      'Answer this request: Item #c?',
     ])
     for (const card of cards) expect(card.actions.length).toBeGreaterThanOrEqual(1)
   })
@@ -788,5 +789,54 @@ describe('needsYouCards: loose wire values', () => {
         'Unblock project-a agent: Same?',
       ].toSorted(),
     )
+  })
+})
+
+describe('round 2 guards', () => {
+  const now = Date.parse('2026-01-10T12:00:00Z')
+
+  it('names no project figure when every project is blank or a dash', () => {
+    const rows = [
+      agent({ id: 'a', state: 'needs_you', project: '—' }),
+      agent({ id: 'b', state: 'needs_you', project: '  ' }),
+    ]
+    expect(waitingProjects(rows)).toBe(0)
+    expect(agentsSummaryParts({ agentWaits: 2, asks: 0, projects: 0 }).sentence).toBe(
+      'Agents are waiting on you.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 1, asks: 1, projects: 0 }).sentence).toBe(
+      'Agents and the human queue are waiting on you.',
+    )
+  })
+
+  it('reads a clock that is not a finite number as none, never NaN', () => {
+    for (const junk of ['yesterday', NaN, Infinity, {}, null, undefined])
+      expect(clockMs(junk)).toBeNull()
+    expect(clockMs(5)).toBe(5)
+    const [card] = needsYouCards(
+      [],
+      [agent({ id: 'z', state: 'needs_you', lastActivityAt: 'yesterday' as never })],
+      now,
+    )
+    expect(card?.waitMs).toBe(-1)
+    expect(card?.facts.join(' ')).not.toMatch(/NaN/)
+    expect(oldestNeedsYouWait([agent({ state: 'needs_you', lastActivityAt: NaN })], now)).toBeNull()
+    expect(isAbandonedWait(agent({ state: 'needs_you', lastActivityAt: 'x' as never }), now)).toBe(
+      false,
+    )
+  })
+
+  it('reads an ask time that is not an ISO string as none', () => {
+    const [card] = needsYouCards([{ id: 'q', question: 'Run it?', askedAt: 42 } as never], [], now)
+    expect(card?.waitMs).toBe(-1)
+  })
+
+  it('numbers sourceless asks by their id so the surface stays distinct', () => {
+    const cards = needsYouCards(
+      [{ id: 'a', question: '' } as never, { id: 'b', question: '' } as never],
+      [],
+      now,
+    )
+    expect(new Set(cards.map((c) => c.question)).size).toBe(2)
   })
 })
