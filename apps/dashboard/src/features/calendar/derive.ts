@@ -454,6 +454,7 @@ export function queryFromKey(view: CalendarView, selected: DayKey, today: DayKey
 // ---- tasks ----------------------------------------------------------------------------------
 
 export type TaskTone = 'bad' | 'warn' | 'neutral'
+export type TaskTier = 'high' | 'medium' | 'low' | 'none'
 
 export type TaskDue = {
   id: string
@@ -462,23 +463,17 @@ export type TaskDue = {
   dueKey: DayKey
   overdue: boolean
   tone: TaskTone
-  /** Every task names its priority in words, so it is never colour alone. */
-  label: 'High' | 'Medium' | 'Low' | 'No priority'
+  /** The priority tier; the view words it, so priority is never colour alone. */
+  tier: TaskTier
 }
 
-function taskTone(priority: number | undefined): { tone: TaskTone; label: TaskDue['label'] } {
-  if (priority !== undefined && priority >= 5) return { tone: 'bad', label: 'High' }
-  if (priority !== undefined && priority >= 3) return { tone: 'warn', label: 'Medium' }
-  return { tone: 'neutral', label: priority === undefined || priority <= 0 ? 'No priority' : 'Low' }
+function taskTone(priority: number | undefined): { tone: TaskTone; tier: TaskTier } {
+  if (priority !== undefined && priority >= 5) return { tone: 'bad', tier: 'high' }
+  if (priority !== undefined && priority >= 3) return { tone: 'warn', tier: 'medium' }
+  return { tone: 'neutral', tier: priority === undefined || priority <= 0 ? 'none' : 'low' }
 }
 
-const LABEL_RANK: Record<TaskDue['label'], number> = {
-  High: 3,
-  Medium: 2,
-  Low: 1,
-  'No priority': 0,
-}
-const labelRank = (label: TaskDue['label']): number => LABEL_RANK[label]
+const TIER_RANK: Record<TaskTier, number> = { high: 3, medium: 2, low: 1, none: 0 }
 
 /** Open tasks overdue or due within `horizonDays` of `todayKey` (inclusive of today), soonest first. */
 export function tasksDue(
@@ -501,5 +496,5 @@ export function tasksDue(
       }
     })
     .filter((t) => t.dueKey <= lastKey)
-    .toSorted((a, b) => a.dueKey.localeCompare(b.dueKey) || labelRank(b.label) - labelRank(a.label))
+    .toSorted((a, b) => a.dueKey.localeCompare(b.dueKey) || TIER_RANK[b.tier] - TIER_RANK[a.tier])
 }

@@ -221,7 +221,10 @@ export function WeekStrip({
             {(['work', 'personal'] as const).map((key) => (
               <span key={key}>
                 {SPLIT_LABEL[key]}{' '}
-                {unknown.has(key) ? 'unavailable' : formatDurationMin(split[key])}
+                {unknown.has(key)
+                  ? 'unavailable'
+                  : // Personal is the booked time minus work: without the work feed it is a floor.
+                    `${formatDurationMin(split[key])}${key === 'personal' && unknown.has('work') ? ' (partial)' : ''}`}
               </span>
             ))}
           </Box>
@@ -230,6 +233,9 @@ export function WeekStrip({
     </Card>
   )
 }
+
+/** The copy for each priority tier: every task names its priority in words. */
+const TIER_LABEL = { high: 'High', medium: 'Medium', low: 'Low', none: 'No priority' } as const
 
 const TONE_COLOR = { bad: VX.status.bad, warn: VX.status.warn, neutral: VX.neutral } as const
 
@@ -250,7 +256,7 @@ export function TaskList({ tasks, todayKey }: { tasks: readonly TaskDue[]; today
                     {task.title}
                   </div>
                   <div className={classes.taskMeta}>
-                    {[task.label, task.project].filter(Boolean).join(' · ')}
+                    {[TIER_LABEL[task.tier], task.project].filter(Boolean).join(' · ')}
                   </div>
                 </div>
                 <span className={classes.due}>

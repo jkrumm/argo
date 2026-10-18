@@ -302,20 +302,20 @@ describe('tasksDue', () => {
     )
     expect(out.map((t) => t.id)).toEqual(['late', 'high', 'med'])
     expect(out[0]?.overdue).toBe(true)
-    expect(out[1]).toMatchObject({ tone: 'bad', label: 'High' })
-    expect(out[2]).toMatchObject({ tone: 'warn', label: 'Medium' })
+    expect(out[1]).toMatchObject({ tone: 'bad', tier: 'high' })
+    expect(out[2]).toMatchObject({ tone: 'warn', tier: 'medium' })
   })
   test('every task names its priority; Low and unprioritised are neutral', () => {
     const out = tasksDue([task('a', D, 1), task('b', D, 0), task('c', D, undefined)], D)
-    expect(out.map((t) => t.label)).toEqual(['Low', 'No priority', 'No priority'])
+    expect(out.map((t) => t.tier)).toEqual(['low', 'none', 'none'])
     expect(out.every((t) => t.tone === 'neutral')).toBe(true)
   })
-  test('all four priority labels rank High > Medium > Low > No priority on a tie', () => {
+  test('all four priority tiers rank high > medium > low > none on a tie', () => {
     const out = tasksDue(
       [task('n', D, undefined), task('l', D, 1), task('m', D, 3), task('h', D, 5)],
       D,
     )
-    expect(out.map((t) => t.label)).toEqual(['High', 'Medium', 'Low', 'No priority'])
+    expect(out.map((t) => t.tier)).toEqual(['high', 'medium', 'low', 'none'])
   })
   test('meetings are never tasks', () => {
     expect(tasksDue([ev('m', at(D, '09:00'), at(D, '10:00'))], D)).toEqual([])
