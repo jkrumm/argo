@@ -246,16 +246,15 @@ export function lastReadFact(lastRead: number | null, now: number): string {
 
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
 
-/** `compact` is the range alone (`2–2.5`), for axes too narrow for the `★`; the cell caption carries the unit. */
-export type BinLabel = { visible: string; compact: string; aria: string }
+/** `span` is the range alone (`2–2.5`); the strip adds the `★` unit where the axis is wide enough, else the cell caption carries it. */
+export type BinLabel = { span: string; aria: string }
 
-/** One bin's span, two views: the axis text (`3–3.5 ★`) and the screen-reader text (`3 to 3.5 stars`). */
+/** One bin's span, two views: the axis span (`3–3.5`) and the screen-reader text (`3 to 3.5 stars`). */
 function binLabel(lo: number, hi: number): BinLabel {
   const stars = (n: number) => (n === 1 ? 'star' : 'stars')
   const span = lo === hi ? `${lo}` : `${lo}–${hi}`
   return {
-    visible: withUnit(span, '★'),
-    compact: span,
+    span,
     aria: lo === hi ? `${lo} ${stars(lo)}` : `${lo} to ${hi} ${stars(hi)}`,
   }
 }

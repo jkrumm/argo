@@ -71,7 +71,7 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
           {shape.labels.map((label, i) => (
             <span key={i} className={classes.axisLabel}>
               <span title={label.aria}>
-                {label.compact}
+                {label.span}
                 {narrow ? null : (
                   <>
                     {NBSP}
