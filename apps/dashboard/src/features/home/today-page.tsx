@@ -21,8 +21,6 @@ import {
   calendarEvents,
   staleFeeds,
   narrativeEvents,
-  meetingState,
-  noMeetingsLabel,
   laterMeeting,
   nextMeeting,
   recoveryReading,
@@ -172,22 +170,7 @@ export function TodayPage() {
     now,
   )
 
-  const summary = summaryParts({
-    decisions,
-    unavailable,
-    fleet: fleet === null ? null : { working: snapshot?.summary?.working ?? 0, total: fleet.total },
-    meetings:
-      agenda === null
-        ? null
-        : {
-            next,
-            current: agenda.meetings.find((m) => meetingState(m, now) === 'now') ?? null,
-            total: agenda.meetings.length,
-            emptyLabel: noMeetingsLabel(agenda),
-          },
-    recovery: recovery?.isToday ? recovery.score : null,
-    now,
-  })
+  const summary = summaryParts({ decisions, unavailable })
 
   return (
     <>
@@ -224,7 +207,7 @@ export function TodayPage() {
         <div className={classes.columns}>
           <NeedsYou decisions={decisions} unavailable={unavailable} />
           <Stack gap="md">
-            <Meetings agenda={agenda} next={next} later={later} tasks={tasks} now={now} />
+            <Meetings agenda={agenda} later={later} tasks={tasks} now={now} />
             <ActivityFeed
               groups={stream.groups}
               total={stream.total}

@@ -1,9 +1,10 @@
 import { Box, Button, Group, Stack, Text } from '@mantine/core'
-import { EmptyState, Section, useSizeClass } from 'basalt-ui'
+import { EmptyState, Section } from 'basalt-ui'
 import { Link } from '@tanstack/react-router'
 import { useClipboard } from '@mantine/hooks'
 import { IconCheck, IconCircleCheck, IconCopy } from '@tabler/icons-react'
-import { DecisionCard } from '../../components/upstream/decision-card'
+import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
+import { softBreaks } from '../../lib/text'
 import type { Decision } from '../../lib/decisions'
 import { NEEDS_YOU_SOURCES } from './model'
 import { StatusChip } from '../agents/status-chip'
@@ -22,15 +23,28 @@ type Props = {
 }
 
 function Card({ decision }: { decision: Decision }) {
-  const clipboard = useClipboard({ timeout: 1500 })
+  const primaryClip = useClipboard({ timeout: 1500 })
   const open = {
     label: `Open in ${PAGE_LABEL[decision.href]}`,
     href: decision.href,
   }
-  // A human-queue ask carries the command to run: copying it is the in-place verb. Everything
-  // else has no command in its payload, so opening the owning page is the primary.
-  const command = decision.source === 'queue' ? decision.evidence : null
-  const narrow = useSizeClass() === 'compact'
+  // The payload carries a command only on a human-queue ask, and a blocker only on an agent:
+  // copying it is the in-place verb. A Warden item has nothing to copy, so opening it is the one action.
+  const copyLabel =
+    decision.source === 'queue'
+      ? 'Copy command'
+      : decision.source === 'agent'
+        ? 'Copy blocker'
+        : null
+  const copyValue = copyLabel === null ? null : decision.evidence
+  const copy: DecisionCardAction | null =
+    copyLabel === null || copyValue === null
+      ? null
+      : {
+          label: primaryClip.error ? 'Copy failed' : primaryClip.copied ? 'Copied' : copyLabel,
+          icon: primaryClip.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
+          onClick: () => primaryClip.copy(copyValue),
+        }
   const view = historyView(decision.history)
   return (
     <DecisionCard
@@ -39,33 +53,25 @@ function Card({ decision }: { decision: Decision }) {
       evidenceLine={decision.evidenceLine}
       {...(decision.entity !== null && {
         actor: (
-          <Text span fz="xs" title={decision.entity}>
-            {decision.entity}
+          <Text span fz="xs">
+            {softBreaks(decision.entity)}
           </Text>
         ),
       })}
-      {...(view !== null &&
-        (!narrow || view.layout === 'inline') && {
-          preview: <HistoryPreview view={view} />,
-        })}
+      {...(view !== null && { preview: <HistoryPreview view={view} /> })}
       {...(view?.layout === 'inline' && { previewPlacement: 'inline' as const })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(decision.detail !== null && {
         disclosure: {
-          label: 'Full text',
-          content: <Text size="sm">{decision.detail}</Text>,
+          label: 'Full reason',
+          content: <Text size="sm">{softBreaks(decision.detail)}</Text>,
         },
       })}
-      {...(command === null
-        ? { primary: open }
-        : {
-            primary: {
-              label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : 'Copy command',
-              icon: clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
-              onClick: () => clipboard.copy(command),
-            },
-            secondary: open,
-          })}
+      {...(copy !== null && decision.source === 'queue'
+        ? { primary: copy, secondary: open }
+        : copy !== null
+          ? { primary: open, secondary: copy }
+          : { primary: open })}
     />
   )
 }

@@ -71,14 +71,13 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                         className={classes.feedSentence}
                         title={
                           e.full ??
-                          `${e.actor} ${e.title}${e.outcome ? ` · ${e.outcome}` : ''}${e.chip ? ` ${e.chip}` : ''}`
+                          `${e.actor} ${e.title}${e.outcome ? ` ${e.outcome}` : ''}${e.chip ? ` ${e.chip}` : ''}`
                         }
                       >
                         <span className={classes.feedHead}>
                           <span className={classes.feedSubject}>
                             <span className={classes.feedActor}>{e.actor}</span> {e.title}
                           </span>
-                          {e.outcome ? <span aria-hidden>·</span> : null}
                         </span>
                         {e.outcome ? (
                           <span className={classes.feedOutcome}>{e.outcome}</span>
@@ -86,7 +85,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                         {e.chip ? (
                           <>
                             {' '}
-                            <Badge variant="light" color="gray" size="sm" tt="none" maw="12rem">
+                            <Badge variant="light" color="gray" size="sm" tt="none">
                               {e.chip}
                             </Badge>
                           </>

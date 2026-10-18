@@ -6,7 +6,6 @@ import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { isSafeHttpUrl } from '../warden/model'
 import {
   classLabels,
-  countdownLabel,
   meetingState,
   noMeetingsLabel,
   weekdayTime,
@@ -14,9 +13,6 @@ import {
   type LaterMeeting,
   type Meeting,
 } from './model'
-
-/** The next meeting carries its countdown pill only while it is under 12 h away. */
-const PILL_WITHIN_MS = 12 * 60 * 60_000
 
 const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
 
@@ -28,15 +24,10 @@ const meta = (m: Meeting) =>
     .filter(Boolean)
     .join(' · ')
 
-function MeetingRow({ meeting, isNext, now }: { meeting: Meeting; isNext: boolean; now: number }) {
+function MeetingRow({ meeting, now }: { meeting: Meeting; now: number }) {
   const state = meetingState(meeting, now)
-  const untilMs = meeting.startMs - now
-  const pill =
-    state === 'now'
-      ? 'now'
-      : isNext && untilMs < PILL_WITHIN_MS
-        ? countdownLabel(untilMs)
-        : undefined
+  // Only a meeting in progress earns a pill; the countdown to the next one is the strip's.
+  const pill = state === 'now' ? 'now' : undefined
   const link = meeting.videoLink
   return (
     <ScheduleRow
@@ -72,14 +63,13 @@ function MeetingRow({ meeting, isNext, now }: { meeting: Meeting; isNext: boolea
 type Props = {
   /** `null` when a calendar feed has not answered and nothing else is known: the agenda is unknown, not empty. */
   agenda: Agenda | null
-  next: Meeting | null
   later: LaterMeeting | null
   tasks: { overdue: number; dueSoon: number } | null
   now: number
 }
 
 /** Today as an agenda, ended meetings dimmed: only hours that hold a meeting are drawn, then the tasks line. */
-export function Meetings({ agenda, next, later, tasks, now }: Props) {
+export function Meetings({ agenda, later, tasks, now }: Props) {
   return (
     <Card>
       <Section
@@ -112,7 +102,7 @@ export function Meetings({ agenda, next, later, tasks, now }: Props) {
               ) : (
                 <div role="list">
                   {agenda.meetings.map((m) => (
-                    <MeetingRow key={m.key} meeting={m} isNext={m === next} now={now} />
+                    <MeetingRow key={m.key} meeting={m} now={now} />
                   ))}
                 </div>
               )}

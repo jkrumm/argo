@@ -24,6 +24,7 @@ import {
   narrativeEvents,
 } from './model'
 import type { Decision } from '../../lib/decisions'
+import { meetingCell } from './strip-cells'
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
 const at = (h: number, m = 0) => new Date(2026, 0, 15, h, m).toISOString()
@@ -198,57 +199,52 @@ describe('activityStream', () => {
 })
 
 describe('summaryParts', () => {
-  const base = {
-    unavailable: [],
-    fleet: { working: 2, total: 5 },
-    meetings: null,
-    recovery: null,
-    now: NOW,
-  }
+  const base = { unavailable: [] }
+  const agentDecision = (): Decision => ({
+    ...decision(60 * MIN),
+    source: 'agent',
+    href: '/agents',
+  })
 
-  it('states count and oldest wait in the sentence, the rest as facts', () => {
-    const next = todayAgendaOf([[event({ start: at(12, 25) })]], NOW).meetings[0] ?? null
+  it('states count and oldest wait in the sentence and where the items sit as the one fact', () => {
     expect(
       summaryParts({
         ...base,
-        decisions: [decision(2 * 60 * MIN), decision(30 * MIN)],
-        meetings: { next, current: null, total: 1, emptyLabel: 'No meetings today' },
-        recovery: 72.4,
+        decisions: [decision(2 * 60 * MIN), decision(30 * MIN), agentDecision()],
       }),
     ).toEqual({
-      sentence: '2 items need you, oldest 2h 0m.',
-      facts: ['2 of 5 agents working', 'Next meeting in 25m', 'recovery today 72/100'],
+      sentence: '3 items need you, oldest 2h 0m.',
+      facts: ['2 in Warden', '1 with agents'],
     })
   })
 
-  it('reads an empty inbox with the fleet and the day', () => {
-    expect(
-      summaryParts({
-        ...base,
-        decisions: [],
-        meetings: { next: null, current: null, total: 0, emptyLabel: 'No meetings today' },
-      }),
-    ).toEqual({
-      sentence: 'Nothing needs you; 2 of 5 agents working.',
-      facts: ['No meetings today'],
+  it('never repeats the fleet, the next meeting or recovery from the strip', () => {
+    const { facts } = summaryParts({ ...base, decisions: [decision(MIN)] })
+    expect(facts.join(' ')).not.toMatch(/agents working|meeting|recovery/i)
+  })
+
+  it('reads an empty inbox without a fact', () => {
+    expect(summaryParts({ ...base, decisions: [] })).toEqual({
+      sentence: 'Nothing needs you.',
+      facts: [],
     })
   })
 
   it('names an unavailable source instead of implying an empty inbox', () => {
-    expect(
-      summaryParts({ ...base, decisions: [], unavailable: ['Warden'], fleet: null }).sentence,
-    ).toBe('Nothing needs you (Warden unavailable).')
+    expect(summaryParts({ unavailable: ['Warden'], decisions: [] }).sentence).toBe(
+      'Nothing needs you (Warden unavailable).',
+    )
   })
 
-  it('drops the fleet fact when neither source loaded', () => {
-    expect(summaryParts({ ...base, decisions: [], unavailable: ['Warden', 'Agents'] })).toEqual({
+  it('states nothing else when neither source loaded', () => {
+    expect(summaryParts({ unavailable: ['Warden', 'Agents'], decisions: [] })).toEqual({
       sentence: "Can't tell — Warden and Agents unavailable.",
       facts: [],
     })
   })
 
   it('uses singular for one item and omits an unknown age', () => {
-    expect(summaryParts({ ...base, decisions: [decision(null)], fleet: null }).sentence).toBe(
+    expect(summaryParts({ ...base, decisions: [decision(null)] }).sentence).toBe(
       '1 item needs you.',
     )
   })
@@ -331,9 +327,9 @@ describe('shortName', () => {
   it('keeps a name that fits', () => {
     expect(shortName('argo')).toBe('argo')
   })
-  it('cuts after a separator, else at the limit', () => {
+  it('cuts after a separator, never inside a token', () => {
     expect(shortName('alpha-beta-gamma-delta-epsilon')).toBe('alpha-beta-gamma…')
-    expect(shortName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopq…')
+    expect(shortName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopqrstuvwxyz')
   })
 })
 
@@ -484,23 +480,13 @@ describe('ended meetings', () => {
     expect(nextMeeting(morning, NOW)?.key).toBe('later')
   })
 
-  const base = { decisions: [], unavailable: [], fleet: null, recovery: null, now: NOW }
-
   it('says no more meetings only after the last one ended, and names the one in progress before that', () => {
-    const last = morning[0]!
-    expect(
-      summaryParts({
-        ...base,
-        meetings: { next: null, current: null, total: 1, emptyLabel: 'No meetings today' },
-      }),
-    ).toEqual({ sentence: 'Nothing needs you.', facts: ['No more meetings today'] })
-    expect(
-      summaryParts({
-        ...base,
-        meetings: { next: null, current: morning[1]!, total: 3, emptyLabel: 'No meetings today' },
-      }),
-    ).toEqual({ sentence: 'Nothing needs you.', facts: ['In a meeting until 12:30'] })
-    expect(last.endMs).toBeLessThan(NOW)
+    const agenda = { meetings: morning, loaded: ['work' as const], unavailable: [] }
+    const ended = { ...agenda, meetings: [morning[0]!] }
+    expect(meetingCell(ended, null, null, NOW).footer).toBe('no more meetings today')
+    const live = { ...agenda, meetings: [morning[1]!] }
+    expect(meetingCell(live, null, null, NOW).footer).toBe('in a meeting until 12:30')
+    expect(morning[0]!.endMs).toBeLessThan(NOW)
   })
 })
 
@@ -508,19 +494,6 @@ describe('a partial agenda', () => {
   it('names the calendar that answered and the one that did not instead of saying free', () => {
     const agenda = todayAgenda([{ sourceClass: 'work', events: [] }], NOW, ['personal'])
     expect(noMeetingsLabel(agenda)).toBe('No Work meetings today · Personal unavailable')
-    expect(
-      summaryParts({
-        decisions: [],
-        unavailable: [],
-        fleet: null,
-        recovery: null,
-        now: NOW,
-        meetings: { next: null, current: null, total: 0, emptyLabel: noMeetingsLabel(agenda) },
-      }),
-    ).toEqual({
-      sentence: 'Nothing needs you.',
-      facts: ['No Work meetings today · Personal unavailable'],
-    })
   })
 
   it('is plainly free only when every calendar answered', () => {
