@@ -25,7 +25,6 @@ import {
   sleepFact,
   stressFact,
   recoveryGap,
-  recoveryGapLine,
   lastScored,
   loadFooter,
   recoverySentence,
@@ -106,36 +105,34 @@ describe('summaryParts', () => {
 
 describe('recoveryGap', () => {
   const today = new Date(2026, 0, 6)
+  const last = { value: 61.6, date: '2026-01-01' }
+  const settled = { status: 'success', settled: true, last, windowDays: 30, today } as const
 
-  test('names the day a missing score is missing for', () => {
-    expect(recoveryGap('2026-01-06', 'success', today)).toBe('no recovery score for today')
-    expect(recoveryGap('2026-01-01', 'success', today)).toBe('no recovery score for Jan 1')
-    expect(recoveryGap(null, 'success', today)).toBe('no recovery score for the latest day')
+  test('the headline names the day a missing score is missing for', () => {
+    expect(recoveryGap({ date: '2026-01-06', today }).headline).toBe('no recovery score for today')
+    expect(recoveryGap({ date: '2026-01-01', today }).headline).toBe('no recovery score for Jan 1')
+    expect(recoveryGap({ date: null, today }).headline).toBe('no recovery score for the latest day')
   })
 
   test('pending has no copy, error never claims a data gap', () => {
-    expect(recoveryGap('2026-01-05', 'pending')).toBe('recovery loading')
-    expect(recoveryGap('2026-01-05', 'error')).toBe('the recovery score failed to load')
+    expect(recoveryGap({ status: 'pending' })).toEqual({ headline: 'recovery loading', line: null })
+    expect(recoveryGap({ status: 'error' })).toEqual({
+      headline: 'the recovery score failed to load',
+      line: 'The recovery score failed to load',
+    })
   })
-})
 
-describe('recoveryGapLine', () => {
-  const last = { value: 61.6, date: '2026-01-01' }
-  const base = { settled: true, failed: false, last, windowDays: 30 }
-
-  test('not settled has no line', () => {
-    expect(recoveryGapLine({ ...base, settled: false })).toBeNull()
-  })
-  test('a failed read says so, even before it settles', () => {
-    expect(recoveryGapLine({ ...base, settled: false, failed: true })).toBe(
-      'Recovery score failed to load',
-    )
+  test('the cell line waits for the reads to settle', () => {
+    expect(recoveryGap({ ...settled, settled: false }).line).toBeNull()
   })
   test('the last scored day carries its value and day, unit unspaced', () => {
-    expect(recoveryGapLine(base)).toBe('Last scored 62/100 on Jan\u00a01')
+    expect(recoveryGap(settled).line).toBe('Last scored 62/100 on Jan\u00a01')
   })
-  test('no scored day states the window', () => {
-    expect(recoveryGapLine({ ...base, last: null })).toBe('No score in this 30\u00a0d window')
+  test('no scored day states the window, or none when its length is unknown', () => {
+    expect(recoveryGap({ ...settled, last: null }).line).toBe('No score in this 30\u00a0d window')
+    expect(recoveryGap({ ...settled, last: null, windowDays: 0 }).line).toBe(
+      'No score in this window',
+    )
   })
 })
 
