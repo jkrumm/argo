@@ -109,18 +109,13 @@ const parseMs = (iso: string | null | undefined): number | null => {
   return Number.isFinite(ms) ? ms : null
 }
 
-const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
+const HOUR_MS = 3_600_000
 
-/** One count's trend over the history window. A point without a summary or a finite count is omitted, not plotted as 0. */
-export function trendSeries(
-  history: HistoryPoint[] | undefined,
-  key: 'needsYou' | 'working',
-): number[] {
-  return (history ?? []).flatMap((p) => {
-    const n = p.summary?.[key]
-    return isCount(n) ? [n] : []
-  })
-}
+/** `HH:MM` of an epoch-ms time. Built per call: a formatter cached at import would freeze the zone `home`'s tests switch at runtime. */
+export const clockOf = (ms: number): string =>
+  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
+
+const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
 
 // ── Fleet by state ───────────────────────────────────────────────────────────────────────────
 
@@ -159,62 +154,49 @@ export function fleetParts(
   return { parts, total: parts.reduce((sum, p) => sum + p.value, 0) }
 }
 
+/** The one fleet fact the meter does not show: how long the longest-running working agent has been up. */
+export const fleetFact = (longestRunMs: number | null): string =>
+  longestRunMs === null ? 'no agent working' : `longest run ${formatWaitDuration(longestRunMs)}`
+
+// ── Needs-you window ──────────────────────────────────────────────────────────────────────────
+
+export type NeedsYouCoverage = { observed: number; waiting: number }
+
 /**
- * The one fleet fact the meter does not show: how long the longest-running working agent has been
- * up. `null` when nothing is working, so the cell has no footer rather than a filler one.
+ * Hours of the window that carry a snapshot, and how many of them showed an item waiting; `null`
+ * when no hour carries data. Hours without a snapshot are unobserved, not "nothing waiting".
  */
-export const fleetFact = (longestRunMs: number | null): string | null =>
-  longestRunMs === null ? null : `longest run ${formatWaitDuration(longestRunMs)}`
-
-// ── Needs-you trend ──────────────────────────────────────────────────────────────────────────
-
-export type Peak = { value: number; atMs: number }
-
-/** The highest `needsYou` in the window and, among ties, the latest time it was seen. `null` when no point carries a summary. */
-export function peakNeedsYou(history: HistoryPoint[] | undefined): Peak | null {
-  let peak: Peak | null = null
-  for (const p of history ?? []) {
-    const value = p.summary?.needsYou
-    const atMs = parseMs(p.receivedAt)
-    if (!isCount(value) || atMs === null) continue
-    if (peak === null || value > peak.value || (value === peak.value && atMs > peak.atMs))
-      peak = { value, atMs }
-  }
-  return peak
-}
-
-/** Hours of the window in which at least one snapshot showed an item waiting; `null` when no hour carries data. */
 export function hoursWithNeedsYou(
   history: HistoryPoint[] | undefined,
   hours: number,
   now: number,
-): number | null {
-  const endHour = Math.floor(now / 3_600_000) * 3_600_000
-  const startHour = endHour - (hours - 1) * 3_600_000
+): NeedsYouCoverage | null {
+  const endHour = Math.floor(now / HOUR_MS) * HOUR_MS
+  const startHour = endHour - (hours - 1) * HOUR_MS
   const seen = new Set<number>()
   const waiting = new Set<number>()
   for (const p of history ?? []) {
     const n = p.summary?.needsYou
     const atMs = parseMs(p.receivedAt)
     if (!isCount(n) || atMs === null) continue
-    const hour = Math.floor(atMs / 3_600_000) * 3_600_000
+    const hour = Math.floor(atMs / HOUR_MS) * HOUR_MS
     if (hour < startHour || hour > endHour) continue
     seen.add(hour)
     if (n > 0) waiting.add(hour)
   }
-  return seen.size === 0 ? null : waiting.size
+  return seen.size === 0 ? null : { observed: seen.size, waiting: waiting.size }
 }
 
-/** The needs-you cell's footer: how many of the window's hours had something waiting. */
-export function needsYouWindowFact(waitingHours: number | null, hours: number): string {
-  if (waitingHours === null) return `no data in ${hours} h`
-  if (waitingHours === 0) return `none waiting in ${hours} h`
-  return `waiting in ${waitingHours} of ${hours} h`
+/** The needs-you cell's footer; a window claim is made only for hours that were observed. */
+export function needsYouWindowFact(coverage: NeedsYouCoverage | null, hours: number): string {
+  if (coverage === null) return `no data in ${hours} h`
+  if (coverage.observed < hours)
+    return `waiting in ${coverage.waiting} of ${coverage.observed} h observed`
+  if (coverage.waiting === 0) return `none waiting in ${hours} h`
+  return `waiting in ${coverage.waiting} of ${hours} h`
 }
 
 export type HourBucket = { hourMs: number; working: number | null }
-
-const HOUR_MS = 3_600_000
 
 /**
  * One bucket per hour, oldest first, ending with the hour that contains `now`. `working` is the
@@ -262,17 +244,21 @@ export const gapHours = (buckets: readonly HourBucket[], now: number): number =>
   return buckets.filter((b) => b.working === null && b.hourMs !== currentHourMs).length
 }
 
-/** Activity-strip footer: the busiest hour and how many hours had an agent working; `null` when nothing was measured. */
-export function activityFact(buckets: readonly HourBucket[]): string | null {
-  const peak = peakWorking(buckets)
+/**
+ * Activity-strip footer: the busiest hour and how many measured hours had an agent working. Hours
+ * without a snapshot are left out of the denominator and named when present.
+ */
+export function activityFact(
+  buckets: readonly HourBucket[],
+  peak: { value: number; hourMs: number } | null,
+): string | null {
   if (peak === null) return null
-  const active = buckets.filter((b) => (b.working ?? 0) > 0).length
-  const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
-    peak.hourMs,
-  )
-  return peak.value === 0
-    ? `no agent working in ${buckets.length} h`
-    : `busiest hour ${clock} · agents working in ${active} of ${buckets.length} h`
+  const measured = buckets.filter((b) => b.working !== null)
+  const scope =
+    measured.length < buckets.length ? `${measured.length} h measured` : `${buckets.length} h`
+  if (peak.value === 0) return `no agent working in ${scope}`
+  const active = measured.filter((b) => (b.working ?? 0) > 0).length
+  return `busiest hour ${clockOf(peak.hourMs)} · agents working in ${active} of ${scope}`
 }
 
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
@@ -483,8 +469,7 @@ export function groupByDay<T extends { revisedAt: string }>(
 /** `HH:MM` of an ISO timestamp, `—` when unreadable. */
 export function clockTime(iso: string): string {
   const ms = parseMs(iso)
-  if (ms === null) return '—'
-  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
+  return ms === null ? '—' : clockOf(ms)
 }
 
 /** `"6m ago"`, or `"just now"` under a minute; `"—"` for a bad duration. */
@@ -520,15 +505,23 @@ const isText = (v: string | null): v is string => v !== null && v !== ''
 const QUESTION_MAX = 80
 const EVIDENCE_MAX = 160
 const PREVIEW_MAX = 220
+/** An ellipsis cut falls back to a hard cut unless a word boundary sits past this share of the limit. */
+const WORD_CUT_FLOOR = 0.5
+/** A clause boundary earlier than this share of the limit would leave too little of the question. */
+const CLAUSE_FLOOR = 0.4
 
 const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim()
+
+/** An ask as read: structural markdown (heading and quote marks, bold, code ticks) removed, whitespace flattened. */
+const normalizeAsk = (text: string): string =>
+  flatten(text.replace(/^\s*[#>]+\s+/gm, '').replace(/\*\*|`/g, ''))
 
 /** Cuts at the last word boundary that fits, with an ellipsis. */
 function ellipsize(text: string, max: number): string {
   if (text.length <= max) return text
   const cut = text.slice(0, max - 1)
   const space = cut.lastIndexOf(' ')
-  return `${(space > max * 0.5 ? cut.slice(0, space) : cut).trimEnd()}…`
+  return `${(space > max * WORD_CUT_FLOOR ? cut.slice(0, space) : cut).trimEnd()}…`
 }
 
 /**
@@ -537,14 +530,14 @@ function ellipsize(text: string, max: number): string {
  * text stays behind the card's disclosure.
  */
 export function questionOf(text: string): string {
-  const flat = flatten(text.replace(/[`*_#>]/g, ''))
+  const flat = normalizeAsk(text)
   const stop = flat.search(/[.!?](\s|$)/)
   const sentence = stop === -1 ? flat : flat.slice(0, stop + 1)
   if (sentence.length <= QUESTION_MAX) return sentence
   let clauseEnd = -1
   for (const match of sentence.matchAll(CLAUSE_END)) {
     if (match.index > QUESTION_MAX) break
-    if (match.index >= QUESTION_MAX * 0.4) clauseEnd = match.index
+    if (match.index >= QUESTION_MAX * CLAUSE_FLOOR) clauseEnd = match.index
   }
   if (clauseEnd !== -1) return sentence.slice(0, clauseEnd).replace(/[\s,;:—-]+$/, '')
   return ellipsize(sentence, QUESTION_MAX)
@@ -558,9 +551,11 @@ const nonEmptyLines = (text: string): string[] =>
 
 /** The blocker the agent reports, one line; `null` when it reports none. */
 export function evidenceLine(a: AgentRow): string | null {
-  const text = a.blocker ?? a.waitingFor ?? a.standing
-  const line = text ? nonEmptyLines(text)[0] : undefined
-  return line ? ellipsize(line, EVIDENCE_MAX) : null
+  for (const text of [a.blocker, a.waitingFor, a.standing]) {
+    const line = text ? nonEmptyLines(text)[0] : undefined
+    if (line) return ellipsize(line, EVIDENCE_MAX)
+  }
+  return null
 }
 
 /** The agent's last reply as context: its final paragraph, kept only when it adds to the evidence line. */
@@ -614,7 +609,7 @@ export function needsYouCards(
       preview: null,
       copy: item.cmd?.trim() ? { label: 'Copy command', value: item.cmd.trim() } : null,
       fullAsk:
-        headline === flatten(item.question)
+        headline === normalizeAsk(item.question)
           ? null
           : { label: `Full ask · ${item.question.length} chars`, text: item.question },
       abandoned: false,
@@ -646,7 +641,7 @@ export function needsYouCards(
         preview: previewOf(a, blocker),
         copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
         fullAsk:
-          headline === flatten(title)
+          headline === normalizeAsk(title)
             ? null
             : { label: `Full ask · ${title.length} chars`, text: title },
         abandoned: isAbandonedWait(a, now),

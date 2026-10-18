@@ -5,9 +5,7 @@ import {
   formatWaitDuration,
   isAbandonedWait,
   oldestNeedsYouWait,
-  trendSeries,
   fleetParts,
-  peakNeedsYou,
   hourlyWorking,
   peakWorking,
   countUnknownAgents,
@@ -132,23 +130,6 @@ describe('isAbandonedWait', () => {
   })
 })
 
-// ── trendSeries ─────────────────────────────────────────────────────────────
-
-describe('trendSeries', () => {
-  it('omits points without a summary instead of plotting them as 0', () => {
-    const history = [
-      { summary: { needsYou: 2, working: 1 } },
-      { summary: null },
-      { summary: { needsYou: 3, working: 0 } },
-    ] as unknown as HistoryPoint[]
-    expect(trendSeries(history, 'needsYou')).toEqual([2, 3])
-  })
-
-  it('is empty without history', () => {
-    expect(trendSeries(undefined, 'working')).toEqual([])
-  })
-})
-
 // ── fleetParts ──────────────────────────────────────────────────────────────
 
 describe('fleetParts', () => {
@@ -183,33 +164,6 @@ describe('fleetParts', () => {
 
 const point = (receivedAt: string, needsYou: number, working = 0) =>
   ({ receivedAt, summary: { needsYou, working } }) as unknown as HistoryPoint
-
-describe('peakNeedsYou', () => {
-  it('takes the highest value and the latest time among ties', () => {
-    const peak = peakNeedsYou([
-      point('2026-01-01T01:00:00Z', 3),
-      point('2026-01-01T02:00:00Z', 1),
-      point('2026-01-01T03:00:00Z', 3),
-    ])
-    expect(peak).toEqual({ value: 3, atMs: Date.parse('2026-01-01T03:00:00Z') })
-  })
-
-  it('keeps the latest of two equal peaks even when the history is out of order', () => {
-    const peak = peakNeedsYou([
-      point('2026-01-01T03:00:00Z', 3),
-      point('2026-01-01T01:00:00Z', 3),
-      point('2026-01-01T02:00:00Z', 1),
-    ])
-    expect(peak).toEqual({ value: 3, atMs: Date.parse('2026-01-01T03:00:00Z') })
-  })
-
-  it('is null without any summary', () => {
-    expect(
-      peakNeedsYou([{ receivedAt: '2026-01-01T01:00:00Z', summary: null } as HistoryPoint]),
-    ).toBeNull()
-    expect(peakNeedsYou(undefined)).toBeNull()
-  })
-})
 
 // ── hourlyWorking ───────────────────────────────────────────────────────────
 
@@ -381,9 +335,9 @@ describe('summaryParts', () => {
 })
 
 describe('fleetFact', () => {
-  it('names the longest run, nothing when no agent works', () => {
+  it('names the longest run, or that nothing works', () => {
     expect(fleetFact(3 * 3_600_000 + 5 * 60_000)).toBe('longest run 3h 5m')
-    expect(fleetFact(null)).toBeNull()
+    expect(fleetFact(null)).toBe('no agent working')
   })
 })
 
@@ -399,27 +353,48 @@ describe('needs-you window facts', () => {
       at('2026-01-10T10:10:00Z', 0),
       at('2025-12-01T10:10:00Z', 3),
     ]
-    expect(hoursWithNeedsYou(history, 24, now)).toBe(1)
+    expect(hoursWithNeedsYou(history, 24, now)).toEqual({ observed: 2, waiting: 1 })
     expect(hoursWithNeedsYou([], 24, now)).toBeNull()
   })
 
   it('words the three cases with a unit', () => {
     expect(needsYouWindowFact(null, 24)).toBe('no data in 24 h')
-    expect(needsYouWindowFact(0, 24)).toBe('none waiting in 24 h')
-    expect(needsYouWindowFact(5, 24)).toBe('waiting in 5 of 24 h')
+    expect(needsYouWindowFact({ observed: 24, waiting: 0 }, 24)).toBe('none waiting in 24 h')
+    expect(needsYouWindowFact({ observed: 24, waiting: 5 }, 24)).toBe('waiting in 5 of 24 h')
+  })
+
+  it('claims only the observed hours when the window is not fully covered', () => {
+    const one = hoursWithNeedsYou([at('2026-01-10T11:10:00Z', 0)], 24, now)
+    expect(one).toEqual({ observed: 1, waiting: 0 })
+    expect(needsYouWindowFact(one, 24)).toBe('waiting in 0 of 1 h observed')
   })
 })
 
 describe('activityFact', () => {
-  it('names the busiest hour and the active hours', () => {
-    const hour = (h: number, working: number | null) => ({
-      hourMs: Date.UTC(2026, 0, 10, h),
-      working,
-    })
-    const fact = activityFact([hour(1, 0), hour(2, 3), hour(3, 1), hour(4, null)])
-    expect(fact).toMatch(/^busiest hour \d\d:\d\d · agents working in 2 of 4 h$/)
-    expect(activityFact([hour(1, null)])).toBeNull()
-    expect(activityFact([hour(1, 0), hour(2, 0)])).toBe('no agent working in 2 h')
+  const hour = (h: number, working: number | null) => ({
+    hourMs: Date.UTC(2026, 0, 10, h),
+    working,
+  })
+
+  it('names the busiest hour and the measured hours with an agent working', () => {
+    const buckets = [hour(1, 0), hour(2, 3), hour(3, 1), hour(4, 0)]
+    expect(activityFact(buckets, peakWorking(buckets))).toMatch(
+      /^busiest hour \d\d:\d\d · agents working in 2 of 4 h$/,
+    )
+  })
+
+  it('leaves unmeasured hours out of the denominator and says so', () => {
+    const buckets = [hour(1, null), hour(2, 3), hour(3, 0), hour(4, null)]
+    expect(activityFact(buckets, peakWorking(buckets))).toMatch(
+      /agents working in 1 of 2 h measured$/,
+    )
+    const quiet = [hour(1, null), hour(2, 0)]
+    expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1 h measured')
+  })
+
+  it('is null when nothing was measured', () => {
+    const buckets = [hour(1, null)]
+    expect(activityFact(buckets, peakWorking(buckets))).toBeNull()
   })
 })
 
@@ -428,6 +403,11 @@ describe('questionOf', () => {
     expect(questionOf('Which `branch` do we ship? More detail follows.')).toBe(
       'Which branch do we ship?',
     )
+  })
+
+  it('keeps snake_case and issue numbers, strips only structural markdown', () => {
+    expect(questionOf('Merge #1234 into main_branch? Now.')).toBe('Merge #1234 into main_branch?')
+    expect(questionOf('## **Ship** `C#` build?')).toBe('Ship C# build?')
   })
 
   it('ends a long sentence at a clause, else at a word with an ellipsis', () => {
@@ -447,6 +427,9 @@ describe('evidence and preview', () => {
     expect(evidenceLine(agent({ blocker: '\n  dialog open\nmore' }))).toBe('dialog open')
     expect(evidenceLine(agent({ waitingFor: 'a permission prompt' }))).toBe('a permission prompt')
     expect(evidenceLine(agent())).toBeNull()
+    expect(evidenceLine(agent({ blocker: '  \n ', waitingFor: 'a permission prompt' }))).toBe(
+      'a permission prompt',
+    )
   })
 
   it('previews the last reply paragraph only when it adds something', () => {
@@ -596,6 +579,12 @@ describe('needsYouCards', () => {
     })
   })
 
+  it('offers no full ask for a short ask whose only difference is inline code', () => {
+    const [card] = needsYouCards([{ id: 'c', question: 'Run `make go` now?' }], [], now)
+    expect(card?.headline).toBe('Run make go now?')
+    expect(card?.fullAsk).toBeNull()
+  })
+
   it('offers the full ask only when the headline cut something', () => {
     const [short] = needsYouCards([{ id: 's', question: 'Short ask.' }], [], now)
     expect(short?.fullAsk).toBeNull()
@@ -651,14 +640,12 @@ describe('unreadable data never throws or becomes zero', () => {
   const bad = (receivedAt: string, summary: unknown) =>
     ({ receivedAt, summary }) as unknown as HistoryPoint
 
-  it('omits non-finite counts and unparseable times from trend, peak and hourly buckets', () => {
+  it('omits non-finite counts and unparseable times from hourly buckets', () => {
     const history = [
       bad('2026-01-01T12:10:00Z', { needsYou: 'x', working: undefined }),
       bad('not a date', { needsYou: 5, working: 5 }),
       bad('2026-01-01T12:20:00Z', { needsYou: 2, working: 3 }),
     ]
-    expect(trendSeries(history, 'needsYou')).toEqual([5, 2])
-    expect(peakNeedsYou(history)).toEqual({ value: 2, atMs: Date.parse('2026-01-01T12:20:00Z') })
     const buckets = hourlyWorking(history, 2, Date.parse('2026-01-01T12:30:00Z'))
     expect(buckets.map((b) => b.working)).toEqual([null, 3])
   })

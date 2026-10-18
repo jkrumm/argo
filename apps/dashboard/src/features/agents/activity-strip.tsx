@@ -5,7 +5,14 @@ import { BandStrip } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { BandSpan } from 'basalt-ui/charts'
 import type { HistoryPoint } from '../../lib/queries/agents'
-import { activityFact, gapHours, hourlyWorking, peakWorking, type HourBucket } from './model'
+import {
+  activityFact,
+  clockOf,
+  gapHours,
+  hourlyWorking,
+  peakWorking,
+  type HourBucket,
+} from './model'
 
 type Props = {
   history: HistoryPoint[] | undefined
@@ -14,9 +21,6 @@ type Props = {
 }
 
 const SIX_HOURS = 6
-
-const clock = (ms: number) =>
-  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
 
 const STATES = [
   {
@@ -40,14 +44,14 @@ const STATES = [
  * count, a distinct flat cell where no snapshot landed (a feed stall shows as a hole, not a zero).
  */
 export function ActivityStrip({ history, hours, now }: Props) {
-  const { buckets, peakHour } = useMemo(() => {
+  const { buckets, peakHour, fact } = useMemo(() => {
     const hourly = hourlyWorking(history, hours, now)
-    return { buckets: hourly, peakHour: peakWorking(hourly) }
+    const peakOfHours = peakWorking(hourly)
+    return { buckets: hourly, peakHour: peakOfHours, fact: activityFact(hourly, peakOfHours) }
   }, [history, hours, now])
   const currentHourMs = buckets.at(-1)?.hourMs
   const gaps = gapHours(buckets, now)
   const peak = peakHour?.value ?? 0
-  const fact = activityFact(buckets)
 
   const getBand = useMemo(
     () =>
@@ -74,7 +78,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
           data={buckets}
           x={(d) => d.hourMs}
           xTicks={ticks}
-          formatX={clock}
+          formatX={clockOf}
           states={STATES}
           getBand={getBand}
           legend={false}

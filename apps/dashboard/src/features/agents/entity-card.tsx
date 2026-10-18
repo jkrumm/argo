@@ -19,7 +19,7 @@ export type EntityCardProps = {
   /** Right of the identity: a state chip. */
   status: ReactNode
   /** The inner panel, row-major, two columns; a trailing odd cell spans both. */
-  cells: readonly EntityCardCell[]
+  cells: readonly [EntityCardCell, ...EntityCardCell[]]
   /** The closing line: `Now <title>`. */
   now?: ReactNode
 }

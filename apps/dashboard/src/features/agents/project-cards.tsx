@@ -57,9 +57,8 @@ function sourceCell(
   return { value: `${first![0]} ${first![1]}`, small: true, ...(unit && { unit }) }
 }
 
-function gitCell(
-  git: NonNullable<ProjectGroup['git']>,
-): Pick<EntityCardCell, 'value' | 'small' | 'unit'> {
+function gitCell(git: ProjectGroup['git']): Pick<EntityCardCell, 'value' | 'small' | 'unit'> {
+  if (!git) return { value: '—' }
   const tree = git.dirty ? 'dirty' : 'clean'
   if (git.ahead === 0 && git.behind === 0) return { value: 'in sync', small: true, unit: tree }
   return { value: `↑${git.ahead} ↓${git.behind}`, unit: tree }
@@ -98,7 +97,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           ...sourceCell(group.sources),
           visual: <SourceBar sources={group.sources} />,
         },
-        ...(group.git ? [{ caption: 'Git · ahead / behind', ...gitCell(group.git) }] : []),
+        { caption: 'Git · ahead / behind', ...gitCell(group.git) },
       ]}
       now={
         <>

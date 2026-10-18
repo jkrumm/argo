@@ -109,7 +109,7 @@ function fleetCell(fleet: Props['fleet'], longestRunMs: number | null): StatStri
     caption: `Fleet · ${total} agents`,
     value: String(parts[0]?.value ?? 0),
     unit: `working of ${total}`,
-    ...(fleetFact(longestRunMs) !== null && { footer: fleetFact(longestRunMs) }),
+    footer: fleetFact(longestRunMs),
     visual: (
       <Meter
         label="Agents by state"
