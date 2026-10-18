@@ -414,7 +414,6 @@ export function offscreenNightsText(count: number): { visible: string; spoken: s
   return { visible: `${phrase} →`, spoken: `${phrase} off-screen` }
 }
 
-/** Every plain space → no-break space: one phrase that never wraps inside itself. */
 /** Footer phrases joined by `·`, each dot bound to the phrase before it so a wrapped line never opens on one. */
 const joinPhrases = (phrases: readonly string[]): string => phrases.join(`${NBSP}· `)
 
