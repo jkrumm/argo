@@ -4,7 +4,7 @@
 import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
-export const MS_PER_DAY = 86_400_000
+const MS_PER_DAY = 86_400_000
 /** Day buckets drawn by the "Days" view; a longer window shows its latest 90 days. */
 export const DAY_VIEW_MAX = 90
 /** The session list is not windowed server-side: the histogram facts read this many newest rows. */
@@ -110,7 +110,7 @@ export function windowTitle(preset: string | undefined): string {
 }
 
 /** "30 d" for a title qualifier, `null` for a window that has no named length. */
-export function windowShort(preset: string | undefined): string | null {
+function windowShort(preset: string | undefined): string | null {
   return preset === undefined ? null : (WINDOW_SHORT[preset] ?? null)
 }
 
@@ -406,15 +406,22 @@ export type SummaryInput = {
   period: string
 }
 
-/** Headline: the week's distance and walks. Facts: streak and pace, the pace against its prior window. */
+function paceFact(s: SummaryInput): string {
+  if (s.paceKmh === null) return 'pace —'
+  const pace = `pace ${withKmh(s.paceKmh)}`
+  return s.paceDeltaKmh === null
+    ? `${pace} over ${s.period}`
+    : `${pace}, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`
+}
+
+/**
+ * Headline: the week's distance and walks. Facts: the streak, and the pace against its prior
+ * window.
+ */
 export function summaryParts(s: SummaryInput): { sentence: string; facts: string[] } {
   const sentence =
     s.weekDistanceM === null || s.weekSessions === null
       ? 'This week —'
       : `${withKm(s.weekDistanceM)} this week in ${s.weekSessions} ${plural(s.weekSessions, 'walk')}`
-  const pace =
-    s.paceKmh === null
-      ? 'pace —'
-      : `pace ${withKmh(s.paceKmh)}${s.paceDeltaKmh === null ? ` over ${s.period}` : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
-  return { sentence, facts: [`streak ${s.streakDays} d`, pace] }
+  return { sentence, facts: [`streak ${s.streakDays} d`, paceFact(s)] }
 }

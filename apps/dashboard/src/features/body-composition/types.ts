@@ -1,8 +1,6 @@
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import type { SkinfoldDirection, WeightPhase, WeightTrend } from './formulas'
 
-export type { WindowPreset } from './constants'
-
 /**
  * Window/range parameters both body-composition endpoints (weight-log, skinfold-log)
  * accept. Matches the API's `WindowQuerySchema`.

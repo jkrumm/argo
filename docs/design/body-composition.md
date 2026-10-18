@@ -141,5 +141,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 24 fixes
 
 - The page opens with `PageSummary` (replacing the bespoke `.summary` paragraph and its CSS): sentence `{weight} kg, {n} kg to the {goal} kg goal` (no goal: weight only), facts `{±r} kg/wk over {n} d` · `last weigh-in {age}`. `summaryParts` (pure, unit-tested) replaces `summarySentence`.
-- Chart info tooltips lose their encoding prose ("One point per logged day", "One line per caliper site") and lead with the unit and meaning instead.
+- Chart info tooltips lose all encoding prose (including the dashed-line notes) and state unit and meaning only.
 - Basalt rows: none.
