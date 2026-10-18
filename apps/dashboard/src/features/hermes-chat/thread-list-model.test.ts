@@ -209,8 +209,8 @@ describe('summaryExcerpt', () => {
 
 describe('titleExcerpt', () => {
   it('cuts a phone title at a word, leaves a wide one whole', () => {
-    const title = 'Quarterly planning notes for the platform migration'
-    expect(titleExcerpt(title, true)).toBe('Quarterly planning notes…')
+    const title = 'Quarterly planning notes for the platform migration and the rollout schedule'
+    expect(titleExcerpt(title, true)).toBe('Quarterly planning notes for the platform migration…')
     expect(titleExcerpt(title, false)).toBe(title)
   })
 })

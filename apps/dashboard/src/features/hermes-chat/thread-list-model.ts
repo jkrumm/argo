@@ -314,8 +314,8 @@ export function clampAtWord(text: string, max: number = SUMMARY_MAX_CHARS): stri
   return `${atWord === '' ? flat.slice(0, max) : atWord}…`
 }
 
-/** A row title on the phone is cut at a word; the CSS ellipsis stays as the backstop on wide rows. */
-const TITLE_MAX_CHARS_COMPACT = 26
+/** A row title on the phone wraps to two lines, so it is cut at a word past two lines' worth; the CSS clamp stays as the backstop. */
+const TITLE_MAX_CHARS_COMPACT = 52
 
 export function titleExcerpt(title: string, compact: boolean): string {
   return compact ? clampAtWord(title, TITLE_MAX_CHARS_COMPACT) : title

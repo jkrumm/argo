@@ -178,3 +178,18 @@
 .row:focus-visible {
   outline-offset: -2px;
 }
+
+/* The phone gives the title the room: two lines, with the summary held to one. */
+.titleWrap {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.summaryOne {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}

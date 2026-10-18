@@ -60,11 +60,20 @@ function Row({
       <Box className={classes['rowGrid']}>
         <TypeChip type={entry.type} />
         <Box className={classes['body']}>
-          <Text className={classes['title']} title={cutTitle === label ? undefined : label}>
+          <Text
+            className={compact ? `${classes['title']} ${classes['titleWrap']}` : classes['title']}
+            title={cutTitle === label ? undefined : label}
+          >
             {cutTitle}
           </Text>
           {entry.summary !== null && (
-            <Text className={classes['summary']}>{summaryExcerpt(entry.summary, compact)}</Text>
+            <Text
+              className={
+                compact ? `${classes['summary']} ${classes['summaryOne']}` : classes['summary']
+              }
+            >
+              {summaryExcerpt(entry.summary, compact)}
+            </Text>
           )}
         </Box>
         <Text component="span" className={classes['time']}>

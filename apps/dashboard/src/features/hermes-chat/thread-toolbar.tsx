@@ -8,7 +8,8 @@ export type TypeFilter = HermesThreadType | 'all' | 'untitled' | 'archived'
 
 /**
  * Counted filter chips (`All {n}`, `Infra {n}`, …; the active one filled) plus a search field.
- * Standalone counted-chip toolbar prototype — docs/design/UPSTREAM.md. Types with no thread are
+ * Rendered only when a thread exists: with none there is nothing to filter or search (the list's
+ * empty note says so). Standalone counted-chip toolbar prototype — docs/design/UPSTREAM.md. Types with no thread are
  * not offered, unless one is the active filter.
  */
 export function ThreadToolbar({
@@ -46,7 +47,12 @@ export function ThreadToolbar({
   ]
 
   return (
-    <Box className={classes['root']} data-shot="thread-toolbar" data-shot-states="empty">
+    <Box
+      className={classes['root']}
+      data-shot="thread-toolbar"
+      data-shot-states="empty"
+      data-shot-absent="empty"
+    >
       <ScrollArea className={classes['chips']} type="never" scrollbars="x">
         <Group gap="xs" wrap="nowrap" p={4}>
           {chips.map((chip) => (

@@ -312,16 +312,18 @@ function HermesChatFeed() {
         <>
           <Stack gap="sm" px="md" pt="lg">
             {headline !== null && <PageSummary sentence={headline.sentence} />}
-            <ThreadToolbar
-              allCount={view.allCount}
-              typeCounts={view.typeCounts}
-              untitledCount={view.untitledCount}
-              archivedCount={view.archivedCount}
-              type={typeFilter}
-              query={query}
-              onType={setTypeFilter}
-              onQuery={setQuery}
-            />
+            {everything.length > 0 && (
+              <ThreadToolbar
+                allCount={view.allCount}
+                typeCounts={view.typeCounts}
+                untitledCount={view.untitledCount}
+                archivedCount={view.archivedCount}
+                type={typeFilter}
+                query={query}
+                onType={setTypeFilter}
+                onQuery={setQuery}
+              />
+            )}
           </Stack>
           <ScrollArea style={{ flex: 1, minHeight: 0 }} px="md" pt="xs">
             {view.groups.length === 0 && view.untitled.length === 0 ? (
