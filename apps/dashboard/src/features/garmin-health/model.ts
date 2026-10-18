@@ -230,15 +230,35 @@ export function recoverySentence(input: {
   return capitalize([input.load, gap.headline].filter(Boolean).join('; '))
 }
 
-/** The newest recovery score in a window: its value and the date it was scored on. */
+/** The newest finite recovery score in a window (points ascending by date) and the date it was scored on. */
 export function lastScored(
   points: readonly { date: string; recovery: number | null }[],
 ): { value: number; date: string } | null {
   for (let i = points.length - 1; i >= 0; i--) {
     const p = points[i]
-    if (p?.recovery != null) return { value: p.recovery, date: p.date }
+    if (p?.recovery != null && Number.isFinite(p.recovery)) {
+      return { value: p.recovery, date: p.date }
+    }
   }
   return null
+}
+
+/**
+ * The load cell's footer. A loading, failed or placeholder read is never a data gap: pending and
+ * placeholder have no footer, a failure says so, and only a settled read without a ratio states the gap.
+ */
+export function loadFooter(input: {
+  acwr: number | null
+  status: QueryStatus
+  placeholder: boolean
+}): string | null {
+  const { acwr, status, placeholder } = input
+  if (status === 'pending') return null
+  if (status === 'error') return 'The load ratio failed to load'
+  if (acwr !== null) {
+    return `Both loads are exponentially weighted. Optimal is ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}; above ${ACWR_CAUTION_TO} is the danger zone.`
+  }
+  return placeholder ? null : 'No day in this window has a load ratio yet'
 }
 
 /** Whole calendar days from a `YYYY-MM-DD` key to `today`. */

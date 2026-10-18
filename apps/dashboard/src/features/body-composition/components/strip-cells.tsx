@@ -104,11 +104,14 @@ export function rateCell({
   rateDays,
   latestDate,
   entries,
+  status,
 }: {
   summary: WeightSummary
   rateDays: number
   /** Weigh-ins in the window. */
   entries: number
+  /** The summary query's state; a loading or failed rate is never a data gap. */
+  status: 'pending' | 'error' | 'success'
   latestDate: string | null
 }): StatStripCell {
   const rate = summary.kgPerWeek
@@ -138,7 +141,7 @@ export function rateCell({
         emptyText="No rate yet"
       />
     ),
-    footer: rateFooter({ rate, entries }),
+    footer: rateFooter({ rate, entries, status }),
   }
 }
 

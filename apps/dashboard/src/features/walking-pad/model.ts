@@ -2,6 +2,7 @@
 // so the summary line, the strip cells and the chart headers cannot disagree.
 
 import { relativeTime } from 'basalt-ui/format'
+import { format, subMonths, subYears } from 'date-fns'
 import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
@@ -468,7 +469,16 @@ export function emptyWindowParts(input: { last: LastWalk; nowMs: number }): {
   return { sentence: `The last walk was ${relativeTime(endedMs, { now: nowMs })}`, facts: [] }
 }
 
-const PRESET_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '6m': 183, '1y': 365 }
+const PRESET_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 }
+
+/** Whether a walk ending at `endedAt` falls inside a window preset that ends now. */
+function windowContains(preset: string, endedAt: string, nowMs: number): boolean {
+  const days = PRESET_DAYS[preset]
+  if (days !== undefined) return Date.parse(endedAt) >= nowMs - days * MS_PER_DAY
+  // 6m / 1y are calendar windows, cut at the same local day `walkingStore` hands the API.
+  const back = preset === '6m' ? subMonths(nowMs, 6) : subYears(nowMs, 1)
+  return format(new Date(endedAt), 'yyyy-MM-dd') >= format(back, 'yyyy-MM-dd')
+}
 
 /**
  * The empty state's description: whether the next wider window reaches the last walk. `undefined`
@@ -488,8 +498,8 @@ export function emptyWindowHint(input: {
   if (last.state === 'failed') {
     return 'The last walk could not be loaded; widen the window to look further back.'
   }
-  const days = PRESET_DAYS[wider]
   const span = windowPhrase(wider)
-  const contained = days === undefined || Date.parse(last.endedAt) >= nowMs - days * MS_PER_DAY
-  return contained ? `The last walk falls inside ${span}.` : `The last walk is older than ${span}.`
+  return windowContains(wider, last.endedAt, nowMs)
+    ? `The last walk falls inside ${span}.`
+    : `The last walk is outside ${span}.`
 }

@@ -26,6 +26,7 @@ import {
   stressFact,
   recoveryGap,
   lastScored,
+  loadFooter,
   recoverySentence,
   summaryParts,
 } from './model'
@@ -387,5 +388,42 @@ describe('lastScored', () => {
   test('an unscored window is null', () => {
     expect(lastScored([{ date: '2026-01-01', recovery: null }])).toBeNull()
     expect(lastScored([])).toBeNull()
+  })
+})
+
+describe('lastScored edge cases', () => {
+  test('skips a non-finite score and reads the newest finite one', () => {
+    expect(
+      lastScored([
+        { date: '2026-01-01', recovery: 50 },
+        { date: '2026-01-02', recovery: Number.NaN },
+      ]),
+    ).toEqual({ value: 50, date: '2026-01-01' })
+  })
+  test('empty, all-null and all-NaN windows have no last score', () => {
+    expect(lastScored([])).toBeNull()
+    expect(lastScored([{ date: '2026-01-01', recovery: null }])).toBeNull()
+    expect(lastScored([{ date: '2026-01-01', recovery: Number.NaN }])).toBeNull()
+  })
+})
+
+describe('loadFooter', () => {
+  const settled = { status: 'success', placeholder: false } as const
+  test('a ratio explains the weighting and the zones once', () => {
+    expect(loadFooter({ acwr: 1, ...settled })).toBe(
+      'Both loads are exponentially weighted. Optimal is 0.8–1.3; above 1.5 is the danger zone.',
+    )
+  })
+  test('only a settled read without a ratio states the gap', () => {
+    expect(loadFooter({ acwr: null, ...settled })).toBe(
+      'No day in this window has a load ratio yet',
+    )
+    expect(loadFooter({ acwr: null, status: 'success', placeholder: true })).toBeNull()
+  })
+  test('loading has no footer and a failure says so', () => {
+    expect(loadFooter({ acwr: null, status: 'pending', placeholder: false })).toBeNull()
+    expect(loadFooter({ acwr: null, status: 'error', placeholder: false })).toBe(
+      'The load ratio failed to load',
+    )
   })
 })
