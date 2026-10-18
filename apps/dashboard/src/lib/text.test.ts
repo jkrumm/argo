@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
   authoredQuestion,
+  firstClause,
   firstSentence,
   flatten,
   restAfterFirstSentence,
@@ -60,5 +61,25 @@ describe('authoredQuestion', () => {
   it('reads anything that is not a string as none, never throwing', () => {
     for (const junk of [42, 0, true, {}, { text: 'x' }, ['Merge?'], null, undefined])
       expect(authoredQuestion(junk)).toBeNull()
+  })
+})
+
+describe('firstClause', () => {
+  it('cuts at a dash, a sentence stop, a semicolon or an opening bracket', () => {
+    expect(firstClause('Fix the build — retry loop')).toBe('Fix the build')
+    expect(firstClause('Disk full on {host}. Cleanup needed')).toBe('Disk full on {host}')
+    expect(firstClause('Rotate keys; then restart')).toBe('Rotate keys')
+    expect(firstClause('Deploy stalled (3 retries)')).toBe('Deploy stalled')
+  })
+  it('keeps a title with no stop whole and leaves dots inside a token alone', () => {
+    expect(firstClause('  Upgrade   a.b.c to 2 ')).toBe('Upgrade a.b.c to 2')
+    expect(firstClause('')).toBe('')
+  })
+})
+
+describe('flatten', () => {
+  it('collapses whitespace but keeps a no-break space between a number and its unit', () => {
+    expect(flatten('  waiting \n 5\u00a0m   ago ')).toBe('waiting 5\u00a0m ago')
+    expect(stripShortcodes(':x: 5\u00a0m  ago')).toBe('5\u00a0m ago')
   })
 })

@@ -1,4 +1,4 @@
-import { flatten, stripShortcodes } from './text'
+import { firstClause, flatten, stripShortcodes } from './text'
 import type { WardenActionVerb } from './queries/warden'
 
 // THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
@@ -79,6 +79,24 @@ function boundedQuestion(question: string): string {
   return `${stem.length > QUESTION_MAX - 1 ? leadOf(stem, QUESTION_MAX - 1) : stem}?`
 }
 
+/** Room a handle needs to be worth printing: the stem, `: `, the handle and the `?` must fit. */
+const HANDLE_MIN = 10
+
+/**
+ * `<stem>: <handle>?` — the plain question with the item's own short handle (the first clause of
+ * `source`, cut at a word), so two items of one kind read differently. Bounded to {@link QUESTION_MAX}
+ * with the `?` kept; the plain question unchanged when `source` is empty or leaves no room.
+ * `handled` says whether the handle made it in.
+ */
+function withHandle(plain: string, source: string): { question: string; handled: boolean } {
+  const stem = flatten(plain).replace(/[?\s]+$/, '')
+  const clause = firstClause(source)
+  const room = QUESTION_MAX - 1 - stem.length - 2
+  if (clause === '' || room < HANDLE_MIN)
+    return { question: boundedQuestion(plain), handled: false }
+  return { question: `${stem}: ${leadOf(clause, room)}?`, handled: true }
+}
+
 export type CardCopySource = 'authored' | 'ask' | 'title' | 'plain'
 
 export type CardCopy = {
@@ -101,7 +119,9 @@ export type CardCopy = {
  *  2. `ask` — the item's own first sentence, when it already is a question that fits;
  *  3. `title` — when the title itself is a question that fits;
  *  4. `plain` — a short question from the item's kind and state (`Merge {repo} PR?`), with the raw
- *     title moved to the entity line, whole. A verb is never glued onto a raw title.
+ *     title moved to the entity line, whole. A verb is never glued onto a raw title. When `handle`
+ *     is set the question carries the item's own short handle (`Merge {repo} PR: {handle}?`) and the
+ *     entity line is dropped: the title is said by the question, or whole in the detail.
  * Whatever did not become the question (`body`, a statement `ask`, a long authored question) is the
  * evidence line / detail.
  */
@@ -111,6 +131,7 @@ export function cardCopy({
   body = null,
   title,
   plain = NEUTRAL_QUESTION,
+  handle = null,
   keepQuestionEvidence = false,
 }: {
   authored?: string | null | undefined
@@ -118,6 +139,11 @@ export function cardCopy({
   body?: string | null
   title?: string | null | undefined
   plain?: string
+  /**
+   * Text the plain rung takes its handle from (the title, or the ask when there is no title): set
+   * only for an item whose plain question another card on the same surface would repeat.
+   */
+  handle?: string | null
   /** Show the body as the evidence line even when it is only questions (an agent's blocker). */
   keepQuestionEvidence?: boolean
 }): CardCopy {
@@ -128,6 +154,7 @@ export function cardCopy({
 
   let source: CardCopySource
   let question: string
+  let carriesHandle = false
   if (written !== '' && written.length <= QUESTION_MAX) {
     source = 'authored'
     question = written
@@ -139,7 +166,9 @@ export function cardCopy({
     question = item
   } else {
     source = 'plain'
-    question = boundedQuestion(plain)
+    const handled = handle === null ? null : withHandle(plain, handle)
+    question = handled?.handled ? handled.question : boundedQuestion(plain)
+    carriesHandle = handled?.handled === true
   }
 
   const spill = written.length > QUESTION_MAX ? written : ''
@@ -148,9 +177,13 @@ export function cardCopy({
     .map(flatten)
     .filter((part) => part !== '')
     .join(' ')
+  const saidTitle = bareTitle(item).toLowerCase()
   const showsTitle =
-    source === 'title' || bareTitle(question).toLowerCase() === bareTitle(item).toLowerCase()
-  const entityFits = item !== '' && !showsTitle && item.length <= ENTITY_MAX
+    source === 'title' ||
+    bareTitle(question).toLowerCase() === saidTitle ||
+    // A handle that carries the whole title says it; a cut one leaves the whole title to the detail.
+    (carriesHandle && saidTitle !== '' && question.toLowerCase().includes(saidTitle))
+  const entityFits = item !== '' && !showsTitle && !carriesHandle && item.length <= ENTITY_MAX
   const evidenceLine = text === '' ? null : evidenceLeadOf(text, keepQuestionEvidence)
   const whole = [item !== '' && !showsTitle && !entityFits ? item : '', text]
     .filter((part) => part !== '')
@@ -164,6 +197,37 @@ export function cardCopy({
   }
 }
 
+/**
+ * The cards of one surface whose question another card repeats, flagged in input order. Only the
+ * plain rung is a candidate: an authored, ask or title question already belongs to its item.
+ */
+export function collidingCopies(
+  copies: readonly Pick<CardCopy, 'question' | 'source'>[],
+): boolean[] {
+  const count = new Map<string, number>()
+  for (const { question } of copies) {
+    const key = question.toLowerCase()
+    count.set(key, (count.get(key) ?? 0) + 1)
+  }
+  return copies.map(
+    ({ source, question }) => source === 'plain' && count.get(question.toLowerCase())! > 1,
+  )
+}
+
+/**
+ * The copy of every card on ONE surface: the short plain form, unless another card on the same
+ * surface would read the same, in which case that card derives again with its handle. A lone item
+ * keeps the short form.
+ */
+export function resolveCopies<T>(
+  items: readonly T[],
+  derive: (item: T, withHandle: boolean) => CardCopy,
+): CardCopy[] {
+  const short = items.map((item) => derive(item, false))
+  const clash = collidingCopies(short)
+  return items.map((item, i) => (clash[i] ? derive(item, true) : short[i]!))
+}
+
 // ── Warden ───────────────────────────────────────────────────────────────────────────────────
 
 /** The plain question per primary verb: `[verb, noun]`, read as `<verb> <repo> <noun>?`. */
@@ -174,21 +238,39 @@ const WARDEN_PLAIN: Partial<Record<WardenActionVerb, readonly [verb: string, nou
   retry: ['Retry', 'item'],
 }
 
+/** What an alert asks for per primary verb: the verb that matches the action, the noun is the alert. */
+const ALERT_PLAIN: Partial<Record<WardenActionVerb, string>> = {
+  implement: 'Handle',
+  reinvestigate: 'Reinvestigate',
+  retry: 'Retry',
+}
+
+/** An alert, incident or outage is something to handle, never a change to implement. */
+export const ALERT_KIND = /\b(alert|incident|outage)s?\b/i
+
 /**
  * The plain question of a Warden item from the verb its card offers first: `Merge {repo} PR?`.
  * `Retry failed {repo} run?` only for a failed item whose primary is retry; any other verb (or none)
- * is neutral, so a question never promises an action the card does not carry.
+ * is neutral, so a question never promises an action the card does not carry. An `alert` is asked
+ * about as an alert (`Handle {repo} alert?`, `Acknowledge {repo} alert?` when the card carries no
+ * handling verb), never as a change.
  */
 export function wardenPlainQuestion({
   failed,
   repo,
   primary,
+  alert = false,
 }: {
   failed: boolean
   repo: string | null
   primary: WardenActionVerb | null
+  alert?: boolean
 }): string {
   const where = stripShortcodes(repo ?? '')
+  if (alert && primary !== 'merge') {
+    const verb = primary === null ? undefined : ALERT_PLAIN[primary]
+    return plainQuestion(verb ?? 'Acknowledge', where === '' ? 'this alert' : `${where} alert`)
+  }
   const entry = primary === null ? undefined : WARDEN_PLAIN[primary]
   if (entry === undefined)
     return plainQuestion('Decide on', where === '' ? 'this item' : `${where} item`)

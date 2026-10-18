@@ -7,7 +7,13 @@ import type {
   WardenMetrics,
 } from '../../lib/queries/warden'
 import { authoredQuestion, stripShortcodes } from '../../lib/text'
-import { cardCopy, wardenPlainQuestion, type CardCopy } from '../../lib/question-copy'
+import {
+  ALERT_KIND,
+  cardCopy,
+  collidingCopies,
+  wardenPlainQuestion,
+  type CardCopy,
+} from '../../lib/question-copy'
 import type { DecisionCardFact } from '../../components/upstream/decision-card-model'
 import {
   formatAgeDays,
@@ -446,6 +452,8 @@ export type AskSource = {
   eventId: number
   repo: string | null
   title: string | null
+  /** The wire `origin` (`alert`, `github_issue`, …); an alert is asked about as an alert. */
+  origin?: string | null
   reason: string | null
   /** The raw producer `question`; read through `authoredQuestion`, so any junk reads as none. */
   question: unknown
@@ -477,12 +485,14 @@ function namesRepo(question: string, repo: string): boolean {
  * with the shortcode-stripped title (`Item #<id>` when nothing is left) as the entity, whole.
  * A failed item's reason is all evidence.
  */
-export function wardenAsk(source: AskSource, kind: QueueKind): WardenAsk {
+export function wardenAsk(source: AskSource, kind: QueueKind, withHandle = false): WardenAsk {
   const failed = kind === 'failed'
   const plan = planActions(source.availableActions, kind)
-  const title = stripShortcodes(source.title ?? '') || `Item #${source.eventId}`
+  const named = stripShortcodes(source.title ?? '')
+  const title = named || `Item #${source.eventId}`
+  const alert = source.origin === 'alert' || ALERT_KIND.test(named)
   const reason = source.reason === null ? null : stripShortcodes(source.reason)
-  const plain = wardenPlainQuestion({ failed, repo: source.repo, primary: plan.primary })
+  const plain = wardenPlainQuestion({ failed, repo: source.repo, primary: plan.primary, alert })
   const authored = authoredQuestion(source.question)
   const split = failed ? null : splitReason(reason)
   const copy = cardCopy({
@@ -491,9 +501,24 @@ export function wardenAsk(source: AskSource, kind: QueueKind): WardenAsk {
     body: split === null ? reason : split.rest,
     title,
     plain,
+    handle: withHandle && named !== '' ? named : null,
   })
   const repo = stripShortcodes(source.repo ?? '')
   return { plan, repo, tag: split?.tag ?? null, copy, repoNamed: namesRepo(copy.question, repo) }
+}
+
+/**
+ * The asks of every card on ONE surface, in input order: the short plain question, unless another
+ * card of the surface would read the same — that card then carries its own handle.
+ */
+export function wardenAsks(
+  entries: readonly { source: AskSource; kind: QueueKind }[],
+): WardenAsk[] {
+  const short = entries.map(({ source, kind }) => wardenAsk(source, kind))
+  const clash = collidingCopies(short.map((ask) => ask.copy))
+  return entries.map(({ source, kind }, i) =>
+    clash[i] ? wardenAsk(source, kind, true) : short[i]!,
+  )
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */

@@ -6,8 +6,15 @@ import type {
   OverviewSummary,
   HistoryPoint,
 } from '../../lib/queries/agents'
-import { cardCopy, plainQuestion, type CardCopy } from '../../lib/question-copy'
+import {
+  ALERT_KIND,
+  cardCopy,
+  plainQuestion,
+  resolveCopies,
+  type CardCopy,
+} from '../../lib/question-copy'
 import { authoredQuestion, firstSentence, flatten, restAfterFirstSentence } from '../../lib/text'
+import { withUnit } from '../../lib/format'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
 // enums are agent-gateway's (server/lib/agents.ts); Argo only maps them to a label,
@@ -74,9 +81,9 @@ export function formatWaitDuration(ms: number): string {
   const days = Math.floor(totalMinutes / 1440)
   const hours = Math.floor((totalMinutes % 1440) / 60)
   const minutes = totalMinutes % 60
-  if (days > 0) return `${days}d ${hours}h`
-  if (hours > 0) return `${hours}h ${minutes}m`
-  return `${minutes}m`
+  if (days > 0) return `${withUnit(days, 'd')} ${withUnit(hours, 'h')}`
+  if (hours > 0) return `${withUnit(hours, 'h')} ${withUnit(minutes, 'm')}`
+  return withUnit(minutes, 'm')
 }
 
 export type OldestWait = { ms: number; project: string }
@@ -587,26 +594,39 @@ const hostOf = (item: QueueItem): string | null =>
  * `authoredQuestion` (shortcodes stripped, blank or non-string reads as absent), its first sentence
  * is the question when it is one, the rest is evidence.
  */
-export function humanQueueCopy(item: QueueItem): { copy: CardCopy; askText: string } {
+export function humanQueueCopy(
+  item: QueueItem,
+  withHandle = false,
+): { copy: CardCopy; askText: string } {
   const askText = authoredQuestion(item.question) ?? ''
   const title = typeof item['title'] === 'string' ? item['title'] : null
   const host = hostOf(item)
+  // An alert is asked about as an alert, never as a request to answer.
+  const alert = [title, item['kind'], item['type']].some(
+    (v) => typeof v === 'string' && ALERT_KIND.test(v),
+  )
+  const plain = alert
+    ? plainQuestion('Handle', host ? `${host} alert` : 'this alert')
+    : plainQuestion('Answer', host ? `${host} request` : 'this request')
   const copy = cardCopy({
     ask: firstSentence(askText),
     body: restAfterFirstSentence(askText),
     title,
-    plain: plainQuestion('Answer', host ? `${host} request` : 'this request'),
+    plain,
+    handle: withHandle ? flatten(title ?? '') || askText : null,
   })
   return { copy, askText }
 }
 
 /** The card copy of one `needs_you` agent, shared by this page and Home; `body` is its evidence. */
-export function agentCopy(a: AgentRow, body: string | null): CardCopy {
+export function agentCopy(a: AgentRow, body: string | null, withHandle = false): CardCopy {
+  const title = a.title ?? a.lastPrompt ?? a.id
   return cardCopy({
     authored: authoredQuestion(a['question']),
     body,
-    title: a.title ?? a.lastPrompt ?? a.id,
+    title,
     plain: plainQuestion('Unblock', a.project === '—' ? 'this agent' : `${a.project} agent`),
+    handle: withHandle ? title : null,
     keepQuestionEvidence: true,
   })
 }
@@ -619,7 +639,20 @@ export function needsYouCards(
   ctx: CardContext = {},
 ): NeedsYouCard[] {
   const machine = ctx.machine ?? null
-  const asks: NeedsYouCard[] = humanQueue.map((item) => {
+  const needing = agents.filter((a) => a.state === 'needs_you')
+  const fallback =
+    ctx.snapshotAgeMs == null
+      ? null
+      : `No blocker reported; the snapshot is ${ageAgo(ctx.snapshotAgeMs)}.`
+  // One surface: two cards that would read the same are told apart by their own handle.
+  const copies = resolveCopies<{ ask: QueueItem } | { agent: AgentRow }>(
+    [...humanQueue.map((ask) => ({ ask })), ...needing.map((agent) => ({ agent }))],
+    (entry, withHandle) =>
+      'agent' in entry
+        ? agentCopy(entry.agent, evidenceSource(entry.agent) ?? fallback, withHandle)
+        : humanQueueCopy(entry.ask, withHandle).copy,
+  )
+  const asks: NeedsYouCard[] = humanQueue.map((item, i) => {
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
     const host = hostOf(item)
@@ -627,7 +660,8 @@ export function needsYouCards(
       isText,
     )
     const command = item.cmd?.trim() || null
-    const { copy, askText } = humanQueueCopy(item)
+    const copy = copies[i]!
+    const { askText } = humanQueueCopy(item)
     return {
       key: `hq-${item.id}`,
       kind: 'human-queue',
@@ -645,40 +679,34 @@ export function needsYouCards(
       waitMs,
     }
   })
-  const waiting: NeedsYouCard[] = agents
-    .filter((a) => a.state === 'needs_you')
-    .map((a) => {
-      const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
-      const facts = [
-        a.project,
-        waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
-        machine,
-      ].filter(isText)
-      const title = a.title ?? a.lastPrompt ?? a.id
-      const source = evidenceSource(a)
-      const fallback =
-        ctx.snapshotAgeMs == null
-          ? null
-          : `No blocker reported; the snapshot is ${ageAgo(ctx.snapshotAgeMs)}.`
-      const copy = agentCopy(a, source ?? fallback)
-      return {
-        key: `agent-${a.id}`,
-        kind: 'agent',
-        question: copy.question,
-        entity: copy.entity,
-        facts,
-        evidenceLine: copy.evidenceLine,
-        preview: previewOf(a),
-        actions: copyActions([
-          a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
-          source ? { label: 'Copy blocker', value: flatten(source) } : null,
-          { label: 'Copy task', value: flatten(title) || copy.question },
-        ]),
-        disclosure: disclosureOf('reason', copy.detail, null),
-        abandoned: isAbandonedWait(a, now),
-        waitMs,
-      }
-    })
+  const waiting: NeedsYouCard[] = needing.map((a, j) => {
+    const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
+    const facts = [
+      a.project,
+      waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
+      machine,
+    ].filter(isText)
+    const title = a.title ?? a.lastPrompt ?? a.id
+    const source = evidenceSource(a)
+    const copy = copies[humanQueue.length + j]!
+    return {
+      key: `agent-${a.id}`,
+      kind: 'agent',
+      question: copy.question,
+      entity: copy.entity,
+      facts,
+      evidenceLine: copy.evidenceLine,
+      preview: previewOf(a),
+      actions: copyActions([
+        a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
+        source ? { label: 'Copy blocker', value: flatten(source) } : null,
+        { label: 'Copy task', value: flatten(title) || copy.question },
+      ]),
+      disclosure: disclosureOf('reason', copy.detail, null),
+      abandoned: isAbandonedWait(a, now),
+      waitMs,
+    }
+  })
   return [...asks, ...waiting].toSorted((a, b) => b.waitMs - a.waitMs)
 }
 

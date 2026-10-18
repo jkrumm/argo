@@ -80,6 +80,8 @@ export type AwaitingOwnerRow = {
   eventId: number
   repo: string | null
   title: string | null
+  /** The board item's `origin` (`alert`, …); `null` when the item is past the board cap. */
+  origin: string | null
   /** The entry's raw state — the badge of the `other` list, which holds states outside the vocabulary. */
   state: string | null
   prUrl: string | null
@@ -149,6 +151,7 @@ export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): Awai
       eventId: entry.event_id,
       repo: entry.repo,
       title: entry.title,
+      origin: boardItem?.origin ?? null,
       state: entry.state,
       prUrl: entry.pr_url,
       ageDays: entry.age_days,

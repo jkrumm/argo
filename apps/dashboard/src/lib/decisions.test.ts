@@ -60,9 +60,9 @@ describe('deriveDecisions', () => {
       now: NOW,
     })
     expect(w?.facts[0]).toBe('warden · {repo}')
-    expect(w?.facts[1]).toBe('waiting 1d 0h')
+    expect(w?.facts[1]).toBe('waiting 1 d 0 h')
     const [a] = deriveDecisions({ warden: null, agents: agents({ agents: [agent()] }), now: NOW })
-    expect(a?.facts).toEqual(['agent · {project}', 'waiting 2h 0m'])
+    expect(a?.facts).toEqual(['agent · {project}', 'waiting 2 h 0 m'])
   })
 
   it('lists a failed item once, from awaiting_owner only', () => {
@@ -279,10 +279,10 @@ const factsAt = (days: number) =>
 describe('deriveDecisions: one clock and one threshold', () => {
   it('warns on an age from Warden’s own stale threshold, inclusive', () => {
     expect(factsAt(AWAITING_OWNER_STALE_DAYS)).toEqual({
-      text: 'waiting 3d 0h · stale at 3 d',
+      text: 'waiting 3 d 0 h · stale at 3 d',
       tone: 'warn',
     })
-    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2d 21h')
+    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2 d 21 h')
   })
 
   it('adds the time since the push to a Warden age so it sorts on the same clock as the rest', () => {
@@ -321,5 +321,82 @@ describe('deriveDecisions: one entry per item', () => {
     const rest = list.slice(cards)
     expect(cards + rest.length).toBe(list.length)
     expect(new Set(list.map((d) => d.id)).size).toBe(list.length)
+  })
+})
+
+describe('deriveDecisions: questions that tell items apart', () => {
+  const board = (...rows: Record<string, unknown>[]) =>
+    warden({
+      awaiting_owner: rows.map((r) =>
+        awaiting({ availableActions: ['implement'], reason: 'Evidence only.', ...r }),
+      ),
+    })
+
+  it('keeps the short form for a lone item and carries a handle once two would read the same', () => {
+    const [lone] = deriveDecisions({
+      warden: board({ event_id: 1, title: 'Disk filling up' }),
+      agents: null,
+      now: NOW,
+    })
+    expect(lone?.headline).toBe('Implement {repo} change?')
+    expect(lone?.entity).toBe('Disk filling up')
+
+    const pair = deriveDecisions({
+      warden: board(
+        { event_id: 1, title: 'Disk filling up', age_days: 2 },
+        { event_id: 2, title: 'Certificate expires soon', age_days: 1 },
+      ),
+      agents: null,
+      now: NOW,
+    })
+    expect(pair.map((d) => d.headline)).toEqual([
+      'Implement {repo} change: Disk filling up?',
+      'Implement {repo} change: Certificate expires soon?',
+    ])
+    expect(pair.map((d) => d.entity)).toEqual([null, null])
+  })
+
+  it('counts collisions across sources of one surface', () => {
+    const list = deriveDecisions({
+      warden: null,
+      agents: agents({
+        humanQueue: [
+          { id: 'q1', title: 'Rotate keys', askedAt: new Date(NOW - 3 * DAY).toISOString() },
+          { id: 'q2', title: 'Renew domain', askedAt: new Date(NOW - 2 * DAY).toISOString() },
+        ],
+        agents: [agent({ id: 'a1', title: 'Approve {action}' })],
+      }),
+      now: NOW,
+    })
+    expect(list.map((d) => d.headline)).toEqual([
+      'Answer this request: Rotate keys?',
+      'Answer this request: Renew domain?',
+      'Unblock {project} agent?',
+    ])
+  })
+
+  it('asks about an alert as an alert, never as a change', () => {
+    const [alert] = deriveDecisions({
+      warden: board({ event_id: 1, title: 'Alert: service {name} down' }),
+      agents: null,
+      now: NOW,
+    })
+    expect(alert?.headline).toBe('Handle {repo} alert?')
+    const [byOrigin] = deriveDecisions({
+      warden: warden({
+        awaiting_owner: [
+          awaiting({
+            event_id: 5,
+            title: 'Latency high',
+            reason: 'Evidence only.',
+            availableActions: ['implement'],
+          }),
+        ],
+        items: [{ event_id: 5, state: 'needs_decision', origin: 'alert' }],
+      }),
+      agents: null,
+      now: NOW,
+    })
+    expect(byOrigin?.headline).toBe('Handle {repo} alert?')
   })
 })
