@@ -325,7 +325,7 @@ function headlineKiller(night: Night): Killer | undefined {
   return core ?? night.killers[0]
 }
 
-/** The one wording of a missed core gate, shared by the verdict, the strip cell and both timelines: `core 3.9° under its gate`. Null when the core gate is not the miss. */
+/** The one wording of a missed core gate, shared by the verdict, the strip cell and both timelines: `core 3.9° under its gate`. Null when the core gate is not the miss, or the gap is exactly 0. Any raw gap above 0 shows, so a sub-0.05° miss reads `core 0.0° under its gate` on purpose (the night is still out on that gate). */
 function coreGateMissClause(night: Night): string | null {
   const raw = rawGapToGate(night)
   const gap = gapToGate(night)

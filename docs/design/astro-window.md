@@ -57,7 +57,7 @@ Format is binding; figures are placeholders.
 - Sky footer: `town glow +{d} mag · transparency {n}/8 (1 = best)` — three lines at 1440; the word is the page's (`Transparency` on the score card), and the direction hint is a fact, so no two-line form is honest.
 - Forecast, site not in the list: `No site "{site}" in the list — choose another site, or reload if the list is empty`.
 
-**Shot states.** Forecast declares `empty` (the site list emptied, so the unknown-site card renders; it is a plain card that ends at its content and wraps a long site id). Tonight declares none: its route loader awaits the window and the site list, so a hung or failed fetch is the route's pending / error screen, never a card; the window API answers an unknown site 404 and an out-of-range `detailDate` with the first scored night, so no Tonight card has an empty branch, and the empty site list only empties the site selector in the bar.
+**Shot states.** Forecast declares `empty` (the site list emptied, so the unknown-site card renders; it is a basalt `EmptyState`, title `No site "{site}" in the list` plus description `Choose another site, or reload if the list is empty`, no action, and both texts wrap a long site id). Tonight declares none: its route loader awaits the window and the site list, so a hung or failed fetch is the route's pending / error screen, never a card; the window API answers an unknown site 404 and an out-of-range `detailDate` with the first scored night, so no Tonight card has an empty branch, and the empty site list only empties the site selector in the bar.
 
 ## Upstream candidates
 
