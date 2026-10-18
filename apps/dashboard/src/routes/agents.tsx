@@ -122,6 +122,7 @@ function AgentsPage() {
                   fleet={fleet}
                   split={needsYouSplit(agentWaits, asks)}
                   oldest={oldest}
+                  hasSnapshot={latest !== null}
                   longestRunMs={longestRun}
                 />
               </Box>

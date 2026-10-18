@@ -27,6 +27,7 @@ import {
   missingInputs,
   recoveryFact,
   recoveryGap,
+  recoveryQualifier,
   recoveryVerdict,
   recoverySentence,
   shortDate,
@@ -533,5 +534,13 @@ describe('recovery verdict', () => {
     expect(recoveryMeterProps(null).label).toBe('Recovery score')
     expect(recoveryMeterProps(50).startCaption).toBe('rest < 40 · push ≥ 70')
     expect(recoveryMeterProps(50).zones.map((z) => z.label)).toEqual(['Rest', 'Normal', 'Push'])
+  })
+})
+
+describe('recoveryQualifier', () => {
+  test('is the score day, and absent when the read has no date', () => {
+    expect(recoveryQualifier('2020-01-02')).toBe('Jan 2')
+    expect(recoveryQualifier(undefined)).toBeUndefined()
+    expect(recoveryQualifier(null)).toBeUndefined()
   })
 })

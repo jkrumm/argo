@@ -26,7 +26,6 @@ import {
   ACWR_OPTIMAL_TO,
   FITNESS_DAYS,
   VO2_DAYS,
-  dayLabel,
   fitnessRange,
   lastDaysRange,
   vo2Hero,
@@ -35,6 +34,7 @@ import {
   lastScored,
   missingInputs,
   recoveryGap,
+  recoveryQualifier,
   loadGap,
   fitnessGap,
   windowCopyDays,
@@ -106,7 +106,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   const data = empty ? undefined : summary.data
   const score = data?.recovery ?? null
   // The score's own date: today reads "today", a sync gap reads its date.
-  const when = dayLabel(data?.date)
+  const when = recoveryQualifier(data?.date)
   // A fact about the window, so it waits for both reads to settle on the window itself.
   const settled =
     summary.isSuccess && !summary.isPlaceholderData && series.isSuccess && !series.isPlaceholderData
@@ -122,7 +122,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   return {
     key: 'recovery',
     caption: 'Recovery',
-    ...(data?.date && { qualifier: when }),
+    ...(when !== undefined && { qualifier: when }),
     value: score === null ? null : fmtNum(score),
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,

@@ -472,7 +472,7 @@ export function activityStream(
  * The activity card's feed gap: both producers named, Warden's cadence only (the agents cell above
  * states agent-gateway's, so each fact reads once).
  */
-export const noFeedYet = (): string =>
+const noFeedYet = (): string =>
   `No feed yet from Warden or agent-gateway — Warden pushes every ${withUnit(WARDEN_PUSH_MIN, 'min')}`
 
 /**

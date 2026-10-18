@@ -7,6 +7,7 @@ import {
   itemNoun,
   OLDEST_WAIT_WARN_MS,
   oldestWaitEmptyText,
+  oldestWaitFooter,
   WAITING_FOR_SNAPSHOT,
   type FleetPart,
   type FleetState,
@@ -33,6 +34,8 @@ type Props = {
   /** The count split by kind (`2 agents · 1 ask`); `''` when nothing waits. */
   split: string
   oldest: OldestWait | null
+  /** An overview snapshot has arrived; without one the cells wait for it. */
+  hasSnapshot: boolean
   /** Longest-running working agent; `null` when none is working. */
   longestRunMs: number | null
 }
@@ -47,7 +50,7 @@ function waitTone(ms: number): 'bad' | 'warn' | undefined {
  * The three joined cells under the page summary: needs-you count, oldest wait against its two
  * thresholds, fleet by state. Replaces the three bare-integer tiles.
  */
-export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Props) {
+export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longestRunMs }: Props) {
   const oldestTone = oldest === null ? undefined : waitTone(oldest.ms)
 
   return (
@@ -62,19 +65,14 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
           value: needsYou === null ? null : String(needsYou),
           ...(needsYou !== null && { unit: `${itemNoun(needsYou)} waiting` }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
-          footer: needsYou === null ? WAITING_FOR_SNAPSHOT : split || undefined,
+          footer: hasSnapshot ? split || undefined : WAITING_FOR_SNAPSHOT,
         },
         {
           key: 'oldest-wait',
           caption: 'Oldest wait',
           value: oldest === null ? null : formatDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
-          footer:
-            needsYou === null
-              ? WAITING_FOR_SNAPSHOT
-              : oldest === null
-                ? undefined
-                : `in ${oldest.project}`,
+          footer: oldestWaitFooter(hasSnapshot, oldest),
           // No snapshot: the waiting line is the footer (as in the needs-you cell), so no empty meter.
           visual:
             needsYou === null ? undefined : (
@@ -100,7 +98,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
               />
             ),
         },
-        fleetCell(fleet, longestRunMs, needsYou !== null),
+        fleetCell(fleet, longestRunMs, hasSnapshot),
       ]}
     />
   )
