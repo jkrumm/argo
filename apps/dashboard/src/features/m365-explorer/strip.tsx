@@ -10,6 +10,8 @@ import {
   NO_CHATS,
   NO_SOURCES,
   NO_TEAMS,
+  gapLeader,
+  nothingToLabel,
   withStep,
   type Coverage,
 } from './model'
@@ -34,7 +36,7 @@ function labeledCell(
   const pending = loading > 0
   const atLeast = failed > 0 ? '≥' : ''
   // Only a settled, complete list can be called empty: a failed team or labels outside the list mean there is more than the cell can see (and Retry lives in the footer).
-  if (!pending && total === 0 && failed === 0 && coverage.outside === 0) {
+  if (nothingToLabel(coverage)) {
     return {
       key: 'labeled',
       caption: 'Labeled sources',
@@ -167,20 +169,16 @@ export function ExplorerStrip({
   noTeams,
   onRetry,
 }: StripProps) {
-  const labeled = labeledCell(coverage, list, onRetry)
-  // The first empty cell in reading order carries the full sentence; the later ones the short form.
-  const labeledLeads = labeled.state?.kind === 'empty'
-  const chatsLead = !labeledLeads
-  const channelsLead = !labeledLeads && !noChats
+  const leader = gapLeader({ nothingToLabel: nothingToLabel(coverage), noChats, noTeams })
   return (
     <StatGroup
       variant="strip"
       label="Coverage summary"
       cols={3}
       cells={[
-        labeled,
-        chatsCell(chats, noChats, chatsLead),
-        channelsCell(channels, largestTeam, coverage.failed, noTeams, channelsLead),
+        labeledCell(coverage, list, onRetry),
+        chatsCell(chats, noChats, leader === 'chats'),
+        channelsCell(channels, largestTeam, coverage.failed, noTeams, leader === 'channels'),
       ]}
     />
   )

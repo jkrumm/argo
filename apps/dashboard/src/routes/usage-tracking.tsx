@@ -6,7 +6,7 @@ import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
 import { usageQueries } from '../lib/queries/usage'
-import { printTotal } from '../features/usage-tracking/model'
+import { isFiltered, printTotal } from '../features/usage-tracking/model'
 import { usageStore } from '../lib/window-stores'
 import { UsageStrip } from '../features/usage-tracking/usage-strip'
 import { UsageHeadline } from '../features/usage-tracking/page-headline'
@@ -31,7 +31,7 @@ function UsageTrackingPage() {
   // "empty means every row" is this API's convention, not a store law.
   const billing = search.billing.length > 0 ? [...search.billing] : undefined
   const workspace = search.workspace.length > 0 ? [...search.workspace] : undefined
-  const filtered = billing !== undefined || workspace !== undefined
+  const filtered = isFiltered(billing, workspace)
   const showTotal = printTotal({ range: search.range, filtered })
   const tsBase = { range: search.range, grain: search.grain, billing, workspace }
 
@@ -61,7 +61,7 @@ function UsageTrackingPage() {
         <UsageStrip />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <CostChart {...tsBase} groupBy={search.costGroupBy} printTotal={showTotal} />
+          <CostChart {...tsBase} leading groupBy={search.costGroupBy} printTotal={showTotal} />
         </Suspense>
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>

@@ -25,6 +25,12 @@ const NO_USAGE_FULL = `${NO_USAGE_SHORT} in this window — the usage-tracker pu
 const NO_MATCH_SHORT = 'No usage matches these filters'
 const NO_MATCH_FULL = `${NO_MATCH_SHORT} in this window — clear a filter or widen the range`
 
+/** Whether a billing or workspace filter is active. */
+export const isFiltered = (
+  billing: readonly unknown[] | undefined,
+  workspace: readonly unknown[] | undefined,
+): boolean => billing !== undefined || workspace !== undefined
+
 /**
  * The wording for a surface whose window holds no usage. A filtered window always keeps the match
  * pair: the filter may be the cause (the strip ignores filters). `stripEmpty` (the 30 d strip already

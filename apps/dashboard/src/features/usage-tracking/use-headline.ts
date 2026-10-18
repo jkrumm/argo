@@ -40,7 +40,14 @@ export function useUsageHeadline(): Pick<UseQueryResult<Headline>, 'data' | 'isP
 }
 
 /** The wording for an empty window on one chart surface; see `noUsageWindow`. */
-export function useNoUsageWindow(filtered: boolean, leading: boolean): string {
+export function useNoUsageWindow({
+  filtered,
+  leading,
+}: {
+  filtered: boolean
+  /** This surface is the first chart card in reading order, so it carries the full sentence. */
+  leading: boolean
+}): string {
   const { data } = useUsageHeadline()
   return noUsageWindow({ filtered, stripEmpty: data?.calls30d === 0, leading })
 }

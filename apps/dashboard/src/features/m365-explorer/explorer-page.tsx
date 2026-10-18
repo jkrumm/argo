@@ -19,10 +19,10 @@ import {
   CHAT_TYPE_LABEL,
   channelSourceId,
   CHATS_TOP,
-  NO_CHANNELS,
   NO_CHATS,
-  NO_TEAMS,
   nothingToOpen,
+  nothingToLabel,
+  teamsGap,
   chatKindCounts,
   chatsCapped as isCapped,
   chatSourceId,
@@ -283,7 +283,7 @@ export function M365ExplorerPage(): ReactElement {
       title={compact ? undefined : labeledPaneTitle(tag)}
       labels={labels}
       tag={tag}
-      noSources={noChats && (noTeams || channelsTotal === 0)}
+      noSources={nothingToLabel(coverage)}
       selectedId={selectedId}
       error={deleteLabel.error ? deleteLabel.error.message : null}
       removingId={deleteLabel.isPending ? (deleteLabel.variables ?? null) : null}
@@ -320,12 +320,10 @@ export function M365ExplorerPage(): ReactElement {
   // `chats`/`teams` are suspense reads (never pending at render) and `channelsTotal` is null until
   // every channel loaded, so an empty list here is a real gap, not a load in flight.
   const sourcesEmpty = view === 'chats' ? noChats : noTeams || channelsTotal === 0
-  const emptyCause = { chats: NO_CHATS, teams: noTeams ? NO_TEAMS : NO_CHANNELS }
+  const emptyCause = view === 'chats' ? NO_CHATS : teamsGap(teams.length)
   const emptyDetail = (
     <p className={classes.empty}>
-      {sourcesEmpty
-        ? nothingToOpen(view === 'chats' ? emptyCause.chats : emptyCause.teams)
-        : 'Pick a chat or channel in Sources to open it'}
+      {sourcesEmpty ? nothingToOpen(emptyCause) : 'Pick a chat or channel in Sources to open it'}
     </p>
   )
   const detailPane =

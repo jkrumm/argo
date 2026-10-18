@@ -23,6 +23,7 @@ import {
   dropPartialBucket,
   EM_DASH,
   fmtShare,
+  isFiltered,
   OTHER_KEY,
   periodNoun,
   prepareFolded,
@@ -51,6 +52,8 @@ type Props = {
   height?: number
   /** Whether the list header prints the window's total; decided once, in the route. */
   printTotal: boolean
+  /** The first chart card in reading order: its plot carries the full empty sentence. */
+  leading: boolean
 }
 
 export function FoldedChart({
@@ -68,6 +71,7 @@ export function FoldedChart({
   listTitle,
   height = 280,
   printTotal,
+  leading,
 }: Props) {
   const query = useSuspenseQuery(
     usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace }),
@@ -76,10 +80,9 @@ export function FoldedChart({
   const now = useNow()
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
-  const filtered = billing !== undefined || workspace !== undefined
-  // The cost plot is the first card in reading order: it carries the full sentence, the rest the short form.
-  const plotText = useNoUsageWindow(filtered, metric === 'cost')
-  const listText = useNoUsageWindow(filtered, false)
+  const filtered = isFiltered(billing, workspace)
+  const plotText = useNoUsageWindow({ filtered, leading })
+  const listText = useNoUsageWindow({ filtered, leading: false })
 
   const { folded, labelOf } = prepareFolded({
     points: toTimePoints(data.buckets),
