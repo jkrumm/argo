@@ -118,9 +118,10 @@ export function deltaFromMean(current: number | null, mean: number | null): numb
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** "3 Jun" from a `YYYY-MM-DD` key. */
-export function shortDay(key: string): string {
-  return `${Number(key.slice(8, 10))} ${MONTHS[Number(key.slice(5, 7)) - 1] ?? ''}`.trim()
+/** "3 Jun" from a `YYYY-MM-DD` key; "3 Jun 2025" when the year is not the current one. */
+export function shortDay(key: string, now: Date = new Date()): string {
+  const day = `${Number(key.slice(8, 10))} ${MONTHS[Number(key.slice(5, 7)) - 1] ?? ''}`.trim()
+  return Number(key.slice(0, 4)) === now.getFullYear() ? day : `${day} ${key.slice(0, 4)}`
 }
 
 /** The direction word for a trailing rate; inside the maintenance band the weight is holding. */
@@ -156,12 +157,7 @@ export function summaryParts({
     ageDays !== null && ageDays > 1 && latestKey != null
       ? `the ${rateDays} d to ${shortDay(latestKey)}`
       : `${rateDays} d`
-  const rate =
-    kgPerWeek === null
-      ? `Weight at ${fixed(current)} kg`
-      : Math.abs(kgPerWeek) < RATE_NEUTRAL_KG_WK
-        ? `Weight ${trend(kgPerWeek)} over ${span}`
-        : `Weight ${trend(kgPerWeek)} ${Math.abs(kgPerWeek).toFixed(2)} kg/wk over ${span}`
+  const rate = rateClause({ current, kgPerWeek, span })
   const sentence =
     goal === null
       ? rate
@@ -169,7 +165,8 @@ export function summaryParts({
   return {
     sentence,
     facts: [
-      `${fixed(current)} kg`,
+      // Without a rate the sentence already states the weight; it appears once.
+      ...(kgPerWeek === null ? [] : [`${fixed(current)} kg`]),
       ...(ageDays === null
         ? []
         : [`last weigh-in ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`]),
@@ -177,15 +174,40 @@ export function summaryParts({
   }
 }
 
-/** Net change across the window's entries, dated from its first one; `null` with fewer than two. */
-export function windowChange(
+/** The headline's opening clause: the trend and its rate, or the bare weight when there is no rate. */
+function rateClause({
+  current,
+  kgPerWeek,
+  span,
+}: {
+  current: number
+  kgPerWeek: number | null
+  span: string
+}): string {
+  if (kgPerWeek === null) return `Weight at ${fixed(current)} kg`
+  if (Math.abs(kgPerWeek) < RATE_NEUTRAL_KG_WK) return `Weight ${trend(kgPerWeek)} over ${span}`
+  return `Weight ${trend(kgPerWeek)} ${Math.abs(kgPerWeek).toFixed(2)} kg/wk over ${span}`
+}
+
+/**
+ * The weight chart header's fact, one the strip does not show: the net change across the window's
+ * entries and where it starts; a single entry shows that weight and its day. `null` with no entries.
+ */
+export function weightHeaderFact(
   points: readonly { date: string; weightKg: number }[],
-): { changeKg: number; fromKey: string; entries: number } | null {
+  now: Date = new Date(),
+): { value: string; period: string } | null {
   const sorted = points.toSorted(compareByDate)
   const first = sorted[0]
   const last = sorted.at(-1)
-  if (first === undefined || last === undefined || sorted.length < 2) return null
-  return { changeKg: last.weightKg - first.weightKg, fromKey: first.date, entries: sorted.length }
+  if (first === undefined || last === undefined) return null
+  if (first === last) {
+    return { value: fixed(first.weightKg), period: `single entry on ${shortDay(first.date, now)}` }
+  }
+  return {
+    value: signed(last.weightKg - first.weightKg, 1),
+    period: `net change since ${shortDay(first.date, now)} · ${sorted.length} entries`,
+  }
 }
 
 /** The API's trailing rate looks back 28 d but only sees rows in the selected window. */
@@ -264,9 +286,24 @@ export function meanOverDays(
   return last === null ? null : trailingMean(points, last, days, span)
 }
 
-/** The RATE cell footer: the API's intensity tier, or why there is no rate. One window per cell. */
-export function rateFooter(rate: number | null, intensity: string): string {
-  return rate === null ? 'A rate needs two weigh-ins at least 3 days apart' : intensity
+/**
+ * The RATE cell footer: the API's intensity tier, or why there is no rate. One window per cell, and a
+ * loading or failed summary never reads as a data gap.
+ */
+export function rateFooter(input: {
+  rate: number | null
+  intensity: string
+  /** Weigh-ins in the window. */
+  entries: number
+  status?: 'pending' | 'error' | 'success'
+}): string {
+  const { rate, intensity, entries, status = 'success' } = input
+  if (status === 'pending') return 'Loading the rate'
+  if (status === 'error') return 'The rate failed to load'
+  if (rate !== null) return intensity
+  return entries === 0
+    ? 'No weigh-ins in this window'
+    : 'A rate needs two weigh-ins at least 3 days apart'
 }
 
 /** The kg/week range of the API's intensity tier for a rate ("0.1\u20130.3 kg/wk", "\u2265 0.6 kg/wk"). */

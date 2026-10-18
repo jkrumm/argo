@@ -1,7 +1,5 @@
 export { METRIC_TOOLTIPS, SKINFOLD_SITES } from './constants'
 
-export type { SummaryParams } from './types'
-
 export {
   fmtMm,
   skinfoldDirectionColor,

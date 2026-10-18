@@ -15,7 +15,9 @@ import {
   paceValues,
   priorLabel,
   shiftCellsToLocal,
+  emptyWindowHint,
   emptyWindowParts,
+  toLastWalk,
   summaryParts,
   trimLeadingEmpty,
   weekSummary,
@@ -422,39 +424,94 @@ describe('formats and summary', () => {
 
 describe('emptyWindowParts', () => {
   const now = Date.parse('2026-01-20T10:00:00Z')
+  const last = (endedAt: string) => ({ state: 'last', endedAt }) as const
 
-  it('names the window, the days since the last walk and its date', () => {
-    expect(
-      emptyWindowParts({ preset: '7d', lastEndedAt: '2026-01-05T08:00:00Z', nowMs: now }).sentence,
-    ).toBe('No walks in the last 7 days; the last was 15 d ago, on Jan 5')
+  it('says how long ago the last walk was, with its date, and never names the window', () => {
+    expect(emptyWindowParts({ last: last('2026-01-05T08:00:00Z'), nowMs: now }).sentence).toBe(
+      'The last walk was 15 d ago, on Jan 5',
+    )
   })
 
   it('a walk earlier today reads today', () => {
-    expect(
-      emptyWindowParts({ preset: '7d', lastEndedAt: '2026-01-20T06:00:00Z', nowMs: now }).sentence,
-    ).toContain('the last was today, on Jan 20')
+    expect(emptyWindowParts({ last: last('2026-01-20T06:00:00Z'), nowMs: now }).sentence).toBe(
+      'The last walk was today, on Jan 20',
+    )
   })
 
   it('the day count follows the printed day keys, never elapsed hours', () => {
-    // 23 h elapsed but a different UTC day: "1 d ago, on Jan 19", never "today, on Jan 19".
     const late = Date.parse('2026-01-20T01:00:00Z')
-    expect(
-      emptyWindowParts({ preset: '7d', lastEndedAt: '2026-01-19T02:00:00Z', nowMs: late }).sentence,
-    ).toContain('the last was 1 d ago, on Jan 19')
+    expect(emptyWindowParts({ last: last('2026-01-19T02:00:00Z'), nowMs: late }).sentence).toBe(
+      'The last walk was 1 d ago, on Jan 19',
+    )
   })
 
-  it('a failed lookup names the window only, never "no walks recorded"', () => {
-    expect(emptyWindowParts({ preset: '7d', lastEndedAt: undefined, nowMs: now }).sentence).toBe(
-      'No walks in the last 7 days',
+  it('a future-dated walk (clock skew) reads as today, count and date agreeing', () => {
+    expect(emptyWindowParts({ last: last('2026-01-22T06:00:00Z'), nowMs: now }).sentence).toBe(
+      'The last walk was today, on Jan 20',
     )
-    expect(emptyWindowParts({ preset: '7d', lastEndedAt: 'garbage', nowMs: now }).sentence).toBe(
-      'No walks in the last 7 days',
+  })
+
+  it('a failed lookup or an unparseable end never claims no walks were recorded', () => {
+    expect(emptyWindowParts({ last: { state: 'failed' }, nowMs: now }).sentence).toBe(
+      'Last walk not available',
+    )
+    expect(emptyWindowParts({ last: last('garbage'), nowMs: now }).sentence).toBe(
+      'Last walk not available',
     )
   })
 
   it('no walk ever recorded says so', () => {
-    expect(emptyWindowParts({ preset: '7d', lastEndedAt: null, nowMs: now }).sentence).toBe(
+    expect(emptyWindowParts({ last: { state: 'never' }, nowMs: now }).sentence).toBe(
       'No walks recorded yet',
+    )
+  })
+})
+
+describe('toLastWalk', () => {
+  it('maps the query to loading | failed | never | last', () => {
+    expect(toLastWalk({ isPending: true, isError: false, endedAt: undefined }).state).toBe(
+      'loading',
+    )
+    expect(toLastWalk({ isPending: false, isError: true, endedAt: undefined }).state).toBe('failed')
+    expect(toLastWalk({ isPending: false, isError: false, endedAt: undefined }).state).toBe('never')
+    expect(toLastWalk({ isPending: false, isError: false, endedAt: 'x' })).toEqual({
+      state: 'last',
+      endedAt: 'x',
+    })
+  })
+})
+
+describe('emptyWindowHint', () => {
+  const now = Date.parse('2026-01-20T10:00:00Z')
+
+  it('has no description while loading', () => {
+    expect(
+      emptyWindowHint({ last: { state: 'loading' }, wider: '30d', nowMs: now }),
+    ).toBeUndefined()
+  })
+
+  it('promises reaching the last walk only when the wider window contains it', () => {
+    const near = { state: 'last', endedAt: '2026-01-05T08:00:00Z' } as const
+    const far = { state: 'last', endedAt: '2025-06-01T08:00:00Z' } as const
+    expect(emptyWindowHint({ last: near, wider: '30d', nowMs: now })).toContain(
+      'to reach the last walk',
+    )
+    expect(emptyWindowHint({ last: far, wider: '30d', nowMs: now })).toContain(
+      'to look further back',
+    )
+  })
+
+  it('has no widen clause without a wider window, and failure-specific copy otherwise', () => {
+    const near = { state: 'last', endedAt: '2026-01-05T08:00:00Z' } as const
+    expect(emptyWindowHint({ last: near, wider: null, nowMs: now })).not.toContain('widen')
+    expect(emptyWindowHint({ last: { state: 'failed' }, wider: '30d', nowMs: now })).toContain(
+      'could not be loaded',
+    )
+  })
+
+  it('a never-walked history only waits for the first walk', () => {
+    expect(emptyWindowHint({ last: { state: 'never' }, wider: '30d', nowMs: now })).toBe(
+      'The strip fills after the first walk is recorded.',
     )
   })
 })

@@ -141,3 +141,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - The KPI strip stays above the empty state as the same four cells, dimmed, every value `—` (`EmptyStrip` in `strip.tsx`).
 - The empty state says why and what fills it ("the strip fills once a walk is recorded in this window; widen it to reach the last one", the widen clause only when a wider window exists); the title keeps the window name; the last-walk date moved to the headline, not repeated.
 - Basalt rows: none.
+- Round 2: one `useLastWalk()` state (`loading | failed | never | last`) feeds the headline and the empty state; the window name appears once, in the empty state's title. The widen clause is only claimed when the wider window contains the last walk. Week and heroes reads are disabled while the window is empty; a future-dated walk reads as today; the dimmed strip uses empty values, not `stale`.

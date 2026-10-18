@@ -134,7 +134,6 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
             startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
             endCaption="100"
             loading={summary.isPending}
-            emptyText="No recovery score"
           />
           <ContributorRows
             label="Recovery contributors, points of their weight"

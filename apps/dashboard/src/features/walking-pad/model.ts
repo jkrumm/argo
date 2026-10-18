@@ -432,24 +432,68 @@ export function summaryParts(s: SummaryInput): { sentence: string; facts: string
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+/** The newest walk, as the empty window needs it: still loading, lookup failed, none ever, or its end. */
+export type LastWalk =
+  | { state: 'loading' }
+  | { state: 'failed' }
+  | { state: 'never' }
+  | { state: 'last'; endedAt: string }
+
+export function toLastWalk(query: {
+  isPending: boolean
+  isError: boolean
+  endedAt: string | undefined
+}): LastWalk {
+  if (query.isPending) return { state: 'loading' }
+  if (query.isError) return { state: 'failed' }
+  return query.endedAt === undefined
+    ? { state: 'never' }
+    : { state: 'last', endedAt: query.endedAt }
+}
+
 /**
- * The headline of a window with no walks: it names the window and how long ago the last walk was
- * (whole UTC days between the two printed day keys, so the count and the date cannot disagree), or
- * says nothing was ever recorded. `lastEndedAt: undefined` is a failed lookup: the window alone.
+ * The headline of a window with no walks. It never names the window (the empty state's title does):
+ * it says how long ago the last walk was, with whole UTC days between the two printed day keys so the
+ * count and the date cannot disagree. A future-dated walk (clock skew) reads as today.
  */
-export function emptyWindowParts(input: {
-  preset: string | undefined
-  lastEndedAt: string | null | undefined
-  nowMs: number
-}): { sentence: string; facts: string[] } {
-  const none = `No walks in ${windowPhrase(input.preset)}`
-  if (input.lastEndedAt === undefined) return { sentence: none, facts: [] }
-  if (input.lastEndedAt === null) return { sentence: 'No walks recorded yet', facts: [] }
-  const endedMs = Date.parse(input.lastEndedAt)
-  if (!Number.isFinite(endedMs)) return { sentence: none, facts: [] }
+export function emptyWindowParts(input: { last: LastWalk; nowMs: number }): {
+  sentence: string
+  facts: string[]
+} {
+  const { last, nowMs } = input
+  if (last.state === 'never') return { sentence: 'No walks recorded yet', facts: [] }
+  const endedMs = last.state === 'last' ? Math.min(Date.parse(last.endedAt), nowMs) : Number.NaN
+  if (!Number.isFinite(endedMs)) return { sentence: 'Last walk not available', facts: [] }
   const key = dayKey(endedMs)
-  const days = Math.max(0, Math.round((keyMs(dayKey(input.nowMs)) - keyMs(key)) / MS_PER_DAY))
+  const days = Math.round((keyMs(dayKey(nowMs)) - keyMs(key)) / MS_PER_DAY)
   const date = `${MONTHS[Number(key.slice(5, 7)) - 1]} ${Number(key.slice(8, 10))}`
-  const ago = days === 0 ? 'today' : `${days} d ago`
-  return { sentence: `${none}; the last was ${ago}, on ${date}`, facts: [] }
+  return {
+    sentence: `The last walk was ${days === 0 ? 'today' : `${days} d ago`}, on ${date}`,
+    facts: [],
+  }
+}
+
+const PRESET_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '6m': 183, '1y': 365 }
+
+/**
+ * The empty state's description: what fills the strip, and a widen clause that is only true — the
+ * wider window must actually contain the last walk, else it says to look further back. `undefined`
+ * while the lookup is loading.
+ */
+export function emptyWindowHint(input: {
+  last: LastWalk
+  wider: string | null
+  nowMs: number
+}): string | undefined {
+  const { last, wider, nowMs } = input
+  if (last.state === 'loading') return undefined
+  if (last.state === 'never') return 'The strip fills after the first walk is recorded.'
+  const fills = 'The strip fills once a walk is recorded in this window'
+  if (wider === null) return `${fills}.`
+  if (last.state === 'failed') {
+    return `${fills}. The last walk could not be loaded; widen the window to look further back.`
+  }
+  const days = PRESET_DAYS[wider]
+  const contained = days === undefined || Date.parse(last.endedAt) >= nowMs - days * MS_PER_DAY
+  return `${fills}; widen it ${contained ? 'to reach the last walk' : 'to look further back'}.`
 }

@@ -219,9 +219,10 @@ function useTotalsCell(params: WalkingPadWindowParams): StatStripCell {
   }
 }
 
-/** The strip of a window with no walks: the same four cells, dimmed, every value `—`. */
+/** The strip of a window with no walks: the same four cells, every value `—`. */
 function EmptyStrip() {
   const { window: preset } = walkingStore.useValues()
+  // Empty values only: `stale` means cached data, which these are not.
   const cells: StatStripCell[] = [
     { key: 'week', caption: 'This week', qualifier: 'Mon–Sun, UTC', value: null, unit: 'km' },
     { key: 'pace', caption: 'Pace', qualifier: `avg ${windowQualifier(preset)}`, value: null },
@@ -233,7 +234,7 @@ function EmptyStrip() {
       value: null,
       unit: 'km',
     },
-  ].map((c) => ({ ...c, stale: true }))
+  ]
   return <StatGroup variant="strip" label="Walking at a glance, no walks" cols={4} cells={cells} />
 }
 

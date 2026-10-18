@@ -18,7 +18,8 @@ import {
   summaryParts,
   weightDeltaPolarity,
   weightWindowStats,
-  windowChange,
+  weightHeaderFact,
+  shortDay,
   windowDays,
   windowLabel,
 } from './model'
@@ -152,7 +153,7 @@ describe('summaryParts', () => {
   test('unknown rate states the weight, never 0', () => {
     expect(
       summaryParts({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }),
-    ).toEqual({ sentence: 'Weight at 80.0 kg', facts: ['80.0 kg'] })
+    ).toEqual({ sentence: 'Weight at 80.0 kg', facts: [] })
   })
   test('empty window', () => {
     expect(
@@ -161,17 +162,34 @@ describe('summaryParts', () => {
   })
 })
 
-describe('windowChange', () => {
+describe('weightHeaderFact', () => {
+  const now = new Date(2026, 5, 20)
   test('net change from the first to the last entry, dated', () => {
     expect(
-      windowChange([
-        { date: '2026-06-10', weightKg: 79 },
-        { date: '2026-06-01', weightKg: 81 },
-      ]),
-    ).toEqual({ changeKg: -2, fromKey: '2026-06-01', entries: 2 })
+      weightHeaderFact(
+        [
+          { date: '2026-06-10', weightKg: 79 },
+          { date: '2026-06-01', weightKg: 81 },
+        ],
+        now,
+      ),
+    ).toEqual({ value: '−2.0', period: 'net change since 1 Jun · 2 entries' })
   })
-  test('fewer than two entries has no change', () => {
-    expect(windowChange([{ date: '2026-06-01', weightKg: 81 }])).toBeNull()
+  test('a single entry shows that weight and its day', () => {
+    expect(weightHeaderFact([{ date: '2026-06-01', weightKg: 81 }], now)).toEqual({
+      value: '81.0',
+      period: 'single entry on 1 Jun',
+    })
+  })
+  test('no entries has no fact', () => {
+    expect(weightHeaderFact([], now)).toBeNull()
+  })
+})
+
+describe('shortDay', () => {
+  test('appends the year only when it is not the current one', () => {
+    expect(shortDay('2026-06-03', new Date(2026, 5, 20))).toBe('3 Jun')
+    expect(shortDay('2025-06-03', new Date(2026, 5, 20))).toBe('3 Jun 2025')
   })
 })
 
@@ -282,9 +300,20 @@ describe('one fixture, two live-review items', () => {
     expect(Object.keys(weightWindowStats(pts, null)).toSorted()).toEqual(['mean30', 'mean7'])
   })
 
-  test('the RATE footer is the intensity tier, or why there is no rate; no second window', () => {
-    expect(rateFooter(-0.3, 'Standard cut')).toBe('Standard cut')
-    expect(rateFooter(null, 'x')).toBe('A rate needs two weigh-ins at least 3 days apart')
+  test('the RATE footer is the tier, or why there is no rate; loading and failure are their own', () => {
+    expect(rateFooter({ rate: -0.3, intensity: 'Standard cut', entries: 9 })).toBe('Standard cut')
+    expect(rateFooter({ rate: null, intensity: 'x', entries: 1 })).toBe(
+      'A rate needs two weigh-ins at least 3 days apart',
+    )
+    expect(rateFooter({ rate: null, intensity: 'x', entries: 0 })).toBe(
+      'No weigh-ins in this window',
+    )
+    expect(rateFooter({ rate: null, intensity: 'x', entries: 0, status: 'pending' })).toBe(
+      'Loading the rate',
+    )
+    expect(rateFooter({ rate: null, intensity: 'x', entries: 0, status: 'error' })).toBe(
+      'The rate failed to load',
+    )
   })
 
   test('where the header says a dash, the chart line has a gap', () => {

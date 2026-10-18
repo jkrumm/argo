@@ -104,9 +104,12 @@ export function rateCell({
   summary,
   rateDays,
   latestDate,
+  entries,
 }: {
   summary: WeightSummary
   rateDays: number
+  /** Weigh-ins in the window. */
+  entries: number
   latestDate: string | null
 }): StatStripCell {
   const rate = summary.kgPerWeek
@@ -138,7 +141,7 @@ export function rateCell({
         emptyText="No rate yet"
       />
     ),
-    footer: rateFooter(rate, summary.intensity),
+    footer: rateFooter({ rate, intensity: summary.intensity, entries }),
   }
 }
 
