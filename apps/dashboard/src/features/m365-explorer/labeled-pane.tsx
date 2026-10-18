@@ -1,5 +1,5 @@
 import { Alert, ScrollArea } from '@mantine/core'
-import { labelsByTag, type LabelLite } from './model'
+import { LABELED_FILTER, labelsByTag, type LabelLite } from './model'
 import { SourceRow } from './source-row'
 import classes from './m365.module.css'
 
@@ -19,7 +19,7 @@ export type LabeledPaneProps = {
 /** The right pane's default: every labeled source, grouped by tag — the page's main surface, never a placeholder. */
 export function LabeledPane(props: LabeledPaneProps) {
   const groups = labelsByTag(props.labels).filter(
-    (g) => props.tag === '' || props.tag === '*' || g.tag === props.tag,
+    (g) => props.tag === '' || props.tag === LABELED_FILTER || g.tag === props.tag,
   )
   if (groups.length === 0) {
     return (

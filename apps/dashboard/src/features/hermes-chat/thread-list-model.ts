@@ -106,7 +106,7 @@ export function isUntitled(entry: ThreadEntry, now: number): boolean {
   )
 }
 
-export function startOfDay(ms: number): number {
+function startOfDay(ms: number): number {
   const d = new Date(ms)
   d.setHours(0, 0, 0, 0)
   return d.getTime()
