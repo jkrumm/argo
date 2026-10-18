@@ -177,3 +177,4 @@ No basalt gaps.
 - **Panorama readout:** `Clearance` follows the same verdict as the sentence beside it (green when clear, neutral otherwise, never red); the skyglow legend swatch is the ramp's colour at the rose's median brightness (`medianMpsas`).
 - **Copy:** `dome +x mag brighter` → `town glow adds x mag`. Sources footer carries the run time (`run {hh:mm}`, from `generatedAt`; the API sends no per-source time). The site select label drops the drive time so the value is no longer cut at 1440.
 - Left: none. Basalt-owned: none new.
+- Round 2: the panorama readout opens on the API's own reading at `gateSampleTime` (the header's figure) and is re-keyed per night/instant; once scrubbed it is the hourly sample at its own time. The Core gauge widens to a gate above 30°. Core and Moon rows read `n/a` with no astronomical night; a moon over its limit says why it passed.

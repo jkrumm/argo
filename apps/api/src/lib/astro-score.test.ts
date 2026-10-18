@@ -423,8 +423,14 @@ describe('machine-readable causes and ruin points', () => {
     expect(factor({}, 'transparency')?.ruinous).toBeUndefined()
   })
 
-  it('exposes the instant of the closest-to-gate sample', () => {
-    const reading = coreGateReading(night('2026-08-15'))!
-    expect(reading.time.getTime()).toBeGreaterThan(0)
+  it('exposes the exact instant of the closest-to-gate sample', () => {
+    const resolved = night('2026-08-15')
+    const reading = coreGateReading(resolved)!
+    const dark = resolved.samples.filter((s) => s.astroDark)
+    const tightest = dark.reduce((best, s) =>
+      MIN_CORE_ALTITUDE - s.coreAltitude < MIN_CORE_ALTITUDE - best.coreAltitude ? s : best,
+    )
+    expect(reading.time.getTime()).toBe(tightest.time.getTime())
+    expect(reading.altitude).toBe(tightest.coreAltitude)
   })
 })

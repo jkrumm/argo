@@ -21,6 +21,9 @@
  * produces the verdict, and prose is generated *from* the verdict elsewhere.
  */
 
+/** Why the core-altitude gate failed: the engine's stable vocabulary, never parsed out of `reason`. */
+export type GateCause = 'ridge' | 'floor' | 'never-rises'
+
 /** A binary show-stopper. `passes: false` kills the window and names why. */
 export type Gate<TInput> = {
   /** Stable machine id, e.g. `core-altitude`. Surfaced in the API response. */
@@ -32,7 +35,7 @@ export type Gate<TInput> = {
    * the user actually reads ("core peaks at 6.2°, below the 8° floor"). `cause` is an optional
    * stable machine tag for WHY the gate failed, so a client never parses `reason`.
    */
-  evaluate: (input: TInput) => { passes: boolean; reason?: string; cause?: string }
+  evaluate: (input: TInput) => { passes: boolean; reason?: string; cause?: GateCause }
 }
 
 /** A continuous 0..1 quality. Higher is always better. */
@@ -86,7 +89,7 @@ export type Killer = {
   label: string
   reason: string
   /** Stable machine tag for why the gate failed, when the gate defines one. */
-  cause?: string
+  cause?: GateCause
 }
 
 export type ScoredWindow = {

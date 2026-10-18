@@ -13,6 +13,7 @@ import {
   medianMpsas,
   profileRows,
   nearestInstantIndex,
+  seedScrubIndex,
   type HorizonProfilePoint,
   type SkyglowRose,
 } from './sky-panorama-geometry'
@@ -190,8 +191,9 @@ describe('nearestInstantIndex', () => {
     expect(nearestInstantIndex([0, 30, 60, 90], 45)).toBe(1)
     expect(nearestInstantIndex([0, 30, 60], 500)).toBe(2)
   })
-  test('null without samples', () => {
+  test('null without samples or for a non-finite target', () => {
     expect(nearestInstantIndex([], 10)).toBeNull()
+    expect(nearestInstantIndex([0, 30], Number.NaN)).toBeNull()
   })
 })
 
@@ -210,5 +212,26 @@ describe('medianMpsas', () => {
   })
   test('null for an empty rose', () => {
     expect(medianMpsas({ azimuths: [], altitudes: [], mpsas: [] })).toBeNull()
+  })
+})
+
+describe('seedScrubIndex', () => {
+  const at = (iso: string) => new Date(iso).getTime()
+  const instants = [
+    at('2026-08-15T21:00:00Z'),
+    at('2026-08-15T21:30:00Z'),
+    at('2026-08-15T22:00:00Z'),
+  ]
+
+  test('opens on the sample nearest the API gate instant', () => {
+    expect(seedScrubIndex(instants, '2026-08-15T21:35:00Z')).toBe(1)
+  })
+  test('re-seeds when the gate instant changes (another night)', () => {
+    expect(seedScrubIndex(instants, '2026-08-15T22:00:00Z')).toBe(2)
+    expect(seedScrubIndex(instants, '2026-08-15T21:00:00Z')).toBe(0)
+  })
+  test('falls back to ~45% through the night without a usable instant', () => {
+    expect(seedScrubIndex(instants, null)).toBe(1)
+    expect(seedScrubIndex(instants, 'not a date')).toBe(1)
   })
 })

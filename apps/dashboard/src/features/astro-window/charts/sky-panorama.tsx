@@ -12,7 +12,14 @@ import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { LP_RAMP } from '../map-layers'
 import { METRIC_TOOLTIPS, PANORAMA_HEIGHT, SKY_DARK_THRESHOLD } from '../constants'
-import { coreGateFact, fmtAzimuth, fmtDegrees, fmtShortDay, withFacts } from '../formulas'
+import {
+  coreGateFact,
+  coreGateFailure,
+  fmtAzimuth,
+  fmtDegrees,
+  fmtShortDay,
+  withFacts,
+} from '../formulas'
 import type { HourlyPoint, Night, Site } from '../types'
 import {
   bandValue,
@@ -25,7 +32,7 @@ import {
   glowBuckets,
   glowCells,
   medianMpsas,
-  nearestInstantIndex,
+  seedScrubIndex,
   profileRows,
   type HorizonProfilePoint,
   type ProfileRow,
@@ -140,18 +147,6 @@ function rampFill(mpsasValue: number): string {
   return alpha(mixed, opacity)
 }
 
-/** The sample the scrubber opens on: the one nearest the instant the API read `gateCoreAltitude` at, so the header and the readout describe the same moment. Falls back to ~45% through the night without one. */
-function initialScrubIndex(samples: readonly HourlyPoint[], gateSampleTime: string | null): number {
-  const nearest =
-    gateSampleTime === null
-      ? null
-      : nearestInstantIndex(
-          samples.map((s) => new Date(s.time).getTime()),
-          new Date(gateSampleTime).getTime(),
-        )
-  return nearest ?? Math.floor(samples.length * 0.45)
-}
-
 type Track = { i: number; az: number; alt: number | null }
 
 /** One body's night as an azimuth × altitude path; a sample outside the plot's altitude domain is a gap. */
@@ -238,6 +233,7 @@ export default function SkyPanorama({
 
   return (
     <PanoramaLoaded
+      key={`${detailDate}-${night.gateSampleTime ?? 'none'}`}
       detailDate={detailDate}
       samples={hourly}
       night={night}
@@ -267,10 +263,22 @@ function PanoramaLoaded({
   const rose = skyglow.profile
   const { atmosphericFloorDeg, framingMarginDeg } = visibility
 
-  const [scrub, setScrub] = useState(() => initialScrubIndex(samples, night.gateSampleTime))
+  const [scrub, setScrub] = useState(() =>
+    seedScrubIndex(
+      samples.map((s) => new Date(s.time).getTime()),
+      night.gateSampleTime,
+    ),
+  )
+  // Until the slider is moved the readout is the API's own reading at the gate instant, the same
+  // figure the header states; afterwards it is the scrubbed hourly sample, labelled with its time.
+  const [touched, setTouched] = useState(false)
+  const atGate = !touched && night.gateCoreAltitude !== null
   const idx = Math.min(scrub, Math.max(0, samples.length - 1))
 
   const sample = samples[idx] ?? samples[0]!
+  const coreAltitude = atGate
+    ? (night.gateCoreAltitude ?? sample.coreAltitude)
+    : sample.coreAltitude
   const glowMedian = useMemo(() => medianMpsas(rose), [rose])
   const series = useMemo(
     () => panoramaSeries(glowMedian === null ? LP_RAMP[2]!.token : rampFill(glowMedian)),
@@ -283,13 +291,13 @@ function PanoramaLoaded({
     atmosphericFloorDeg,
     framingMarginDeg,
     sample.coreAzimuth,
-    sample.coreAltitude,
+    coreAltitude,
   )
-  const glowBehindCore = glowAt(rose, sample.coreAzimuth, Math.max(5, sample.coreAltitude))
+  const glowBehindCore = glowAt(rose, sample.coreAzimuth, Math.max(5, coreAltitude))
   const moonState: 'down' | 'behind terrain' | 'up' =
     sample.moonAltitude < 0 ? 'down' : sample.moonBehindTerrain ? 'behind terrain' : 'up'
   const moonGood = moonState !== 'up'
-  const coreClearsNow = sample.astroDark && clearanceGood
+  const coreClearsNow = atGate ? !coreGateFailure(night) : sample.astroDark && clearanceGood
 
   // Static geometry — depends on the site and night, never on the scrub index, so dragging the
   // slider recomputes none of it.
@@ -518,7 +526,10 @@ function PanoramaLoaded({
         <Slider
           aria-label="Scrub the night: time of the instant shown on the panorama"
           value={idx}
-          onChange={setScrub}
+          onChange={(v) => {
+            setTouched(true)
+            setScrub(v)
+          }}
           min={0}
           max={Math.max(0, samples.length - 1)}
           step={1}
@@ -530,7 +541,7 @@ function PanoramaLoaded({
           {sample.localTime}
         </Text>
         <Text size="sm">
-          Core <b>{fmtDegrees(sample.coreAltitude)}</b> · {fmtAzimuth(sample.coreAzimuth)}
+          Core <b>{fmtDegrees(coreAltitude)}</b> · {fmtAzimuth(sample.coreAzimuth)}
         </Text>
         <Text size="sm">
           Skyline there <b>{fmtDegrees(ridge)}</b>

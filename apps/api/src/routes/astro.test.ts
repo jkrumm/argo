@@ -18,7 +18,12 @@ import {
   SOUTH_ARC,
 } from '../lib/terrain-horizon.js'
 import { MAX_HORIZON_TILES } from '../clients/terrarium-dem.js'
-import { clearAstroSummaryCache, createAstroRoutes, type AstroRouteDeps } from './astro.js'
+import {
+  clearAstroSummaryCache,
+  createAstroRoutes,
+  KillerSchema,
+  type AstroRouteDeps,
+} from './astro.js'
 
 const SECRET = process.env['API_SECRET'] ?? 'x'
 
@@ -434,8 +439,6 @@ describe('GET /astro/window — the verdict', () => {
             expect(['ridge', 'floor']).toContain(
               night.killers.find((k: { id: string }) => k.id === 'core-altitude').cause,
             )
-          }
-          if (coreKiller) {
             expect(night.gateCoreAltitude).toBeLessThanOrEqual(night.coreGateDeg)
           } else if (night.darkMinutes > 0) {
             expect(night.gateCoreAltitude).toBeGreaterThan(night.coreGateDeg)
@@ -1220,5 +1223,19 @@ describe('GET /astro/tiles/lp/{year}/{z}/{x}/{y}.png', () => {
     const { app } = build()
     const res = await app.handle(new Request(`http://localhost${TILE}`))
     expect(res.status).toBe(401)
+  })
+})
+
+describe('KillerSchema cause', () => {
+  it.each(['ridge', 'floor', 'never-rises'])('accepts the %s cause', (cause) => {
+    expect(
+      KillerSchema.safeParse({ id: 'core-altitude', label: 'l', reason: 'r', cause }).success,
+    ).toBe(true)
+  })
+  it('accepts a killer without a cause and rejects an unknown one', () => {
+    expect(KillerSchema.safeParse({ id: 'moon', label: 'l', reason: 'r' }).success).toBe(true)
+    expect(
+      KillerSchema.safeParse({ id: 'moon', label: 'l', reason: 'r', cause: 'x' }).success,
+    ).toBe(false)
   })
 })

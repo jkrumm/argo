@@ -62,6 +62,7 @@ import {
   astroWindowConfig,
   evaluationSamples,
   MIN_CORE_ALTITUDE,
+  CLOUD_RUINS_AT,
   coreGateReading,
   MAX_MOON_ILLUMINATION,
   type AstroScoreInput,
@@ -114,12 +115,12 @@ const HOURLY_SUN_ALTITUDE_CEILING = 5
 /** How long a generated sentence is reused for. Forecasts refresh hourly at best. */
 const SUMMARY_TTL_MS = 30 * 60_000
 
-const KillerSchema = z.object({
+export const KillerSchema = z.object({
   id: z.string().describe('Stable machine id, e.g. `moon`'),
   label: z.string(),
   reason: z.string().describe('Human-readable, already contains the numbers'),
   cause: z
-    .string()
+    .enum(['ridge', 'floor', 'never-rises'])
     .optional()
     .describe(
       'Stable tag for why the `core-altitude` gate failed, one of `ridge` (the measured skyline raised the floor), `floor` (the core stayed under the flat atmospheric floor) or `never-rises` (it never rose while dark); a client treats any other value as unknown and shows `reason`. Absent on other gates; read this, never `reason`, to branch',
@@ -137,7 +138,7 @@ const FactorSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      'Cloud factors only, when data exists: true when the cover is at or past the level where the layer has effectively taken the night (low 55 %, mid 80 %, high 100 %). A factor is scored, never a gate: `ruinous` does not make a night `out`',
+      `Cloud factors only, when data exists: true when the cover is at or past the level where the layer has effectively taken the night (low ${CLOUD_RUINS_AT.low} %, mid ${CLOUD_RUINS_AT.mid} %, high ${CLOUD_RUINS_AT.high} %). A factor is scored, never a gate: \`ruinous\` does not make a night \`out\`.`,
     ),
 })
 
@@ -208,8 +209,8 @@ const NightSchema = z.object({
     .describe(
       'The floor, degrees, at that same sample: the 8° atmospheric floor, raised to the measured ridge at the core azimuth plus the 2° framing margin when a committed skyline is resolved. Null when there is no dark sample',
     ),
-  gateSampleTime: z
-    .string()
+  gateSampleTime: z.iso
+    .datetime()
     .nullable()
     .describe(
       'ISO 8601 UTC instant of the sample behind `gateCoreAltitude`/`coreGateDeg`. Null when there is no dark sample',
@@ -1194,6 +1195,7 @@ function serializeNight(
   weather: ReturnType<typeof nightWeather>,
 ) {
   const { timeZone } = night
+  const gate = coreGateReading(night)
   return {
     date: night.date,
     verdict: scored.verdict as 'excellent' | 'good' | 'marginal' | 'poor' | 'out',
@@ -1208,9 +1210,9 @@ function serializeNight(
     transit: night.transit.toISOString(),
     localTransit: formatLocalTime(night.transit, timeZone),
     maxCoreAltitude: round1(night.maxCoreAltitude),
-    gateCoreAltitude: roundOrNull(coreGateReading(night)?.altitude ?? null),
-    coreGateDeg: roundOrNull(coreGateReading(night)?.floor ?? null),
-    gateSampleTime: coreGateReading(night)?.time.toISOString() ?? null,
+    gateCoreAltitude: roundOrNull(gate?.altitude ?? null),
+    coreGateDeg: roundOrNull(gate?.floor ?? null),
+    gateSampleTime: gate?.time.toISOString() ?? null,
     peakCoreClearanceDeg: night.peakCoreClearance === null ? null : round1(night.peakCoreClearance),
     moon: {
       illumination: round3(night.moonIllumination),

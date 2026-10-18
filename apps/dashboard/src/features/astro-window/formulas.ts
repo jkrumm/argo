@@ -1,7 +1,7 @@
 import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
-import { MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
+import { CORE_METER_MAX_DEG, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
 import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
@@ -178,13 +178,33 @@ export function coreGateDetail(night: Night): string {
     : 'clears the gate'
 }
 
-/** The Moon gate row's one line: the API's reason when it failed, else the illumination against the limit the response carries. */
+/**
+ * The Moon gate row's one line: the API's reason when it failed; else, when it passed under the
+ * limit, the illumination against it. A moon over the limit only passes by its position, so the line
+ * says which: down through the shooting window (`maxMoonAltitude` under 0°) or behind the skyline.
+ */
 export function moonGateDetail(night: Night, moonLimit: number): string {
   const killer = night.killers.find((k) => k.id === 'moon')
   if (killer !== undefined) return killer.reason
-  if (night.darkMinutes === 0) return 'no astronomical night'
   const lit = Math.round(night.moon.illumination * 100)
-  return `${lit} % lit · limit ${Math.round(moonLimit * 100)} %`
+  const limit = Math.round(moonLimit * 100)
+  if (night.moon.illumination < moonLimit) return `${lit} % lit · limit ${limit} %`
+  const shoot = night.window
+  if (shoot === null) return `${lit} % lit, over the ${limit} % limit · passed on its position`
+  return shoot.maxMoonAltitude < 0
+    ? `${lit} % lit, over the ${limit} % limit · down through the shooting window`
+    : `${lit} % lit, over the ${limit} % limit · behind the skyline in the shooting window`
+}
+
+/** The Darkness gate row's one line. */
+export function darknessDetail(night: Night): string {
+  if (night.darkMinutes > 0) return 'astronomical night present'
+  return night.killers.find((k) => k.id === 'darkness')?.reason ?? 'none'
+}
+
+/** The upper end of the Core gauge: the scale the core never tops, widened to the gate so a gate above it still shows a miss. */
+export function coreGaugeMax(gate: number): number {
+  return Math.max(CORE_METER_MAX_DEG, gate)
 }
 
 /** The core reading and its gate, for the Core cell's gauge — present on every night with a dark
@@ -288,18 +308,25 @@ function barShare(value: number | null, scale: number): number | null {
 /** A strip bar: the fill's share of its track, and the gate tick's position when the night has a gate to draw. */
 export type GateBar = { fill: number; gate: number | null }
 
+/** Does this night draw a gate bar: out on the core gate with both its reading and its gate. The one predicate the scale and the bar share. */
+export function drawsGateBar(night: Night): boolean {
+  return (
+    nightShortfall(night) !== null && night.gateCoreAltitude !== null && night.coreGateDeg !== null
+  )
+}
+
 /** The shared scale of the strip's gate bars: the highest gate among the nights that draw one, so the track always reaches the tallest gate. Never under 1°. */
 export function gateBarScale(nights: readonly Night[]): number {
-  const gates = nights.flatMap((n) =>
-    nightShortfall(n) !== null && n.coreGateDeg !== null ? [n.coreGateDeg] : [],
-  )
+  const gates = nights.flatMap((n) => (drawsGateBar(n) ? [n.coreGateDeg ?? 0] : []))
   return Math.max(1, ...gates)
 }
 
 /** A night out on the core gate: fill = the core reading, tick = the gate, both on the shared scale; the distance between them is the miss. Null for any other night. A reading under 0° keeps a hairline. */
 export function gateBar(night: Night, scale: number): (GateBar & { gate: number }) | null {
-  if (nightShortfall(night) === null || night.gateCoreAltitude === null) return null
-  if (night.coreGateDeg === null || !(scale > 0)) return null
+  if (!drawsGateBar(night) || night.gateCoreAltitude === null || night.coreGateDeg === null) {
+    return null
+  }
+  if (!(scale > 0)) return null
   const fill = barShare(night.gateCoreAltitude, scale)
   return fill === null ? null : { fill, gate: Math.min(1, night.coreGateDeg / scale) }
 }
@@ -399,17 +426,16 @@ export function pageSummary(
  * Tonight the verdict card states it. No window: `none within the dark` on a usable night. */
 export function windowFact(
   night: Night,
-  { withMiss }: { withMiss: boolean } = { withMiss: true },
+  { withMiss }: { withMiss: boolean },
 ): { value: string; period: string } {
   const shoot = night.window
   const out = night.verdict === 'out'
   if (shoot === null) {
-    const period = !out
-      ? 'none within the dark'
-      : withMiss
-        ? gateMissText(night)
-        : 'no stretch passes every gate'
-    return { value: 'No window', period }
+    if (!out) return { value: 'No window', period: 'none within the dark' }
+    return {
+      value: 'No window',
+      period: withMiss ? gateMissText(night) : 'no stretch passes every gate',
+    }
   }
   const range = `${shoot.localStart}–${shoot.localEnd}`
   return {
@@ -478,15 +504,11 @@ export function lowCloudRow(night: Night): string | null {
 }
 
 /** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
-export function verdictFacts(
-  night: Night,
-  nights: readonly Night[],
-  { lowCloudShown }: { lowCloudShown: boolean },
-): string[] {
+export function verdictFacts(night: Night, nights: readonly Night[]): string[] {
   if (night.verdict === 'out') return [fmtShortDay(night.date), nextUsableText(nights, night.date)]
   const limiting = limitingFactor(night)
   const named =
-    limiting === null || (lowCloudShown && limiting.id === 'cloud-low')
+    limiting === null || (limiting.id === 'cloud-low' && lowCloudRow(night) !== null)
       ? null
       : `limited by ${limiting.label.toLowerCase()} ${limiting.pct} %`
   return [`score ${night.score}/100`, ...(named === null ? [] : [named])]
@@ -501,25 +523,28 @@ export type GateRowModel = {
   detail: string
 }
 
-/** The verdict card's rows: the three gates in the API's order, pass or fail by its `killers` only, then low cloud when the API calls it ruinous. */
+/**
+ * The verdict card's rows: the three gates in the API's order, pass or fail by its `killers` only,
+ * then low cloud when the API calls it ruinous. With no astronomical night the core and moon gates
+ * have nothing to judge, so they read `n/a`, neutral. Low cloud is scored, never gated: neutral too.
+ */
 export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
   const failed = new Set(night.killers.map((k) => k.id))
-  const gate = (id: string, label: string, detail: string): GateRowModel => ({
-    key: id,
-    label,
-    state: failed.has(id) ? 'failed' : 'passed',
-    tone: failed.has(id) ? 'warn' : 'good',
-    detail,
-  })
-  const darkness = night.killers.find((k) => k.id === 'darkness')?.reason
+  const dark = night.darkMinutes > 0
+  const gate = (id: string, label: string, detail: string, judged = true): GateRowModel =>
+    judged
+      ? {
+          key: id,
+          label,
+          state: failed.has(id) ? 'failed' : 'passed',
+          tone: failed.has(id) ? 'warn' : 'good',
+          detail,
+        }
+      : { key: id, label, state: 'n/a', tone: 'neutral', detail: 'no astronomical night' }
   const rows = [
-    gate(
-      'darkness',
-      'Darkness',
-      night.darkMinutes > 0 ? 'astronomical night present' : (darkness ?? 'none'),
-    ),
-    gate('core-altitude', 'Core', coreGateDetail(night)),
-    gate('moon', 'Moon', moonGateDetail(night, moonLimit)),
+    gate('darkness', 'Darkness', darknessDetail(night)),
+    gate('core-altitude', 'Core', coreGateDetail(night), dark),
+    gate('moon', 'Moon', moonGateDetail(night, moonLimit), dark),
   ]
   const cloud = lowCloudRow(night)
   if (cloud !== null) {
@@ -527,7 +552,7 @@ export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
       key: 'cloud-low',
       label: 'Low cloud',
       state: 'ruinous · scored, not a gate',
-      tone: 'warn',
+      tone: 'neutral',
       detail: cloud,
     })
   }

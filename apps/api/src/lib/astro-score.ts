@@ -150,6 +150,8 @@ export function peakCoreAltitudeInDarkness(night: AstroNight): number | null {
   return peak
 }
 
+type GateSample = { altitude: number; floor: number; ridge: number | null; time: Date }
+
 /**
  * The dark sample that comes closest to clearing the core gate — the one with the smallest
  * `floor − altitude`, using the same per-sample floor `resolveNight` builds `coreUp` from (the flat
@@ -158,8 +160,6 @@ export function peakCoreAltitudeInDarkness(night: AstroNight): number | null {
  * the gate's reason text and the `gateCoreAltitude`/`coreGateDeg` response fields all read this one
  * sample. Null with no dark sample.
  */
-type GateSample = { altitude: number; floor: number; ridge: number | null; time: Date }
-
 function closestGateSample(night: AstroNight): GateSample | null {
   let best: GateSample | null = null
   for (const sample of night.samples) {

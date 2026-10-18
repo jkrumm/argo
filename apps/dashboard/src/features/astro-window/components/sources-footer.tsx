@@ -24,7 +24,7 @@ export function SourcesFooter({
   timeZone: string
 }) {
   return (
-    <Group gap="sm" wrap="nowrap" data-shot="sources-footer">
+    <Group gap="sm" data-shot="sources-footer">
       <Text size="xs" c="dimmed">
         Forecast sources · run {fmtLocalClock(generatedAt, timeZone)}
       </Text>
