@@ -248,17 +248,17 @@ describe('chatKindParts', () => {
 })
 
 describe('chatsStat', () => {
-  test('the leading kind is the hero and the footer never repeats it', () => {
+  test('the leading kind is the hero; the bar captions name the rest, so no footer', () => {
     expect(chatsStat({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual({
       hero: { value: '4', unit: 'direct chats' },
-      footer: '2 meetings · 1 group chat',
+      footer: null,
     })
     expect(chatsStat({ oneOnOne: 1, group: 3, meeting: 3, other: 0 })).toEqual({
       hero: { value: '3', unit: 'group chats' },
-      footer: '3 meetings · 1 direct chat',
+      footer: null,
     })
   })
-  test('one kind has no footer, none says so', () => {
+  test('one kind is the hero alone, none says so', () => {
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 1, other: 0 })).toEqual({
       hero: { value: '1', unit: 'meeting' },
       footer: null,
