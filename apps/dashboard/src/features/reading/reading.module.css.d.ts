@@ -14,6 +14,10 @@ declare const classes: {
   readonly list: string
   readonly axisLabel: string
   readonly star: string
+  readonly paceTrack: string
+  readonly paceTick: string
+  readonly paceMedian: string
+  readonly paceAxis: string
   readonly titleClamp: string
   readonly titleLink: string
   readonly cover: string
