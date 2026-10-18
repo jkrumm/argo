@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
-import { agendaSummary, longestFreeBlock, type CalendarItem } from './derive'
+import { agendaSummary, type CalendarItem } from './derive'
 import { countdown, summaryParts, todayCardState, untilLabel } from './summary'
 
 const D = '2026-10-14'
@@ -21,31 +21,31 @@ const events = [
 describe('summaryParts', () => {
   test('a busy day: the headline carries the count and booked time, the facts the countdown and week', () => {
     const summary = agendaSummary(events, now)
-    const { sentence, facts } = summaryParts(summary, longestFreeBlock(events, D, now))
+    const { sentence, facts } = summaryParts(summary)
     expect(sentence).toBe('3 meetings today, 2h\u00a040m booked')
     expect(facts).toEqual(['next in 20m', '2h\u00a040m booked this week'])
   })
-  test('an empty day states the free time instead', () => {
+  test("an empty day says so; the free time is the free-block cell's, not repeated", () => {
     const summary = agendaSummary([], now)
-    expect(summaryParts(summary, longestFreeBlock([], D, now))).toEqual({
-      sentence: 'No events today · 7h free',
+    expect(summaryParts(summary)).toEqual({
+      sentence: 'No events today',
       facts: ['nothing booked this week'],
     })
   })
   test('a lone meeting reads singular', () => {
     const summary = agendaSummary([events[1] as CalendarItem], now)
-    expect(summaryParts(summary, null).sentence).toStartWith('1 meeting today, 40m booked')
+    expect(summaryParts(summary).sentence).toStartWith('1 meeting today, 40m booked')
   })
   test('dashes, never "No events", while a calendar has not answered', () => {
     const summary = agendaSummary([], now, new Set(['work']))
-    expect(summaryParts(summary, null)).toEqual({
+    expect(summaryParts(summary)).toEqual({
       sentence: '— meetings today',
       facts: ['next —', '— booked this week'],
     })
   })
   test('durations never break between hours and minutes', () => {
     const long = [ev('l', `${D} 12:00:00`, `${D} 23:05:00`)]
-    const { sentence, facts } = summaryParts(agendaSummary(long, now), null)
+    const { sentence, facts } = summaryParts(agendaSummary(long, now))
     for (const text of [sentence, ...facts]) expect(text).not.toMatch(/\d+h \d+m/)
     expect(sentence).toContain('11h\u00a05m')
   })

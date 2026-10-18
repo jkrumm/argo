@@ -303,9 +303,10 @@ describe('tasksDue', () => {
     expect(out[1]).toMatchObject({ tone: 'bad', label: 'High' })
     expect(out[2]).toMatchObject({ tone: 'warn', label: 'Medium' })
   })
-  test('Low and unprioritised tasks are neutral and unlabeled', () => {
-    const out = tasksDue([task('a', D, 1), task('b', D, 0)], D)
-    expect(out.every((t) => t.tone === 'neutral' && t.label === null)).toBe(true)
+  test('every task names its priority; Low and unprioritised are neutral', () => {
+    const out = tasksDue([task('a', D, 1), task('b', D, 0), task('c', D, undefined)], D)
+    expect(out.map((t) => t.label)).toEqual(['Low', 'No priority', 'No priority'])
+    expect(out.every((t) => t.tone === 'neutral')).toBe(true)
   })
   test('meetings are never tasks', () => {
     expect(tasksDue([ev('m', at(D, '09:00'), at(D, '10:00'))], D)).toEqual([])
