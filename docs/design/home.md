@@ -106,3 +106,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail on one component: activity headlines still ellipsize mid-transition. The decision-card "Recent changes" panel wraps at 1440 (seen, not scored).
 - **Against Keel:** mostly holds up (headline, strip, needs-you, side column).
 - **Open for Wave 24:** activity headline clamp; replace the wrapping history log with a one-line latest transition or an evidence preview.
+
+### Wave 24 fixes
+
+- Activity headlines never cut a transition: the model splits a Warden row into `title` (subject, ellipsizes first) and `outcome` (`a → b → c · dispatch`, rendered whole); `wardenEvents` + test.
+- Headline moved onto the shared `PageSummary`: the sentence keeps the count and oldest wait (fleet when nothing waits), the facts line carries fleet, next meeting and recovery, the date is the `aside`. `summarySentence` became `summaryParts` (pure + tests); the local headline/date CSS is gone.
+
+No basalt gaps this round.

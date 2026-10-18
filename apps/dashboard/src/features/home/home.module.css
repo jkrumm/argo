@@ -16,21 +16,6 @@
   }
 }
 
-.headline {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--vx-space-stack-md);
-}
-
-.date {
-  flex: none;
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-  white-space: nowrap;
-}
-
 /* ── Next-meeting day axis ────────────────────────────────────────────────────────────────── */
 
 .axis {
@@ -124,10 +109,23 @@
 }
 
 .feedSentence {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
   min-width: 0;
+}
+
+/* The subject gives way first; the outcome (the transition) is never clipped. */
+.feedSubject {
+  flex: 0 1 auto;
+  min-width: 3ch;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedOutcome {
+  flex: none;
   white-space: nowrap;
 }
 

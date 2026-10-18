@@ -264,7 +264,10 @@ export type ActivityEvent = {
   key: string
   ms: number
   actor: 'warden' | 'narrator' | 'calendar'
+  /** The subject: shortens first (ellipsis) when the row is narrow. */
   title: string
+  /** The end of the sentence (a transition path, a dispatch): always rendered whole, never clipped. */
+  outcome?: string
   /** The entity chip: a project (a Warden row names its repo in the sentence instead). */
   chip?: string
   /** A muted second line: the item's own title. */
@@ -355,11 +358,8 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
       const path = pathOf(burst)
       const dispatches = burst.flatMap((s) => (s.dispatch ? [s.dispatch] : []))
       const verb = path ? 'moved' : 'dispatched'
-      const title = [
-        `${verb}${repo ? ` ${repo}` : ''} item`,
-        path,
-        dispatches.length > 0 ? dispatches.join(', ') : '',
-      ]
+      const title = `${verb}${repo ? ` ${repo}` : ''} item`
+      const outcome = [path, dispatches.length > 0 ? dispatches.join(', ') : '']
         .filter(Boolean)
         .join(' · ')
       out.push({
@@ -367,6 +367,7 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
         ms: burst.at(-1)?.ms ?? 0,
         actor: 'warden',
         title,
+        ...(outcome ? { outcome } : {}),
         ...(itemTitle ? { detail: itemTitle } : {}),
       })
     }
@@ -470,19 +471,22 @@ export type SummaryInput = {
   now: number
 }
 
-export function summarySentence(s: SummaryInput): string {
+export type SummaryParts = { sentence: string; facts: string[] }
+
+/** The headline (count + oldest wait, or why it can't be told) and the facts under it. */
+export function summaryParts(s: SummaryInput): SummaryParts {
   const n = s.decisions.length
   const oldest = s.decisions.reduce<number | null>(
     (max, d) => (d.ageMs !== null && (max === null || d.ageMs > max) ? d.ageMs : max),
     null,
   )
   const gap = s.unavailable.length > 0 ? ` (${s.unavailable.join(' and ')} unavailable)` : ''
-  const head =
-    s.unavailable.length >= NEEDS_YOU_SOURCES
-      ? `Can't tell — ${s.unavailable.join(' and ')} unavailable.`
-      : n === 0
-        ? `Nothing needs you${gap}.${s.fleet ? ` ${s.fleet.working} of ${s.fleet.total} agents working.` : ''}`
-        : `${n} ${n === 1 ? 'item needs' : 'items need'} you${gap}${oldest === null ? '' : `, oldest ${formatWaitDuration(oldest)}`}.`
+  const cantTell = s.unavailable.length >= NEEDS_YOU_SOURCES
+  const sentence = cantTell
+    ? `Can't tell — ${s.unavailable.join(' and ')} unavailable.`
+    : n === 0
+      ? `Nothing needs you${gap}${s.fleet ? `; ${s.fleet.working} of ${s.fleet.total} agents working` : ''}.`
+      : `${n} ${n === 1 ? 'item needs' : 'items need'} you${gap}${oldest === null ? '' : `, oldest ${formatWaitDuration(oldest)}`}.`
   const meeting =
     s.meetings === null
       ? null
@@ -493,7 +497,8 @@ export function summarySentence(s: SummaryInput): string {
           : s.meetings.current !== null
             ? `In a meeting until ${clockTime(new Date(s.meetings.current.endMs).toISOString())}`
             : 'No more meetings today'
+  const fleet =
+    s.fleet && !cantTell && n > 0 ? `${s.fleet.working} of ${s.fleet.total} agents working` : null
   const recovery = s.recovery === null ? null : `recovery today ${Math.round(s.recovery)}/100`
-  const tail = [meeting, recovery].filter((p): p is string => p !== null)
-  return tail.length === 0 ? head : `${head} ${tail.join(', ')}.`
+  return { sentence, facts: [fleet, meeting, recovery].filter((p): p is string => p !== null) }
 }

@@ -5,8 +5,6 @@
 declare const classes: {
   readonly root: string
   readonly columns: string
-  readonly headline: string
-  readonly date: string
   readonly axis: string
   readonly axisTrack: string
   readonly tick: string
@@ -19,6 +17,8 @@ declare const classes: {
   readonly feedHeading: string
   readonly feedRow: string
   readonly feedSentence: string
+  readonly feedSubject: string
+  readonly feedOutcome: string
   readonly feedDetail: string
   readonly feedActor: string
   readonly feedTime: string

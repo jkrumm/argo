@@ -14,7 +14,7 @@ import {
   nextMeeting,
   recoveryReading,
   staleFeeds,
-  summarySentence,
+  summaryParts,
   taskCounts,
   todayAgenda,
   type ActivityEvent,
@@ -204,7 +204,7 @@ describe('activityStream', () => {
   })
 })
 
-describe('summarySentence', () => {
+describe('summaryParts', () => {
   const base = {
     unavailable: [],
     fleet: { working: 2, total: 5 },
@@ -213,35 +213,49 @@ describe('summarySentence', () => {
     now: NOW,
   }
 
-  it('states count, oldest wait, next meeting and recovery from one list', () => {
+  it('states count and oldest wait in the sentence, the rest as facts', () => {
     const next = todayAgendaOf([[event({ start: at(12, 25) })]], NOW).meetings[0] ?? null
-    const text = summarySentence({
-      ...base,
-      decisions: [decision(2 * 60 * MIN), decision(30 * MIN)],
-      meetings: { next, current: null, total: 1, emptyLabel: 'No meetings today' },
-      recovery: 72.4,
+    expect(
+      summaryParts({
+        ...base,
+        decisions: [decision(2 * 60 * MIN), decision(30 * MIN)],
+        meetings: { next, current: null, total: 1, emptyLabel: 'No meetings today' },
+        recovery: 72.4,
+      }),
+    ).toEqual({
+      sentence: '2 items need you, oldest 2h 0m.',
+      facts: ['2 of 5 agents working', 'Next meeting in 25m', 'recovery today 72/100'],
     })
-    expect(text).toBe('2 items need you, oldest 2h 0m. Next meeting in 25m, recovery today 72/100.')
   })
 
-  it('reads the fleet when nothing needs the owner', () => {
+  it('reads an empty inbox with the fleet and the day', () => {
     expect(
-      summarySentence({
+      summaryParts({
         ...base,
         decisions: [],
         meetings: { next: null, current: null, total: 0, emptyLabel: 'No meetings today' },
       }),
-    ).toBe('Nothing needs you. 2 of 5 agents working. No meetings today.')
+    ).toEqual({
+      sentence: 'Nothing needs you; 2 of 5 agents working.',
+      facts: ['No meetings today'],
+    })
   })
 
   it('names an unavailable source instead of implying an empty inbox', () => {
-    expect(summarySentence({ ...base, decisions: [], unavailable: ['Warden'], fleet: null })).toBe(
-      'Nothing needs you (Warden unavailable).',
-    )
+    expect(
+      summaryParts({ ...base, decisions: [], unavailable: ['Warden'], fleet: null }).sentence,
+    ).toBe('Nothing needs you (Warden unavailable).')
+  })
+
+  it('drops the fleet fact when neither source loaded', () => {
+    expect(summaryParts({ ...base, decisions: [], unavailable: ['Warden', 'Agents'] })).toEqual({
+      sentence: "Can't tell — Warden and Agents unavailable.",
+      facts: [],
+    })
   })
 
   it('uses singular for one item and omits an unknown age', () => {
-    expect(summarySentence({ ...base, decisions: [decision(null)], fleet: null })).toBe(
+    expect(summaryParts({ ...base, decisions: [decision(null)], fleet: null }).sentence).toBe(
       '1 item needs you.',
     )
   })
@@ -269,13 +283,15 @@ describe('wardenEvents', () => {
     const rows = wardenEvents(raw)
     expect(rows).toHaveLength(2)
     const burst = rows.find((r) => r.ms === NOW - 57 * MIN)
-    expect(burst?.title).toBe('moved {repo} item · new → triaged → working · investigate done')
+    expect(burst?.title).toBe('moved {repo} item')
+    expect(burst?.outcome).toBe('new → triaged → working · investigate done')
     expect(burst?.detail).toBe('{item title}')
   })
 
   it('starts a new row after a gap and times each row at its last step', () => {
     const later = wardenEvents(raw).find((r) => r.ms === NOW - 5 * MIN)
-    expect(later?.title).toBe('moved {repo} item · working → needs decision')
+    expect(later?.title).toBe('moved {repo} item')
+    expect(later?.outcome).toBe('working → needs decision')
   })
 })
 
@@ -358,13 +374,13 @@ describe('staleFeeds and unavailable sources', () => {
   const base = { decisions: [], fleet: null, meetings: null, recovery: null, now: NOW }
 
   it('does not say nothing needs you when neither source loaded', () => {
-    expect(summarySentence({ ...base, unavailable: ['Warden', 'Agents'] })).toBe(
+    expect(summaryParts({ ...base, unavailable: ['Warden', 'Agents'] }).sentence).toBe(
       "Can't tell — Warden and Agents unavailable.",
     )
   })
 
   it('names the one source that is down', () => {
-    expect(summarySentence({ ...base, unavailable: ['Agents'] })).toBe(
+    expect(summaryParts({ ...base, unavailable: ['Agents'] }).sentence).toBe(
       'Nothing needs you (Agents unavailable).',
     )
   })
@@ -415,17 +431,17 @@ describe('ended meetings', () => {
   it('says no more meetings only after the last one ended, and names the one in progress before that', () => {
     const last = morning[0]!
     expect(
-      summarySentence({
+      summaryParts({
         ...base,
         meetings: { next: null, current: null, total: 1, emptyLabel: 'No meetings today' },
       }),
-    ).toBe('Nothing needs you. No more meetings today.')
+    ).toEqual({ sentence: 'Nothing needs you.', facts: ['No more meetings today'] })
     expect(
-      summarySentence({
+      summaryParts({
         ...base,
         meetings: { next: null, current: morning[1]!, total: 3, emptyLabel: 'No meetings today' },
       }),
-    ).toBe('Nothing needs you. In a meeting until 12:30.')
+    ).toEqual({ sentence: 'Nothing needs you.', facts: ['In a meeting until 12:30'] })
     expect(last.endMs).toBeLessThan(NOW)
   })
 })
@@ -435,7 +451,7 @@ describe('a partial agenda', () => {
     const agenda = todayAgenda([{ sourceClass: 'work', events: [] }], NOW, ['personal'])
     expect(noMeetingsLabel(agenda)).toBe('No Work meetings today · Personal unavailable')
     expect(
-      summarySentence({
+      summaryParts({
         decisions: [],
         unavailable: [],
         fleet: null,
@@ -443,7 +459,10 @@ describe('a partial agenda', () => {
         now: NOW,
         meetings: { next: null, current: null, total: 0, emptyLabel: noMeetingsLabel(agenda) },
       }),
-    ).toBe('Nothing needs you. No Work meetings today · Personal unavailable.')
+    ).toEqual({
+      sentence: 'Nothing needs you.',
+      facts: ['No Work meetings today · Personal unavailable'],
+    })
   })
 
   it('is plainly free only when every calendar answered', () => {
