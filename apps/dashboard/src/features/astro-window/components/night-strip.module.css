@@ -15,11 +15,6 @@
   scrollbar-width: none;
 }
 
-/* Fade the right edge while nights are still off-screen; the `.more` count names how many. */
-.host[data-more='true'] .scroller {
-  mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
-}
-
 .scroller::-webkit-scrollbar {
   display: none;
 }
@@ -84,7 +79,7 @@
 }
 
 .more {
-  display: block;
+  display: none;
   min-height: 1rem;
   padding-top: 4px;
   text-align: end;
@@ -93,9 +88,14 @@
   color: var(--vx-muted);
 }
 
-@container (min-width: 800px) {
+/* Narrow only (the strip scrolls): fade the right edge while nights are off-screen, and show the count. */
+@container (max-width: 799.9px) {
   .more {
-    display: none;
+    display: block;
+  }
+
+  .host[data-more='true'] .scroller {
+    mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
   }
 }
 
