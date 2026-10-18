@@ -11,11 +11,12 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { LP_RAMP } from '../map-layers'
-import { METRIC_TOOLTIPS, PANORAMA_HEIGHT } from '../constants'
+import { METRIC_TOOLTIPS, PANORAMA_HEIGHT, SKY_DARK_THRESHOLD } from '../constants'
 import { fmtAzimuth, fmtDegrees, fmtShortDay, withFacts } from '../formulas'
 import type { HourlyPoint, Site } from '../types'
 import {
   bandValue,
+  coreVsGate,
   fitAltDomain,
   inDomain,
   darkness,
@@ -269,21 +270,23 @@ function PanoramaLoaded({
   const rose = skyglow.profile
   const { atmosphericFloorDeg, framingMarginDeg } = visibility
 
-  const skyline = (az: number) => bandValue(profile, 'altitudeDeg', az)
-  const gate = (az: number) => gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az)
-
   const sample = samples[idx] ?? samples[0]!
   const highest = samples[initialScrubIndex(samples)]
   const peak = highest?.astroDark === true ? highest : null
   const dark = darkness(sample.sunAltitude)
-  const ridge = skyline(sample.coreAzimuth)
-  const clearance = sample.coreAltitude - ridge
-  const clearanceGood = clearance > framingMarginDeg
+  const ridge = bandValue(profile, 'altitudeDeg', sample.coreAzimuth)
+  const { clearance, clears: clearanceGood } = coreVsGate(
+    profile,
+    atmosphericFloorDeg,
+    framingMarginDeg,
+    sample.coreAzimuth,
+    sample.coreAltitude,
+  )
   const glowBehindCore = glowAt(rose, sample.coreAzimuth, Math.max(5, sample.coreAltitude))
   const moonState: 'down' | 'behind terrain' | 'up' =
     sample.moonAltitude < 0 ? 'down' : sample.moonBehindTerrain ? 'behind terrain' : 'up'
   const moonGood = moonState !== 'up'
-  const coreClearsNow = sample.astroDark && sample.coreAltitude >= gate(sample.coreAzimuth)
+  const coreClearsNow = sample.astroDark && clearanceGood
 
   // Static geometry — depends on the site and night, never on the scrub index, so dragging the
   // slider recomputes none of it.
@@ -322,12 +325,18 @@ function PanoramaLoaded({
     () => trackOf(samples, (s) => ({ az: s.coreAzimuth, alt: s.coreAltitude }), altDomain),
     [samples, altDomain],
   )
-  // Plain computation: `gate` is a closure over the profile, and ~60 samples are cheap.
-  const coreInGate = trackOf(
-    samples,
-    (s) => ({ az: s.coreAzimuth, alt: s.coreAltitude }),
-    altDomain,
-    (s) => s.astroDark && s.coreAltitude >= gate(s.coreAzimuth),
+  const coreInGate = useMemo(
+    () =>
+      trackOf(
+        samples,
+        (s) => ({ az: s.coreAzimuth, alt: s.coreAltitude }),
+        altDomain,
+        (s) =>
+          s.astroDark &&
+          coreVsGate(profile, atmosphericFloorDeg, framingMarginDeg, s.coreAzimuth, s.coreAltitude)
+            .clears,
+      ),
+    [samples, altDomain, profile, atmosphericFloorDeg, framingMarginDeg],
   )
 
   const washFill = `color-mix(in srgb, ${VX.surface.elevated} ${Math.round(dark * 100)}%, ${VX.surface.subtle} ${Math.round((1 - dark) * 100)}%)`
@@ -536,7 +545,7 @@ function PanoramaLoaded({
           {clearance.toFixed(1)}°
         </Text>
         <Text size="sm">
-          Skyglow there {glowBehindCore.toFixed(2)} mag/arcsec² (dark sky ≥ 21.6)
+          Skyglow there {glowBehindCore.toFixed(2)} mag/arcsec² (dark sky ≥ {SKY_DARK_THRESHOLD})
         </Text>
         <Text size="sm">Sun {fmtDegrees(sample.sunAltitude)}</Text>
         <Text size="sm" style={{ color: moonGood ? VX.goodSolid : VX.badSolid }}>

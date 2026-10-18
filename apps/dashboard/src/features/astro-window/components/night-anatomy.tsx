@@ -1,11 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripRow } from 'basalt-ui'
-import { CORE_METER_MAX_DEG, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
+import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
 import {
-  coreCellFooter,
-  coreMeterReading,
-  fmtDegrees,
+  coreTransitFooter,
   fmtLocalClock,
   fmtMinutes,
   moonPhaseLabel,
@@ -66,7 +64,7 @@ function gauge(label: string, value: number | null, max: number, target: number 
 }
 
 /**
- * The selected night in five readings — Dark, Core transit, Moon, Cloud, Sky — as a `StatGroup` strip. The verdict card draws the core at its closest sample; the Core cell draws the transit altitude. Every micro-visual is a reading against a target: the moon against its limit, the sky against the dark threshold.
+ * The selected night in five readings — Dark, Core transit, Moon, Cloud, Sky — as a `StatGroup` strip. The verdict card owns the core-against-gate reading; the Core cell states the transit altitude. Every micro-visual is a reading against a target: the moon against its limit, the sky against the dark threshold.
  */
 export function NightAnatomy({
   night,
@@ -83,7 +81,6 @@ export function NightAnatomy({
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
   const moonSet = night.moon.set === null ? null : fmtLocalClock(night.moon.set, timeZone)
   const { weather } = night
-  const core = coreMeterReading(night)
 
   return (
     <Box data-shot="night-anatomy">
@@ -109,15 +106,7 @@ export function NightAnatomy({
             caption: 'Core',
             value: night.localTransit,
             unit: 'transit',
-            visual: gauge(
-              core === null
-                ? 'Core altitude: no dark stretch'
-                : `Core ${fmtDegrees(core.reading)} at closest against a ${fmtDegrees(core.gate)} gate`,
-              core?.reading ?? null,
-              CORE_METER_MAX_DEG,
-              core?.gate ?? null,
-            ),
-            footer: coreCellFooter(night),
+            footer: coreTransitFooter(night),
           },
           {
             key: 'moon',

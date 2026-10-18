@@ -3,6 +3,7 @@ import {
   ALT_DOMAIN,
   bandValue,
   darkness,
+  coreVsGate,
   fitAltDomain,
   inDomain,
   glowAt,
@@ -92,9 +93,9 @@ describe('profileRows', () => {
 
 describe('glowCells', () => {
   test('tiles the whole azimuth × altitude plot without overshooting the domain', () => {
-    const cells = glowCells(ROSE)
+    const cells = glowCells(ROSE, 52)
     expect(cells).toHaveLength(36 * 13)
-    expect(Math.max(...cells.map((c) => c.alt1))).toBe(ALT_DOMAIN[1])
+    expect(Math.max(...cells.map((c) => c.alt1))).toBe(52)
     expect(Math.max(...cells.map((c) => c.az1))).toBe(360)
   })
 })
@@ -134,13 +135,17 @@ describe('fitAltDomain', () => {
     expect(fitAltDomain([row(5, 25, 8)], [])).toEqual([-4, 28])
   })
 
+  test('a moon track high above the terrain is not gapped', () => {
+    expect(fitAltDomain([row(5, 5, 8)], [66])).toEqual([-4, 68])
+  })
+
   test('a body above the terrain (the sun) lifts the top', () => {
     expect(fitAltDomain([row(5, 5, 8)], [38])).toEqual([-4, 40])
   })
 
   test('never goes under the 16° floor or over the widest domain', () => {
     expect(fitAltDomain([row(2, 2, 8)], [3])).toEqual([-4, 16])
-    expect(fitAltDomain([row(80, 80, 80)], [])).toEqual([-4, ALT_DOMAIN[1]])
+    expect(fitAltDomain([row(95, 95, 95)], [])).toEqual([-4, ALT_DOMAIN[1]])
   })
 })
 
@@ -155,5 +160,24 @@ describe('inDomain', () => {
 describe('glowCells to a fitted top', () => {
   test('stops at the fitted top', () => {
     expect(Math.max(...glowCells(ROSE, 16).map((c) => c.alt1))).toBe(16)
+  })
+})
+
+describe('coreVsGate', () => {
+  // A low skyline: the gate is the 8° floor, not skyline + margin.
+  const LOW = [{ azimuthDeg: 0, altitudeDeg: 1, nearAltitudeDeg: 1 }]
+  test('over skyline + margin but under the floor does not clear', () => {
+    expect(coreVsGate(LOW, 8, 2, 0, 5)).toEqual({ clearance: 4, clears: false })
+  })
+
+  test('above the gate clears; level with it does not (strict, as the API)', () => {
+    expect(coreVsGate(LOW, 8, 2, 0, 9).clears).toBe(true)
+    expect(coreVsGate(LOW, 8, 2, 0, 8).clears).toBe(false)
+  })
+
+  test('a high skyline raises the gate above the floor', () => {
+    const high = [{ azimuthDeg: 0, altitudeDeg: 12, nearAltitudeDeg: 12 }]
+    expect(coreVsGate(high, 8, 2, 0, 13).clears).toBe(false)
+    expect(coreVsGate(high, 8, 2, 0, 15).clears).toBe(true)
   })
 })
