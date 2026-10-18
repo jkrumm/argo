@@ -27,18 +27,12 @@ export type {
 
 export {
   verdictTone,
-  verdictLabel,
   fmtDegrees,
   fmtMinutes,
-  fmtDayLabel,
   fmtLocalClock,
   moonPhaseLabel,
   limitingFactor,
-  killerLabel,
   fmtShortDay,
-  usableNightCount,
-  bestNightOf,
-  gapToGate,
   coreGateFailure,
   coreMeterReading,
   markedNightOf,

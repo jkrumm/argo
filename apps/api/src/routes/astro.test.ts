@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import type { AstroUpstreams, CloudSeries, TransparencySeries } from '../clients/astro-upstreams.js'
 import type { LightPollutionPoint, LpTileImage, SkyglowResult } from '../clients/lorenz-atlas.js'
 import type { HorizonResult } from '../clients/terrarium-dem.js'
+import { CLOUD_RUINS_AT } from '../lib/astro-score.js'
 import { ASTRO_SITE_MEASUREMENTS, findSite } from '../lib/astro-sites.js'
 import { authGuard } from '../lib/auth-guard.js'
 import { renderLpTilePng } from '../lib/lp-tile.js'
@@ -459,7 +460,7 @@ describe('GET /astro/window — the verdict', () => {
     }
     expect(body.bestDate).toBe(body.nights[0].date)
     expect(body.moonMaxIllumination).toBe(0.25)
-    expect(body.cloudRuinsAt).toEqual({ low: 55, mid: 80, high: 100 })
+    expect(body.cloudRuinsAt).toEqual(CLOUD_RUINS_AT)
   })
 
   it('has no committed skyline for a raw lat/lon, even one near a known site', async () => {

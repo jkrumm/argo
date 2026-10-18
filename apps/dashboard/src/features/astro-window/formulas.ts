@@ -2,8 +2,8 @@ import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
 import { withUnit } from '../../lib/format'
-import { CORE_METER_MAX_DEG, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
-import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
+import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
+import type { Killer, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -22,7 +22,7 @@ export function verdictTone(verdict: Verdict): string {
   }
 }
 
-export function verdictLabel(verdict: Verdict): string {
+function verdictLabel(verdict: Verdict): string {
   if (verdict === 'out') return 'Ruled out'
   return verdict.charAt(0).toUpperCase() + verdict.slice(1)
 }
@@ -40,7 +40,7 @@ export function fmtMinutes(v: number | null): string {
 }
 
 /** Weekday abbreviation + day-of-month, for the night-strip cell header. */
-export function fmtDayLabel(dateString: string): { weekday: string; day: number } {
+function fmtDayLabel(dateString: string): { weekday: string; day: number } {
   const [, , d] = dateString.split('-').map(Number)
   return { weekday: weekday(dateString, { locale: 'en-GB' }), day: d ?? 0 }
 }
@@ -96,7 +96,7 @@ export function nightNote(night: Night): string {
 /** Compact reason label for a ruled-out night's strip cell — the operator's actual question on a
  * dead night is "why", not just "not tonight". Derived from the first killer only; a night can
  * carry more than one, but stacking them doesn't fit a single small cell. */
-export function killerLabel(night: Night): string {
+function killerLabel(night: Night): string {
   const killer = night.killers[0]
   if (killer === undefined) return '—'
   switch (killer.id) {
@@ -145,12 +145,12 @@ export function fmtShortDay(dateString: string): string {
 }
 
 /** Nights that passed every hard gate. The API decides; this only counts. */
-export function usableNightCount(nights: readonly Night[]): number {
+function usableNightCount(nights: readonly Night[]): number {
   return nights.filter((n) => n.verdict !== 'out').length
 }
 
 /** The night the top-level `verdict`/`killers` describe, by the API's own `bestDate`. */
-export function bestNightOf(data: WindowResponse): Night | null {
+function bestNightOf(data: WindowResponse): Night | null {
   return data.nights.find((n) => n.date === data.bestDate) ?? data.nights[0] ?? null
 }
 
@@ -180,19 +180,17 @@ export function coreGateDetail(night: Night): string {
 }
 
 /**
- * The Moon gate row's one line, in words only: the illumination and the limit are drawn in the Moon
- * cell. A failed gate says why it failed; a moon over the limit only passes by its position, so the
- * line says which: down through the shooting window (`maxMoonAltitude` under 0°) or behind the skyline.
+ * The Moon gate row's one line, in words only (the illumination and the limit are drawn in the Moon
+ * cell): the API's reason when the gate failed; else `under limit`, or, for a moon over the limit,
+ * why it still passed: below the horizon through the shooting window, or behind the skyline.
  */
 export function moonGateDetail(night: Night, moonLimit: number): string {
-  if (night.killers.some((k) => k.id === 'moon'))
-    return 'over the limit while up and clear of the skyline'
-  if (night.moon.illumination < moonLimit) return 'under the limit'
+  const killer = night.killers.find((k) => k.id === 'moon')
+  if (killer !== undefined) return killer.reason
+  if (night.moon.illumination < moonLimit) return 'under limit'
   const shoot = night.window
-  if (shoot === null) return 'over the limit · passed on its position'
-  return shoot.maxMoonAltitude < 0
-    ? 'over the limit · down through the shooting window'
-    : 'over the limit · behind the skyline in the shooting window'
+  if (shoot === null) return 'over limit, position passed'
+  return shoot.maxMoonAltitude < 0 ? 'over limit, below horizon' : 'over limit, behind skyline'
 }
 
 /** The Darkness gate row's one line. */
@@ -218,7 +216,7 @@ export function coreMeterReading(night: Night): { reading: number; gate: number 
  * killer the gap is shown even at 0.0° (the API's gate is a strict `>`); null when the core clears
  * the gate or there is no dark stretch.
  */
-export function gapToGate(night: Night): number | null {
+function gapToGate(night: Night): number | null {
   const gap = rawGapToGate(night)
   return gap === null ? null : Math.round(gap * 10) / 10
 }
@@ -443,30 +441,33 @@ export function windowFact(
   }
 }
 
-/** The thickest low cloud inside astronomical dark, or over the whole night when no dark sample has a reading. Null without data. */
-export function peakLowCloud(
-  hourly: readonly HourlyPoint[],
-): { pct: number; dark: boolean } | null {
-  const readings = (pool: readonly HourlyPoint[]) =>
-    pool.flatMap((d) => (d.cloudLow === null ? [] : [d.cloudLow]))
-  const inDark = readings(hourly.filter((d) => d.astroDark))
-  const dark = inDark.length > 0
-  const values = dark ? inDark : readings(hourly)
-  return values.length === 0 ? null : { pct: Math.round(Math.max(...values)), dark }
+/** What the engine judges low cloud by: the mean over the shooting window (`night.weather.cloudLow`). */
+export type LowCloudStat = {
+  value: string
+  unit: string
+  /** Names the statistic's window, nothing else. */
+  footer: string
+  /** The reading and the limit tick for the gauge; the tick only when the night has the shooting window the limit applies to. */
+  reading: number | null
+  target: number | null
 }
 
-/** The one low-cloud statistic: the peak over the night's astronomical dark, as the fact the Forecast cloud chart and the Tonight Cloud cell both print, so the two cannot disagree. Null without data. */
-export function lowCloudPeakFact(
-  hourly: readonly HourlyPoint[],
-): { value: string; unit: string; period: string } | null {
-  const peak = peakLowCloud(hourly)
-  return peak === null
-    ? null
-    : {
-        value: withUnit(peak.pct, '%'),
-        unit: 'peak low cloud',
-        period: peak.dark ? 'during astronomical dark' : 'over the night',
-      }
+/**
+ * The one low-cloud figure the page prints: the scored shooting-window mean, which is what the
+ * engine compares to its `limit`. The Tonight Cloud cell and the Forecast cloud chart both read it.
+ * A night without a shooting window has a value but no tick: nothing was scored against the limit.
+ */
+export function lowCloudStat(night: Night, limit: number): LowCloudStat | null {
+  const mean = night.weather.cloudLow
+  if (mean === null) return null
+  const scored = night.window !== null
+  return {
+    value: withUnit(Math.round(mean), '%'),
+    unit: 'low cloud',
+    footer: scored ? 'shooting-window mean' : 'night mean',
+    reading: mean,
+    target: scored ? limit : null,
+  }
 }
 
 /** Minutes → hours at one decimal, the one converter the budget chart and its fact line share. */
@@ -584,7 +585,7 @@ export function coreGateFact(night: Night): ChartFact | null {
     ? null
     : {
         value: fmtDegrees(core.reading),
-        unit: 'core at its closest',
+        unit: CORE_UNIT,
         period: `gate ${fmtDegrees(core.gate)}`,
       }
 }

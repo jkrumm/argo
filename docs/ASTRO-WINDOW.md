@@ -61,7 +61,7 @@ is `'unknown'` and the factor drops out.
 
 Fields the dashboard's gate readout depends on: `bestDate` (top level) is the best-scoring night the
 top-level fields describe — set even when every night is out, and then it is simply the first night,
-not the night closest to passing. `moonMaxIllumination` (top level, 0–1) is the moon gate's limit. `cloudRuinsAt` (top level, `{low, mid, high}` percent) is the cover at which each cloud layer is `ruinous`: a scored limit, never a gate.
+not the night closest to passing. `moonMaxIllumination` (top level, 0–1) is the moon gate's limit. `cloudRuinsAt` (top level, `{low, mid, high}` percent) is the cover at which each cloud layer is `ruinous`, compared with the scored statistic (`nights[].weather`, the mean over the shooting window): a scored limit, never a gate.
 Per night, `gateCoreAltitude` and `coreGateDeg` are the altitude and floor at the dark sample closest
 to clearing the core gate (smallest floor − altitude, the same per-sample floor `coreUp` uses): the
 night passes that gate exactly when the altitude is strictly above the floor, and the core killer's

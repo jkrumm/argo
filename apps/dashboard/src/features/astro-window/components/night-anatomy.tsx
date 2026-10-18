@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
-import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
+import { CORE_UNIT, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
 import {
   coreGaugeMax,
   coreMeterReading,
@@ -9,14 +9,13 @@ import {
   fmtDegrees,
   fmtLocalClock,
   fmtMinutes,
-  lowCloudPeakFact,
+  lowCloudStat,
   moonPhaseLabel,
-  peakLowCloud,
   skyCellFooter,
 } from '../formulas'
 import { LP_RAMP, LP_RAMP_MAX, LP_RAMP_MIN } from '../map-layers'
 import { withUnit } from '../../../lib/format'
-import type { HourlyPoint, Location, Night } from '../types'
+import type { Location, Night } from '../types'
 import classes from './night-anatomy.module.css'
 
 const pct = (value: number, min: number, max: number) =>
@@ -81,7 +80,7 @@ function coreCell(night: Night): StatStripCell {
     key: 'core',
     caption: 'Core',
     value: fmtDegrees(core.reading),
-    unit: 'closest to gate',
+    unit: CORE_UNIT,
     visual: gauge(
       `Core ${fmtDegrees(core.reading)} against a gate of ${fmtDegrees(core.gate)}`,
       core.reading,
@@ -97,17 +96,14 @@ function coreCell(night: Night): StatStripCell {
  */
 export function NightAnatomy({
   night,
-  hourly,
   location,
   moonLimit,
   cloudLimit,
 }: {
   night: Night
-  /** The selected night's hourly rows: the Forecast cloud chart's own input, so the Cloud cell and the chart state one figure. */
-  hourly: readonly HourlyPoint[]
   location: Location
   moonLimit: number
-  /** Low-cloud cover (percent) at which the engine calls the night ruined. */
+  /** Low-cloud cover (percent) at which the engine rates the layer ruinous. */
   cloudLimit: number
 }) {
   const { timeZone } = location
@@ -115,8 +111,7 @@ export function NightAnatomy({
   const moonPct = Math.round(night.moon.illumination * 100)
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
   const moonSet = night.moon.set === null ? null : fmtLocalClock(night.moon.set, timeZone)
-  const cloud = lowCloudPeakFact(hourly)
-  const cloudPeak = peakLowCloud(hourly)?.pct ?? null
+  const cloud = lowCloudStat(night, cloudLimit)
 
   return (
     <Box data-shot="night-anatomy">
@@ -157,12 +152,14 @@ export function NightAnatomy({
             value: cloud?.value ?? null,
             ...(cloud === null ? {} : { unit: cloud.unit }),
             visual: gauge(
-              `Peak low cloud ${cloud?.value ?? 'unknown'} against a ruin level of ${cloudLimit} percent`,
-              cloudPeak,
+              cloud === null
+                ? 'Low cloud unknown'
+                : `Low cloud ${cloud.value}${cloud.target === null ? '' : ` against a limit of ${cloudLimit} percent`}`,
+              cloud?.reading ?? null,
               100,
-              cloudLimit,
+              cloud?.target ?? null,
             ),
-            footer: `limit ${withUnit(cloudLimit, '%')} · ${cloud?.period ?? 'no cloud data'}`,
+            footer: cloud?.footer ?? 'no cloud data',
           },
           {
             key: 'sky',

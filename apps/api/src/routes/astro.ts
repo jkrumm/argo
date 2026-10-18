@@ -303,7 +303,7 @@ const WindowResponseSchema = z.object({
   cloudRuinsAt: z
     .object({ low: z.number(), mid: z.number(), high: z.number() })
     .describe(
-      'Cloud cover (percent) at which each layer has effectively taken the night: the level `factors[].ruinous` is judged against. A scored limit, never a gate',
+      'Cloud cover (percent) at which each layer has effectively taken the night: the level `factors[].ruinous` is judged against, compared with the scored statistic `nights[].weather` (the mean over the shooting window). A scored limit, never a gate',
     ),
   bestWindow: ShootingWindowSchema.nullable().describe('Null when no night in the range is usable'),
   summary: z

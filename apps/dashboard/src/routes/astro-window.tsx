@@ -262,7 +262,7 @@ function AstroWindowPage() {
   )
 
   const selectedDate = data.detail.date
-  const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
+  const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? null
   const markedNight = markedNightOf(data)
   // Where the selected night's miss is stated, once: Tonight's verdict card, or the Forecast timeline
   // (which has no card). The headline names the closest night's miss only for ANOTHER night.
@@ -285,7 +285,7 @@ function AstroWindowPage() {
               label="Site"
               options={sites.data.map((s) => ({
                 value: s.id,
-                // Name only: the Sky cell states the brightness, and any longer label cut the selected value at 1440 and 390.
+                // Name only: `SelectFilter` takes string labels and renders the same one as the selected value, so a brightness suffix cut it at 1440 and 390 (no per-option render slot: basalt gap).
                 label: s.name,
               }))}
             />
@@ -372,7 +372,6 @@ function AstroWindowPage() {
                 <Grid.Col span={{ base: 12, lg: 9 }}>
                   <NightAnatomy
                     night={selectedNight}
-                    hourly={data.detail.hourly}
                     location={data.location}
                     moonLimit={data.moonMaxIllumination}
                     cloudLimit={data.cloudRuinsAt.low}
@@ -401,7 +400,11 @@ function AstroWindowPage() {
                 />
               </Box>
               <Box data-shot="cloud-layers">
-                <CloudLayersChart hourly={data.detail.hourly} date={selectedDate} />
+                <CloudLayersChart
+                  hourly={data.detail.hourly}
+                  night={selectedNight}
+                  cloudLimit={data.cloudRuinsAt.low}
+                />
               </Box>
               {selectedSite ? (
                 <>
