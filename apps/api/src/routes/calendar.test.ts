@@ -40,3 +40,15 @@ describe('GET /calendar', () => {
     expect(names).toContain('from')
   })
 })
+
+describe('calendar event schema', () => {
+  it('documents isCancelled on both event responses', async () => {
+    const res = await app.handle(new Request('http://localhost/openapi/json', { headers: AUTH }))
+    const spec = (await res.json()) as {
+      paths: Record<string, { get?: { responses?: Record<string, unknown> } }>
+    }
+    for (const path of ['/calendar', '/m365/calendar/upcoming']) {
+      expect(JSON.stringify(spec.paths[path]?.get?.responses)).toContain('isCancelled')
+    }
+  })
+})

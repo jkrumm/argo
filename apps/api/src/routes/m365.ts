@@ -290,6 +290,9 @@ const CalendarEventSchema = z.object({
   start: z.string().describe('ISO 8601 timestamp (UTC) for timed events, YYYY-MM-DD for all-day'),
   end: z.string().describe('ISO 8601 timestamp (UTC) for timed events, YYYY-MM-DD for all-day'),
   isAllDay: z.boolean(),
+  isCancelled: z
+    .boolean()
+    .describe('True when the organizer cancelled the meeting; Outlook keeps it on the calendar'),
   isOnlineMeeting: z.boolean().describe('True when Outlook flagged this as a Teams meeting'),
   location: z.string().optional(),
   organizer: z.object({ name: z.string(), email: z.string() }).optional(),
