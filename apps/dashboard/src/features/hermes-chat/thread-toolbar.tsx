@@ -30,7 +30,7 @@ export function ThreadToolbar({
   onType: (next: TypeFilter) => void
   onQuery: (next: string) => void
 }) {
-  const chips: { key: TypeFilter; label: string; count: number | null }[] = [
+  const chips: { key: TypeFilter; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: allCount },
     ...THREAD_TYPES.filter((t) => typeCounts[t] > 0 || t === type).map((t) => ({
       key: t,
@@ -60,7 +60,9 @@ export function ThreadToolbar({
               className={classes['chip']}
               style={{ flexShrink: 0 }}
             >
-              {chip.count === null ? chip.label : `${chip.label} ${chip.count}`}
+              {chip.key === 'untitled' && chip.count === 0
+                ? chip.label
+                : `${chip.label} ${chip.count}`}
             </Button>
           ))}
         </Group>

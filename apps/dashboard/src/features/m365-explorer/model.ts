@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, format, isSameDay } from 'date-fns'
+import { withUnit } from '../../lib/format'
 
 export type LabelKind = 'chat' | 'channel'
 export type ChatType = 'oneOnOne' | 'group' | 'meeting' | 'unknownFutureValue'
@@ -114,19 +115,17 @@ export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<
     if (value === 0) return []
     const label = CHAT_TYPE_LABEL[KIND_TYPE[key]]
     const one = key === 'meeting' ? label : `${label} chat`
-    const noun = value === 1 ? one : `${one}s`
-    return [{ key, label, noun, text: `${value} ${noun}`, value }]
+    return [{ key, label, noun: noun(value, one), text: plural(value, one), value }]
   })
 }
 
 /**
  * The Chats cell: the leading kind (most chats, reading order on a tie) is the hero, the other kinds
- * are the footer, so no figure prints twice and the total stays the `All` chip's. `value` is `null`
+ * are the footer, so no figure prints twice and the total stays the `All` chip's. `hero` is `null`
  * without chats.
  */
 export function chatsStat(counts: ReturnType<typeof chatKindCounts>): {
-  value: string | null
-  unit: string | null
+  hero: { value: string; unit: string } | null
   footer: string | null
 } {
   const parts = chatKindParts(counts)
@@ -134,11 +133,10 @@ export function chatsStat(counts: ReturnType<typeof chatKindCounts>): {
     (best, p) => (best === null || p.value > best.value ? p : best),
     null,
   )
-  if (lead === null) return { value: null, unit: null, footer: 'no chats' }
+  if (lead === null) return { hero: null, footer: 'no chats' }
   const rest = parts.filter((p) => p !== lead)
   return {
-    value: String(lead.value),
-    unit: lead.noun,
+    hero: { value: String(lead.value), unit: lead.noun },
     footer: rest.length === 0 ? null : rest.map((p) => p.text).join(' · '),
   }
 }
@@ -242,28 +240,41 @@ export function formatStamp(iso: string | null | undefined): string {
   return format(d, 'dd MMM, HH:mm')
 }
 
-export function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`
+export function noun(n: number, one: string, many = `${one}s`): string {
+  return n === 1 ? one : many
 }
 
-/** Why a label's source is not in the list: the chat list is capped (`older`) or the source is gone (`missing`). */
-type OutsideReason = 'older' | 'missing'
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${noun(n, one, many)}`
+}
 
-/** What the strip counts over, in words: the newest-N chat window when the list is capped, plus every channel. */
-export function sourceListName(chats: number, capped: boolean): string {
-  return capped ? `newest ${chats} chats and all channels` : 'chats and channels'
+/** How many chats the list request asks for. */
+export const CHATS_TOP = 50
+
+/** The list hit its request cap, so older chats may be missing. */
+export const chatsCapped = (chats: number): boolean => chats >= CHATS_TOP
+
+/**
+ * What the strip counts over, in words: the newest-N chat window when the list is capped, plus the
+ * channels (`all` only once every team has loaded, so a loading or failed team never reads as covered).
+ */
+export function sourceListName(chats: number, capped: boolean, channelsComplete = true): string {
+  const channels = channelsComplete ? 'all channels' : 'channels'
+  return capped ? `newest ${chats} chats and ${channels}` : 'chats and channels'
 }
 
 /**
  * The labeled cell's footer: the list the count ranges over, and, when labels sit on sources the
- * list cannot place, how many and why. Channels are never age-windowed, so only chats are `older`.
+ * list cannot place, how many and the hedged cause. Channels are never age-windowed, so only a
+ * capped list can say `older`.
  */
 export function labeledBasis(c: Coverage, list: { chats: number; capped: boolean }): string {
-  if (c.outside === 0) return `across the ${sourceListName(list.chats, list.capped)}`
-  const reason: OutsideReason = list.capped ? 'older' : 'missing'
-  const where =
-    reason === 'older' ? `chats older than the newest ${list.chats}` : 'sources no longer listed'
-  return `${plural(c.outside, 'more label')} on ${where}`
+  const complete = c.loading + c.failed === 0
+  if (c.outside === 0) return `across the ${sourceListName(list.chats, list.capped, complete)}`
+  const more = plural(c.outside, 'more label')
+  if (list.capped)
+    return `${more} on chats older than the newest ${list.chats}, or no longer listed`
+  return `${more} on sources no longer listed`
 }
 
 /** The phone Sources pane's heading: the pane's name only; the tabs and cells print the counts. */
@@ -272,12 +283,22 @@ export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
 }
 
 /**
- * The page's opening: only the empty state speaks. With chats, every candidate fact (newest time,
- * oldest reach, kind mix, counts) is already a row, a cell or a chip, and the list's reach is a
- * request-cap artifact, so there is no headline.
+ * The page's opening: how many days the loaded chats span. Rows print their own times, but not the
+ * window's width, which is what tells a reader how far back the list can answer. A capped list says
+ * so (`Newest {n} chats span {d} d`), since the span then belongs to the newest slice only.
  */
-export function headlineOf(chats: number): { sentence: string } | null {
-  return chats === 0 ? { sentence: 'No chat activity yet' } : null
+export function headlineOf(h: {
+  /** Each chat's last activity (ISO), newest or not; missing stamps are skipped. */
+  times: ReadonlyArray<string | null>
+  capped: boolean
+}): { sentence: string } {
+  const stamps = h.times.map(timeOf).filter(Number.isFinite)
+  if (stamps.length === 0) return { sentence: 'No chat activity yet' }
+  const days = differenceInCalendarDays(Math.max(...stamps), Math.min(...stamps))
+  const lead = h.capped ? `Newest ${stamps.length} chats` : 'Chats'
+  return {
+    sentence: days === 0 ? `${lead} all from one day` : `${lead} span ${withUnit(days, 'd')}`,
+  }
 }
 
 /** How many messages a record fetches; the pane's heading never states it (it is a request cap, not what renders). */

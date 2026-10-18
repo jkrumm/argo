@@ -55,12 +55,15 @@ function Row({
   label: string
   onOpen: (id: string) => void
 }) {
+  const cutTitle = titleExcerpt(label, compact)
   return (
     <UnstyledButton className={classes['row']} onClick={() => onOpen(entry.id)}>
       <Box className={classes['rowGrid']}>
         <TypeChip type={entry.type} />
         <Box className={classes['body']}>
-          <Text className={classes['title']}>{titleExcerpt(label, compact)}</Text>
+          <Text className={classes['title']} title={cutTitle === label ? undefined : label}>
+            {cutTitle}
+          </Text>
           {entry.summary !== null && (
             <Text className={classes['summary']}>{summaryExcerpt(entry.summary, compact)}</Text>
           )}

@@ -201,7 +201,7 @@ describe('summary', () => {
   it('words the untitled fold without the count (the chip prints it)', () => {
     expect(untitledLabel('2 months ago')).toBe(`Untitled · oldest 2${NBSP}months${NBSP}ago`)
     expect(untitledLabel('yesterday')).toBe('Untitled · oldest yesterday')
-    expect(untitledLabel('3 days ago')).not.toMatch(/^\d|\d untitled/)
+    expect(untitledLabel('3 days ago')).toBe(`Untitled · oldest 3${NBSP}days${NBSP}ago`)
   })
 })
 
