@@ -1,17 +1,14 @@
-import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import type { HistoryPoint } from '../../lib/queries/agents'
 import {
   ABANDONED_AFTER_MS,
-  ageAgo,
-  fleetFooter,
+  fleetFact,
+  hoursWithNeedsYou,
   itemNoun,
-  items,
   formatWaitDuration,
   OLDEST_WAIT_WARN_MS,
-  peakNeedsYou,
-  trendSeries,
+  needsYouWindowFact,
   type FleetPart,
   type FleetState,
   type OldestWait,
@@ -34,6 +31,8 @@ type Props = {
   history: HistoryPoint[] | undefined
   hours: number
   oldest: OldestWait | null
+  /** Longest-running working agent; `null` when none is working. */
+  longestRunMs: number | null
   now: number
 }
 
@@ -43,37 +42,11 @@ function waitTone(ms: number): 'bad' | 'warn' | undefined {
   return undefined
 }
 
-function NeedsYouVisual({ history, hours }: Pick<Props, 'history' | 'hours'>) {
-  const trend = trendSeries(history, 'needsYou')
-  if (trend.length <= 1) return null
-  return (
-    <Sparkline
-      ariaLabel={`Agents needing you over the last ${hours} hours`}
-      data={trend}
-      format={items}
-      height={32}
-      color={VX.line}
-      emphasizeLast
-    />
-  )
-}
-
-function peakFooter(history: HistoryPoint[] | undefined, hours: number, now: number): string {
-  const peak = peakNeedsYou(history)
-  const trend =
-    peak === null
-      ? `no data in ${hours} h`
-      : peak.value === 0
-        ? `none in ${hours} h`
-        : `peak ${items(peak.value)} in ${hours} h`
-  return peak !== null && peak.value > 0 ? `${trend} · ${ageAgo(now - peak.atMs)}` : trend
-}
-
 /**
- * The three joined cells under the page summary: needs-you trend, oldest wait against its two
+ * The three joined cells under the page summary: needs-you count, oldest wait against its two
  * thresholds, fleet by state. Replaces the three bare-integer tiles.
  */
-export function FleetStrip({ needsYou, fleet, history, hours, oldest, now }: Props) {
+export function FleetStrip({ needsYou, fleet, history, hours, oldest, longestRunMs, now }: Props) {
   const oldestTone = oldest === null ? undefined : waitTone(oldest.ms)
 
   return (
@@ -88,8 +61,7 @@ export function FleetStrip({ needsYou, fleet, history, hours, oldest, now }: Pro
           value: needsYou === null ? null : String(needsYou),
           ...(needsYou !== null && { unit: itemNoun(needsYou) }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
-          visual: <NeedsYouVisual history={history} hours={hours} />,
-          footer: peakFooter(history, hours, now),
+          footer: needsYouWindowFact(hoursWithNeedsYou(history, hours, now), hours),
         },
         {
           key: 'oldest-wait',
@@ -114,13 +86,13 @@ export function FleetStrip({ needsYou, fleet, history, hours, oldest, now }: Pro
             />
           ),
         },
-        fleetCell(fleet),
+        fleetCell(fleet, longestRunMs),
       ]}
     />
   )
 }
 
-function fleetCell(fleet: Props['fleet']): StatStripCell {
+function fleetCell(fleet: Props['fleet'], longestRunMs: number | null): StatStripCell {
   if (fleet === null) {
     return {
       key: 'fleet',
@@ -137,7 +109,7 @@ function fleetCell(fleet: Props['fleet']): StatStripCell {
     caption: `Fleet · ${total} agents`,
     value: String(parts[0]?.value ?? 0),
     unit: `working of ${total}`,
-    footer: fleetFooter(parts),
+    ...(fleetFact(longestRunMs) !== null && { footer: fleetFact(longestRunMs) }),
     visual: (
       <Meter
         label="Agents by state"

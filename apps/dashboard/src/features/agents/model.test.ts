@@ -17,7 +17,13 @@ import {
   clockTime,
   feedState,
   summaryParts,
-  fleetFooter,
+  fleetFact,
+  hoursWithNeedsYou,
+  needsYouWindowFact,
+  activityFact,
+  questionOf,
+  evidenceLine,
+  previewOf,
   gapHours,
   feedAside,
   STALE_AFTER_MS,
@@ -374,28 +380,80 @@ describe('summaryParts', () => {
   })
 })
 
-describe('fleetFooter', () => {
-  it('lists the non-working states that have agents', () => {
-    expect(
-      fleetFooter([
-        { key: 'working', label: 'working', value: 3 },
-        { key: 'needs_you', label: 'needs you', value: 0 },
-        { key: 'idle', label: 'idle', value: 2 },
-        { key: 'done', label: 'done', value: 1 },
-      ]),
-    ).toBe('2 idle · 1 done')
+describe('fleetFact', () => {
+  it('names the longest run, nothing when no agent works', () => {
+    expect(fleetFact(3 * 3_600_000 + 5 * 60_000)).toBe('longest run 3h 5m')
+    expect(fleetFact(null)).toBeNull()
+  })
+})
+
+describe('needs-you window facts', () => {
+  const at = (iso: string, needsYou: number): HistoryPoint =>
+    ({ receivedAt: iso, summary: { needsYou } }) as unknown as HistoryPoint
+  const now = Date.parse('2026-01-10T12:30:00Z')
+
+  it('counts the hours that had something waiting', () => {
+    const history = [
+      at('2026-01-10T09:10:00Z', 1),
+      at('2026-01-10T09:40:00Z', 2),
+      at('2026-01-10T10:10:00Z', 0),
+      at('2025-12-01T10:10:00Z', 3),
+    ]
+    expect(hoursWithNeedsYou(history, 24, now)).toBe(1)
+    expect(hoursWithNeedsYou([], 24, now)).toBeNull()
   })
 
-  it('says every agent is working when nothing else has agents', () => {
-    expect(fleetFooter([{ key: 'working', label: 'working', value: 3 }])).toBe(
-      'every agent working',
+  it('words the three cases with a unit', () => {
+    expect(needsYouWindowFact(null, 24)).toBe('no data in 24 h')
+    expect(needsYouWindowFact(0, 24)).toBe('none waiting in 24 h')
+    expect(needsYouWindowFact(5, 24)).toBe('waiting in 5 of 24 h')
+  })
+})
+
+describe('activityFact', () => {
+  it('names the busiest hour and the active hours', () => {
+    const hour = (h: number, working: number | null) => ({
+      hourMs: Date.UTC(2026, 0, 10, h),
+      working,
+    })
+    const fact = activityFact([hour(1, 0), hour(2, 3), hour(3, 1), hour(4, null)])
+    expect(fact).toMatch(/^busiest hour \d\d:\d\d · agents working in 2 of 4 h$/)
+    expect(activityFact([hour(1, null)])).toBeNull()
+    expect(activityFact([hour(1, 0), hour(2, 0)])).toBe('no agent working in 2 h')
+  })
+})
+
+describe('questionOf', () => {
+  it('keeps a short sentence and strips markdown marks', () => {
+    expect(questionOf('Which `branch` do we ship? More detail follows.')).toBe(
+      'Which branch do we ship?',
     )
   })
 
-  it('does not claim a working fleet when the snapshot has no agents', () => {
-    expect(fleetFooter([{ key: 'working', label: 'working', value: 0 }])).toBe(
-      'no agents in this snapshot',
+  it('ends a long sentence at a clause, else at a word with an ellipsis', () => {
+    const long =
+      'Approve the migration of the nightly export job to the new queue, which also changes retries and alerting'
+    expect(questionOf(long)).toBe(
+      'Approve the migration of the nightly export job to the new queue',
     )
+    const out = questionOf('word '.repeat(60))
+    expect(out.length).toBeLessThanOrEqual(80)
+    expect(out.endsWith('…')).toBe(true)
+  })
+})
+
+describe('evidence and preview', () => {
+  it('takes the first blocker line, falling back through waitingFor and standing', () => {
+    expect(evidenceLine(agent({ blocker: '\n  dialog open\nmore' }))).toBe('dialog open')
+    expect(evidenceLine(agent({ waitingFor: 'a permission prompt' }))).toBe('a permission prompt')
+    expect(evidenceLine(agent())).toBeNull()
+  })
+
+  it('previews the last reply paragraph only when it adds something', () => {
+    const a = agent({ lastReply: 'First part.\n\nSecond   part\nwraps.' })
+    expect(previewOf(a, null)).toBe('Second part wraps.')
+    expect(previewOf(a, 'Second part wraps.')).toBeNull()
+    expect(previewOf(agent(), null)).toBeNull()
   })
 })
 
@@ -514,13 +572,28 @@ describe('needsYouCards', () => {
       inset: 'dialog open',
     })
     expect(cards[1]).toMatchObject({
-      facts: ['mini', 'asked 1h 0m ago'],
+      facts: ['human queue', 'mini', 'asked 1h 0m ago'],
       headline: 'Run the thing.',
       inset: 'make go',
       copy: { label: 'Copy command', value: 'make go' },
     })
     expect(cards[2]?.copy).toBeNull()
-    expect(cards[2]?.facts).toEqual([])
+    expect(cards[2]?.facts).toEqual(['human queue'])
+  })
+
+  it('derives facts, evidence and a snapshot-age fallback for agents', () => {
+    const waiting = agent({
+      id: 'z',
+      state: 'needs_you',
+      title: 'Pick a branch',
+      lastActivityAt: now - 90 * 60_000,
+    })
+    const [card] = needsYouCards([], [waiting], now, { machine: 'mini', snapshotAgeMs: 120_000 })
+    expect(card).toMatchObject({
+      facts: ['argo', 'waiting 1h 30m', 'mini'],
+      inset: 'no blocker reported · snapshot 2m ago',
+      preview: null,
+    })
   })
 
   it('offers the full ask only when the headline cut something', () => {
@@ -605,7 +678,7 @@ describe('unreadable data never throws or becomes zero', () => {
 
   it('treats an unparseable ask time as no clock', () => {
     const [card] = needsYouCards([{ id: 'q', askedAt: 'garbage', question: 'Do it.' }], [], 1_000)
-    expect(card?.facts).toEqual([])
+    expect(card?.facts).toEqual(['human queue'])
     expect(card?.waitMs).toBe(-1)
     expect(oldestAskMs([{ askedAt: 'garbage' }], 1_000)).toBeNull()
   })

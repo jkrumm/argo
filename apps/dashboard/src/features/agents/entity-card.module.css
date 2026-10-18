@@ -25,8 +25,12 @@
   flex-direction: column;
   gap: var(--vx-space-control-gap);
   min-width: 0;
-  padding: var(--vx-space-stack-sm) var(--vx-space-stack-md);
+  padding: var(--vx-space-stack-xs) var(--vx-space-stack-md);
   background: var(--vx-surface-subtle);
+}
+
+.cell:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .caption {

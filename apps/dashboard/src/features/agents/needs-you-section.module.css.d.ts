@@ -7,5 +7,6 @@ declare const classes: {
   readonly clamped: string
   readonly toggle: string
   readonly ask: string
+  readonly preview: string
 }
 export default classes

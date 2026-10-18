@@ -17,6 +17,9 @@ type Props = {
   agents: AgentRow[]
   /** No snapshot is loaded: what needs the human is unknown, not empty. */
   unknown?: boolean
+  /** Producer host and snapshot age, for the card facts and the evidence fallback. */
+  machine?: string | null
+  snapshotAgeMs?: number | null
 }
 
 /** Mono inset: the command or blocker, clamped to three lines with a toggle past that. */
@@ -58,6 +61,9 @@ function Card({ card }: { card: NeedsYouCard }) {
       facts={card.facts}
       {...(card.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(card.inset !== null && { evidence: <Inset text={card.inset} /> })}
+      {...(card.preview !== null && {
+        preview: <Text className={classes.preview}>{card.preview}</Text>,
+      })}
       {...(card.copy !== null && {
         primary: {
           label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : card.copy.label,
@@ -80,8 +86,14 @@ function Card({ card }: { card: NeedsYouCard }) {
  * `needs_you`, longest wait first. Read-only — the payload has no write endpoint, so the one action
  * is a client-side copy of a field the payload carries. Hidden when nothing waits.
  */
-export function NeedsYouSection({ humanQueue, agents, unknown = false }: Props) {
-  const cards = needsYouCards(humanQueue, agents, useNow())
+export function NeedsYouSection({
+  humanQueue,
+  agents,
+  unknown = false,
+  machine = null,
+  snapshotAgeMs = null,
+}: Props) {
+  const cards = needsYouCards(humanQueue, agents, useNow(), { machine, snapshotAgeMs })
   if (unknown) {
     return (
       <Section title="Needs you" value="—">
