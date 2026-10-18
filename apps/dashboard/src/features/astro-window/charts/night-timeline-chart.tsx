@@ -1,10 +1,8 @@
 import { useMemo } from 'react'
-import { ChartCard, Lines, type ChartSeries, type XZoneSpec } from 'basalt-ui/charts'
+import { ChartCard, Lines, type XZoneSpec } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
 import {
-  fmtAzimuth,
   fmtDegrees,
   fmtShortDay,
   hourlyTicks,
@@ -13,47 +11,9 @@ import {
   withFacts,
 } from '../formulas'
 import type { HourlyPoint, Night } from '../types'
-import { timelineDomain } from './night-timeline-domain'
+import { plotSeries, timelineDomain } from './night-timeline-domain'
 
 const Y_TICKS = 5
-
-/** A track outside the plot's altitude domain is a gap: it is not drawn, so it has no hover row either. */
-const inPlot = (v: number, domain: readonly [number, number]): number | null =>
-  v < domain[0] || v > domain[1] ? null : v
-
-/** The sun is a reference track: it stays clipped at the original 20° even when a high moon lifts the axis. */
-const SUN_CLIP: readonly [number, number] = [-20, 20]
-
-export const plotSeries = (domain: readonly [number, number]): ChartSeries<HourlyPoint>[] => [
-  {
-    key: 'core',
-    label: 'Galactic core',
-    color: SERIES.coreAltitude,
-    strokeWidth: 2,
-    getValue: (d) => inPlot(d.coreAltitude, domain),
-    // The row pairs the plotted altitude with its bearing, read straight off the hovered datum.
-    formatValue: (v, d) => `${fmtDegrees(v)} · ${fmtAzimuth(d.coreAzimuth)}`,
-  },
-  {
-    key: 'moon',
-    label: 'Moon altitude',
-    color: SERIES.moonAltitude,
-    dash: 'dashed',
-    strokeWidth: 1.5,
-    getValue: (d) => inPlot(d.moonAltitude, domain),
-    formatValue: fmtDegrees,
-  },
-  {
-    key: 'sun',
-    label: 'Sun altitude',
-    color: VX.muted,
-    dash: 'dashed',
-    strokeWidth: 1,
-    role: 'reference',
-    getValue: (d) => inPlot(d.sunAltitude, SUN_CLIP),
-    formatValue: fmtDegrees,
-  },
-]
 
 /** The horizon is the 0° altitude line the three tracks cross. */
 const HORIZON = [{ value: 0, color: VX.divider }]
