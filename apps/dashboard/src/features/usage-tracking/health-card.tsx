@@ -37,13 +37,13 @@ type P95Point = { date: Date; v: number }
  */
 const VERDICT_BARS = (
   [
-    { state: 'ok', label: `Under ${fmtPct(ERROR_WARN_FROM, 0)}`, color: VX.muted },
+    { state: 'ok', label: `Under ${fmtPct(ERROR_WARN_FROM, 0)}`, color: alpha(VX.muted, 0.5) },
     {
       state: 'warn',
       label: `${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)}`,
-      color: VX.warn,
+      color: VX.warnSolid,
     },
-    { state: 'bad', label: `Over ${fmtPct(ERROR_BAD_ABOVE, 0)}`, color: VX.bad },
+    { state: 'bad', label: `Over ${fmtPct(ERROR_BAD_ABOVE, 0)}`, color: VX.badSolid },
     { state: 'none', label: 'No calls', color: alpha(VX.muted, 0.35) },
   ] as const
 ).map(({ state, label, color }) => ({
@@ -116,7 +116,7 @@ export default function HealthCard({
               data={p95}
               height={120}
               x={(d: P95Point) => d.date}
-              xTicks={2}
+              xTicks={5}
               formatX={(d) => shortDay.format(d)}
               legend={false}
               cursorResolution="leading"
@@ -149,7 +149,7 @@ export default function HealthCard({
               data={perBucket}
               height={120}
               x={(d: ErrorBucket) => d.date}
-              xTicks={2}
+              xTicks={5}
               formatX={(d) => shortDay.format(d)}
               legend={{ placement: 'bottom' }}
               cursorResolution="leading"

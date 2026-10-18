@@ -55,11 +55,3 @@
   font-weight: 600;
   color: var(--vx-ink);
 }
-
-.freshness {
-  display: flex;
-  align-items: center;
-  gap: var(--vx-space-stack-sm);
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-}

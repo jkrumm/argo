@@ -16,7 +16,6 @@ import {
   fmtTokens,
   fmtUsdWhole,
   foldTopN,
-  footerLine,
   isStale,
   OTHER_KEY,
   pctChange,
@@ -24,7 +23,10 @@ import {
   pointsDelta,
   secondsDelta,
   secondsQuantity,
+  summaryFacts,
   summarySentence,
+  freshnessWord,
+  recentVsWindow,
   tokensQuantity,
 } from './model'
 import type { TimePoint } from './types'
@@ -142,21 +144,40 @@ describe('freshness and copy', () => {
     expect(isStale('2026-10-17T11:45:00Z', now)).toBe(false)
     expect(isStale(null, now)).toBe(false)
   })
-  it('summary and footer repeat the same figures the cells print', () => {
+  it('the headline sentence carries the spend, the facts carry the rest', () => {
+    expect(summarySentence({ cost30d: 1234, cost7d: 300 })).toBe(
+      '$1,234 spent in 30 days, $300 in the last 7 days',
+    )
     expect(
-      summarySentence({
-        cost30d: 1234,
-        cost7d: 300,
+      summaryFacts({
         tokens30d: 2_340_000_000,
         errorRate30d: 0.004,
+        sources: 7,
         lastEvent: '3 minutes ago',
       }),
-    ).toBe(
-      '$1,234 over 30 days, $300 in the last 7 days · 2.3B tokens · 0.4% errors in 30 d · last event 3 minutes ago',
-    )
-    expect(footerLine({ records: 12345, sources: 7, lastEvent: null })).toBe(
-      '12,345 records in total · 7 sources active in 30 d · no events recorded',
-    )
+    ).toEqual(['2.3B tokens', '0.4% errors', '7 sources active', 'last event 3 minutes ago'])
+    expect(
+      summaryFacts({ tokens30d: null, errorRate30d: null, sources: null, lastEvent: null }),
+    ).toEqual(['— tokens', '— errors', 'no events recorded'])
+  })
+  it('names the freshness in words', () => {
+    expect(freshnessWord('2026-10-17T11:45:00Z', now)).toBe('fresh')
+    expect(freshnessWord('2026-10-17T11:20:00Z', now)).toBe('stale 40 min')
+    expect(freshnessWord('2026-10-17T09:00:00Z', now)).toBe('stale 3 h')
+    expect(freshnessWord(null, now)).toBe('no events')
+  })
+})
+
+describe('recentVsWindow', () => {
+  it('compares the last readings with the whole window in points', () => {
+    const r = recentVsWindow([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
+    expect(r.recent).toBeCloseTo(0.9)
+    expect(r.window).toBeCloseTo(0.7)
+    expect(r.delta).toBeCloseTo(20)
+  })
+  it('skips gaps and returns null without readings', () => {
+    expect(recentVsWindow([null, null]).delta).toBeNull()
+    expect(recentVsWindow([null, 0.6, null]).recent).toBeCloseTo(0.6)
   })
 })
 

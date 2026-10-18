@@ -41,8 +41,8 @@ export function Trend({
 
 const BAND_STATES = [
   { key: 'ok', label: 'ok', color: alpha(VX.muted, 0.2) },
-  { key: 'warn', label: 'warn', color: VX.warn },
-  { key: 'bad', label: 'bad', color: VX.bad },
+  { key: 'warn', label: 'warn', color: VX.warnSolid },
+  { key: 'bad', label: 'bad', color: VX.badSolid },
   { key: 'none', label: 'no calls', color: alpha(VX.muted, 0.06) },
 ] as const
 

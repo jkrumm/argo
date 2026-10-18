@@ -8,6 +8,5 @@ declare const classes: {
   readonly healthRight: string
   readonly healthHead: string
   readonly healthValue: string
-  readonly freshness: string
 }
 export default classes
