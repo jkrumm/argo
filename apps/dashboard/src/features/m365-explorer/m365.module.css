@@ -60,6 +60,11 @@
   z-index: 2;
 }
 
+/* Rows and group headings inset from the pane edge, so a focus ring never sits flush on it or under the scrollbar. */
+.viewport {
+  padding-inline: var(--vx-space-stack-xs) var(--vx-space-stack-md);
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -116,6 +121,7 @@
 
 .row {
   position: relative;
+  border-radius: var(--vx-radius-fine);
   display: flex;
   align-items: center;
   gap: var(--vx-space-stack-md);
@@ -343,6 +349,19 @@
   padding: var(--vx-space-card-inset-y) var(--vx-space-card-inset-x);
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
+}
+
+/* An empty list centres in its pane the way a chart card centres its empty. */
+.emptyCenter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--vx-space-card-inset-y) var(--vx-space-card-inset-x);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  text-align: center;
 }
 
 .chipStatic {

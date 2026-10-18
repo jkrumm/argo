@@ -1,5 +1,5 @@
 import { ScrollArea, Skeleton, UnstyledButton } from '@mantine/core'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   CHAT_TYPE_LABEL,
   channelSourceId,
@@ -7,7 +7,9 @@ import {
   formatTime,
   groupByRecency,
   matchesTag,
-  noSourcesYet,
+  NO_CHANNELS,
+  NO_CHATS,
+  NO_TEAMS,
   plural,
   sourceIdFor,
   type ChannelState,
@@ -43,14 +45,19 @@ export type SourceListProps = {
 }
 
 export function SourceList(props: SourceListProps) {
+  return props.view === 'chats' ? <ChatGroups {...props} /> : <TeamTree {...props} />
+}
+
+/** The pane's scroller. An empty list renders outside it, so its message can centre in the pane. */
+function Scroller({ children }: { children: ReactNode }) {
   return (
     <ScrollArea
       className={classes.paneScroll}
-      classNames={{ scrollbar: classes.scrollbar }}
+      classNames={{ scrollbar: classes.scrollbar, viewport: classes.viewport }}
       type="auto"
       scrollbars="y"
     >
-      {props.view === 'chats' ? <ChatGroups {...props} /> : <TeamTree {...props} />}
+      {children}
     </ScrollArea>
   )
 }
@@ -64,18 +71,18 @@ function ChatGroups(props: SourceListProps) {
   )
   if (rows.length === 0) {
     return (
-      <p className={classes.empty}>
+      <p className={classes.emptyCenter}>
         {term
           ? `No chats match "${props.query.trim()}"`
           : props.tag === ''
-            ? noSourcesYet('chats')
+            ? NO_CHATS
             : 'No chats with this label'}
       </p>
     )
   }
   const selectedId = props.selected?.kind === 'chat' ? props.selected.chatId : null
   return (
-    <>
+    <Scroller>
       {groupByRecency(rows, props.now).map((g) => (
         <section key={g.group} aria-label={g.group}>
           <h3 className={classes.groupHeading}>
@@ -95,7 +102,7 @@ function ChatGroups(props: SourceListProps) {
           ))}
         </section>
       ))}
-    </>
+    </Scroller>
   )
 }
 
@@ -115,53 +122,57 @@ function TeamTree(props: SourceListProps) {
   })
   if (visible.length === 0) {
     return (
-      <p className={classes.empty}>
+      <p className={classes.emptyCenter}>
         {term
           ? `No teams or channels match "${props.query.trim()}"`
           : props.tag === ''
-            ? noSourcesYet('teams')
+            ? props.teamRows.length === 0
+              ? NO_TEAMS
+              : NO_CHANNELS
             : 'No teams with this label'}
       </p>
     )
   }
   return (
-    <section aria-label="Teams">
-      <h3 className={classes.groupHeading}>Teams · {visible.length}</h3>
-      {visible.map(({ team, entry, channels, autoOpen }) => {
-        const isOpen = autoOpen || openId === team.id
-        const state = entry.state
-        const all = entry.channels.length
-        const filtered = props.tag !== '' || term !== ''
-        const meta =
-          state === 'loaded'
-            ? filtered && channels.length !== all
-              ? `${channels.length} of ${plural(all, 'channel')}`
-              : plural(all, 'channel')
-            : state === 'failed'
-              ? 'channels failed to load'
-              : '— channels'
-        return (
-          <div key={team.id}>
-            <SourceRow
-              glyph="team"
-              name={team.displayName}
-              meta={meta}
-              expanded={isOpen}
-              onSelect={() => setOpenId(openId === team.id ? null : team.id)}
-            />
-            {isOpen ? (
-              <ChannelRows
-                {...props}
-                team={team}
-                state={state}
-                channels={channels}
-                retry={entry.retry}
+    <Scroller>
+      <section aria-label="Teams">
+        <h3 className={classes.groupHeading}>Teams · {visible.length}</h3>
+        {visible.map(({ team, entry, channels, autoOpen }) => {
+          const isOpen = autoOpen || openId === team.id
+          const state = entry.state
+          const all = entry.channels.length
+          const filtered = props.tag !== '' || term !== ''
+          const meta =
+            state === 'loaded'
+              ? filtered && channels.length !== all
+                ? `${channels.length} of ${plural(all, 'channel')}`
+                : plural(all, 'channel')
+              : state === 'failed'
+                ? 'channels failed to load'
+                : '— channels'
+          return (
+            <div key={team.id}>
+              <SourceRow
+                glyph="team"
+                name={team.displayName}
+                meta={meta}
+                expanded={isOpen}
+                onSelect={() => setOpenId(openId === team.id ? null : team.id)}
               />
-            ) : null}
-          </div>
-        )
-      })}
-    </section>
+              {isOpen ? (
+                <ChannelRows
+                  {...props}
+                  team={team}
+                  state={state}
+                  channels={channels}
+                  retry={entry.retry}
+                />
+              ) : null}
+            </div>
+          )
+        })}
+      </section>
+    </Scroller>
   )
 }
 

@@ -3,6 +3,8 @@
  * signature — so dot access stays verbatim under the package's strict flags.
  */
 declare const classes: {
+  readonly viewport: string
+  readonly emptyCenter: string
   readonly root: string
   readonly split: string
   readonly scrollbar: string

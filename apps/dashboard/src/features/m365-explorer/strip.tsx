@@ -9,7 +9,7 @@ import {
   labeledSegmentCaption,
   NO_CHATS,
   NO_TEAMS,
-  NOTHING_TO_LABEL,
+  withStep,
   type Coverage,
 } from './model'
 import classes from './m365.module.css'
@@ -37,7 +37,7 @@ function labeledCell(
     return {
       key: 'labeled',
       caption: 'Labeled sources',
-      state: { kind: 'empty', reason: NOTHING_TO_LABEL },
+      state: { kind: 'empty', reason: withStep(NO_CHATS) },
     }
   }
   const labeledCount = Math.min(labeled, total)
@@ -82,9 +82,10 @@ function labeledCell(
  * The chat kinds as one split bar, shaded by rank (a split is not a verdict); the hero is the leading
  * kind with its count and the bar's row captions name every kind, with the count of every kind but the lead. A kind with no chats is left out; `other` takes any kind the API adds later.
  */
-function chatsCell(chats: Chats, noChats: boolean): StatStripCell {
+function chatsCell(chats: Chats, noChats: boolean, leading: boolean): StatStripCell {
   if (noChats) {
-    return { key: 'chats', caption: 'Chats by kind', state: { kind: 'empty', reason: NO_CHATS } }
+    const reason = leading ? withStep(NO_CHATS) : NO_CHATS
+    return { key: 'chats', caption: 'Chats by kind', state: { kind: 'empty', reason } }
   }
   const parts = chatKindParts(chats)
   const stat = chatsStat(chats)
@@ -125,10 +126,12 @@ function channelsCell(
   largest: { name: string; channels: number } | null,
   failed: number,
   noTeams: boolean,
+  leading: boolean,
 ): StatStripCell {
   // No teams came back: the channel count is unknown, not zero.
   if (noTeams) {
-    return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason: NO_TEAMS } }
+    const reason = leading ? withStep(NO_TEAMS) : NO_TEAMS
+    return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason } }
   }
   return {
     key: 'channels',
@@ -163,15 +166,20 @@ export function ExplorerStrip({
   noTeams,
   onRetry,
 }: StripProps) {
+  const labeled = labeledCell(coverage, list, onRetry)
+  // The first empty cell in reading order carries the full sentence; the later ones the short form.
+  const labeledLeads = labeled.state?.kind === 'empty'
+  const chatsLead = !labeledLeads
+  const channelsLead = !labeledLeads && !noChats
   return (
     <StatGroup
       variant="strip"
       label="Coverage summary"
       cols={3}
       cells={[
-        labeledCell(coverage, list, onRetry),
-        chatsCell(chats, noChats),
-        channelsCell(channels, largestTeam, coverage.failed, noTeams),
+        labeled,
+        chatsCell(chats, noChats, chatsLead),
+        channelsCell(channels, largestTeam, coverage.failed, noTeams, channelsLead),
       ]}
     />
   )

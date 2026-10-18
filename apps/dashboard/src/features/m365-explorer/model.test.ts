@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
   nothingToOpen,
+  withStep,
   NO_CHANNELS,
   NO_CHATS,
   NO_TEAMS,
@@ -415,5 +416,14 @@ describe('nothingToOpen', () => {
     expect(nothingToOpen(NO_CHATS)).toBe('Nothing to open — no chats came back')
     expect(nothingToOpen(NO_TEAMS)).toBe('Nothing to open — no teams came back')
     expect(nothingToOpen(NO_CHANNELS)).toBe('Nothing to open — no channels came back')
+  })
+})
+
+describe('withStep', () => {
+  test('opens with the short form verbatim, then the cause and the step', () => {
+    for (const short of [NO_CHATS, NO_TEAMS]) {
+      expect(withStep(short).startsWith(`${short} — `)).toBe(true)
+      expect(withStep(short)).toContain('refresh to retry')
+    }
   })
 })
