@@ -2,7 +2,7 @@
  * Pure derivations for the body-composition page. Every figure a sentence repeats is computed here
  * once, so the summary line, the strip cells and the chart header read the same number.
  */
-import { NBSP } from '../../lib/format'
+import { NBSP, withUnit } from '../../lib/format'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
@@ -145,6 +145,7 @@ export function summaryParts({
   ageDays,
   latestKey,
   entries,
+  windowDays: windowSpan,
 }: {
   current: number | null
   kgPerWeek: number | null
@@ -156,6 +157,8 @@ export function summaryParts({
   latestKey?: string | null
   /** Weigh-ins in the selected window; a fact the strip does not show. */
   entries: number
+  /** Days the selected window spans; `null` for all time. */
+  windowDays: number | null
 }): { sentence: string; facts: string[] } {
   if (current === null) return { sentence: 'No weigh-ins in this window', facts: [] }
   const span =
@@ -170,7 +173,7 @@ export function summaryParts({
   return {
     sentence,
     facts: [
-      entriesFact(entries),
+      entriesFact(entries, windowSpan),
       ...(ageDays === null
         ? []
         : [`last weigh-in ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`]),
@@ -178,9 +181,9 @@ export function summaryParts({
   }
 }
 
-/** "12 weigh-ins": the count in the selected window, which the page already names. */
-const entriesFact = (entries: number): string =>
-  `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'}`
+/** "12 weigh-ins in 30 d": the count and the window it was counted over. */
+const entriesFact = (entries: number, span: number | null): string =>
+  `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'} in ${span === null ? 'all time' : withUnit(span, 'd')}`
 
 /** The headline's opening clause: the trend over its window, or that there is none yet. */
 function rateClause({ kgPerWeek, span }: { kgPerWeek: number | null; span: string }): string {
@@ -337,7 +340,9 @@ export function intensityTier(rate: number): IntensityTier {
 function paceFooter(rate: number): string {
   const { tier, band } = intensityTier(rate)
   if (tier === 'maintenance') return `Under ${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk either way`
-  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${band.replaceAll(' ', NBSP)}`
+  // Glued both ways: NBSP keeps the unit, a word joiner after the dash keeps the range in one piece.
+  const glued = band.replaceAll(' ', NBSP).replace('\u2013', '\u2013\u2060')
+  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${glued}`
 }
 
 /** The day-based means and slopes the strip and the chart header both state. */

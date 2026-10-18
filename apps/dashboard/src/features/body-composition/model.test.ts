@@ -126,10 +126,11 @@ describe('summaryParts', () => {
         goal: 75,
         ageDays: 1,
         entries: 12,
+        windowDays: 30,
       }),
     ).toEqual({
       sentence: 'Weight falling over 28 d, 5.0 kg from the 75.0 kg goal',
-      facts: ['12 weigh-ins', 'last weigh-in 1 day ago'],
+      facts: ['12 weigh-ins in 30\u00a0d', 'last weigh-in 1 day ago'],
     })
   })
   test('an old last weigh-in dates the rate window', () => {
@@ -142,10 +143,11 @@ describe('summaryParts', () => {
         ageDays: 20,
         latestKey: '2026-06-03',
         entries: 5,
+        windowDays: 30,
       }),
     ).toEqual({
       sentence: 'Weight rising over the 28 d to 3 Jun',
-      facts: ['5 weigh-ins', 'last weigh-in 20 days ago · stale'],
+      facts: ['5 weigh-ins in 30\u00a0d', 'last weigh-in 20 days ago · stale'],
     })
   })
   test('inside the maintenance band the weight is holding steady', () => {
@@ -157,6 +159,7 @@ describe('summaryParts', () => {
         goal: null,
         ageDays: 0,
         entries: 5,
+        windowDays: 30,
       }).sentence,
     ).toBe('Weight holding steady over 7 d')
   })
@@ -169,6 +172,7 @@ describe('summaryParts', () => {
         goal: 75,
         ageDays: 0,
         entries: 5,
+        windowDays: 30,
       }).sentence,
     ).toContain('0.0 kg at the 75.0 kg goal')
   })
@@ -181,8 +185,9 @@ describe('summaryParts', () => {
         goal: null,
         ageDays: null,
         entries: 5,
+        windowDays: 30,
       }),
-    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins'] })
+    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins in 30\u00a0d'] })
   })
   test('empty window', () => {
     expect(
@@ -193,6 +198,7 @@ describe('summaryParts', () => {
         goal: 75,
         ageDays: null,
         entries: 0,
+        windowDays: 30,
       }),
     ).toEqual({ sentence: 'No weigh-ins in this window', facts: [] })
   })
@@ -377,11 +383,17 @@ describe('one fixture, two live-review items', () => {
   })
 
   test('the RATE footer is the tier, or why there is no rate; loading and failure are their own', () => {
-    expect(rateFooter({ rate: -0.5, entries: 9 })).toBe('Standard pace, losing 0.4–0.8\u00a0kg/wk')
-    expect(rateFooter({ rate: 0.2, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3\u00a0kg/wk')
+    expect(rateFooter({ rate: -0.5, entries: 9 })).toBe(
+      'Standard pace, losing 0.4–\u20600.8\u00a0kg/wk',
+    )
+    expect(rateFooter({ rate: 0.2, entries: 9 })).toBe(
+      'Lean pace, gaining 0.1–\u20600.3\u00a0kg/wk',
+    )
     expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Under 0.1\u00a0kg/wk either way')
     // Decided from the number: the footer needs no label from the API.
-    expect(rateFooter({ rate: 0.1, entries: 9 })).toBe('Lean pace, gaining 0.1–0.3\u00a0kg/wk')
+    expect(rateFooter({ rate: 0.1, entries: 9 })).toBe(
+      'Lean pace, gaining 0.1–\u20600.3\u00a0kg/wk',
+    )
     expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Under 0.1\u00a0kg/wk either way')
     expect(rateFooter({ rate: null, entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3 days apart',

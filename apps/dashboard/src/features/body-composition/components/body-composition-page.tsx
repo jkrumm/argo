@@ -54,6 +54,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
     ageDays,
     latestKey: latestDate(weightPoints),
     entries: weightPoints.length,
+    windowDays: windowDays(params),
   })
   const cells: StatStripCell[] = [
     weightCell({

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Box, Card, Group, Skeleton, Text } from '@mantine/core'
 import { useDocumentVisibility } from '@mantine/hooks'
+import { format } from 'date-fns'
 import { durationClock, relativeTime } from 'basalt-ui/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { toLastWalk, fmtDuration, withKcal, withKm, withKmh, withSteps } from './model'
@@ -79,12 +80,13 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
   if (walk === undefined) {
     return <Row dot="idle" status={status} facts="no walk recorded yet" stats="" />
   }
+  const day = format(new Date(walk.ended_at), 'd MMM')
   return (
     <Row
       dot="idle"
       status={status}
-      facts={`last walk${empty ? '' : ` ${relativeTime(walk.ended_at)}`} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
-      stats={`${withSteps(walk.steps)} · ${withKcal(walk.kcal)}, last walk`}
+      facts={`last walk ${empty ? day : `${relativeTime(walk.ended_at)}, ${day}`} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
+      stats={`${withSteps(walk.steps)} · ${withKcal(walk.kcal)}`}
     />
   )
 }
