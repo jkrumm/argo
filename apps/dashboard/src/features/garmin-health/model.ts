@@ -168,10 +168,14 @@ export function acwrRelation(acwr: number | null): string {
   return `past the ${ACWR_CAUTION_TO} danger line`
 }
 
+export type QueryStatus = 'pending' | 'error' | 'success'
+
 export type SummaryInput = {
   recovery: number | null
   /** The snapshot's own date; names the day a missing recovery is missing for. */
   recoveryDate?: string | null
+  /** The recovery query's state; a failed load never reads as a data gap. Default `success`. */
+  recoveryStatus?: QueryStatus
   acwr: number | null
   rhrDelta: number | null
   hrvDelta: number | null
@@ -181,7 +185,14 @@ export type SummaryInput = {
  * The page's opening: the headline answers "how recovered and how loaded", the facts carry the
  * ACWR figure and the 14 d fitness deltas, each with unit.
  */
-export function summaryParts({ recovery, recoveryDate, acwr, rhrDelta, hrvDelta }: SummaryInput): {
+export function summaryParts({
+  recovery,
+  recoveryDate,
+  recoveryStatus = 'success',
+  acwr,
+  rhrDelta,
+  hrvDelta,
+}: SummaryInput): {
   sentence: string
   facts: string[]
 } {
@@ -190,7 +201,9 @@ export function summaryParts({ recovery, recoveryDate, acwr, rhrDelta, hrvDelta 
     recovery !== null
       ? [`Recovery ${fmtNum(recovery)}/100`, load].filter(Boolean).join(', ')
       : // What is known leads; the missing recovery states its reason instead of opening on a dash.
-        capitalize([load, recoveryGap(recoveryDate).headline].filter(Boolean).join('; '))
+        capitalize(
+          [load, recoveryGap(recoveryDate, recoveryStatus).headline].filter(Boolean).join('; '),
+        )
   return {
     sentence,
     facts: [
@@ -204,18 +217,31 @@ export function summaryParts({ recovery, recoveryDate, acwr, rhrDelta, hrvDelta 
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
 
 /**
- * Why there is no recovery score and when it fills. The score needs at least one of HRV, sleep score
- * and resting HR on the snapshot's day; those lock in overnight and arrive with Garmin's 6-hourly sync.
+ * Why there is no recovery score and when it fills. A failed query is its own wording, never the data
+ * gap. The score needs a usable HRV, sleep score or resting HR on the snapshot's day (resting HR needs
+ * more than one distinct value in the window); those lock in overnight and arrive with the sync sidecar's
+ * six-hourly cron (cron/garmin-sync.ts in the API).
  */
-export function recoveryGap(date: string | null | undefined): {
+export function recoveryGap(
+  date: string | null | undefined,
+  status: QueryStatus = 'success',
+): {
   headline: string
   reason: string
   fills: string
 } {
+  if (status === 'pending') return { headline: '', reason: '', fills: '' }
+  if (status === 'error') {
+    return {
+      headline: 'the recovery score failed to load',
+      reason: 'The recovery score failed to load.',
+      fills: 'Reload the page to retry.',
+    }
+  }
   const when = date === null || date === undefined ? 'the latest day' : dayLabel(date)
   return {
-    headline: `no recovery score, since ${when} has no HRV, sleep or resting HR reading`,
-    reason: `No HRV, sleep or resting HR reading for ${when}.`,
+    headline: `no recovery score, since there is not enough HRV, sleep or resting HR data for ${when}`,
+    reason: `Not enough HRV, sleep or resting HR data for ${when}.`,
     fills: 'It fills once Garmin syncs last night’s sleep (every 6 h).',
   }
 }

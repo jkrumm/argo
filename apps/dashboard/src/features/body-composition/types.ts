@@ -36,6 +36,4 @@ export type SkinfoldSummary = {
 export type WeightWindowStats = {
   mean7: number | null
   mean30: number | null
-  /** Least-squares kg/week, the API's method. */
-  slope7: number | null
 }

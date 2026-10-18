@@ -15,7 +15,6 @@ import {
   meanOverDays,
   signed,
   siteRows,
-  slopeOverDays,
   summaryParts,
   weightDeltaPolarity,
   weightWindowStats,
@@ -145,6 +144,11 @@ describe('summaryParts', () => {
       summaryParts({ current: 80, kgPerWeek: 0.05, rateDays: 7, goal: null, ageDays: 0 }).sentence,
     ).toBe('Weight holding steady over 7 d')
   })
+  test('at the goal is within the module tolerance, not exact equality', () => {
+    expect(
+      summaryParts({ current: 75.02, kgPerWeek: 0, rateDays: 28, goal: 75, ageDays: 0 }).sentence,
+    ).toContain('0.0 kg at the 75.0 kg goal')
+  })
   test('unknown rate states the weight, never 0', () => {
     expect(
       summaryParts({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }),
@@ -197,7 +201,6 @@ describe('day-based window stats', () => {
     const pts = daily(40, 100, -0.5)
     // Inclusive bound (date >= last - 7): entries 32..39.
     expect(meanOverDays(pts, 7, null)).toBeCloseTo(100 - 0.5 * 35.5)
-    expect(slopeOverDays(pts, 7, null)).toBeCloseTo(-3.5)
   })
   test('sparse log: two entries one day apart state no period', () => {
     const pts = [
@@ -206,8 +209,6 @@ describe('day-based window stats', () => {
     ]
     expect(meanOverDays(pts, 7, null)).toBeNull()
     expect(meanOverDays(pts, 30, null)).toBeNull()
-    expect(slopeOverDays(pts, 7, null)).toBeNull()
-    expect(slopeOverDays(pts, 30, null)).toBeNull()
   })
   test('one entry states no period', () => {
     expect(meanOverDays([{ date: '2026-06-30', weightKg: 80 }], 7, null)).toBeNull()
@@ -221,22 +222,8 @@ describe('day-based window stats', () => {
   test('a window shorter than the period cannot state it', () => {
     const pts = daily(40, 80, 0)
     expect(meanOverDays(pts, 30, 7)).toBeNull()
-    expect(slopeOverDays(pts, 30, 7)).toBeNull()
     expect(weightWindowStats(pts, 7).mean30).toBeNull()
     expect(weightWindowStats(pts, 7).mean7).toBe(80)
-  })
-  test('the footer slopes and the weights they come from agree in sign', () => {
-    for (const perDay of [-0.5, 0.5]) {
-      const pts = daily(40, 100, perDay)
-      const stats = weightWindowStats(pts, null)
-      const first = pts.at(0)!.weightKg
-      const last = pts.at(-1)!.weightKg
-      expect(Math.sign(stats.slope7!)).toBe(Math.sign(last - first))
-    }
-  })
-  test('slope matches the exact line through synthetic points', () => {
-    expect(slopeOverDays(daily(10, 80, 1), 10, null)).toBeCloseTo(7)
-    expect(slopeOverDays(daily(10, 80, 0), 10, null)).toBe(0)
   })
 })
 
@@ -291,17 +278,13 @@ describe('siteRows', () => {
 describe('one fixture, two live-review items', () => {
   const pts = daily(40, 100, -0.5)
 
-  test('the RATE cell states 7 d only: no 30 d slope beside the 28 d hero', () => {
-    expect(Object.keys(weightWindowStats(pts, null)).toSorted()).toEqual([
-      'mean30',
-      'mean7',
-      'slope7',
-    ])
+  test('the stats carry means only: no second slope beside the 28 d hero', () => {
+    expect(Object.keys(weightWindowStats(pts, null)).toSorted()).toEqual(['mean30', 'mean7'])
   })
 
   test('the RATE footer is the intensity tier, or why there is no rate; no second window', () => {
     expect(rateFooter(-0.3, 'Standard cut')).toBe('Standard cut')
-    expect(rateFooter(null, 'x')).toBe('A rate needs two weigh-ins in the window')
+    expect(rateFooter(null, 'x')).toBe('A rate needs two weigh-ins at least 3 days apart')
   })
 
   test('where the header says a dash, the chart line has a gap', () => {

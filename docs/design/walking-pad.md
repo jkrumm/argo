@@ -137,7 +137,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 25 fixes
 
-- An empty window always renders the headline: `No walks in the last {window}; the last was {n} d ago, on {date}` (`emptyWindowParts`, unit-tested); `No walks recorded yet` when none exists. `SummaryLine` takes an `empty` flag and reads the newest walk itself.
+- An empty window always renders the headline: `No walks in the last {window}; the last was {n} d ago, on {date}` (`emptyWindowParts`, unit-tested); `No walks recorded yet` when none exists; a failed last-walk lookup names the window only. The day count is derived from the two printed UTC day keys. `SummaryLine` takes an `empty` flag and reads the newest walk itself.
 - The KPI strip stays above the empty state as the same four cells, dimmed, every value `—` (`EmptyStrip` in `strip.tsx`).
-- The empty state says why and what fills it ("the strip and charts fill once a walk is recorded in this window; widen it to reach the last one"); the last-walk date moved to the headline, not repeated.
+- The empty state says why and what fills it ("the strip fills once a walk is recorded in this window; widen it to reach the last one", the widen clause only when a wider window exists); the title keeps the window name; the last-walk date moved to the headline, not repeated.
 - Basalt rows: none.
