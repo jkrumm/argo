@@ -5,6 +5,7 @@ import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
+import { WARDEN_PUSH_MIN } from '../warden/page-model'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { leadOf, subjectOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
@@ -467,8 +468,12 @@ export function activityStream(
   return { groups, total: live.length }
 }
 
-/** The activity card's short form of the feed gap; the agents cell carries the full sentence with the cadence. */
-export const NO_FEED_YET = 'No feed yet'
+/**
+ * The activity card's feed gap: both producers named, Warden's cadence only (the agents cell above
+ * states agent-gateway's, so each fact reads once).
+ */
+export const noFeedYet = (): string =>
+  `No feed yet from Warden or agent-gateway — Warden pushes every ${withUnit(WARDEN_PUSH_MIN, 'min')}`
 
 /**
  * The activity card's line with nothing to count: the empty window when a feed loaded, then every
@@ -484,7 +489,7 @@ export function feedEmptyLine(input: {
   const { loaded, failed, pending, now } = input
   const unknown = unknownPhrase(failed, pending)
   if (!loaded && unknown === '') {
-    return NO_FEED_YET
+    return `${noFeedYet()}.`
   }
   const retry = failed.length > 0 ? ' — reload to retry' : ''
   return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]

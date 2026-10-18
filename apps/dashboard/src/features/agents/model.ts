@@ -79,6 +79,13 @@ export const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 /** The short form of the page alert's `No snapshot yet` (the alert carries the cause and the step). */
 export const NO_SNAPSHOT_SHORT = 'No snapshot yet'
 
+/**
+ * The strip caption with no hour measured. Never having had a snapshot is the alert's gap, so it
+ * takes the alert's short form; snapshots that all predate the window are a different gap.
+ */
+export const noSnapshotCaption = (hasSnapshot: boolean, hours: number): string =>
+  hasSnapshot ? `No snapshot in the last ${withUnit(hours, 'h')}` : NO_SNAPSHOT_SHORT
+
 export const WAITING_FOR_SNAPSHOT = 'Waiting for the first snapshot'
 
 /** agent-gateway's push cadence, minutes: every "nothing pushed yet" line names it. */

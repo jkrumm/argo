@@ -11,7 +11,7 @@ import {
   clockOf,
   gapHours,
   hourlyWorking,
-  NO_SNAPSHOT_SHORT,
+  noSnapshotCaption,
   peakWorking,
   type HourBucket,
 } from './model'
@@ -20,6 +20,8 @@ type Props = {
   history: HistoryPoint[] | undefined
   hours: number
   now: number
+  /** An overview snapshot exists (of any age): an empty window is then not the never-pushed gap. */
+  hasSnapshot: boolean
 }
 
 const SIX_HOURS = 6
@@ -45,7 +47,7 @@ const statesFor = (peak: number) => {
       ? [
           {
             key: 'working',
-            label: `${agentCount(1)} working, lighter`,
+            label: peak === 2 ? `${agentCount(1)} working` : `1–${agentCount(peak - 1)} working`,
             color: workingFill(1, peak),
             formatValue: count,
           },
@@ -55,7 +57,7 @@ const statesFor = (peak: number) => {
       ? [
           {
             key: 'peak',
-            label: `${agentCount(peak)} working${peak > 1 ? ', darker' : ''}`,
+            label: `${agentCount(peak)} working`,
             color: VX.line,
             formatValue: count,
           },
@@ -76,7 +78,7 @@ const statesFor = (peak: number) => {
  * count, a distinct flat cell where no snapshot landed (a feed stall shows as a hole, not a zero).
  * The legend names the working range when anything worked, plus the quiet and gap cells; an hour still in progress with no snapshot is not drawn.
  */
-export function ActivityStrip({ history, hours, now }: Props) {
+export function ActivityStrip({ history, hours, now, hasSnapshot }: Props) {
   const { buckets, peakHour, fact } = useMemo(() => {
     const hourly = hourlyWorking(history, hours, now)
     const busiest = peakWorking(hourly)
@@ -122,7 +124,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
           height={48}
         />
         <Text size="sm" ff="monospace" c="dimmed" mt="xs">
-          {fact ?? NO_SNAPSHOT_SHORT}
+          {fact ?? noSnapshotCaption(hasSnapshot, hours)}
         </Text>
         {fact !== null && gaps > 0 ? (
           <Text size="xs" c="dimmed" mt="xs">
