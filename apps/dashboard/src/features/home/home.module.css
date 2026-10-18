@@ -116,28 +116,22 @@
   min-width: 0;
 }
 
-/* The head keeps its words and its separator (never ellipsized with the subject); the outcome (the transition) wraps below it rather than squeezing it. */
+/* The head keeps whole words (it wraps at spaces, never ellipsized); the outcome (the transition) sits after it in the muted ink and wraps below it rather than squeezing it. */
 .feedHead {
-  display: inline-flex;
-  gap: var(--vx-space-control-gap);
   max-width: 100%;
   min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .feedSubject {
-  flex: 0 1 auto;
-  max-width: 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-/* The outcome shrinks only after the subject is down to its floor. */
 .feedOutcome {
   flex: 0 1 auto;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  color: var(--vx-muted);
 }
 
 .feedDetail {

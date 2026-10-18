@@ -55,9 +55,9 @@ describe('strip cells with no reading', () => {
 
   it('names the reading day in the ACWR footer only when it is not today', () => {
     const reading = { acwr: 1.1, zone: 'optimal' as const }
-    expect(acwrCell({ ...reading, date: '2026-01-15' }, NOW).footer).toBe('optimal 0.8–1.3')
+    expect(acwrCell({ ...reading, date: '2026-01-15' }, NOW).footer).toBe('range 0.8–1.3')
     expect(acwrCell({ ...reading, date: '2026-01-14' }, NOW).footer).toBe(
-      'optimal 0.8–1.3 · Wed 14 Jan',
+      'range 0.8–1.3 · Wed 14 Jan',
     )
   })
 

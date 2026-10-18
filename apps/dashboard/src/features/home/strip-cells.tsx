@@ -208,7 +208,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
         />
         {trend.length > 1 ? (
           <Sparkline
-            ariaLabel={`Recovery over the last ${trend.length} measured days`}
+            ariaLabel={`Recovery over the last ${trend.length} observed days`}
             data={trend}
             height={28}
             color={MUTED_FILL}
@@ -218,7 +218,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
       </>
     ),
     footer: isToday
-      ? `${days} measured ${days === 1 ? 'day' : 'days'} of 7`
+      ? `${days} observed ${days === 1 ? 'day' : 'days'} of 7`
       : `today fills after the next Garmin sync (every ${GARMIN_SYNC_HOURS} h)`,
   }
 }
@@ -231,7 +231,7 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
       key: 'acwr',
       caption: 'ACWR · 7 d / 28 d',
       value: null,
-      footer: reading === null ? 'unavailable' : 'no training load measured',
+      footer: reading === null ? 'unavailable' : 'no training load observed',
     }
   }
   return {
@@ -248,7 +248,7 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
         format={(v) => v.toFixed(2)}
         zones={[
           { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
-          { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
+          { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Target', color: VX.good },
           { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
           { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
         ]}
@@ -256,7 +256,7 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
         endCaption={null}
       />
     ),
-    footer: `optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}${
+    footer: `range ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}${
       reading.date === null || reading.date === localKey(now)
         ? ''
         : ` · ${recoveryDay(reading.date)}`

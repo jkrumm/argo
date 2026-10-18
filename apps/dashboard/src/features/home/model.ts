@@ -294,14 +294,15 @@ export type ActivityEvent = {
 const NAME_MAX = 18
 
 /**
- * A repo or project name that fits a feed row: whole when it fits, else cut after a `-`, `_`, `/`
- * or `.` separator (never inside a word when a separator is near) with an ellipsis.
+ * A repo or project name that fits a feed row: whole when it fits, else cut after its last `-`,
+ * `_`, `/` or `.` separator with an ellipsis. A name with no separator is never cut mid-token; it
+ * stays whole and the row wraps it.
  */
 export function shortName(name: string, max = NAME_MAX): string {
   if (name.length <= max) return name
   const head = name.slice(0, max - 1)
   const sep = Math.max(...['-', '_', '/', '.'].map((c) => head.lastIndexOf(c)))
-  return `${sep >= max / 2 ? head.slice(0, sep) : head}…`
+  return sep > 0 ? `${head.slice(0, sep)}…` : name
 }
 
 /** Rows older than the start of yesterday are history, not "today's stream". */
@@ -481,21 +482,15 @@ export type SummaryInput = {
   decisions: readonly Decision[]
   /** Sources whose feed is not loaded: the count then covers the rest, and the sentence says so. */
   unavailable: readonly string[]
-  fleet: { working: number; total: number } | null
-  meetings: {
-    next: Meeting | null
-    current: Meeting | null
-    total: number
-    /** What an empty day says: `No meetings today`, or which calendar is missing. */
-    emptyLabel: string
-  } | null
-  recovery: number | null
-  now: number
 }
 
 export type SummaryParts = { sentence: string; facts: string[] }
 
-/** The headline (count + oldest wait, or why it can't be told) and the facts under it. */
+/**
+ * The headline (count + oldest wait, or why it can't be told) and one fact under it: where the
+ * waiting items sit. The fleet, the next meeting and recovery each have a strip cell of their own,
+ * so the summary does not print them a second time.
+ */
 export function summaryParts(s: SummaryInput): SummaryParts {
   const n = s.decisions.length
   const oldest = s.decisions.reduce<number | null>(
@@ -507,22 +502,15 @@ export function summaryParts(s: SummaryInput): SummaryParts {
   const sentence = cantTell
     ? `Can't tell — ${s.unavailable.join(' and ')} unavailable.`
     : n === 0
-      ? `Nothing needs you${gap}${s.fleet ? `; ${s.fleet.working} of ${s.fleet.total} agents working` : ''}.`
+      ? `Nothing needs you${gap}.`
       : `${n} ${n === 1 ? 'item needs' : 'items need'} you${gap}${oldest === null ? '' : `, oldest ${formatWaitDuration(oldest)}`}.`
-  const meeting =
-    s.meetings === null
-      ? null
-      : s.meetings.total === 0
-        ? s.meetings.emptyLabel
-        : s.meetings.next !== null
-          ? `Next meeting ${countdownLabel(s.meetings.next.startMs - s.now)}`
-          : s.meetings.current !== null
-            ? `In a meeting until ${clockTime(new Date(s.meetings.current.endMs).toISOString())}`
-            : 'No more meetings today'
-  const fleet =
-    s.fleet && !cantTell && n > 0 ? `${s.fleet.working} of ${s.fleet.total} agents working` : null
-  const recovery = s.recovery === null ? null : `recovery today ${Math.round(s.recovery)}/100`
-  return { sentence, facts: [fleet, meeting, recovery].filter((p): p is string => p !== null) }
+  const inWarden = s.decisions.filter((d) => d.source === 'warden').length
+  const withAgents = n - inWarden
+  const where = [
+    inWarden > 0 ? `${inWarden} in Warden` : null,
+    withAgents > 0 ? `${withAgents} with agents` : null,
+  ].filter((part): part is string => part !== null)
+  return { sentence, facts: cantTell ? [] : where }
 }
 
 // ── Agents strip ─────────────────────────────────────────────────────────────────────────────
