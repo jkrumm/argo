@@ -566,11 +566,14 @@ describe('noUsageWindow', () => {
     expect(short(true)).not.toBe(short(false))
   })
 
-  it('an empty strip leaves every chart surface the short form, filtered or not', () => {
-    for (const filtered of [false, true]) {
-      for (const leading of [false, true]) {
-        expect(noUsageWindow({ filtered, stripEmpty: true, leading })).toBe(NO_USAGE_CELL)
-      }
+  it('an empty strip leaves every unfiltered chart surface the short form', () => {
+    for (const leading of [false, true]) {
+      expect(noUsageWindow({ filtered: false, stripEmpty: true, leading })).toBe(NO_USAGE_CELL)
     }
+  })
+
+  it('a filtered window keeps the match pair even under an empty strip', () => {
+    expect(noUsageWindow({ filtered: true, stripEmpty: true, leading: true })).toBe(full(true))
+    expect(noUsageWindow({ filtered: true, stripEmpty: true, leading: false })).toBe(short(true))
   })
 })

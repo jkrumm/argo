@@ -259,6 +259,8 @@ export function labeledSegmentCaption(value: number, labeled: number, unlabeled:
  */
 export const NO_CHATS = 'No chats came back'
 export const NO_TEAMS = 'No teams came back'
+/** The labeled cell's and pane's gap: nothing at all to label. */
+export const NO_SOURCES = 'No chats or channels came back'
 /** The channels view's gap when teams loaded but none holds a channel: a different gap, the fact only. */
 export const NO_CHANNELS = 'No channels came back'
 

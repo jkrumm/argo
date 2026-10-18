@@ -26,17 +26,17 @@ const NO_MATCH_SHORT = 'No usage matches these filters'
 const NO_MATCH_FULL = `${NO_MATCH_SHORT} in this window — clear a filter or widen the range`
 
 /**
- * The wording for a surface whose window holds no usage. `stripEmpty` (the 30 d strip already says
- * nothing was ingested, with the step) makes every chart surface the short form, filtered or not:
- * the filter is not the cause. Otherwise the leading chart carries the full sentence, the rest the short form.
+ * The wording for a surface whose window holds no usage. A filtered window always keeps the match
+ * pair: the filter may be the cause (the strip ignores filters). `stripEmpty` (the 30 d strip already
+ * says nothing was ingested, with the step) collapses only the unfiltered pair to the short form. Otherwise the leading chart carries the full sentence, the rest the short form.
  */
 export function noUsageWindow(o: {
   filtered: boolean
   stripEmpty: boolean
   leading: boolean
 }): string {
-  if (o.stripEmpty) return NO_USAGE_SHORT
   if (o.filtered) return o.leading ? NO_MATCH_FULL : NO_MATCH_SHORT
+  if (o.stripEmpty) return NO_USAGE_SHORT
   return o.leading ? NO_USAGE_FULL : NO_USAGE_SHORT
 }
 /** The health card is one empty state only when the window has no calls and no latency line to show: a real line is never hidden. */
