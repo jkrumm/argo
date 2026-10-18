@@ -490,6 +490,16 @@ describe('lowCloudStat', () => {
       target: null,
     })
   })
+  test('a layer that is null or absent is left out, never NaN', () => {
+    const n = (weather: object) => ({ weather, window: {} }) as unknown as Night
+    expect(lowCloudStat(n({ cloudLow: 10, cloudMid: null, cloudHigh: 30 }), 55)?.footer).toBe(
+      'shooting-window mean · high 30\u00a0%',
+    )
+    expect(lowCloudStat(n({ cloudLow: 10 }), 55)?.footer).toBe('shooting-window mean')
+    expect(lowCloudStat(n({ cloudLow: 10, cloudMid: 0, cloudHigh: 5 }), 55)?.footer).toBe(
+      'shooting-window mean · mid 0\u00a0% · high 5\u00a0%',
+    )
+  })
   test('no limit in the response: no tick', () => {
     expect(lowCloudStat(night(30), undefined)?.target).toBeNull()
   })
@@ -728,7 +738,7 @@ describe('moon gate row on a pass', () => {
 
   test('over the limit it says why it passed, never a bare contradiction', () => {
     expect(moonGateDetail(passed(-10), 0.25)).toBe('over limit, below horizon')
-    expect(moonGateDetail(passed(12), 0.25)).toBe('over limit, behind skyline')
+    expect(moonGateDetail(passed(12), 0.25)).toBe('over limit, position passed')
     expect(moonGateDetail(passed(0, true), 0.25)).toBe('over limit, position passed')
   })
 })
