@@ -1,4 +1,4 @@
-import { ARROW, NBSP, withUnit } from '../../lib/format'
+import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -9,12 +9,13 @@ import type {
 } from '../../lib/queries/warden'
 import { asText, authoredQuestion, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 import {
-  cardCopy,
   isAlert,
-  resolveCopies,
-  wardenPlainQuestion,
+  subjectOf,
+  surfaceCopies,
+  wardenQuestionForms,
+  withoutRepeatedEvidence,
+  type CardInput,
   type CardCopy,
-  type Disambiguation,
 } from '../../lib/question-copy'
 import type { DecisionCardFact } from '../../components/upstream/decision-card-model'
 import {
@@ -478,94 +479,72 @@ export type WardenAsk = {
   /** The lifted `[tag]` of the reason. */
   tag: string | null
   copy: CardCopy
-  /** The repo is already named by the question, so a facts line must not repeat it. */
-  repoNamed: boolean
 }
 
-/** The question says the repo as a whole word (`api` is not named by `rapid`), whichever rung wrote it. */
-function namesRepo(question: string, repo: string): boolean {
-  if (repo === '') return false
-  const escaped = repo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, 'i').test(question)
-}
+/** One Warden item, ready to be resolved with the other cards of its surface. */
+export type WardenAskInput = Omit<WardenAsk, 'copy'> & { input: CardInput }
 
 /**
- * Plan and copy of one Warden item, derived once: the verbs the card offers decide the plain
- * question, and the same result feeds the Warden card and the Home inbox. The authored question
- * comes first, then the reason's first sentence when it is a question, then the plain question,
- * with the shortcode-stripped title (`Item #<id>` when nothing is left) as the entity, whole.
- * A failed item's reason is all evidence.
+ * Plan and copy input of one Warden item, derived once: the verbs the card offers decide the
+ * question forms, and the same result feeds the Warden card and the Home inbox (`surface: 'home'`
+ * asks every question as `Decide on …`, its only button opens Warden). The authored question
+ * comes first, then the reason's first sentence when it is a question, then the title's subject
+ * under the forms' stem; an untitled item's subject is `Item #<id>`. A failed item's
+ * reason is all evidence.
  */
-export function wardenAsk(
+export function wardenAskInput(
   source: AskSource,
   kind: QueueKind,
-  { handle = null }: { handle?: Disambiguation | null } = {},
-): WardenAsk {
+  surface: 'warden' | 'home' = 'warden',
+): WardenAskInput {
   const failed = kind === 'failed'
   const plan = planActions(source.availableActions, kind, source.failedFrom ?? null)
   // The wire is loose: only a string is a title, reason or repo.
   const named = stripShortcodes(asText(source.title))
-  const title = named || `Item #${source.eventId}`
   const rawReason = asText(source.reason)
   const reason = rawReason === '' ? null : stripShortcodes(rawReason)
   const repo = stripShortcodes(asText(source.repo))
   const alert = isAlert({ kinds: [source.origin], title: named })
-  const plain = wardenPlainQuestion({ failed, repo, primary: plan.primary, alert })
-  const authored = authoredQuestion(source.question)
   const split = failed ? null : splitReason(reason)
-  const copy = cardCopy({
-    authored,
+  const input: CardInput = {
+    key: `${kind}-${source.eventId}`,
+    authored: authoredQuestion(source.question),
     ask: split?.question ?? '',
     body: split === null ? reason : split.rest,
-    title,
-    plain,
-    // An untitled item is told apart by the same short form its entity line uses.
-    handle: handle === null ? null : { source: title, ...handle },
-  })
-  return { plan, repo, tag: split?.tag ?? null, copy, repoNamed: namesRepo(copy.question, repo) }
+    title: named || `Item #${source.eventId}`,
+    subject: subjectOf(named) ?? `Item #${source.eventId}`,
+    forms: wardenQuestionForms({ failed, repo, primary: plan.primary, alert, surface }),
+  }
+  return { plan, repo, tag: split?.tag ?? null, input }
+}
+
+/** The ask of one resolved card. */
+function withCopy({ input: _input, ...ask }: WardenAskInput, copy: CardCopy): WardenAsk {
+  return { ...ask, copy }
+}
+
+/** Plan and copy of one Warden item alone on its surface. */
+export function wardenAsk(source: AskSource, kind: QueueKind): WardenAsk {
+  const ask = wardenAskInput(source, kind)
+  return withCopy(ask, surfaceCopies([ask.input])[0]!)
 }
 
 export type QueueEntry = { row: AwaitingOwnerRow; kind: QueueKind }
 
-export type QueueAsks = {
-  /** One ask per entry, in input order; a line the whole list shares is already left off its cards. */
-  asks: WardenAsk[]
-  /** Per kind, the evidence line every card of that list shares word for word; printed once above it. */
-  shared: Record<QueueKind, string | null>
-}
-
 /**
  * Every card of the Warden page resolved ONCE, as one surface (needs-you and failed are told apart
- * together). A list whose cards all carry the same evidence line (two or more cards, compared
- * case-insensitively) says nothing that tells them apart: that line moves to `shared` and the
- * cards drop it; the full reason stays behind each card's disclosure. A line only some cards share
- * stays on its cards.
+ * together), in input order. Cards whose evidence lines read the same word for word keep the line
+ * on the first card only; the others keep their whole reason behind the disclosure.
  */
-export function resolveQueueAsks(
-  entries: readonly QueueEntry[],
-  key: (entry: QueueEntry) => string,
-): QueueAsks {
-  const resolved = resolveCopies(entries, {
-    key,
-    derive: ({ row, kind }, options) => wardenAsk(row, kind, options),
-  })
-  const shared: Record<QueueKind, string | null> = { decision: null, failed: null }
-  for (const kind of ['decision', 'failed'] as const) {
-    const lines = resolved.flatMap((ask, i) =>
-      entries[i]!.kind === kind ? [ask.copy.evidenceLine] : [],
-    )
-    const first = lines[0]
-    if (lines.length < 2 || first == null) continue
-    if (lines.every((line) => line?.toLowerCase() === first.toLowerCase())) shared[kind] = first
-  }
-  const asks = resolved.map((ask, i) =>
-    shared[entries[i]!.kind] === null ? ask : { ...ask, copy: { ...ask.copy, evidenceLine: null } },
-  )
-  return { asks, shared }
+export function resolveQueueAsks(entries: readonly QueueEntry[]): WardenAsk[] {
+  const asks = entries.map(({ row, kind }) => wardenAskInput(row, kind))
+  const copies = withoutRepeatedEvidence(surfaceCopies(asks.map((ask) => ask.input)))
+  return asks.map((ask, i) => withCopy(ask, copies[i]!))
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
 const WAIT_WARN_DAYS = 2
+const DAY_MS = 86_400_000
 
 /** How often the item was retried and revised, as one fact; `''` when neither happened. */
 function historyFact(row: AwaitingOwnerRow): string {
@@ -577,7 +556,7 @@ function historyFact(row: AwaitingOwnerRow): string {
     .join(', ')
 }
 
-/** The repo (`''` when the question already names it) plus `waiting <n> d` and the item's history. */
+/** The repo (first, so `capFacts` never drops it) plus `waiting {d} d {h} h` (the app's one duration spelling) and the item's history. */
 export function cardFacts(
   row: AwaitingOwnerRow,
   repo = stripShortcodes(asText(row.repo)),
@@ -586,8 +565,8 @@ export function cardFacts(
     row.ageDays === null
       ? ''
       : row.ageDays > WAIT_WARN_DAYS
-        ? { text: `waiting ${formatAgeDays(row.ageDays)}`, tone: 'warn' as const }
-        : `waiting ${formatAgeDays(row.ageDays)}`
+        ? { text: `waiting ${formatDuration(row.ageDays * DAY_MS)}`, tone: 'warn' as const }
+        : `waiting ${formatDuration(row.ageDays * DAY_MS)}`
   return [repo, waiting, historyFact(row)].filter((part) => part !== '')
 }
 

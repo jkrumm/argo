@@ -54,6 +54,8 @@ Stays: the sync control in `PageBar`, `StaleBanner`. Changes: hero tiles, Needs 
 - Summary: `<n> items need you, oldest agent wait <wait>. <w> of <total> agents working, <i> projects idle.`
 - Captions: `NEEDS YOU · now`, `OLDEST WAIT · <project>`, `FLEET · <total> agents`; sparkline footer `peak <n> · <age> ago`.
 - Decision card: facts `<host> · asked <age> ago` (human queue) or `<project> · waiting <wait>` (agent), primary `Copy command` / `Copy pane id`; disclosure `Full ask · <n> chars`. No dismiss in v1.
+- Decision card title: `Answer: <the ask's first sentence>?` / `Unblock agent: <task>?`, cut at a word; never the bare `Answer this request?` while the ask has text. The evidence line starts at the next sentence, never restating the title. Rule: `questionTitles` (`lib/question-copy.ts`).
+- Headline with only asks waiting: `Requests are waiting for your answer, <n> with a command to run.` (the count is the tile's).
 - Project card: caption `RUNNING`, value `<n> agents`; line `Now <title>`; empty line `Idle · last activity <age> ago`.
 - Sections: `Needs you <n>`, `Projects <n>`, `Last 24 h · agents working per hour`, `Narratives <n>`.
 - Replaced: "No recommendation run yet — states are deterministic, next steps absent." → cut (shown only when `overview` is null as `Recommendations off · last run <age> ago`).

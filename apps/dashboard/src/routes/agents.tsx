@@ -20,6 +20,7 @@ import {
   needsYouSplit,
   waitingProjects,
   abandonedWaits,
+  askCommands,
   askHosts,
 } from '../features/agents/model'
 import { FeedNotice } from '../features/agents/feed-notice'
@@ -76,6 +77,7 @@ function AgentsPage() {
     projects: waitingProjects(agents),
     abandoned: abandonedWaits(cards),
     hosts: askHosts(humanQueue),
+    commands: askCommands(humanQueue),
   })
 
   const feed = feedState({

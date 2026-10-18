@@ -1,16 +1,42 @@
 import { describe, expect, it } from 'bun:test'
+import { deriveDecisions } from './decisions'
+import { needsYouCards } from '../features/agents/model'
+import { deriveAwaitingOwner } from '../features/warden/model'
+import { needsCards, resolveQueueAsks } from '../features/warden/page-model'
 import {
   ENTITY_MAX,
   EVIDENCE_LINE_MAX,
   QUESTION_MAX,
   cardCopy,
-  collidingCopies,
   isAlert,
   leadOf,
-  plainQuestion,
-  resolveCopies,
-  wardenPlainQuestion,
+  commitLabelOf,
+  questionForms,
+  questionTitles,
+  subjectLead,
+  subjectOf,
+  surfaceCopies,
+  wardenQuestionForms,
+  withoutRepeatedEvidence,
+  type QuestionInput,
 } from './question-copy'
+import { APART_ROWS, ASK_ROWS, WARDEN_ROWS } from './__fixtures__/question-rung'
+import type { WardenRaw } from './queries/warden'
+import type { OverviewSnapshot } from './queries/agents'
+
+const MERGE = questionForms('Merge', 'PR', '{r}')
+const IMPLEMENT = questionForms('Implement', 'change', 'project-a')
+
+const home = (primary: Parameters<typeof wardenQuestionForms>[0]['primary'], alert = false) =>
+  wardenQuestionForms({ failed: primary === 'retry', repo: '{r}', primary, alert, surface: 'home' })
+const input = (subject: string | null, over: Partial<QuestionInput> = {}): QuestionInput => ({
+  ...IMPLEMENT,
+  key: subject ?? '',
+  subject,
+  ...over,
+})
+const titles = (...inputs: QuestionInput[]) => questionTitles(inputs).map((t) => t.question)
+const questionTitle = (one: QuestionInput) => titles(one)[0]!
 
 describe('leadOf', () => {
   it('returns text that fits whole', () => {
@@ -22,7 +48,7 @@ describe('leadOf', () => {
   })
 })
 
-describe('cardCopy', () => {
+describe('cardCopy rungs', () => {
   const longQuestion = `Should we ${'word '.repeat(QUESTION_MAX)}now?`
 
   it('uses the authored question verbatim, flattened', () => {
@@ -31,7 +57,7 @@ describe('cardCopy', () => {
       ask: 'Something else?',
       body: 'It touches the loop.',
       title: 'fix(loop): raw subject',
-      plain: 'Merge {repo} PR?',
+      forms: MERGE,
     })
     expect(copy).toMatchObject({
       question: 'Merge the {repo} fix?',
@@ -41,9 +67,9 @@ describe('cardCopy', () => {
   })
 
   it('never cuts a long authored question into a fragment: it falls through, whole in the detail', () => {
-    const copy = cardCopy({ authored: longQuestion, title: '{t}', plain: 'Merge {r} PR?' })
+    const copy = cardCopy({ authored: longQuestion, title: '{t}', forms: MERGE })
     expect(copy.source).toBe('plain')
-    expect(copy.question).toBe('Merge {r} PR?')
+    expect(copy.question).toBe('Merge PR: {t}?')
     expect(copy.detail).toContain(longQuestion.replace(/\s+/g, ' '))
   })
 
@@ -64,7 +90,7 @@ describe('cardCopy', () => {
       evidenceLine: 'It touches the loop.',
       detail: null,
       source: 'ask',
-      parts: null,
+      subject: null,
     })
   })
 
@@ -72,49 +98,44 @@ describe('cardCopy', () => {
     const copy = cardCopy({
       ask: 'Deploy needs approval.',
       title: 'fix(loop): raw subject',
-      plain: 'Merge {repo} PR?',
+      forms: MERGE,
     })
     expect(copy).toMatchObject({
-      question: 'Merge {repo} PR?',
+      question: 'Merge PR: raw subject?',
       source: 'plain',
       evidenceLine: 'Deploy needs approval.',
-      entity: 'fix(loop): raw subject',
+      entity: null,
     })
   })
 
   it('does not take an ask question past the limit', () => {
-    const copy = cardCopy({ ask: longQuestion, title: '{t}', plain: 'Decide on {r} item?' })
+    const copy = cardCopy({ ask: longQuestion, title: '{t}' })
     expect(copy.source).toBe('plain')
+    expect(copy.question).toBe('Decide on item: {t}?')
     expect(copy.evidenceLine).toBeNull()
     expect(copy.detail).toBe(longQuestion.replace(/\s+/g, ' '))
   })
 
   it('takes the title when it already is a question', () => {
-    const copy = cardCopy({ ask: 'Fine.', title: 'Ship v2 now?', plain: 'Merge {r} PR?' })
+    const copy = cardCopy({ ask: 'Fine.', title: 'Ship v2 now?', forms: MERGE })
     expect(copy).toMatchObject({ question: 'Ship v2 now?', source: 'title', entity: null })
   })
 
-  it('never glues a verb onto a raw title', () => {
-    for (const title of [
-      'fix(dashboard): review round 1',
-      'disk_usage_high',
-      'Add retry to loop',
-    ]) {
-      const copy = cardCopy({ title, plain: 'Retry failed {r} run?' })
-      expect(copy.question).toBe('Retry failed {r} run?')
-      expect(copy.entity).toBe(title)
+  it('never glues a verb onto a raw title: the subject follows the stem and a colon', () => {
+    for (const title of ['Review round 1', 'disk_usage_high', 'Add retry to loop']) {
+      expect(cardCopy({ title, forms: MERGE }).question).toBe(`Merge PR: ${title}?`)
     }
+    // A commit label is not the subject.
+    expect(cardCopy({ title: 'fix(scope): review round 1', forms: MERGE }).question).toBe(
+      'Merge PR: review round 1?',
+    )
   })
 
-  it('keeps the raw title whole on the entity line', () => {
-    const title = 'x'.repeat(ENTITY_MAX)
-    expect(cardCopy({ title }).entity).toBe(title)
-  })
-
-  it('moves a title past the entity limit, whole, into the detail', () => {
+  it('keeps a title past the entity limit whole in the detail when the question cuts it', () => {
     const title = `${'word '.repeat(ENTITY_MAX)}end`
     const copy = cardCopy({ title, body: 'Why.' })
     expect(copy.entity).toBeNull()
+    expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
     expect(copy.detail).toBe(`${title.replace(/\s+/g, ' ')} Why.`)
   })
 
@@ -127,7 +148,7 @@ describe('cardCopy', () => {
     })
   })
 
-  it('shows the title as the entity unless the question already is it', () => {
+  it('shows the title as the entity only beside a producer question that does not say it', () => {
     expect(cardCopy({ ask: 'Proceed?', title: '{t}' }).entity).toBe('{t}')
     expect(cardCopy({ ask: '{t}?', title: '{t}' }).entity).toBeNull()
   })
@@ -151,8 +172,21 @@ describe('evidence line', () => {
       authored: 'Merge?',
       body: 'Checks failed, see https://example.com/runs/42',
     })
-    expect(copy.evidenceLine).toBe('Checks failed,')
+    expect(copy.evidenceLine).toBe('Checks failed')
     expect(copy.detail).toBe('Checks failed, see https://example.com/runs/42')
+  })
+
+  it('drops the colon or bare label that introduced a removed URL', () => {
+    const left = cardCopy({
+      authored: 'Merge?',
+      body: 'CI failed on {sha}: the head commit is red. — PR left open: https://example.com/pr/1',
+    })
+    expect(left.evidenceLine).toBe('CI failed on {sha}: the head commit is red. — PR left open')
+    const bare = cardCopy({
+      authored: 'Merge?',
+      body: 'Already fixed on master; nothing to change. — PR: https://example.com/pr/2',
+    })
+    expect(bare.evidenceLine).toBe('Already fixed on master; nothing to change.')
   })
 
   it('cuts at a word boundary within the line limit', () => {
@@ -168,53 +202,7 @@ describe('evidence line', () => {
       detail: null,
     })
   })
-})
 
-describe('plainQuestion', () => {
-  it('is `<verb> <object>?`', () => {
-    expect(plainQuestion('Merge', '{repo}  PR')).toBe('Merge {repo} PR?')
-  })
-  it('is bounded and keeps its question mark', () => {
-    const q = plainQuestion('Retry', 'x'.repeat(200))
-    expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
-    expect(q.endsWith('?')).toBe(true)
-  })
-  it('is never empty', () => {
-    expect(plainQuestion('', '')).toBe('Decide on this item?')
-    expect(cardCopy({ plain: '  ' }).question).toBe('Decide on this item?')
-  })
-  it('bounds a caller-built plain question too', () => {
-    const q = cardCopy({ plain: `Merge ${'x'.repeat(200)}?` }).question
-    expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
-    expect(q.endsWith('?')).toBe(true)
-  })
-})
-
-describe('wardenPlainQuestion', () => {
-  const ask = (
-    primary: Parameters<typeof wardenPlainQuestion>[0]['primary'],
-    failed = false,
-    repo: string | null = '{r}',
-  ) => wardenPlainQuestion({ failed, repo, primary })
-  it('names the verb the card offers first', () => {
-    expect(ask('merge')).toBe('Merge {r} PR?')
-    expect(ask('implement')).toBe('Implement {r} change?')
-    expect(ask('reinvestigate')).toBe('Re-investigate {r} item?')
-    expect(ask('merge', false, null)).toBe('Merge this PR?')
-  })
-  it('says Retry failed run only for a failed item whose primary is retry', () => {
-    expect(ask('retry', true)).toBe('Retry failed {r} run?')
-    expect(ask('retry', true, null)).toBe('Retry failed run?')
-    expect(ask('retry', false)).toBe('Retry {r} item?')
-  })
-  it('is neutral when the primary is not a verb that names a question', () => {
-    expect(ask('dismiss', true)).toBe('Decide on {r} item?')
-    expect(ask('merge', true)).toBe('Merge {r} PR?')
-    expect(ask(null, true, null)).toBe('Decide on this item?')
-  })
-})
-
-describe('evidence urls', () => {
   it('removes a bracketed URL whole, leaving no dangling bracket', () => {
     const copy = cardCopy({
       authored: 'Merge?',
@@ -222,17 +210,18 @@ describe('evidence urls', () => {
     })
     expect(copy.evidenceLine).toBe('Checks failed.')
   })
-  it('closes a bracket the URL removal left open', () => {
-    const copy = cardCopy({ authored: 'Merge?', body: 'Checks failed (at https://example.com/x' })
-    expect(copy.evidenceLine).toBe('Checks failed ()')
-  })
-})
 
-describe('round 2 rules', () => {
-  it('closes a square bracket the URL removal left open', () => {
-    const copy = cardCopy({ authored: 'Merge?', body: 'Checks failed [at https://example.com/x' })
-    expect(copy.evidenceLine).toBe('Checks failed []')
+  it('closes a bracket the URL removal left open', () => {
+    expect(
+      cardCopy({ authored: 'Merge?', body: 'Checks failed (at https://example.com/x' })
+        .evidenceLine,
+    ).toBe('Checks failed ()')
+    expect(
+      cardCopy({ authored: 'Merge?', body: 'Checks failed [at https://example.com/x' })
+        .evidenceLine,
+    ).toBe('Checks failed []')
   })
+
   it('removes a square-bracketed URL whole', () => {
     const copy = cardCopy({
       authored: 'Merge?',
@@ -240,10 +229,7 @@ describe('round 2 rules', () => {
     })
     expect(copy.evidenceLine).toBe('Checks failed.')
   })
-  it('always ends a plain question in `?`', () => {
-    expect(cardCopy({ plain: 'Merge the PR' }).question).toBe('Merge the PR?')
-    expect(cardCopy({ plain: 'Merge the PR???' }).question).toBe('Merge the PR?')
-  })
+
   it('keeps question-only evidence when asked to', () => {
     const body = 'Which branch should I use?'
     expect(cardCopy({ authored: 'Pick?', body }).evidenceLine).toBeNull()
@@ -253,206 +239,301 @@ describe('round 2 rules', () => {
   })
 })
 
-describe('plain rung: handles that tell items apart', () => {
-  const plain = wardenPlainQuestion({ failed: false, repo: 'project-a', primary: 'implement' })
-  const resolve = (titles: readonly string[]) =>
-    resolveCopies(titles, {
-      key: (title) => title,
-      derive: (title, { handle }) => ({
-        copy: cardCopy({
-          title,
-          plain,
-          handle: handle === null ? null : { source: title, ...handle },
-        }),
-      }),
-    }).map((r) => r.copy)
-
-  it('keeps the short form for a lone item', () => {
-    const [copy] = resolve(['Disk filling up'])
-    expect(copy!.question).toBe('Implement project-a change?')
-    expect(copy!.entity).toBe('Disk filling up')
+describe('the plain question (no subject)', () => {
+  const plain = (text: string) => cardCopy({ forms: { plain: text, stem: text, terse: text } })
+  it('is the plain form with its `?`', () => {
+    expect(plain('Merge {repo}  PR').question).toBe('Merge {repo} PR?')
   })
-
-  it('gives two same-repo items different titles and drops the entity line', () => {
-    const copies = resolve(['Disk filling up — host a', 'Certificate expires soon'])
-    expect(copies[0]!.question).toBe('Implement project-a change: Disk filling up?')
-    expect(copies[1]!.question).toBe('Implement project-a change: Certificate expires soon?')
-    expect(copies.map((c) => c.entity)).toEqual([null, null])
-    // The cut title stays whole behind the disclosure; the fully said one needs no repeat.
-    expect(copies[0]!.detail).toBe('Disk filling up — host a')
-    expect(copies[1]!.detail).toBeNull()
+  it('is bounded at a word, with no ellipsis before its question mark', () => {
+    const q = plain(`Retry ${'word '.repeat(40)}`).question
+    expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
+    expect(q).toEndWith('word?')
   })
-
-  it('takes the next clause when the first clause is shared', () => {
-    const copies = resolve(['Disk full — host a', 'Disk full — host b'])
-    expect(copies.map((c) => c.question)).toEqual([
-      'Implement project-a change: Disk full — host a?',
-      'Implement project-a change: Disk full — host b?',
-    ])
-  })
-
-  it('falls back to an ordinal, in key order, for identical titles', () => {
-    const copies = resolve(['Disk full', 'Disk full', 'Disk full'])
-    expect(copies.map((c) => c.question)).toEqual([
-      'Implement project-a change: Disk full (1)?',
-      'Implement project-a change: Disk full (2)?',
-      'Implement project-a change: Disk full (3)?',
-    ])
-  })
-
-  it('re-checks after the handled pass: a handle that collides with another card is not enough', () => {
-    const copies = resolve(['Disk full', 'Disk full — host a', 'Disk full — host b'])
-    expect(new Set(copies.map((c) => c.question)).size).toBe(3)
-  })
-
-  it('numbers an item with no usable title text, never leaving the clash', () => {
-    const copies = resolve(['…', '…'])
-    expect(copies.map((c) => c.question)).toEqual([
-      'Implement project-a change (1)?',
-      'Implement project-a change (2)?',
-    ])
-  })
-
-  it('leaves an authored question alone even when two cards share it', () => {
-    const copies = resolveCopies(['a', 'b'], {
-      key: (t) => t,
-      derive: (t, { handle }) => ({
-        copy: cardCopy({
-          authored: 'Ship it?',
-          title: t,
-          plain,
-          handle: handle === null ? null : { source: t, ...handle },
-        }),
-      }),
-    }).map((r) => r.copy)
-    expect(collidingCopies(copies)).toEqual([false, false])
-    expect(copies.map((c) => c.question)).toEqual(['Ship it?', 'Ship it?'])
-  })
-
-  it('never cuts a handle: one that does not fit whole gives way to the ordinal', () => {
-    const long = `Replication lag ${'on the standby node '.repeat(12)}is growing`
-    const [only] = resolve([long])
-    expect(only!.question).toBe('Implement project-a change?')
-    // Two cards sharing the same long opening: no whole handle fits, so the ordinal tells them apart.
-    const copies = resolve([long, `${long} again`])
-    expect(copies.map((c) => c.question)).toEqual([
-      'Implement project-a change (1)?',
-      'Implement project-a change (2)?',
-    ])
-    for (const copy of copies) expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
-  })
-
-  it('uses no handle when not even the first word fits, then numbers the clash', () => {
-    const word = 'x'.repeat(90)
-    const copies = resolve([word, `${word}y`])
-    expect(copies.map((c) => c.question)).toEqual([
-      'Implement project-a change (1)?',
-      'Implement project-a change (2)?',
-    ])
-  })
-
-  it('drops the handle when the stem leaves no room for it', () => {
-    const stem = 'Unblock '.concat('x'.repeat(QUESTION_MAX - 12), ' agent')
-    const copy = cardCopy({
-      title: 'Some title',
-      plain: stem,
-      handle: { source: 'Some title', clauses: 1, ordinal: null },
-    })
-    expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
-    expect(copy.question.endsWith('?')).toBe(true)
-    expect(copy.entity).toBe('Some title')
+  it('is never empty', () => {
+    expect(plain('  ').question).toBe('Decide on this item?')
   })
 })
 
-describe('ordinals are distinct on the whole surface', () => {
-  const plain = 'Implement project-a change'
-  const resolve = (titles: readonly string[], keys?: readonly string[]) =>
-    resolveCopies(
-      titles.map((title, i) => ({ title, key: keys?.[i] ?? `k${i}` })),
-      {
-        key: (item) => item.key,
-        derive: ({ title }, { handle }) => ({
-          copy: cardCopy({
-            title,
-            plain,
-            handle: handle === null ? null : { source: title, ...handle },
-          }),
-        }),
-      },
-    ).map((r) => r.copy.question)
+describe('wardenQuestionForms', () => {
+  const forms = (
+    primary: Parameters<typeof wardenQuestionForms>[0]['primary'],
+    { failed = false, repo = '{r}' as string | null, alert = false } = {},
+  ) => wardenQuestionForms({ failed, repo, primary, alert })
 
-  it('skips an ordinal another card already reads', () => {
-    const questions = resolve(['Disk full', 'Disk full', 'Disk full (1)'])
-    expect(new Set(questions).size).toBe(3)
-    expect(questions).toContain('Implement project-a change: Disk full (1)?')
+  it('takes the verb the card offers first; with no subject the plain form names the repo', () => {
+    expect(forms('merge')).toEqual({ plain: 'Merge {r} PR', stem: 'Merge PR', terse: 'Merge' })
+    expect(forms('implement')).toMatchObject({
+      plain: 'Implement {r} change',
+      stem: 'Implement change',
+    })
+    expect(forms('reinvestigate').stem).toBe('Re-investigate item')
+    expect(forms('merge', { repo: null }).plain).toBe('Merge this PR')
   })
 
-  it('keeps three or more identical items stable whatever order they arrive in', () => {
-    const keys = ['c', 'a', 'b']
-    const forward = resolve(['Same', 'Same', 'Same'], keys)
-    const reversed = resolve(['Same', 'Same', 'Same'], [...keys].reverse()).toReversed()
-    expect(forward).toEqual(reversed)
-    expect(new Set(forward).size).toBe(3)
-    // Ordinals follow the key, not the position.
-    expect(forward[1]).toBe('Implement project-a change: Same (1)?')
+  it('says Retry failed run only for a failed item whose primary is retry', () => {
+    expect(forms('retry', { failed: true })).toMatchObject({
+      plain: 'Retry failed {r} run',
+      stem: 'Retry failed run',
+    })
+    expect(forms('retry', { failed: true, repo: null }).plain).toBe('Retry failed run')
+    expect(forms('retry').stem).toBe('Retry item')
   })
 
-  it('keeps the ordinal when the stem fills the question', () => {
-    const stem = `Implement ${'x'.repeat(QUESTION_MAX - 24)} change`
-    const questions = resolveCopies(['Same', 'Same'], {
-      key: (t, i = 0) => `${t}${i}`,
-      derive: (t, { handle }) => ({
-        copy: cardCopy({
-          title: t,
-          plain: stem,
-          handle: handle === null ? null : { source: t, ...handle },
-        }),
-      }),
-    }).map((r) => r.copy.question)
-    for (const q of questions) {
-      expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
-      expect(q).toMatch(/\(\d\)\?$/)
+  it('is neutral when the primary is not a verb that names a question', () => {
+    expect(forms('dismiss', { failed: true }).stem).toBe('Decide on item')
+    expect(forms(null, { failed: true, repo: null })).toEqual({
+      plain: 'Decide on this item',
+      stem: 'Decide on item',
+      terse: 'Decide',
+    })
+  })
+
+  it('asks about an alert in the verb its button carries, never as a change', () => {
+    expect(forms('implement', { alert: true })).toEqual({
+      plain: 'Implement fix for {r} alert',
+      stem: 'Implement fix for alert',
+      terse: 'Implement fix',
+    })
+    expect(forms('dismiss', { alert: true }).stem).toBe('Dismiss alert')
+    expect(forms('note', { alert: true }).stem).toBe('Add a note to alert')
+    expect(forms(null, { alert: true }).stem).toBe('Decide on alert')
+  })
+
+  it('asks every Home question as `Decide on`, the only thing its Open-in-Warden button leads to', () => {
+    expect(home('implement').stem).toBe('Decide on change')
+    expect(home('retry').stem).toBe('Decide on failed run')
+    expect(home('merge').stem).toBe('Decide on PR')
+    expect(home('implement', true).stem).toBe('Decide on alert')
+    expect(home('implement').terse).toBe('Decide')
+  })
+})
+
+describe('questionTitles: the rule', () => {
+  it('1. uses a producer question verbatim', () => {
+    expect(questionTitle(input('Disk full', { fixed: '  Ship   it now? ' }))).toBe('Ship it now?')
+  })
+
+  it('2. keeps the subject, whole when it fits', () => {
+    expect(questionTitle(input('Disk filling up'))).toBe('Implement change: Disk filling up?')
+  })
+
+  it('2. cuts a long subject at a word: no ellipsis, no dangling filler or punctuation', () => {
+    const title = questionTitle(
+      input('Nightly exports for region one and two land on the shared bucket without checksum'),
+    )
+    expect(title).toBe(
+      'Implement change: Nightly exports for region one and two land on the shared?',
+    )
+    expect(title).not.toContain('…')
+    expect(title.length).toBeLessThanOrEqual(QUESTION_MAX)
+  })
+
+  it('2. never cuts inside a bracket, a quote or a backtick span', () => {
+    expect(
+      subjectLead('Run the check (needs you at the desk, logged in, about five min)', 40),
+    ).toBe('Run the check')
+    expect(subjectLead('Click "Allow access now" when asked by the system', 18)).toBe('Click')
+    expect(subjectLead('Give `investigate episodes` two more permissions', 28)).toBe('Give')
+  })
+
+  it('2. falls back to an identifier’s own words only when a word cut would say almost nothing', () => {
+    expect(
+      subjectLead('Flaky: test_one_two_three_four_five_six_seven_eight_in_the_tail ids', 50),
+    ).toBe('Flaky: test_one_two_three_four_five_six_seven')
+    // A word cut that says enough never splits an identifier.
+    expect(subjectLead('Rotate the signing keys snake_case_identifier_here', 30)).toBe(
+      'Rotate the signing keys',
+    )
+  })
+
+  it('2. keeps the last word of a subject that fits whole, even a filler-looking one', () => {
+    expect(questionTitle(input('Pick a branch — host a'))).toBe(
+      'Implement change: Pick a branch — host a?',
+    )
+  })
+
+  it('2. falls back to the plain question when there is no subject', () => {
+    expect(questionTitle(input(null))).toBe('Implement project-a change?')
+    expect(questionTitle(input(' :: '))).toBe('Implement project-a change?')
+  })
+
+  it('3. tells siblings apart by more of their subject before any ordinal', () => {
+    const shared = 'exports for region one and two land on the shared bucket'
+    // The stem cuts both inside the shared words; the terse head has room for the word that differs.
+    expect(titles(input(`${shared} today`), input(`${shared} later`))).toEqual([
+      'Implement: exports for region one and two land on the shared bucket today?',
+      'Implement: exports for region one and two land on the shared bucket later?',
+    ])
+  })
+
+  it('4. tells long subjects apart by the clause where they part, never by an ordinal', () => {
+    const shared =
+      'Nightly exports for region one and two land on the shared bucket after the window'
+    expect(
+      titles(
+        input(`${shared}, then the north mirror lags`, { key: 'a' }),
+        input(`${shared}, then the south mirror lags`, { key: 'b' }),
+      ),
+    ).toEqual([
+      'Implement: Nightly exports for region one and two land … then the north mirror?',
+      'Implement: Nightly exports for region one and two land … then the south mirror?',
+    ])
+  })
+
+  it('4. gives a commit label back only when it is all that tells two titles apart', () => {
+    const forms = wardenQuestionForms({ failed: false, repo: 'r', primary: 'implement' })
+    const copies = surfaceCopies(
+      ['fix(scope-a): export drops rows', 'fix(scope-b): export drops rows', 'ci: cache key'].map(
+        (title, i) => ({ key: String(i), title, forms }),
+      ),
+    ).map((c) => c.question)
+    expect(copies).toEqual([
+      'Implement change: fix(scope-a): export drops rows?',
+      'Implement change: fix(scope-b): export drops rows?',
+      'Implement change: cache key?',
+    ])
+  })
+
+  it('5. orders ordinals by code unit, not by locale', () => {
+    // localeCompare would put `a` before `B`; code units put `B` (0x42) first.
+    expect(titles(input('Disk full', { key: 'a' }), input('Disk full', { key: 'B' }))).toEqual([
+      'Implement change: Disk full (2)?',
+      'Implement change: Disk full (1)?',
+    ])
+  })
+
+  it('5. numbers only cards whose subjects are word-for-word identical, in key order', () => {
+    expect(
+      titles(
+        input('Disk full', { key: 'b' }),
+        input('Disk full', { key: 'a' }),
+        input('Cache cold', { key: 'c' }),
+      ),
+    ).toEqual([
+      'Implement change: Disk full (2)?',
+      'Implement change: Disk full (1)?',
+      'Implement change: Cache cold?',
+    ])
+  })
+
+  it('3. skips an ordinal another card already reads', () => {
+    expect(
+      titles(
+        input('Disk full', { key: 'a' }),
+        input('Disk full', { key: 'b' }),
+        input('Disk full (1)', { key: 'c' }),
+      ),
+    ).toEqual([
+      'Implement change: Disk full (2)?',
+      'Implement change: Disk full (3)?',
+      'Implement change: Disk full (1)?',
+    ])
+  })
+
+  it('3. leaves a producer question as written; the derived card is the one told apart', () => {
+    expect(
+      titles(input('Disk full', { fixed: 'Implement change: Disk full?' }), input('Disk full')),
+    ).toEqual(['Implement change: Disk full?', 'Implement: Disk full?'])
+  })
+
+  it('stays within the limit with the ordinal kept, whatever the subject', () => {
+    const long = 'word '.repeat(40)
+    for (const title of titles(input(long, { key: 'a' }), input(long, { key: 'b' }))) {
+      expect(title.length).toBeLessThanOrEqual(QUESTION_MAX)
+      expect(title).toMatch(/ \(\d\)\?$/)
     }
   })
 })
 
-describe('alerts are asked about, never framed as a change', () => {
-  const ask = (primary: Parameters<typeof wardenPlainQuestion>[0]['primary']) =>
-    wardenPlainQuestion({ failed: false, repo: 'project-a', primary, alert: true })
+describe('subjectOf', () => {
+  it('drops the producer kind the stem already says, nothing else', () => {
+    expect(subjectOf('[alert] {key}:disk_free')).toBe('{key}:disk_free')
+    expect(subjectOf('Alert: service {name} down')).toBe('service {name} down')
+    expect(subjectOf('[Svc - HTTP] [:red_circle: Down] timeout')).toBe('[Svc - HTTP] Down timeout')
+    expect(subjectOf(':fire:')).toBeNull()
+    expect(subjectOf(42)).toBeNull()
+  })
+})
 
-  it('names the verb the card carries, for every primary', () => {
-    expect(ask('implement')).toBe('Implement fix for project-a alert?')
-    expect(ask('reinvestigate')).toBe('Re-investigate project-a alert?')
-    expect(ask('retry')).toBe('Retry project-a alert?')
-    expect(ask('merge')).toBe('Merge fix for project-a alert?')
-    expect(ask('dismiss')).toBe('Dismiss project-a alert?')
-    expect(ask('note')).toBe('Add a note to project-a alert?')
-    expect(ask('implement')).not.toMatch(/change|handle/i)
+describe('rule 5: the evidence line never restates the title', () => {
+  it('takes the next sentence when the title said the first one whole', () => {
+    const copy = cardCopy({
+      ask: 'Swap the spare disk in the lab rack (slot b).',
+      body: 'Needs: a screwdriver and the rack key. About 15 min.',
+      subject: 'Swap the spare disk in the lab rack (slot b).',
+      forms: { plain: 'Answer this request', stem: 'Answer', terse: 'Answer' },
+    })
+    expect(copy.question).toBe('Answer: Swap the spare disk in the lab rack (slot b)?')
+    expect(copy.evidenceLine).toBe('Needs: a screwdriver and the rack key. About 15 min.')
+    expect(copy.detail).toBeNull()
   })
 
-  it('is neutral when the card carries no verb', () => {
-    expect(ask(null)).toBe('Decide on project-a alert?')
-    expect(wardenPlainQuestion({ failed: false, repo: null, primary: null, alert: true })).toBe(
-      'Decide on this alert?',
+  it('takes the next sentence when the title cut the first one, the cut rest kept in the detail', () => {
+    const ask =
+      'Step 4 — move the cache off the old box (needs you at the desk, logged in, ~5 min).'
+    const copy = cardCopy({
+      ask,
+      body: 'Runs the spike first.',
+      subject: ask,
+      forms: { plain: 'Answer this request', stem: 'Answer', terse: 'Answer' },
+    })
+    expect(copy.question).toBe('Answer: Step 4 — move the cache off the old box?')
+    expect(copy.evidenceLine).toBe('Runs the spike first.')
+    expect(copy.detail).toBe(`${ask} Runs the spike first.`)
+  })
+
+  it('keeps a line that only shares a short opening word with the title', () => {
+    const copy = cardCopy({
+      title: 'Flaky: test_one_identifier_that_is_far_too_long_to_fit_in_the_title_at_all ids',
+      body: 'Flaky thread test was already fixed on master; nothing to change.',
+      forms: IMPLEMENT,
+    })
+    expect(copy.evidenceLine).toBe(
+      'Flaky thread test was already fixed on master; nothing to change.',
     )
   })
 
-  it('carries the alert handle once two alerts collide', () => {
-    const alertPlain = ask('implement')
-    const copies = resolveCopies(['Service A down', 'Service B down'], {
-      key: (t) => t,
-      derive: (t, { handle }) => ({
-        copy: cardCopy({
-          title: t,
-          plain: alertPlain,
-          handle: handle === null ? null : { source: t, ...handle },
-        }),
-      }),
-    }).map((r) => r.copy)
-    expect(copies.map((c) => c.question)).toEqual([
-      'Implement fix for project-a alert: Service A down?',
-      'Implement fix for project-a alert: Service B down?',
+  it('keeps the remainder when the title cut a reason that has no sentence stop after it', () => {
+    const ask = `Rotate the signing keys on every edge node ${'and every mirror '.repeat(4)}before the window`
+    const copy = cardCopy({
+      ask,
+      subject: ask,
+      forms: { plain: 'Answer this request', stem: 'Answer', terse: 'Answer' },
+    })
+    expect(copy.question).toBe(
+      'Answer: Rotate the signing keys on every edge node and every mirror and every?',
+    )
+    expect(copy.evidenceLine).not.toBeNull()
+    expect(copy.evidenceLine).toEndWith('before the window')
+  })
+
+  it('drops a line that is only the title again', () => {
+    const copy = cardCopy({ title: 'Disk full', body: 'Disk full.', forms: IMPLEMENT })
+    expect(copy.question).toBe('Implement change: Disk full?')
+    expect(copy.evidenceLine).toBeNull()
+  })
+})
+
+describe('withoutRepeatedEvidence', () => {
+  it('keeps a shared line on the first card in display order only, the rest behind the disclosure', () => {
+    const cards: { evidenceLine: string | null; detail: string | null }[] = [
+      { evidenceLine: 'Same note.', detail: null },
+      { evidenceLine: 'Own fact.', detail: null },
+      { evidenceLine: 'same note.', detail: 'same note. More.' },
+    ]
+    expect(withoutRepeatedEvidence(cards, [2, 0, 1])).toEqual([
+      { evidenceLine: null, detail: 'Same note.' },
+      { evidenceLine: 'Own fact.', detail: null },
+      { evidenceLine: 'same note.', detail: 'same note. More.' },
     ])
+  })
+
+  it('leaves a card outside the order alone', () => {
+    const cards = [
+      { evidenceLine: 'No blocker reported.', detail: null },
+      { evidenceLine: 'No blocker reported.', detail: null },
+    ]
+    expect(withoutRepeatedEvidence(cards, [0])).toEqual(cards)
   })
 })
 
@@ -482,120 +563,209 @@ describe('isAlert', () => {
   })
 })
 
-describe('handles are whole', () => {
-  const surface = (titles: string[], plain = 'Implement fix for {r} alert?', terseStem = false) =>
-    resolveCopies(titles, {
-      key: (t) => t,
-      terseStem,
-      derive: (t, { handle }) => ({
-        copy: cardCopy({
-          title: t,
-          plain,
-          handle: handle === null ? null : { source: t, ...handle },
-        }),
-      }),
-    }).map((r) => r.copy.question)
+// ── The table: every card of a live snapshot, anonymised (__fixtures__/question-rung.ts) ──────
 
-  it('drops the leading bracket tag and never leaves a bracket open', () => {
-    const q = surface(['[alert] {key-a} disk full', '[alert] {key-b} disk full'])
-    expect(q).toEqual([
-      'Implement fix for {r} alert: {key-a} disk full?',
-      'Implement fix for {r} alert: {key-b} disk full?',
-    ])
+const NOW = Date.parse('2026-10-18T12:00:00Z')
+const raw = {
+  board: {
+    awaiting_owner: WARDEN_ROWS.map((row, i) => ({
+      event_id: row.id,
+      state: row.state,
+      repo: row.repo,
+      title: row.title,
+      reason: row.reason,
+      availableActions: row.actions,
+      age_days: (WARDEN_ROWS.length - i) / 4,
+    })),
+    items: WARDEN_ROWS.map((row) => ({ event_id: row.id, state: row.state, origin: row.origin })),
+  },
+  items: {},
+} as unknown as WardenRaw
+const asks = ASK_ROWS.map((ask, i) => ({
+  ...ask,
+  askedAt: new Date(NOW - (i + 1) * 3_600_000).toISOString(),
+}))
+
+const view = deriveAwaitingOwner(raw.board, raw.items)
+const entries = [
+  ...needsCards(view).map((row) => ({ row, kind: 'decision' as const })),
+  ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
+]
+const wardenCards = resolveQueueAsks(entries).map((ask, i) => ({
+  id: entries[i]!.row.eventId,
+  copy: ask.copy,
+}))
+const homeCards = deriveDecisions({
+  warden: raw,
+  agents: { humanQueue: asks } as unknown as OverviewSnapshot,
+  now: NOW,
+})
+const agentCards = needsYouCards(asks, [], NOW)
+
+const titleOf = <T>(list: readonly T[], find: (item: T) => boolean, read: (item: T) => string) => {
+  const found = list.find(find)
+  return found === undefined ? undefined : read(found)
+}
+
+describe('the question table (live snapshot, anonymised)', () => {
+  for (const row of WARDEN_ROWS) {
+    it(`warden #${row.id}: ${row.expected.warden}`, () => {
+      expect(
+        titleOf(
+          wardenCards,
+          (c) => c.id === row.id,
+          (c) => c.copy.question,
+        ),
+      ).toBe(row.expected.warden)
+    })
+    it(`home #${row.id}: ${row.expected.home}`, () => {
+      expect(
+        titleOf(
+          homeCards,
+          (d) => d.id === `warden-${row.id}`,
+          (d) => d.headline,
+        ),
+      ).toBe(row.expected.home)
+    })
+  }
+  for (const ask of ASK_ROWS) {
+    it(`agents ${ask.id}: ${ask.expected.agents}`, () => {
+      expect(
+        titleOf(
+          agentCards,
+          (c) => c.key === `hq-${ask.id}`,
+          (c) => c.question,
+        ),
+      ).toBe(ask.expected.agents)
+    })
+    it(`home ${ask.id}: ${ask.expected.home}`, () => {
+      expect(
+        titleOf(
+          homeCards,
+          (d) => d.id === `queue-${ask.id}`,
+          (d) => d.headline,
+        ),
+      ).toBe(ask.expected.home)
+    })
+  }
+
+  const surfaces = {
+    warden: wardenCards.map((c) => ({ question: c.copy.question, evidence: c.copy.evidenceLine })),
+    home: homeCards.map((d) => ({ question: d.headline, evidence: d.evidenceLine })),
+    agents: agentCards.map((c) => ({ question: c.question, evidence: c.evidenceLine })),
+  }
+  for (const [name, cards] of Object.entries(surfaces)) {
+    it(`${name}: every title is distinct, bounded, and never ends in an ellipsis`, () => {
+      const questions = cards.map((c) => c.question)
+      expect(new Set(questions.map((q) => q.toLowerCase())).size).toBe(questions.length)
+      for (const q of questions) {
+        expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
+        expect(q).toEndWith('?')
+        expect(q).not.toContain('…?')
+      }
+    })
+    it(`${name}: no evidence line leads with its title’s words`, () => {
+      for (const { question, evidence } of cards) {
+        const said = question
+          .replace(/^[^:]*:\s*/, '')
+          .replace(/\?$/, '')
+          .toLowerCase()
+        expect(evidence?.toLowerCase().startsWith(said) ?? false).toBe(false)
+      }
+    })
+  }
+
+  it('home: a question never promises a verb its Open button does not do', () => {
+    for (const d of homeCards) expect(d.headline).not.toMatch(/^(?:Implement|Retry|Merge|Answer)\b/)
   })
 
-  it('never cuts a token or ends in an ellipsis before the question mark', () => {
-    const long = (k: string) => `[alert] ${k} ${'overloaded '.repeat(12)}`.trim()
-    for (const q of surface([long('{key-a}'), long('{key-b}')])) {
-      expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
-      expect(q).not.toMatch(/…\?$/)
-      expect(q).not.toMatch(/[([][^)\]]*\?$/)
+  it('warden: shared evidence lines are printed once', () => {
+    const lines = surfaces.warden.flatMap((c) => (c.evidence === null ? [] : [c.evidence]))
+    expect(new Set(lines).size).toBe(lines.length)
+  })
+})
+
+describe('the apart table (synthetic siblings)', () => {
+  const asks = resolveQueueAsks(
+    APART_ROWS.map((row) => ({
+      kind: 'decision' as const,
+      row: {
+        eventId: row.id,
+        repo: 'repo-x',
+        title: row.title,
+        origin: row.origin,
+        reason: 'Evidence.',
+        question: null,
+        availableActions: ['implement', 'dismiss'],
+        failedFrom: null,
+      } as unknown as Parameters<typeof resolveQueueAsks>[0][number]['row'],
+    })),
+  )
+  APART_ROWS.forEach((row, i) => {
+    it(`#${row.id}: ${row.expected}`, () => {
+      expect(asks[i]!.copy.question).toBe(row.expected)
+      expect(asks[i]!.copy.question).not.toMatch(/\(\d+\)\?$/)
+    })
+  })
+})
+
+describe('subjectOf: commit labels', () => {
+  it('strips a lowercase `type(scope): ` or `type: ` label and reports it', () => {
+    expect(subjectOf('fix(scope): the export drops rows')).toBe('the export drops rows')
+    expect(subjectOf('ci: cache key')).toBe('cache key')
+    expect(subjectOf('feat!: breaking export')).toBe('breaking export')
+    expect(subjectOf('Flaky: one test')).toBe('Flaky: one test')
+    expect(commitLabelOf('fix(scope): x')).toBe('fix(scope)')
+    expect(commitLabelOf('Plain title')).toBeNull()
+  })
+})
+
+describe('named regressions', () => {
+  it('w28: never `Implement {repo} change ({n})?` when the subjects differ', () => {
+    const changes = surfaceCopies(
+      [
+        'fix(scope): one module declares an hourly axis it does not serve',
+        'ci: build-one and build-two push images without waiting for the main suite',
+        'Flaky: test_one_two_three_four_five_six_seven_eight_nine_ten_eleven ids',
+      ].map((title, i) => ({
+        key: String(i),
+        title,
+        forms: wardenQuestionForms({ failed: false, repo: 'repo-a', primary: 'implement' }),
+      })),
+    ).map((c) => c.question)
+    for (const q of changes) {
+      expect(q).not.toMatch(/\(\d+\)\?$/)
+      expect(q).not.toBe('Implement repo-a change?')
     }
-  })
-
-  it('falls back to an ordinal when no whole handle fits', () => {
-    const huge = `${'x'.repeat(90)}`
-    const q = surface([huge, huge])
-    expect(q).toEqual(['Implement fix for {r} alert (1)?', 'Implement fix for {r} alert (2)?'])
-  })
-
-  it('does not repeat the handle in the evidence line', () => {
-    const copy = cardCopy({
-      body: 'Service down after deploy. Check the logs.',
-      title: 'Service down after deploy',
-      plain: 'Unblock {r} agent?',
-      handle: { source: 'Service down after deploy', clauses: 1, ordinal: null },
-    })
-    expect(copy.question).toBe('Unblock {r} agent: Service down after deploy?')
-    expect(copy.evidenceLine).toBe('Check the logs.')
-  })
-
-  it('keeps only the verb when one stem heads every card', () => {
-    expect(surface(['Disk full', 'Queue deep'], 'Answer this request?', true)).toEqual([
-      'Answer: Disk full?',
-      'Answer: Queue deep?',
-    ])
-    expect(surface(['Disk full', 'Queue deep'], 'Answer this request?')).toEqual([
-      'Answer this request: Disk full?',
-      'Answer this request: Queue deep?',
-    ])
-  })
-})
-
-describe('terse stems', () => {
-  type Ask = { host: string; text: string }
-  const derive = (
-    a: Ask,
-    { handle }: { handle: import('./question-copy').Disambiguation | null },
-  ) => ({
-    copy: cardCopy({
-      title: a.text,
-      plain: `Answer ${a.host} request?`,
-      handle: handle === null ? null : { source: a.text, ...handle },
-    }),
-  })
-  const run = (asks: Ask[]) =>
-    resolveCopies(asks, { key: (a) => `${a.host}-${a.text}`, terseStem: true, derive }).map(
-      (r) => r.copy.question,
+    expect(changes[0]).toBe(
+      'Implement change: one module declares an hourly axis it does not serve?',
     )
-
-  it('keeps identical asks on two hosts distinct when the terse form would merge them', () => {
-    const questions = run([
-      { host: 'h1', text: 'Disk full' },
-      { host: 'h1', text: 'Queue deep' },
-      { host: 'h2', text: 'Disk full' },
-      { host: 'h2', text: 'Queue deep' },
-    ])
-    expect(new Set(questions.map((q) => q.toLowerCase())).size).toBe(4)
-    expect(questions).toEqual([
-      'Answer h1 request: Disk full?',
-      'Answer h1 request: Queue deep?',
-      'Answer h2 request: Disk full?',
-      'Answer h2 request: Queue deep?',
-    ])
   })
 
-  it('keeps the original line when the handle stops mid-sentence', () => {
-    const copy = cardCopy({
-      body: 'Disk full — host a is down. Free space.',
-      title: 'Disk full — host a is down',
-      plain: 'Answer this request?',
-      handle: { source: 'Disk full — host a is down', clauses: 1, ordinal: null },
-    })
-    expect(copy.question).toBe('Answer this request: Disk full?')
-    expect(copy.evidenceLine).toBe('Disk full — host a is down. Free space.')
+  it('w28: never `Answer this request?` when the ask has text', () => {
+    const [card] = needsYouCards(
+      [
+        {
+          id: 'q',
+          question:
+            'A backup job needs a free storage account to upload weekly snapshots (the plan allows any use). Steps: register.',
+        },
+      ],
+      [],
+      NOW,
+    )
+    expect(card!.question).toBe(
+      'Answer: A backup job needs a free storage account to upload weekly snapshots?',
+    )
   })
-})
 
-describe('evidence after a handle', () => {
-  it('keeps the leading tag run, a fact the question does not say', () => {
-    const copy = cardCopy({
-      body: '[alert] [blocker] Disk full. Free some space.',
-      title: '[alert] Disk full',
-      plain: 'Implement fix for {r} alert?',
-      handle: { source: '[alert] Disk full', clauses: 1, ordinal: null },
+  it('w27: no title ends in an ellipsis before its question mark', () => {
+    const q = questionTitle({
+      ...IMPLEMENT,
+      key: 'a',
+      subject: 'x'.repeat(30) + ' ' + 'y'.repeat(30) + ' ' + 'z'.repeat(30),
     })
-    expect(copy.question).toBe('Implement fix for {r} alert: Disk full?')
-    expect(copy.evidenceLine).toBe('[alert] [blocker] Free some space.')
+    expect(q).not.toContain('…')
+    expect(q).toBe(`Implement change: ${'x'.repeat(30)} ${'y'.repeat(30)}?`)
   })
 })

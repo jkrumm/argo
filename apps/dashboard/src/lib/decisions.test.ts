@@ -87,7 +87,8 @@ describe('deriveDecisions', () => {
     // Home counts the same awaiting_owner list as the Warden page: a failed board item that
     // awaiting_owner does not list (event 4) is not a second source of failures.
     expect(list.map((d) => d.id)).toEqual(['warden-3'])
-    expect(list[0]?.headline).toBe('Retry failed {repo} run?')
+    // Home's only button opens Warden: the question names what to decide, never a verb.
+    expect(list[0]?.headline).toBe('Decide on failed run: {title}?')
   })
 
   it('takes the first sentence of a decision as the headline', () => {
@@ -106,8 +107,8 @@ describe('deriveDecisions', () => {
       agents: null,
       now: NOW,
     })
-    expect(d?.headline).toBe('Decide on {repo} item?')
-    expect(d?.entity).toBe('{title}')
+    expect(d?.headline).toBe('Decide on item: {title}?')
+    expect(d?.entity).toBeNull()
     expect(d?.facts.length).toBeLessThanOrEqual(3)
     expect(d?.evidenceLine).toBe('Tests pass.')
     expect(d?.detail).toBe(`${prose} Tests pass.`)
@@ -145,8 +146,8 @@ describe('deriveDecisions', () => {
       agents: null,
       now: NOW,
     })
-    expect(d?.headline).toBe('Retry failed {repo} run?')
-    expect(d?.entity).toBe('{title}')
+    expect(d?.headline).toBe('Decide on failed run: {title}?')
+    expect(d?.entity).toBeNull()
   })
 
   it('uses the question warden authored, verbatim', () => {
@@ -165,7 +166,7 @@ describe('deriveDecisions', () => {
       agents: agents({ agents: [agent({ title })] }),
       now: NOW,
     })
-    expect(d?.headline).toBe('Unblock {project} agent?')
+    expect(d?.headline).toBe(`Decide on agent: ${'word '.repeat(12).trim()}?`)
     expect(d?.detail).toContain(title.trim())
   })
 
@@ -193,7 +194,7 @@ describe('deriveDecisions', () => {
       agents: agents({ humanQueue: [{ id: 'q', question: '  \n ' }] }),
       now: NOW,
     })
-    expect(blank?.headline).toBe('Answer this request?')
+    expect(blank?.headline).toBe('Decide on this request?')
   })
 
   it('does not throw on a human-queue ask whose question is not a string', () => {
@@ -202,7 +203,7 @@ describe('deriveDecisions', () => {
       agents: agents({ humanQueue: [{ id: 'q', question: 5 }] }),
       now: NOW,
     })
-    expect(list[0]?.headline).toBe('Answer this request?')
+    expect(list[0]?.headline).toBe('Decide on this request?')
   })
 
   it('uses the question an agent authored, verbatim', () => {
@@ -332,14 +333,26 @@ describe('deriveDecisions: questions that tell items apart', () => {
       ),
     })
 
-  it('keeps the short form for a lone item and carries a handle once two would read the same', () => {
+  it('keeps the repo as the first fact on every Warden card, even when the subject mentions it', () => {
+    const list = deriveDecisions({
+      warden: board(
+        { event_id: 1, title: 'Audit of the {repo} vault', age_days: 9, redrives: 3 },
+        { event_id: 2, title: 'Disk filling up', state: 'failed', availableActions: ['retry'] },
+      ),
+      agents: null,
+      now: NOW,
+    })
+    for (const d of list) expect(d.facts[0]).toBe('warden · {repo}')
+  })
+
+  it('names a lone item and a pair by their subject, never by repo alone', () => {
     const [lone] = deriveDecisions({
       warden: board({ event_id: 1, title: 'Disk filling up' }),
       agents: null,
       now: NOW,
     })
-    expect(lone?.headline).toBe('Implement {repo} change?')
-    expect(lone?.entity).toBe('Disk filling up')
+    expect(lone?.headline).toBe('Decide on change: Disk filling up?')
+    expect(lone?.entity).toBeNull()
 
     const pair = deriveDecisions({
       warden: board(
@@ -350,8 +363,8 @@ describe('deriveDecisions: questions that tell items apart', () => {
       now: NOW,
     })
     expect(pair.map((d) => d.headline)).toEqual([
-      'Implement {repo} change: Disk filling up?',
-      'Implement {repo} change: Certificate expires soon?',
+      'Decide on change: Disk filling up?',
+      'Decide on change: Certificate expires soon?',
     ])
     expect(pair.map((d) => d.entity)).toEqual([null, null])
   })
@@ -369,9 +382,9 @@ describe('deriveDecisions: questions that tell items apart', () => {
       now: NOW,
     })
     expect(list.map((d) => d.headline)).toEqual([
-      'Answer this request: Rotate keys?',
-      'Answer this request: Renew domain?',
-      'Unblock {project} agent?',
+      'Decide on request: Rotate keys?',
+      'Decide on request: Renew domain?',
+      'Decide on agent: Approve {action}?',
     ])
   })
 
@@ -381,7 +394,7 @@ describe('deriveDecisions: questions that tell items apart', () => {
       agents: null,
       now: NOW,
     })
-    expect(alert?.headline).toBe('Implement fix for {repo} alert?')
+    expect(alert?.headline).toBe('Decide on alert: service {name} down?')
     const [byOrigin] = deriveDecisions({
       warden: warden({
         awaiting_owner: [
@@ -397,7 +410,7 @@ describe('deriveDecisions: questions that tell items apart', () => {
       agents: null,
       now: NOW,
     })
-    expect(byOrigin?.headline).toBe('Implement fix for {repo} alert?')
+    expect(byOrigin?.headline).toBe('Decide on alert: Latency high?')
   })
 })
 
@@ -502,7 +515,7 @@ describe('deriveDecisions: loose wire values and distinct questions', () => {
       agents: null,
       now: NOW,
     })
-    expect(d?.headline).toBe('Implement {repo} change?')
+    expect(d?.headline).toBe('Decide on change: Add incident-response runbook?')
   })
 })
 
