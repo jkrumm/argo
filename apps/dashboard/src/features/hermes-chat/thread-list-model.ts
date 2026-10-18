@@ -210,17 +210,21 @@ export function buildView({
   }
 }
 
-const timeOf = (ms: number): string => format(ms, 'HH:mm')
+const TIME_PATTERN = 'HH:mm'
+const DAY_PATTERN = 'd MMM'
+const DAY_YEAR_PATTERN = 'd MMM yyyy'
+
+const timeOf = (ms: number): string => format(ms, TIME_PATTERN)
 
 /** `HH:mm` for today, `D Mon` for anything older. */
 export function listTime(ms: number, now: number): string {
-  return ms >= startOfDay(now) ? timeOf(ms) : format(ms, 'd MMM')
+  return ms >= startOfDay(now) ? timeOf(ms) : format(ms, DAY_PATTERN)
 }
 
 /** A start date: `D Mon`, with the year once it is not this year. */
 export function startedDate(ms: number, now: number): string {
   const sameYear = new Date(ms).getFullYear() === new Date(now).getFullYear()
-  return format(ms, sameYear ? 'd MMM' : 'd MMM yyyy')
+  return format(ms, sameYear ? DAY_PATTERN : DAY_YEAR_PATTERN)
 }
 
 /** Parts of the facts line, joined by ` · ` at render. Wide: `Started {date}`, `last reply {time}` (the type is the chip beside the title). Compact, no chip: `last reply {time} · {type}`. */
@@ -292,8 +296,7 @@ export function listEndNote(
       ? `The newest ${loaded} threads, back to ${back}`
       : `${loaded} of ${serverTotal} threads, back to ${back}`
   }
-  const archive = archivedCount > 0 ? `, ${archivedCount} archived` : ''
-  return `Oldest thread started ${startedDate(oldestOf(entries, 'createdAt'), now)}${archive}`
+  return `Oldest thread started ${startedDate(oldestOf(entries, 'createdAt'), now)}`
 }
 
 const SUMMARY_MAX_CHARS = 110
@@ -316,4 +319,14 @@ export function clampAtWord(text: string, max: number = SUMMARY_MAX_CHARS): stri
 /** A row's summary cut for the layout: the phone's narrow column takes fewer characters. */
 export function summaryExcerpt(summary: string, compact: boolean): string {
   return clampAtWord(summary, compact ? SUMMARY_MAX_CHARS_COMPACT : SUMMARY_MAX_CHARS)
+}
+
+/**
+ * The empty list's one line. With every thread archived and no filter set, that is the fact (the
+ * `Archived` chip lists them); otherwise a filter or search emptied the list.
+ */
+export function emptyNote(input: { threads: number; active: number; filtered: boolean }): string {
+  if (input.threads === 0) return 'No threads yet. Type below to start.'
+  if (input.active === 0 && !input.filtered) return 'All threads archived'
+  return 'No thread matches this filter.'
 }

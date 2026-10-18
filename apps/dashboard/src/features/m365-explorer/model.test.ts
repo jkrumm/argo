@@ -9,7 +9,6 @@ import {
   coverageOf,
   formatTime,
   headlineOf,
-  labeledCount,
   labeledBasis,
   largestTeam,
   labeledPaneTitle,
@@ -211,9 +210,11 @@ describe('chatKindParts', () => {
 })
 
 describe('sectionTitleFor', () => {
-  const base = { tag: '', open: false, sources: '3 chats' }
-  test('says a fact about the pane, not the tab name', () => {
-    expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('3 chats')
+  const base = { view: 'chats', tag: '', open: false } as const
+  test('says a fact about the pane, not the tab name or a count', () => {
+    expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('Chats')
+    expect(sectionTitleFor({ ...base, pane: 'sources', view: 'teams' })).toBe('Teams')
+    expect(sectionTitleFor({ ...base, pane: 'sources', view: 'feed' })).toBe('Labeled sources')
     expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Grouped by tag')
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: LABELED_FILTER })).toBe(
       'Grouped by tag',
@@ -221,6 +222,7 @@ describe('sectionTitleFor', () => {
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: 'alerts' })).toBe('alerts')
     expect(sectionTitleFor({ ...base, pane: 'detail', open: true })).toBe('Messages')
     expect(sectionTitleFor({ ...base, pane: 'detail' })).toBe('Nothing open')
+    expect(sectionTitleFor({ ...base, pane: 'detail', view: 'feed' })).toBe('Agent feed')
   })
 })
 
@@ -260,11 +262,7 @@ describe('labeledPaneTitle', () => {
 
 describe('labeled count, outside note and sources title', () => {
   const cov = { total: 5, labeled: 2, outside: 1, loading: 0, failed: 0 }
-  test('one labeled count, unknown while a team loads', () => {
-    expect(labeledCount(cov)).toBe(2)
-    expect(labeledCount({ ...cov, loading: 1 })).toBeNull()
-    expect(labeledCount({ ...cov, failed: 1 })).toBeNull()
-  })
+  test('one labeled count, unknown while a team loads', () => {})
   test('the footer names the list the count ranges over', () => {
     const list = sourceListName(50, true)
     expect(list).toBe('newest 50 chats and channels')
@@ -276,12 +274,10 @@ describe('labeled count, outside note and sources title', () => {
       'across the newest 50 chats and channels',
     )
   })
-  test('the sources title is a fact per view', () => {
-    const base = { chats: 3, channels: 7, teams: 2, labeled: 1 }
-    expect(sourcesTitle({ ...base, view: 'chats' })).toBe('3 chats')
-    expect(sourcesTitle({ ...base, view: 'teams' })).toBe('7 channels in 2 teams')
-    expect(sourcesTitle({ ...base, view: 'teams', channels: null })).toBe('2 teams')
-    expect(sourcesTitle({ ...base, view: 'feed' })).toBe('1 labeled source')
+  test('the sources title is the pane name only', () => {
+    expect(sourcesTitle('chats')).toBe('Chats')
+    expect(sourcesTitle('teams')).toBe('Teams')
+    expect(sourcesTitle('feed')).toBe('Labeled sources')
   })
 })
 

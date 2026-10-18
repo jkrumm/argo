@@ -219,16 +219,6 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-/**
- * The one labeled count the page prints: labels whose source is inside the loaded chats and
- * channels (`Coverage.labeled`), so the headline and the strip cannot disagree. `null` while a
- * team is loading or failed — the count is then a lower bound, not yet a fact (the strip shows it
- * as `≥`).
- */
-export function labeledCount(c: Coverage): number | null {
-  return c.loading > 0 || c.failed > 0 ? null : c.labeled
-}
-
 /** What the strip counts over, in words: the newest-N chat window when the list is capped, plus channels. */
 export function sourceListName(chats: number, capped: boolean): string {
   return capped ? `newest ${chats} chats and channels` : 'chats and channels'
@@ -243,20 +233,9 @@ export function labeledBasis(c: Coverage, list: string): string {
   return `${plural(c.outside, 'more label')} on sources not in the ${list}`
 }
 
-/** The phone Sources pane's heading: what the pane lists now, as a fact rather than the tab's name. */
-export function sourcesTitle(input: {
-  view: 'chats' | 'teams' | 'feed'
-  chats: number
-  channels: number | null
-  teams: number
-  /** The labeled list the pane renders. */
-  labeled: number
-}): string {
-  if (input.view === 'chats') return plural(input.chats, 'chat')
-  if (input.view === 'feed') return plural(input.labeled, 'labeled source')
-  return input.channels === null
-    ? plural(input.teams, 'team')
-    : `${plural(input.channels, 'channel')} in ${plural(input.teams, 'team')}`
+/** The phone Sources pane's heading: the pane's name only; the tabs and cells print the counts. */
+export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
+  return view === 'feed' ? 'Labeled sources' : view === 'chats' ? 'Chats' : 'Teams'
 }
 
 /**
@@ -276,16 +255,17 @@ export const MESSAGE_TOP = 20
 /** The phone Section title: a fact about the pane in view, never the tab's own name. */
 export function sectionTitleFor(input: {
   pane: 'sources' | 'labeled' | 'detail'
+  view: 'chats' | 'teams' | 'feed'
   tag: string
   open: boolean
-  sources: string
 }): string {
   switch (input.pane) {
     case 'sources':
-      return input.sources
+      return sourcesTitle(input.view)
     case 'labeled':
       return input.tag === '' || input.tag === LABELED_FILTER ? 'Grouped by tag' : input.tag
     case 'detail':
+      if (input.view === 'feed') return 'Agent feed'
       return input.open ? 'Messages' : 'Nothing open'
   }
 }

@@ -5,12 +5,12 @@ import { channelsFooter, chatKindParts, labeledBasis, type Coverage } from './mo
 import classes from './m365.module.css'
 
 /** A split is not a verdict: neutral fills, never a status colour. */
-const FILL_STRONG = alpha(VX.muted, 0.95)
-const FILL_FAINT = alpha(VX.muted, 0.4)
+const FILL_STRONG_ALPHA = 0.95
+const FILL_FAINT_ALPHA = 0.4
+const FILL_STRONG = alpha(VX.muted, FILL_STRONG_ALPHA)
+const FILL_FAINT = alpha(VX.muted, FILL_FAINT_ALPHA)
 /** The kind bar's shades step down by rank from the strongest fill, never below the faint one. */
-const KIND_ALPHA_TOP = 0.95
 const KIND_ALPHA_STEP = 0.25
-const KIND_ALPHA_FLOOR = 0.3
 
 type Chats = { oneOnOne: number; group: number; meeting: number; other: number }
 
@@ -73,7 +73,7 @@ function chatsCell(chats: Chats): StatStripCell {
             value: p.value,
             color: alpha(
               VX.muted,
-              Math.max(KIND_ALPHA_TOP - i * KIND_ALPHA_STEP, KIND_ALPHA_FLOOR),
+              Math.max(FILL_STRONG_ALPHA - i * KIND_ALPHA_STEP, FILL_FAINT_ALPHA),
             ),
           }))}
         />

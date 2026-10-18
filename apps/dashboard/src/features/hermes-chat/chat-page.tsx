@@ -17,7 +17,7 @@ import { HermesHealth } from './hermes-health'
 import { HermesRow } from './hermes-row'
 import { ThreadList } from './thread-list'
 import { PageSummary } from '../../components/upstream/page-summary'
-import { buildView, listEndNote, summaryHeadline, toEntries } from './thread-list-model'
+import { buildView, emptyNote, listEndNote, summaryHeadline, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
 import { ThreadSpeaker } from './use-auto-speak'
@@ -328,9 +328,11 @@ function HermesChatFeed() {
             {view.groups.length === 0 && view.untitled.length === 0 ? (
               <Center py="xl">
                 <Text c="dimmed" size="sm" ta="center">
-                  {everything.length === 0
-                    ? 'No threads yet. Type below to start.'
-                    : 'No thread matches this filter.'}
+                  {emptyNote({
+                    threads: everything.length,
+                    active: entries.length,
+                    filtered: typeFilter !== 'all' || query.trim() !== '',
+                  })}
                 </Text>
               </Center>
             ) : (

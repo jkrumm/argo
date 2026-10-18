@@ -15,6 +15,7 @@ const {
   listEndNote,
   clampAtWord,
   summaryHeadline,
+  emptyNote,
   untitledLabel,
 } = await import('./thread-list-model')
 type ThreadEntry = import('./thread-list-model').ThreadEntry
@@ -245,7 +246,7 @@ describe('listEndNote', () => {
   })
   it('claims completeness only when the server total is covered', () => {
     const note = listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)
-    expect(note).toMatch(/^Oldest thread started [^,]+, 2 archived$/)
+    expect(note).toMatch(/^Oldest thread started [^,]+$/)
     expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/^Oldest thread started [^,]+$/)
   })
   it('says how far back a capped list reaches', () => {
@@ -272,5 +273,20 @@ describe('clampAtWord', () => {
   })
   it('hard-cuts a single token longer than the limit', () => {
     expect(clampAtWord('abcdefghijkl', 5)).toBe('abcde…')
+  })
+})
+
+describe('emptyNote', () => {
+  it('says the fact that emptied the list', () => {
+    expect(emptyNote({ threads: 0, active: 0, filtered: false })).toBe(
+      'No threads yet. Type below to start.',
+    )
+    expect(emptyNote({ threads: 3, active: 0, filtered: false })).toBe('All threads archived')
+    expect(emptyNote({ threads: 3, active: 0, filtered: true })).toBe(
+      'No thread matches this filter.',
+    )
+    expect(emptyNote({ threads: 3, active: 2, filtered: true })).toBe(
+      'No thread matches this filter.',
+    )
   })
 })

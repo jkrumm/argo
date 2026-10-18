@@ -45,14 +45,15 @@ function Row({
   entry,
   now,
   label,
+  compact,
   onOpen,
 }: {
   entry: ThreadEntry
   now: number
+  compact: boolean
   label: string
   onOpen: (id: string) => void
 }) {
-  const compact = useSizeClass() === 'compact'
   return (
     <UnstyledButton className={classes['row']} onClick={() => onOpen(entry.id)}>
       <Box className={classes['rowGrid']}>
@@ -100,6 +101,8 @@ export function ThreadList({
   onOpen: (id: string) => void
   onDeleteUntitled: (ids: string[]) => void
 }) {
+  const compact = useSizeClass() === 'compact'
+
   function confirmDelete() {
     void overlays.confirm({
       title: 'Delete untitled chats',
@@ -135,7 +138,14 @@ export function ThreadList({
             )}
           </Text>
           {group.rows.map((entry) => (
-            <Row key={entry.id} entry={entry} now={now} label={titleOf(entry)} onOpen={onOpen} />
+            <Row
+              key={entry.id}
+              entry={entry}
+              now={now}
+              label={titleOf(entry)}
+              compact={compact}
+              onOpen={onOpen}
+            />
           ))}
         </Box>
       ))}
