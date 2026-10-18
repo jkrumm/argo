@@ -1,6 +1,6 @@
 import { formatMinutes } from '../../lib/format'
 import { useMemo } from 'react'
-import { Anchor, Box, Card, Stack, Text } from '@mantine/core'
+import { Anchor, Box, Button, Card, Stack, Text } from '@mantine/core'
 import { Section, StatGroup, PageSummary } from 'basalt-ui'
 import { format } from 'date-fns'
 import type { SourceClass } from '../../lib/queries/calendar'
@@ -52,6 +52,8 @@ export function AgendaView({
   unknown,
   failed,
   tasksState,
+  onRetry,
+  onRetryTasks,
 }: {
   events: readonly CalendarItem[]
   errors: readonly SourceError[]
@@ -60,6 +62,10 @@ export function AgendaView({
   /** Unknown sources that stopped trying (failed), as against still loading. */
   failed: ReadonlySet<SourceClass>
   tasksState: 'loading' | 'error' | 'ready'
+  /** Refetches the failed calendar sources: the step beside the headline's failure sentence. */
+  onRetry: () => void
+  /** Refetches the failed task reads. */
+  onRetryTasks: () => void
 }) {
   const nowMs = useNow()
   const now = useMemo(() => new Date(nowMs), [nowMs])
@@ -95,6 +101,11 @@ export function AgendaView({
     <Stack gap="md">
       <Box>
         <PageSummary {...parts} loading={loading} />
+        {gap?.state === 'error' && parts.sentence === gap.text && (
+          <Button variant="subtle" color="gray" size="compact-sm" onClick={onRetry}>
+            Retry
+          </Button>
+        )}
         {errors.map((error) => (
           <Text key={error.label} className={classes.muted}>
             {error.label} unavailable — {error.reason}
@@ -203,7 +214,12 @@ export function AgendaView({
               />
             </Box>
             <Box className={classes.oTasks}>
-              <TaskList tasks={model.tasks} todayKey={summary.todayKey} state={tasksState} />
+              <TaskList
+                tasks={model.tasks}
+                todayKey={summary.todayKey}
+                state={tasksState}
+                onRetry={onRetryTasks}
+              />
             </Box>
           </Box>
         </Box>

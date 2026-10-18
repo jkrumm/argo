@@ -3,7 +3,7 @@ import { formatMinutes } from '../../lib/format'
  * The Agenda tab's presentational pieces. They render `derive.ts` output and compute nothing:
  * every figure, count and window arrives already derived.
  */
-import { ActionIcon, Box, Card, Skeleton, Text } from '@mantine/core'
+import { ActionIcon, Box, Button, Card, Group, Skeleton, Text } from '@mantine/core'
 import { Meter, Section } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
@@ -341,11 +341,14 @@ export function TaskList({
   tasks,
   todayKey,
   state,
+  onRetry,
 }: {
   tasks: readonly TaskDue[]
   todayKey: DayKey
   /** The task read itself: a pending or failed one is not an empty list, so it has no count. */
   state: 'loading' | 'error' | 'ready'
+  /** Refetches the failed task reads: the step on the failed card itself. */
+  onRetry: () => void
 }) {
   return (
     <Card data-shot="tasks-due" data-shot-states="empty loading error">
@@ -354,7 +357,12 @@ export function TaskList({
         {state === 'loading' ? (
           <SkeletonRows rows={3} label="Loading tasks" time={false} />
         ) : state === 'error' ? (
-          <Text className={classes.muted}>Tasks failed to load — reload to retry</Text>
+          <Group gap="xs">
+            <Text className={classes.muted}>Tasks failed to load</Text>
+            <Button variant="subtle" color="gray" size="compact-sm" onClick={onRetry}>
+              Retry
+            </Button>
+          </Group>
         ) : tasks.length === 0 ? (
           <Text className={classes.muted}>Nothing due in the next 7 days.</Text>
         ) : (

@@ -23,11 +23,11 @@ const SOURCE_LABEL = { personal: 'Google', work: 'Microsoft 365' } as const
 
 export type FeedGap = {
   state: 'loading' | 'error'
-  /** The one sentence for a block or a cell: loading says loading; a failure names the source and the step. */
+  /** The headline sentence: loading says loading; a failure names the source (the Retry action beside it is the step). */
   text: string
   /**
    * The same gap inside a card: a loading card says `Loading` (the page headline already says
-   * `Loading calendar`), a failed one is the headline's sentence minus the step.
+   * `Loading calendar`), a failed one is the headline's sentence.
    */
   card: string
 }
@@ -37,8 +37,8 @@ export const SOURCES_LABEL = `${SOURCE_LABEL.personal} or ${SOURCE_LABEL.work}`
 
 /**
  * Why calendar figures are unknown, worded once for every place that says so. `null` when every
- * source has answered. A failure carries the next step in the headline only; a card states the
- * same gap without it, and names a source that is still loading beside one that failed.
+ * source has answered. A failure's next step is a Retry action on the headline only; a card
+ * states the same gap without it, and names a source that is still loading beside one that failed.
  */
 export function feedGap(
   unknown: ReadonlySet<keyof typeof SOURCE_LABEL>,
@@ -57,7 +57,7 @@ export function feedGap(
     `${failedNames} failed to load`,
     ...(loadingNames ? [`${loadingNames} loading`] : []),
   ].join(' · ')
-  return { state: 'error', text: `${card} — reload to retry`, card }
+  return { state: 'error', text: card, card }
 }
 
 /**

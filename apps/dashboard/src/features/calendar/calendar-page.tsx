@@ -249,6 +249,14 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           unknown={unknown}
           failed={gap.failedSources}
           tasksState={tasksState}
+          onRetry={() => {
+            if (personalFailed) void googleQuery.refetch()
+            if (workFailed) void m365Query.refetch()
+          }}
+          onRetryTasks={() => {
+            for (const query of [projectsQuery, ...projectQueries])
+              if (query.isError) void query.refetch()
+          }}
         />
       )}
 
