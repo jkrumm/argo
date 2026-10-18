@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { unanswered } from './query-state'
+import { failed, feedGap, taskFeedState, unanswered } from './query-state'
 
 const q = (over: Partial<Parameters<typeof unanswered>[0]> = {}) => ({
   isPending: false,
@@ -21,5 +21,50 @@ describe('unanswered', () => {
     expect(unanswered(q())).toBe(false)
     expect(unanswered(q({ isFetching: true }))).toBe(false)
     expect(unanswered(q({ isError: true, data: [] }))).toBe(false)
+  })
+})
+
+describe('failed', () => {
+  it('is a source that stopped trying, not one still retrying or answered', () => {
+    expect(failed(q({ isError: true, data: undefined }))).toBe(true)
+    expect(failed(q({ isError: true, data: undefined, isFetching: true }))).toBe(false)
+    expect(failed(q({ isError: true, data: [] }))).toBe(false)
+    expect(failed(q({ isPending: true, data: undefined }))).toBe(false)
+  })
+})
+
+describe('feedGap', () => {
+  const none = new Set<'personal' | 'work'>()
+  it('is null when every source answered', () => {
+    expect(feedGap(none, none)).toBeNull()
+  })
+  it('says loading until a source has failed', () => {
+    expect(feedGap(new Set(['work']), none)).toMatchObject({
+      state: 'loading',
+      text: 'Loading calendar',
+    })
+  })
+  it('names the failed sources and the next step', () => {
+    expect(feedGap(new Set(['personal', 'work']), new Set(['work', 'personal']))).toMatchObject({
+      state: 'error',
+      text: 'Google and Microsoft 365 failed to load — reload to retry',
+    })
+    expect(feedGap(new Set(['personal', 'work']), new Set(['work']))?.text).toBe(
+      'Microsoft 365 failed to load — reload to retry',
+    )
+  })
+})
+
+describe('taskFeedState', () => {
+  it('is loading or error before it is ready, never an empty list', () => {
+    expect(taskFeedState([{ isPending: true, isError: false }])).toBe('loading')
+    expect(
+      taskFeedState([
+        { isPending: false, isError: false },
+        { isPending: false, isError: true },
+      ]),
+    ).toBe('error')
+    expect(taskFeedState([])).toBe('ready')
+    expect(taskFeedState([{ isPending: false, isError: false }])).toBe('ready')
   })
 })

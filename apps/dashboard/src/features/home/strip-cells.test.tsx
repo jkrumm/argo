@@ -34,6 +34,35 @@ const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
   ...over,
 })
 
+describe('agents cell without a fleet', () => {
+  const emptyText = (feed: 'none' | 'failed' | null) =>
+    (agentsCell(undefined, null, feed).visual as ReactElement<{ emptyText: string }>).props
+      .emptyText
+
+  it('names the cause and the next step, one wording per feed state', () => {
+    expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10 min')
+    expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
+    expect(emptyText(null)).toBe('No fleet counts in this snapshot')
+  })
+})
+
+describe('recovery cell window wording', () => {
+  it('states the window length with the shared Garmin wording', () => {
+    const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
+    expect(
+      recoveryCell(unscored, false, { settled: true, failed: false, windowDays: 30 }).footer,
+    ).toBe('no score in this 30\u00a0d window — Garmin syncs every 6\u00a0h')
+  })
+})
+
+describe('recovery footer breaks', () => {
+  it('glues only number and unit, so the break falls between phrases', () => {
+    const footer = recoveryFooter(reading({ mean: 60, days: 5, isToday: true }))
+    // Every regular space sits between phrases or words; no digit is stranded from its unit.
+    expect(footer.split(' ')).toEqual(['7\u00a0d', 'mean\u00a060', '·', '5/7\u00a0d', 'observed'])
+  })
+})
+
 describe('strip cells with no reading', () => {
   it('shows an em dash and a reason, never 0', () => {
     expect(agentsCell(undefined, null)).toMatchObject({ value: null })

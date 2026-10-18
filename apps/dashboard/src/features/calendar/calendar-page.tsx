@@ -20,7 +20,7 @@ import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { calendarStore } from '../../lib/window-stores'
 import { AgendaView, type SourceError } from './agenda-view'
-import { unanswered } from './query-state'
+import { failed, feedGap, taskFeedState, unanswered } from './query-state'
 import { DayGroups } from './agenda-parts'
 import {
   addDays,
@@ -152,6 +152,16 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     if (workUnknown) set.add('work')
     return set
   }, [personalUnknown, workUnknown])
+  const personalFailed = !shotEmpty && failed(googleQuery)
+  const workFailed = !shotEmpty && failed(m365Query)
+  const gap = useMemo(() => {
+    const failedSources = new Set<SourceClass>()
+    if (personalFailed) failedSources.add('personal')
+    if (workFailed) failedSources.add('work')
+    return { gap: feedGap(unknown, failedSources), failedSources }
+  }, [unknown, personalFailed, workFailed])
+  // Tasks are their own read: a pending or failed one is not an empty list.
+  const tasksState = shotEmpty ? 'ready' : taskFeedState([projectsQuery, ...projectQueries])
 
   function setSearch(patch: Partial<SearchState>) {
     void navigate({
@@ -234,6 +244,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           errors={errors}
           loading={personalUnknown && workUnknown && googleQuery.isPending && m365Query.isPending}
           unknown={unknown}
+          failed={gap.failedSources}
+          tasksState={tasksState}
         />
       )}
 
@@ -253,7 +265,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           allDay={Object.fromEntries(compactKeys.map((k) => [k, allDayEvents(meetings, k)]))}
           now={new Date(nowMs)}
           next={null}
-          incomplete={unknown.size > 0}
+          gap={gap.gap}
         />
       )}
 

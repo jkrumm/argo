@@ -5,6 +5,7 @@ import { Section, StatGroup, PageSummary } from 'basalt-ui'
 import { format } from 'date-fns'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { summaryParts, todayCardState } from './summary'
+import { feedGap } from './query-state'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
 import { AllDayChips, DayGroups, EventRows, TaskList, WeekStrip } from './agenda-parts'
@@ -34,11 +35,16 @@ export function AgendaView({
   errors,
   loading,
   unknown,
+  failed,
+  tasksState,
 }: {
   events: readonly CalendarItem[]
   errors: readonly SourceError[]
   loading: boolean
   unknown: ReadonlySet<SourceClass>
+  /** Unknown sources that stopped trying (failed), as against still loading. */
+  failed: ReadonlySet<SourceClass>
+  tasksState: 'loading' | 'error' | 'ready'
 }) {
   const nowMs = useNow()
   const now = useMemo(() => new Date(nowMs), [nowMs])
@@ -65,6 +71,7 @@ export function AgendaView({
 
   const { summary, free } = model
   const parts = summaryParts(summary)
+  const gap = feedGap(unknown, failed)
   const todayState = todayCardState(model.today.rows.length, summary.incomplete)
   return (
     <Stack gap="md">
@@ -103,7 +110,7 @@ export function AgendaView({
                     {...(summary.incomplete ? {} : { count: model.today.count })}
                   >
                     {todayState === 'unknown' ? (
-                      <Text className={classes.muted}>—</Text>
+                      <Text className={classes.muted}>{gap?.text}</Text>
                     ) : (
                       <EventRows rows={model.today.rows} now={now} next={summary.next} />
                     )}
@@ -126,7 +133,7 @@ export function AgendaView({
                     allDay={model.allDay}
                     now={now}
                     next={summary.next}
-                    incomplete={summary.incomplete}
+                    gap={gap}
                   />
                 </Section>
               </Card>
@@ -140,6 +147,7 @@ export function AgendaView({
                 split={model.split}
                 todayKey={summary.todayKey}
                 unknown={unknown}
+                failed={failed}
               />
             </Box>
             <Box
@@ -156,8 +164,8 @@ export function AgendaView({
                     caption: 'Longest free block',
                     qualifier: 'today',
                     value: free ? formatMinutes(free.minutes) : null,
-                    footer: summary.incomplete
-                      ? 'a calendar has not answered'
+                    footer: gap
+                      ? gap.text
                       : free
                         ? `${hhmm(free.start)}–${hhmm(free.end)}`
                         : 'none left in 08:00–18:00',
@@ -166,7 +174,7 @@ export function AgendaView({
               />
             </Box>
             <Box className={classes.oTasks}>
-              <TaskList tasks={model.tasks} todayKey={summary.todayKey} />
+              <TaskList tasks={model.tasks} todayKey={summary.todayKey} state={tasksState} />
             </Box>
           </Box>
         </Box>
