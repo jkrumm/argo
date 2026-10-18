@@ -563,6 +563,8 @@ export function resolveQueueAsks(entries: readonly QueueEntry[]): WardenAsk[] {
 /** A decision waiting longer than this many days gets a warning tone on its age. */
 const WAIT_WARN_DAYS = 2
 const DAY_MS = 86_400_000
+/** `age_days` carries one decimal, so it is exact to half a tenth of a day. */
+const AGE_DAYS_RESOLUTION_MS = DAY_MS / 20
 
 /** How often the item was retried and revised, as one fact; `''` when neither happened. */
 function historyFact(row: AwaitingOwnerRow): string {
@@ -611,7 +613,12 @@ export function cardFacts(
 ): DecisionCardFact[] {
   let waiting: DecisionCardFact = ''
   if (row.ageDays !== null) {
-    const waitMs = Math.max(row.ageDays * DAY_MS + clock.elapsedMs, clock.historyAgeMs)
+    const estimateMs = row.ageDays * DAY_MS + clock.elapsedMs
+    // `age_days` is rounded to a tenth of a day: when the history line agrees within that, it is the
+    // same clock read more finely, so both print the history's duration (22 h 53 min, not 1 d).
+    const sameClock =
+      clock.historyAgeMs > 0 && Math.abs(estimateMs - clock.historyAgeMs) <= AGE_DAYS_RESOLUTION_MS
+    const waitMs = sameClock ? clock.historyAgeMs : Math.max(estimateMs, clock.historyAgeMs)
     const text = waitMs < MINUTE_MS ? WAITING_UNDER_A_MINUTE : `waiting ${formatDuration(waitMs)}`
     waiting = waitMs > WAIT_WARN_DAYS * DAY_MS ? { text, tone: 'warn' } : text
   }
