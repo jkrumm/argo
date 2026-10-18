@@ -3,7 +3,7 @@ import { percent, weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
 import { withUnit } from '../../lib/format'
 import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
-import type { Killer, Night, Verdict, WindowResponse } from './types'
+import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -182,10 +182,15 @@ export function coreGateDetail(night: Night): string {
 /**
  * The Moon gate row's one line, in words only (the illumination and the limit are drawn in the Moon
  * cell). A failed gate: the moon's peak altitude over the window, from the structured field, else
- * the API's reason verbatim. A pass: `under limit`, or, for a moon over the limit, `below horizon`
- * when its peak stays under 0°, else only that the engine passed it (it never says how).
+ * the API's reason verbatim. A pass: `under limit`, or, for a moon over the limit, why the engine
+ * counted it down: `below horizon` (peak under 0°) or `behind skyline` (a window sample reports
+ * `moonBehindTerrain`); `over limit` alone when neither field says.
  */
-export function moonGateDetail(night: Night, moonLimit: number): string {
+export function moonGateDetail(
+  night: Night,
+  moonLimit: number,
+  hourly: readonly HourlyPoint[],
+): string {
   const killer = night.killers.find((k) => k.id === 'moon')
   if (killer !== undefined) {
     return night.window === null
@@ -193,9 +198,15 @@ export function moonGateDetail(night: Night, moonLimit: number): string {
       : `up to ${fmtDegrees(night.window.maxMoonAltitude)} during the window`
   }
   if (night.moon.illumination < moonLimit) return 'under limit'
-  return night.window !== null && night.window.maxMoonAltitude < 0
-    ? 'over limit, below horizon'
-    : 'over limit, position passed'
+  const shoot = night.window
+  if (shoot === null) return 'over limit'
+  if (shoot.maxMoonAltitude < 0) return 'over limit, below horizon'
+  const [start, end] = [Date.parse(shoot.start), Date.parse(shoot.end)]
+  const behind = hourly.some((h) => {
+    const t = Date.parse(h.time)
+    return h.moonBehindTerrain && t >= start && t <= end
+  })
+  return behind ? 'over limit, behind skyline' : 'over limit'
 }
 
 /** The Darkness gate row's one line. */
@@ -573,7 +584,11 @@ export type GateRowModel = {
  * then low cloud when the API calls it ruinous. With no astronomical night the core and moon gates
  * have nothing to judge, so they read `n/a`, neutral. Low cloud is scored, never gated: neutral too.
  */
-export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
+export function gateRows(
+  night: Night,
+  moonLimit: number,
+  hourly: readonly HourlyPoint[],
+): GateRowModel[] {
   const failed = new Set(night.killers.map((k) => k.id))
   const dark = night.darkMinutes > 0
   const gate = (id: string, label: string, detail: string, judged = true): GateRowModel =>
@@ -589,7 +604,7 @@ export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
   const rows = [
     gate('darkness', 'Darkness', darknessDetail(night)),
     gate('core-altitude', 'Core', coreGateDetail(night), dark),
-    gate('moon', 'Moon', moonGateDetail(night, moonLimit), dark),
+    gate('moon', 'Moon', moonGateDetail(night, moonLimit, hourly), dark),
   ]
   const cloudState = lowCloudState(night)
   if (cloudState !== null) {

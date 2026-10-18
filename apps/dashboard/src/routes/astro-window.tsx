@@ -342,6 +342,7 @@ function AstroWindowPage() {
                   night={selectedNight}
                   nights={data.nights}
                   moonLimit={data.moonMaxIllumination}
+                  hourly={data.detail.hourly}
                 />
               }
               timeline={
