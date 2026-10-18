@@ -99,9 +99,9 @@ function joinDashClauses(sentences: readonly string[]): string[] {
  * CI.`) is a dangling fragment, not a fact: it goes, with its colon. Any other tail stays.
  */
 function withoutEchoTail(sentence: string): string {
-  const match = /^(.*\S):\s+([\p{L}\p{N}_-]+)([.!?]*)$/u.exec(sentence)
-  if (match === null) return sentence
-  const [, head, word, end] = match as unknown as [string, string, string, string]
+  const [, head = '', word = '', end = ''] =
+    /^(.*\S):\s+([\p{L}\p{N}_-]+)([.!?]*)$/u.exec(sentence) ?? []
+  if (word === '') return sentence
   const echoed = new RegExp(`(?<![\\p{L}\\p{N}_-])${word}(?![\\p{L}\\p{N}_-])`, 'iu').test(head)
   return echoed ? `${head}${end}` : sentence
 }

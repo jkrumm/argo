@@ -187,6 +187,6 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 Follow-up (w30-r1):
 
-- **One ACWR zone vocabulary** — fixed: `ACWR_ZONE_SHORT` sits next to `ACWR_ZONE_NAME`; strip-load, Home and Strength all pass `label` = full name and `short` = the abbreviation (`Under`, `Caut.`).
-- **`Undertrained` flush against `Optimal` at 390** — not fixed, basalt row: `Meter` shows the full label though it does not fit and ignores `short`. No width-dependent label prop in Argo; the fit logic is basalt's.
+- **One ACWR zone vocabulary** — fixed: the under-loaded zone is `Low` everywhere (tooltips, summary, legend `Low (< 0.8)`, meters), a name short enough to fit at 390, so name and short agree. One builder, `acwrMeterZones` (`formulas.ts`), serves strip-load, Home and Strength; `ACWR_ZONE_SHORT` keeps only the real abbreviation (`Caution` → `Caut.`).
+- **`Caution` meter label at 390** — not fixed, basalt row: `Meter` shows the full label though it does not fit and ignores `short`. No width-dependent label prop in Argo; the fit logic is basalt's.
 - **Recovery footer opening a wrapped line with `·`** — fixed: each `·` is bound to the text before it (`{a}{NBSP}· {b}`, `recoveryGap`).

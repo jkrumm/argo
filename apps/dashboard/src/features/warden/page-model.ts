@@ -23,7 +23,7 @@ import {
   isStale,
   TERMINAL_STATES,
   VERIFICATION_FAILED,
-  pluralizeWhole,
+  pluralize,
   waitingOnOwner,
   type AwaitingOwnerRow,
   type AwaitingOwnerView,
@@ -563,8 +563,8 @@ const DAY_MS = 86_400_000
 /** How often the item was retried and revised, as one fact; `''` when neither happened. */
 function historyFact(row: AwaitingOwnerRow): string {
   return [
-    row.redrives > 0 ? `retried ${pluralizeWhole(row.redrives, 'time')}` : '',
-    row.revisionCount > 0 ? `revised ${pluralizeWhole(row.revisionCount, 'time')}` : '',
+    row.redrives > 0 ? `retried ${pluralize(row.redrives, 'time', NBSP)}` : '',
+    row.revisionCount > 0 ? `revised ${pluralize(row.revisionCount, 'time', NBSP)}` : '',
   ]
     .filter((part) => part !== '')
     .join(', ')

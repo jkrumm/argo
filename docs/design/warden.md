@@ -227,6 +227,6 @@ Basalt rows for `UPSTREAM.md`:
 Follow-up (w30-r1):
 
 - **Failed-card evidence, dangling `CI`** — fixed: a closing `: {word}` that only repeats a word the sentence already said (`…on the head commit: CI.`) is dropped with its colon (`withoutEchoTail`, `lib/question-copy.ts`), so the clauses read `CI failed on {sha}: …; PR left open`. A different tail (`: step lint`) stays. Titles untouched.
-- **`revised {n} times` orphan** — fixed: count and word joined by a no-break space (`pluralizeWhole`); supersedes the "not fixed" line above.
+- **`revised {n} times` orphan** — fixed: count and word joined by a no-break space (`pluralize` with an NBSP gap); supersedes the "not fixed" line above.
 - **`waiting {h} h` precision** — already one spelling: the facts line and the history ages both go through `formatDuration`; a test now pins the pair so they cannot drift.
 - **`ago` glue everywhere on a card** — fixed: `Ago`, the tracking-fact lines and the history lines share `relativeWhole` / `historyAge`.

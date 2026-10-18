@@ -46,9 +46,9 @@ export const formatAgo = (ms: number): string => agoWith(ms, ' ')
 /** {@link formatAgo} with `ago` glued to the duration: the whole age is one unbreakable unit (a list row). */
 export const formatAgoWhole = (ms: number): string => agoWith(ms, NBSP)
 
-/** A timestamp against `now`: `5 min ago`, `in 2 h`; `—` when it is not a readable time. */
-export function formatRelative(iso: string, now: number): string {
+/** A timestamp against `now`: `5 min ago`, `in 2 h`; `—` when it is not a readable time. `gap` joins duration and `ago` (a no-break space makes the age one unit). */
+export function formatRelative(iso: string, now: number, gap = ' '): string {
   const diff = now - Date.parse(iso)
   if (!Number.isFinite(diff)) return '—'
-  return diff >= 0 ? formatAgo(diff) : `in ${formatDuration(-diff)}`
+  return diff >= 0 ? agoWith(diff, gap) : `in ${formatDuration(-diff)}`
 }

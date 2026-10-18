@@ -14,7 +14,7 @@ import {
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
 } from '../garmin-health/model'
-import { ACWR_ZONE_NAME, ACWR_ZONE_SHORT } from '../garmin-health/formulas'
+import { acwrMeterZones } from '../garmin-health/formulas'
 import { BUDGET_MISSING, deriveBudget, pollerAgeText } from '../warden/page-model'
 import {
   countdownLabel,
@@ -258,36 +258,12 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
         min={0}
         max={ACWR_METER_MAX}
         format={(v) => v.toFixed(2)}
-        zones={[
-          {
-            from: 0,
-            to: ACWR_FLOOR,
-            label: ACWR_ZONE_NAME.undertrained,
-            short: ACWR_ZONE_SHORT.undertrained,
-            color: VX.warn,
-          },
-          {
-            from: ACWR_FLOOR,
-            to: ACWR_OPTIMAL_TO,
-            label: ACWR_ZONE_NAME.optimal,
-            short: ACWR_ZONE_SHORT.optimal,
-            color: VX.good,
-          },
-          {
-            from: ACWR_OPTIMAL_TO,
-            to: ACWR_CAUTION_TO,
-            label: ACWR_ZONE_NAME.caution,
-            short: ACWR_ZONE_SHORT.caution,
-            color: VX.warn,
-          },
-          {
-            from: ACWR_CAUTION_TO,
-            to: ACWR_METER_MAX,
-            label: ACWR_ZONE_NAME.danger,
-            short: ACWR_ZONE_SHORT.danger,
-            color: VX.bad,
-          },
-        ]}
+        zones={acwrMeterZones({
+          floor: ACWR_FLOOR,
+          optimalTo: ACWR_OPTIMAL_TO,
+          cautionTo: ACWR_CAUTION_TO,
+          max: ACWR_METER_MAX,
+        })}
         startCaption={null}
         endCaption={null}
       />

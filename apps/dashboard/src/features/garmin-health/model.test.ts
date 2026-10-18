@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ACWR_ZONE_NAME, ACWR_ZONE_SHORT, acwrZoneLabel } from './formulas'
+import { ACWR_ZONE_NAME, acwrMeterZones, acwrZoneLabel } from './formulas'
 import {
   activitiesFact,
   activityScoreFact,
@@ -433,7 +433,7 @@ describe('loadFooter', () => {
 describe('ACWR_LEGEND', () => {
   test('names all four zones with the meter vocabulary and their bounds', () => {
     expect(ACWR_LEGEND).toEqual({
-      undertrained: 'Undertrained (< 0.8)',
+      undertrained: 'Low (< 0.8)',
       optimal: 'Optimal (0.8–1.3)',
       caution: 'Caution (1.3–1.5)',
       danger: 'Danger (> 1.5)',
@@ -448,16 +448,21 @@ describe('ACWR_ZONE_NAME', () => {
       expect(acwrZoneLabel(zone)).toBe(ACWR_ZONE_NAME[zone])
       expect(ACWR_LEGEND[zone].startsWith(ACWR_ZONE_NAME[zone])).toBe(true)
     }
-    expect(ACWR_ZONE_NAME.undertrained).toBe('Undertrained')
+    expect(ACWR_ZONE_NAME.undertrained).toBe('Low')
     expect(acwrZoneLabel(null)).toBe('')
   })
 })
 
 describe('ACWR zone vocabulary', () => {
-  test('every zone has a full name and one short name, and only the narrow ones abbreviate', () => {
-    expect(Object.keys(ACWR_ZONE_SHORT)).toEqual(Object.keys(ACWR_ZONE_NAME))
-    expect(ACWR_ZONE_SHORT.undertrained).toBe('Under')
-    expect(ACWR_ZONE_SHORT.caution).toBe('Caut.')
-    expect(ACWR_ZONE_SHORT.optimal).toBe(ACWR_ZONE_NAME.optimal)
+  test('one builder: full names as labels, `short` only where the name is abbreviated', () => {
+    const zones = acwrMeterZones({ floor: 0.8, optimalTo: 1.3, cautionTo: 1.5, max: 2 })
+    expect(zones.map((z) => z.label)).toEqual(['Low', 'Optimal', 'Caution', 'Danger'])
+    expect(zones.map((z) => z.short)).toEqual([undefined, undefined, 'Caut.', undefined])
+    expect(zones.map((z) => [z.from, z.to])).toEqual([
+      [0, 0.8],
+      [0.8, 1.3],
+      [1.3, 1.5],
+      [1.5, 2],
+    ])
   })
 })

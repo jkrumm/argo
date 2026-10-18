@@ -66,6 +66,11 @@ describe('formatAgoWhole', () => {
 })
 
 describe('formatRelative', () => {
+  test('a no-break gap glues ago to the duration', () => {
+    expect(
+      formatRelative('2026-01-01T11:00:00Z', Date.parse('2026-01-01T12:00:00Z'), '\u00a0'),
+    ).toBe('1\u00a0h\u00a0ago')
+  })
   const now = Date.parse('2026-01-01T12:00:00Z')
   test('past, future and unreadable', () => {
     expect(formatRelative('2026-01-01T11:00:00Z', now)).toBe('1\u00a0h ago')
