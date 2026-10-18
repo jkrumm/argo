@@ -197,6 +197,11 @@ function moonDarkDetail(hourly: readonly HourlyPoint[]): string {
   return peak < 0 ? 'below the horizon while it is dark' : 'on the horizon while it is dark'
 }
 
+/** The one interference rule: a moon lit at or over the limit counts, when it is above the skyline. */
+export function moonInterferes(illumination: number, limit: number): boolean {
+  return illumination >= limit
+}
+
 /**
  * The Moon gate row's one line, in words only (the illumination and the limit are drawn in the Moon
  * cell). A failed gate: the moon's peak altitude over the window, else over the dark hours (or a
@@ -217,7 +222,7 @@ export function moonGateDetail(
     }
     return moonDarkDetail(hourly)
   }
-  if (night.moon.illumination < moonLimit) return 'under limit'
+  if (!moonInterferes(night.moon.illumination, moonLimit)) return 'under limit'
   const shoot = night.window
   if (shoot === null) return 'over limit'
   if (shoot.maxMoonAltitude < 0) return 'over limit, below horizon'
@@ -229,7 +234,7 @@ export function moonGateDetail(
   return behind ? 'over limit, behind skyline' : 'over limit'
 }
 
-/** `dark sky ≥ {t} mag/arcsec²`, one glued run: the threshold's one spelling (tick's accessible text, panorama readout). */
+/** The dark-sky threshold's spellings, each one glued run: the full one (accessible text, panorama readout) and the tick's short one. */
 export function darkSkyThresholdText(threshold: number): string {
   return glue(`dark sky ≥ ${threshold} mag/arcsec²`)
 }
@@ -249,15 +254,24 @@ export function moonReadout({
   behindTerrain: boolean
   illumination: number
   limit: number
-}): { state: 'down' | 'behind terrain' | 'up'; interferes: boolean; text: string } {
-  const state = altitude < 0 ? 'down' : behindTerrain ? 'behind terrain' : 'up'
-  const interferes = state === 'up' && illumination >= limit
-  const verdict = interferes
-    ? 'over the limit'
-    : state === 'up'
-      ? 'under the limit'
-      : 'no interference'
-  return { state, interferes, text: `Moon ${state} · ${verdict}` }
+}): { state: MoonState; interferes: boolean; text: string } {
+  const state = moonState(altitude, behindTerrain)
+  if (state !== 'up') return { state, interferes: false, text: `Moon ${state} · no interference` }
+  if (moonInterferes(illumination, limit)) {
+    return { state, interferes: true, text: `Moon ${state} · over the limit` }
+  }
+  return { state, interferes: false, text: `Moon ${state} · under the limit` }
+}
+
+type MoonState = 'down' | 'behind terrain' | 'up'
+
+const moonState = (altitude: number, behindTerrain: boolean): MoonState => {
+  if (altitude < 0) return 'down'
+  return behindTerrain ? 'behind terrain' : 'up'
+}
+
+export function darkSkyTickText(threshold: number): string {
+  return glue(`dark ≥ ${threshold}`)
 }
 
 /** The Darkness gate row's one line. */
