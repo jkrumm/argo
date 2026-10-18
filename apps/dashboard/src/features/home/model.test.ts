@@ -218,7 +218,7 @@ describe('homeSummaryParts', () => {
         ],
       }),
     ).toEqual({
-      sentence: '4 items need you, oldest 2h 0m.',
+      sentence: '4 items need you, oldest 2 h 0 m.',
       facts: ['2 in Warden', '1 with agents', '1 in the human queue'],
     })
   })
@@ -427,7 +427,7 @@ describe('staleFeeds and unavailable sources', () => {
         ],
         NOW,
       ),
-    ).toEqual(['Agents 45m old'])
+    ).toEqual(['Agents 45 m old'])
     expect(staleFeeds([{ name: 'Warden', receivedAt: agoIso(29) }], NOW)).toEqual([])
   })
 

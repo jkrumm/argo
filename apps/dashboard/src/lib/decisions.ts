@@ -18,6 +18,7 @@ import {
   humanQueueCopy,
   isAbandonedWait,
 } from '../features/agents/model'
+import { collidingCopies, type CardCopySource } from './question-copy'
 import type { OverviewSnapshot } from './queries/agents'
 import type { WardenRaw } from './queries/warden'
 
@@ -36,6 +37,8 @@ export type Decision = {
   id: string
   /** The question the owner answers: short (a long ask becomes `Approve <title>?`). */
   headline: string
+  /** Which rung of the question rule wrote the headline; only a `plain` one can be told apart by a handle. */
+  copySource: CardCopySource
   /** The item the question is about, when the headline does not already name it. */
   entity: string | null
   /** `warden · <repo>` / `queue · <host>` / `agent · <project>` first, then the age: at most 3. */
@@ -74,6 +77,7 @@ function wardenDecisions(
   raw: WardenRaw | null | undefined,
   receivedAt: string | null | undefined,
   now: number,
+  handled: ReadonlySet<string>,
 ): Decision[] {
   const board = raw?.board
   if (!board) return []
@@ -85,7 +89,7 @@ function wardenDecisions(
   return waitingOnOwner(view).map((row): Decision => {
     const kind: QueueKind = row.state === 'failed' ? 'failed' : 'decision'
     const source: AskSource = row
-    const { copy, repo, repoNamed } = wardenAsk(source, kind)
+    const { copy, repo, repoNamed } = wardenAsk(source, kind, handled.has(`warden-${row.eventId}`))
     const ageMs = row.ageDays === null ? null : row.ageDays * DAY_MS + sincePush
     const waiting =
       ageMs === null
@@ -100,6 +104,7 @@ function wardenDecisions(
       source: 'warden',
       id: `warden-${row.eventId}`,
       headline: copy.question,
+      copySource: copy.source,
       entity: copy.entity,
       facts: capFacts([`warden${repo && !repoNamed ? ` · ${repo}` : ''}`, waiting]),
       evidenceLine: copy.evidenceLine,
@@ -113,18 +118,23 @@ function wardenDecisions(
   })
 }
 
-function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: number): Decision[] {
+function agentDecisions(
+  snapshot: OverviewSnapshot | null | undefined,
+  now: number,
+  handled: ReadonlySet<string>,
+): Decision[] {
   if (!snapshot) return []
   const asks = (snapshot.humanQueue ?? []).map((item): Decision => {
     const askedMs = parseMs(item.askedAt)
     const ageMs = askedMs === null ? null : Math.max(0, now - askedMs)
     const host = typeof item['host'] === 'string' ? item['host'] : null
     const evidence = item.cmd?.trim() || null
-    const { copy } = humanQueueCopy(item)
+    const { copy } = humanQueueCopy(item, handled.has(`queue-${item.id}`))
     return {
       source: 'queue',
       id: `queue-${item.id}`,
       headline: copy.question,
+      copySource: copy.source,
       entity: copy.entity,
       facts: capFacts([
         `queue${host ? ` · ${host}` : ''}`,
@@ -144,11 +154,12 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
     .map((a): Decision => {
       const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
       const evidence = a.blocker ?? a.waitingFor ?? a.standing ?? null
-      const copy = agentCopy(a, evidence)
+      const copy = agentCopy(a, evidence, handled.has(`agent-${a.id}`))
       return {
         source: 'agent',
         id: `agent-${a.id}`,
         headline: copy.question,
+        copySource: copy.source,
         entity: copy.entity,
         facts: capFacts([
           `agent · ${a.project}`,
@@ -166,15 +177,26 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
   return [...asks, ...waiting]
 }
 
-/** Everything waiting on the owner, longest wait first; an item with no clock sorts last. */
+/**
+ * Everything waiting on the owner, longest wait first; an item with no clock sorts last. One
+ * surface: two items whose plain question would read the same are derived again with their handle,
+ * a lone item keeps the short form.
+ */
 export function deriveDecisions({
   warden,
   agents,
   wardenReceivedAt,
   now,
 }: DecisionInput): Decision[] {
-  return [
-    ...wardenDecisions(warden, wardenReceivedAt, now),
-    ...agentDecisions(agents, now),
-  ].toSorted((a, b) => (b.ageMs ?? -1) - (a.ageMs ?? -1))
+  const build = (handled: ReadonlySet<string>) => [
+    ...wardenDecisions(warden, wardenReceivedAt, now, handled),
+    ...agentDecisions(agents, now, handled),
+  ]
+  const short = build(new Set())
+  const clash = collidingCopies(
+    short.map(({ headline, copySource }) => ({ question: headline, source: copySource })),
+  )
+  const handled = new Set(short.filter((_, i) => clash[i]).map(({ id }) => id))
+  const all = handled.size === 0 ? short : build(handled)
+  return all.toSorted((a, b) => (b.ageMs ?? -1) - (a.ageMs ?? -1))
 }

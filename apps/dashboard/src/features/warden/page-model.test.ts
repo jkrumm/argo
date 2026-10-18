@@ -29,6 +29,7 @@ import {
   revertsFooter,
   REVERTS_INFO,
   wardenAsk,
+  wardenAsks,
   deriveBoard,
   pollerAgeText,
   BUDGET_MISSING,
@@ -980,5 +981,40 @@ describe('deriveBoard', () => {
 
   it('says nothing is open when nothing was claimed either', () => {
     expect(deriveBoard(board([]), new Set()).emptyText).toBe('No open items.')
+  })
+})
+
+describe('wardenAsks', () => {
+  const entry = (eventId: number, title: string, over: Record<string, unknown> = {}) => ({
+    kind: 'decision' as const,
+    source: {
+      eventId,
+      repo: '{repo}',
+      title,
+      origin: null,
+      reason: 'Evidence only.',
+      question: null,
+      availableActions: ['implement'],
+      ...over,
+    },
+  })
+
+  it('tells same-repo items apart across needs-you and failed, and spares a lone one', () => {
+    const asks = wardenAsks([
+      entry(1, 'Disk filling up'),
+      { ...entry(2, 'Cache cold'), kind: 'failed' as const },
+      entry(3, 'Latency high', { availableActions: ['reinvestigate'] }),
+    ])
+    expect(asks.map((a) => a.copy.question)).toEqual([
+      'Implement {repo} change: Disk filling up?',
+      'Implement {repo} change: Cache cold?',
+      'Reinvestigate {repo} item?',
+    ])
+    expect(asks.map((a) => a.copy.entity)).toEqual([null, null, 'Latency high'])
+  })
+
+  it('frames an alert origin as an alert, never as a change', () => {
+    const [ask] = wardenAsks([entry(1, 'Latency high', { origin: 'alert' })])
+    expect(ask!.copy.question).toBe('Handle {repo} alert?')
   })
 })

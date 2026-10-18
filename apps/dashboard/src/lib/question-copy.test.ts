@@ -4,8 +4,10 @@ import {
   EVIDENCE_LINE_MAX,
   QUESTION_MAX,
   cardCopy,
+  collidingCopies,
   leadOf,
   plainQuestion,
+  resolveCopies,
   wardenPlainQuestion,
 } from './question-copy'
 
@@ -246,5 +248,104 @@ describe('round 2 rules', () => {
     expect(cardCopy({ authored: 'Pick?', body, keepQuestionEvidence: true }).evidenceLine).toBe(
       body,
     )
+  })
+})
+
+describe('plain rung: handles that tell items apart', () => {
+  const plain = wardenPlainQuestion({ failed: false, repo: 'api', primary: 'implement' })
+  const derive = (title: string) => (_: string, withHandle: boolean) =>
+    cardCopy({ title, plain, handle: withHandle ? title : null })
+
+  it('keeps the short form for a lone item', () => {
+    const [copy] = resolveCopies(['Disk filling up'], (t, h) => derive(t)(t, h))
+    expect(copy!.question).toBe('Implement api change?')
+    expect(copy!.entity).toBe('Disk filling up')
+  })
+
+  it('gives two same-repo items different titles and drops the entity line', () => {
+    const titles = ['Disk filling up — host a', 'Certificate expires soon']
+    const copies = resolveCopies(titles, (t, h) => derive(t)(t, h))
+    expect(copies[0]!.question).toBe('Implement api change: Disk filling up?')
+    expect(copies[1]!.question).toBe('Implement api change: Certificate expires soon?')
+    expect(copies.map((c) => c.entity)).toEqual([null, null])
+    // The cut title stays whole behind the disclosure; the fully said one needs no repeat.
+    expect(copies[0]!.detail).toBe('Disk filling up — host a')
+    expect(copies[1]!.detail).toBeNull()
+  })
+
+  it('leaves an authored question alone even when two cards share it', () => {
+    const copies = resolveCopies(['a', 'b'], (t, h) =>
+      cardCopy({ authored: 'Ship it?', title: t, plain, handle: h ? t : null }),
+    )
+    expect(collidingCopies(copies)).toEqual([false, false])
+    expect(copies.map((c) => c.question)).toEqual(['Ship it?', 'Ship it?'])
+  })
+
+  it('never ends mid-word, never loses its ?, never exceeds QUESTION_MAX', () => {
+    const long = `Replication lag ${'on the standby node '.repeat(12)}is growing`
+    const lead = (title: string) =>
+      resolveCopies([long, title], (t, h) => cardCopy({ title: t, plain, handle: h ? t : null }))
+    for (const copy of [...lead(long), ...lead(`${long} again`)]) {
+      expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
+      expect(copy.question.endsWith('?')).toBe(true)
+      expect(copy.question).toMatch(/\b[\w}]*…?\?$/)
+      expect(copy.question).not.toMatch(/\s\w{1,2}…\?$/)
+    }
+    const [first] = lead(long)
+    expect(
+      first!.question
+        .replace(/…?\?$/, '')
+        .split(' ')
+        .pop(),
+    ).toBe('node')
+  })
+
+  it('drops the handle when the stem leaves no room for it', () => {
+    const stem = 'Unblock '.concat('x'.repeat(QUESTION_MAX - 12), ' agent')
+    const copy = cardCopy({ title: 'Some title', plain: stem, handle: 'Some title' })
+    expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
+    expect(copy.question.endsWith('?')).toBe(true)
+    expect(copy.entity).toBe('Some title')
+  })
+})
+
+describe('alerts are asked about, never framed as a change', () => {
+  it('asks to handle an alert whose card offers implement', () => {
+    const q = wardenPlainQuestion({ failed: false, repo: 'api', primary: 'implement', alert: true })
+    expect(q).toBe('Handle api alert?')
+    expect(q).not.toMatch(/implement|change/i)
+  })
+  it('asks to acknowledge an alert whose card offers no handling verb', () => {
+    expect(wardenPlainQuestion({ failed: false, repo: null, primary: null, alert: true })).toBe(
+      'Acknowledge this alert?',
+    )
+  })
+  it('matches the verb to the primary action', () => {
+    expect(wardenPlainQuestion({ failed: true, repo: 'api', primary: 'retry', alert: true })).toBe(
+      'Retry api alert?',
+    )
+    expect(
+      wardenPlainQuestion({ failed: false, repo: 'api', primary: 'reinvestigate', alert: true }),
+    ).toBe('Reinvestigate api alert?')
+  })
+  it('keeps a merge a merge', () => {
+    expect(wardenPlainQuestion({ failed: false, repo: 'api', primary: 'merge', alert: true })).toBe(
+      'Merge api PR?',
+    )
+  })
+  it('carries the alert handle once two alerts collide', () => {
+    const plain = wardenPlainQuestion({
+      failed: false,
+      repo: 'api',
+      primary: 'implement',
+      alert: true,
+    })
+    const copies = resolveCopies(['Service A down', 'Service B down'], (t, h) =>
+      cardCopy({ title: t, plain, handle: h ? t : null }),
+    )
+    expect(copies.map((c) => c.question)).toEqual([
+      'Handle api alert: Service A down?',
+      'Handle api alert: Service B down?',
+    ])
   })
 })

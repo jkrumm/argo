@@ -44,16 +44,16 @@ const agent = (overrides: Partial<AgentRow> = {}): AgentRow => ({
 describe('formatWaitDuration', () => {
   it('formats a multi-day wait as days + hours', () => {
     const ms = 21 * 24 * 60 * 60 * 1000
-    expect(formatWaitDuration(ms)).toBe('21d 0h')
+    expect(formatWaitDuration(ms)).toBe('21 d 0 h')
   })
 
   it('formats an hours+minutes wait once past an hour', () => {
     const ms = 5 * 3_600_000 + 12 * 60_000
-    expect(formatWaitDuration(ms)).toBe('5h 12m')
+    expect(formatWaitDuration(ms)).toBe('5 h 12 m')
   })
 
   it('formats a sub-hour wait as minutes only', () => {
-    expect(formatWaitDuration(42 * 60_000)).toBe('42m')
+    expect(formatWaitDuration(42 * 60_000)).toBe('42 m')
   })
 
   it('prints "—" for a negative or non-finite value', () => {
@@ -323,7 +323,7 @@ describe('sourceLabel', () => {
 
 describe('fleetFact', () => {
   it('names the longest run, or that nothing works', () => {
-    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3h 5m')
+    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3 h 5 m')
     expect(fleetFact(null, 0)).toBe('no agent working')
     expect(fleetFact(null, 3)).toBe('longest run not reported')
   })
@@ -466,7 +466,7 @@ describe('countUnknownAgents', () => {
 describe('ageAgo', () => {
   it('reads just now under a minute, else the wait format', () => {
     expect(ageAgo(30_000)).toBe('just now')
-    expect(ageAgo(5 * 60_000)).toBe('5m ago')
+    expect(ageAgo(5 * 60_000)).toBe('5 m ago')
     expect(ageAgo(-1)).toBe('—')
   })
 })
@@ -511,7 +511,7 @@ describe('needsYouCards', () => {
       ],
     })
     expect(cards[1]).toMatchObject({
-      facts: ['human queue', 'mini', 'asked 1h 0m ago'],
+      facts: ['human queue', 'mini', 'asked 1 h 0 m ago'],
       question: 'Run the thing now?',
       evidenceLine: 'Then reply.',
       actions: [
@@ -589,8 +589,8 @@ describe('needsYouCards', () => {
     })
     const [card] = needsYouCards([], [waiting], now, { machine: 'mini', snapshotAgeMs: 120_000 })
     expect(card).toMatchObject({
-      facts: ['argo', 'waiting 1h 30m', 'mini'],
-      evidenceLine: 'No blocker reported; the snapshot is 2m ago.',
+      facts: ['argo', 'waiting 1 h 30 m', 'mini'],
+      evidenceLine: 'No blocker reported; the snapshot is 2 m ago.',
       preview: null,
     })
   })
@@ -605,8 +605,8 @@ describe('needsYouCards', () => {
       now,
       { machine: 'mini' },
     )
-    expect(bare?.facts).toEqual(['human queue', 'asked 1h 0m ago'])
-    expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30m ago'])
+    expect(bare?.facts).toEqual(['human queue', 'asked 1 h 0 m ago'])
+    expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30 m ago'])
   })
 
   it('turns a statement ask into a plain question, the statement as evidence, no character count', () => {
@@ -730,5 +730,26 @@ describe('feedAside', () => {
     expect(feedAside('ok', null)).toBeNull()
     expect(feedAside('failed', 60_000)).toBeNull()
     expect(feedAside('pending', null)).toBeNull()
+  })
+})
+
+describe('needsYouCards: questions that tell items apart', () => {
+  const now = Date.parse('2026-01-10T12:00:00Z')
+
+  it('gives two same-project agents their own handle, and a lone one keeps the short form', () => {
+    const waiting = (id: string, title: string) =>
+      agent({ id, state: 'needs_you', title, lastActivityAt: now - 60_000 })
+    const [lone] = needsYouCards([], [waiting('a', 'Pick a branch')], now)
+    expect(lone!.question).toBe('Unblock argo agent?')
+    const pair = needsYouCards(
+      [],
+      [waiting('a', 'Pick a branch'), waiting('b', 'Choose a host')],
+      now,
+    )
+    expect(pair.map((c) => c.question).toSorted()).toEqual([
+      'Unblock argo agent: Choose a host?',
+      'Unblock argo agent: Pick a branch?',
+    ])
+    expect(pair.map((c) => c.entity)).toEqual([null, null])
   })
 })

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Anchor, Box, SimpleGrid, Text } from '@mantine/core'
 import { EmptyState, Section } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
@@ -17,7 +17,7 @@ import {
   type PendingActions,
 } from './model'
 import {
-  wardenAsk,
+  wardenAsks,
   cardCategory,
   cardFacts,
   historyView,
@@ -26,6 +26,7 @@ import {
   type TransitionHistory,
   type ActionPlan,
   type QueueKind,
+  type WardenAsk,
 } from './page-model'
 import { StatusChip } from './status-chip'
 
@@ -85,6 +86,7 @@ function cardSlots(
 function QueueCard({
   row,
   kind,
+  ask,
   pending,
   history,
   onFire,
@@ -92,22 +94,13 @@ function QueueCard({
 }: {
   row: AwaitingOwnerRow
   kind: QueueKind
+  ask: WardenAsk
   pending: PendingActions[number] | undefined
   history: TransitionHistory
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
-  const { plan, repo, tag, copy, repoNamed } = wardenAsk(
-    {
-      eventId: row.eventId,
-      repo: row.repo,
-      title: row.title,
-      reason: row.reason,
-      question: row.question,
-      availableActions: row.availableActions,
-    },
-    kind,
-  )
+  const { plan, repo, tag, copy, repoNamed } = ask
   const toAction = (verb: WardenActionVerb): DecisionCardAction => ({
     label: VERB_LABEL[verb],
     onClick: () => onFire(verb),
@@ -169,6 +162,7 @@ function QueueCard({
 function CardGrid({
   rows,
   kind,
+  asks,
   pending,
   items,
   onFire,
@@ -176,6 +170,7 @@ function CardGrid({
 }: {
   rows: readonly AwaitingOwnerRow[]
   kind: QueueKind
+  asks: ReadonlyMap<number, WardenAsk>
   items: WardenItems | undefined
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
@@ -188,6 +183,7 @@ function CardGrid({
           key={row.eventId}
           row={row}
           kind={kind}
+          ask={asks.get(row.eventId)!}
           pending={pending[row.eventId]}
           history={recentTransitions(items?.[String(row.eventId)])}
           onFire={(verb) => onFire(row.eventId, verb)}
@@ -207,6 +203,28 @@ function CardGrid({
 export function DecisionQueues({ view, items, pending, onSelectItem, onAction }: Props) {
   const [prompt, setPrompt] = useState<PromptState>(null)
   const needs = needsCards(view)
+  // One surface: a needs-you and a failed card that would read the same are told apart together.
+  const asks = useMemo(() => {
+    const entries = [
+      ...needsCards(view).map((row) => ({ row, kind: 'decision' as const })),
+      ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
+    ]
+    const resolved = wardenAsks(
+      entries.map(({ row, kind }) => ({
+        kind,
+        source: {
+          eventId: row.eventId,
+          repo: row.repo,
+          title: row.title,
+          origin: row.origin,
+          reason: row.reason,
+          question: row.question,
+          availableActions: row.availableActions,
+        },
+      })),
+    )
+    return new Map(entries.map(({ row }, i) => [row.eventId, resolved[i]!] as const))
+  }, [view])
 
   const fire = useCallback(
     (eventId: number, verb: WardenActionVerb) => {
@@ -241,6 +259,7 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
           <CardGrid
             rows={needs}
             kind="decision"
+            asks={asks}
             items={items}
             pending={pending}
             onFire={fire}
@@ -253,6 +272,7 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
           <CardGrid
             rows={view.failed}
             kind="failed"
+            asks={asks}
             items={items}
             pending={pending}
             onFire={fire}
