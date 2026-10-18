@@ -10,7 +10,7 @@ export type LabeledPaneProps = {
   selectedId: string | null
   /** The source whose label is being removed right now. */
   removingId: string | null
-  /** The last failed remove, shown above the groups. */
+  /** The last failed remove, shown under the header. */
   error: string | null
   /** The pane's own title; omitted where a Section title above already names it. */
   title?: string | undefined
@@ -32,6 +32,11 @@ export function LabeledPane(props: LabeledPaneProps) {
   return (
     <div className={classes.labeledPane} data-shot="labeled-pane">
       {header}
+      {props.error ? (
+        <Alert color="red" variant="light" m="sm">
+          {props.error}
+        </Alert>
+      ) : null}
       {groups.length === 0 ? (
         <p className={classes.empty}>
           No labeled sources — label a chat to include it in /m365/important
@@ -43,11 +48,6 @@ export function LabeledPane(props: LabeledPaneProps) {
           type="auto"
           scrollbars="y"
         >
-          {props.error ? (
-            <Alert color="red" variant="light" m="sm">
-              {props.error}
-            </Alert>
-          ) : null}
           {groups.map((g) => (
             <section key={g.tag} aria-label={g.tag}>
               <h3 className={classes.groupHeading}>

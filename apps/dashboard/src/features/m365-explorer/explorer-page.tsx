@@ -80,6 +80,7 @@ export function M365ExplorerPage(): ReactElement {
   const labelsQ = useSuspenseQuery(m365Queries.labels())
   // `shot-state=empty` renders the real no-chats / no-teams / no-labels branches.
   const emptyShot = shotState() === 'empty'
+  const chats = emptyShot ? [] : chatsQ.data.chats
   const teams = emptyShot ? [] : teamsQ.data.teams
   const labels: readonly LabelLite[] = emptyShot ? [] : labelsQ.data.labels
   const now = new Date(chatsQ.dataUpdatedAt)
@@ -120,7 +121,7 @@ export function M365ExplorerPage(): ReactElement {
     channels: channels.channels.length,
   }))
 
-  const chatRows: ChatRow[] = (emptyShot ? [] : chatsQ.data.chats).map((c) => ({
+  const chatRows: ChatRow[] = chats.map((c) => ({
     ref: { kind: 'chat', chatId: c.id, displayName: chatTitle(c) },
     searchText: [c.topic ?? '', ...c.members.map((m) => m.name)].join(' ').toLowerCase(),
     chatType: c.chatType,

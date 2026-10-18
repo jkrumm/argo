@@ -64,7 +64,11 @@ function ChatGroups(props: SourceListProps) {
   if (rows.length === 0) {
     return (
       <p className={classes.empty}>
-        {term ? `No chats match "${props.query.trim()}"` : 'No chats with this label'}
+        {term
+          ? `No chats match "${props.query.trim()}"`
+          : props.tag === ''
+            ? 'No chats yet'
+            : 'No chats with this label'}
       </p>
     )
   }
@@ -111,7 +115,11 @@ function TeamTree(props: SourceListProps) {
   if (visible.length === 0) {
     return (
       <p className={classes.empty}>
-        {term ? `No teams or channels match "${props.query.trim()}"` : 'No teams with this label'}
+        {term
+          ? `No teams or channels match "${props.query.trim()}"`
+          : props.tag === ''
+            ? 'No teams yet'
+            : 'No teams with this label'}
       </p>
     )
   }

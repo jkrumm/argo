@@ -95,7 +95,9 @@ function scaledText(v: number): string {
   if (v === 0) return '0'
   const abs = Math.abs(v)
   if (abs < 0.01) return v > 0 ? '<0.01' : '>-0.01'
-  return Math.abs(Number(v.toFixed(1))) >= 1 ? v.toFixed(1) : v.toFixed(2)
+  // Decimal-safe: `toFixed` misrounds binary ties (0.95 → `0.9`), so round the tenth by hand.
+  const tenth = (Math.sign(v) * Math.round(abs * 10)) / 10
+  return Math.abs(tenth) >= 1 ? tenth.toFixed(1) : v.toFixed(2)
 }
 
 /**
