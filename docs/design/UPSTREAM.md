@@ -36,6 +36,7 @@ basalt-ui 2.19.0 (2.18.0 shipped the exports below; 2.19.0 refined `Meter` / `Ba
 | Counted filter toolbar, standalone | `chips: {label, count, active}[]` + segmented control | hermes-chat, m365-explorer | The `BasaltDataTable` toolbar (wave 36) outside a table |
 | Master–detail shell | list pane + record pane whose empty state shows real content; a push sheet at 390 | m365-explorer | Proposed in the M365 concept; Hermes and Warden may follow but their concepts do not specify it yet |
 | `BandStrip` additions | a `today` outline, a text slot under the band, a preset banded by thresholds | walking-pad, astro-window, usage-tracking | Extends a shipped export |
+| Page summary (SPEC § 6.9 recipe) | `sentence, facts?: ReactNode[], aside?, loading?`: a headline sentence at the `h2` step (500, −0.02em) carrying a live number, a mono `·`-separated facts line under it | every page (Wave 24's shared gap: no page opened with Keel's headline + fact line) | Prototype: `components/upstream/page-summary.tsx`. SPEC calls it a recipe with no headline token; one shared component in argo is what kept thirteen pages from drifting, so propose it as an export |
 | `foldTopN(series, n, otherLabel)` | top N series plus "Other" for stacked charts grouped by an open-ended key | usage-tracking (the tokens legend has {n_series} entries) | A data helper next to the chart kinds |
 
 ## Already specified, not built

@@ -1,0 +1,55 @@
+/* PageSummary — prototype of Keel's page summary (docs/design/UPSTREAM.md). */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-xs);
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-md);
+}
+
+/* Keel's headline is 28/500 with −0.02em; basalt's nearest role is the heading `h2` step. */
+.sentence {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--basalt-font-head);
+  font-size: var(--vx-text-h2);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--vx-ink);
+  text-wrap: balance;
+}
+
+.aside {
+  flex: none;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  white-space: nowrap;
+}
+
+.facts {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.fact {
+  white-space: nowrap;
+}
+
+.fact + .fact::before {
+  content: '·';
+  margin-inline-end: var(--vx-space-stack-sm);
+}
