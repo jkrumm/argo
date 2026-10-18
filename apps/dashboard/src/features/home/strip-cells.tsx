@@ -6,7 +6,7 @@ import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { NO_SNAPSHOT_SHORT, clockOf, noSnapshotText, type FleetPart } from '../agents/model'
+import { clockOf, noSnapshotText, type FleetPart } from '../agents/model'
 import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
   ACWR_CAUTION_TO,
@@ -23,7 +23,12 @@ import {
 } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
-import { BUDGET_MISSING, WARDEN_PUSH_MIN, deriveBudget, pollerAgeText } from '../warden/page-model'
+import {
+  BUDGET_MISSING,
+  BUDGET_NO_SNAPSHOT,
+  deriveBudget,
+  pollerAgeText,
+} from '../warden/page-model'
 import {
   countdownLabel,
   localKey,
@@ -96,13 +101,23 @@ export function agentsCell(
 
 // ── Dispatch budget ──────────────────────────────────────────────────────────────────────────
 
-/** The no-snapshot gap's clause verbatim plus Warden's cadence: the one place Home states it. */
-export const noWardenSnapshotText = (): string =>
-  `${NO_SNAPSHOT_SHORT} — Warden pushes every ${withUnit(WARDEN_PUSH_MIN, 'min')}`
+/** The Warden read as the cell sees it: a snapshot, or why there is none (`sourceStatus`). */
+export type WardenFeed = 'ready' | 'loading' | 'failed' | 'no-snapshot'
+
+/** What the budget meter's slot says when there is no meter: the feed's own gap, else the budget's. */
+const budgetGap = (feed: WardenFeed): string =>
+  feed === 'no-snapshot'
+    ? BUDGET_NO_SNAPSHOT
+    : feed === 'failed'
+      ? 'Warden failed to load — reload to retry'
+      : feed === 'loading'
+        ? 'Loading'
+        : BUDGET_MISSING.short
 
 export function budgetCell(
   budget: WardenBudget | undefined,
   poller: { name: string; ageMin: number; stale: boolean } | undefined,
+  feed: WardenFeed,
 ): StatStripCell {
   const dispatch = deriveBudget(budget)[0]
   const used = dispatch?.used ?? null
@@ -126,9 +141,7 @@ export function budgetCell(
         />
       ) : (
         <Text size="sm" c="dimmed">
-          {budget === undefined && poller === undefined
-            ? noWardenSnapshotText()
-            : BUDGET_MISSING.short}
+          {budgetGap(feed)}
         </Text>
       ),
     // With no budget and no poller there is no snapshot: the cell's line already says what to wait for.

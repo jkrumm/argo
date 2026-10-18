@@ -1,6 +1,7 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { Badge, Button, Card, Text } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
+import { NBSP } from '../../lib/format'
 import { clockTime } from '../agents/model'
 import { feedEmptyLine, type ActivityEvent, type ActivityGroup } from './model'
 import classes from './home.module.css'
@@ -120,10 +121,7 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
         {meta.length > 0 ? (
           <span className={classes.feedMeta}>
             {meta.map((p, i) => (
-              <Fragment key={p.kind}>
-                {i > 0 ? <span aria-hidden>·</span> : null}
-                <MetaPart part={p} />
-              </Fragment>
+              <MetaPart key={p.kind} part={p} lead={i > 0} />
             ))}
           </span>
         ) : null}
@@ -134,20 +132,30 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
 }
 
 /** One part of line 2: the outcome wraps whole, only the chip clips inside itself. */
-function MetaPart({ part }: { part: RowPart }) {
+function MetaPart({ part, lead }: { part: RowPart; lead: boolean }) {
+  // The `·` before a part sits inside its wrapper, so a wrap never leaves it dangling at a line end.
+  const dot = lead ? <span aria-hidden>{`·${NBSP}`}</span> : null
   if (part.kind === 'chip')
     return (
-      <Badge
-        variant="light"
-        color="gray"
-        size="sm"
-        fz="sm"
-        tt="none"
-        classNames={{ root: classes.chip, label: classes.chipLabel }}
-      >
-        {part.text}
-      </Badge>
+      <span className={classes.feedPart}>
+        {dot}
+        <Badge
+          variant="light"
+          color="gray"
+          size="sm"
+          fz="sm"
+          tt="none"
+          classNames={{ root: classes.chip, label: classes.chipLabel }}
+        >
+          {part.text}
+        </Badge>
+      </span>
     )
-  if (part.kind === 'lead') return null
-  return <span className={classes.feedOutcome}>{part.text}</span>
+  if (part.kind !== 'outcome') return null
+  return (
+    <span className={classes.feedOutcome}>
+      {dot}
+      {part.text}
+    </span>
+  )
 }
