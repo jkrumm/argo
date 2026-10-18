@@ -277,12 +277,8 @@ export const gapLeader = (g: {
   nothingToLabel: boolean
   noChats: boolean
   noTeams: boolean
-}): GapLeader => {
-  // `labeled` claims both lists are empty, so it needs the raw lists empty too: a team that came back with no channel leaves nothing to label but is not "no channels came back" for the chats pane.
-  if (g.nothingToLabel && g.noChats && g.noTeams) return 'labeled'
-  if (g.noChats) return 'chats'
-  return g.noTeams ? 'channels' : null
-}
+}): GapLeader =>
+  g.nothingToLabel ? 'labeled' : g.noChats ? 'chats' : g.noTeams ? 'channels' : null
 
 export type SourceKind = 'chats' | 'teams'
 

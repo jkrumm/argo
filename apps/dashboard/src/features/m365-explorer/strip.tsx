@@ -32,7 +32,6 @@ function labeledCell(
   list: { chats: number; capped: boolean },
   onRetry: () => void,
   empty: boolean,
-  leading: boolean,
 ): StatStripCell {
   const { labeled, total, loading, failed } = coverage
   const pending = loading > 0
@@ -42,7 +41,7 @@ function labeledCell(
     return {
       key: 'labeled',
       caption: 'Labeled sources',
-      state: { kind: 'empty', reason: leading ? withStep(NO_SOURCES) : NO_SOURCES },
+      state: { kind: 'empty', reason: withStep(NO_SOURCES) },
     }
   }
   const labeledCount = Math.min(labeled, total)
@@ -188,7 +187,7 @@ export function ExplorerStrip({
       label="Coverage summary"
       cols={3}
       cells={[
-        labeledCell(coverage, list, onRetry, nothingLabelable, leader === 'labeled'),
+        labeledCell(coverage, list, onRetry, leader === 'labeled'),
         chatsCell(chats, noChats, leader),
         channelsCell({ channels, largest: largestTeam, failed: coverage.failed, noTeams, leader }),
       ]}

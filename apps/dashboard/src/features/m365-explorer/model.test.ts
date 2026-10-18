@@ -477,10 +477,10 @@ describe('gap predicates', () => {
     expect(gapLeader({ ...none, noTeams: true })).toBe('channels')
     expect(gapLeader(none)).toBeNull()
   })
-  test('teams back with no channel and no chats is not a both-empty claim', () => {
-    // nothing to label, but a team came back: the chats pane must not say `or channels`
+  test('a team back with no channel and no chats keeps the labeled leader and one wording', () => {
     const leader = gapLeader({ nothingToLabel: true, noChats: true, noTeams: false })
-    expect(leader).toBe('chats')
-    expect(emptyGap(leader, 'chats')).toBe(NO_CHATS)
+    expect(leader).toBe('labeled')
+    expect(emptyGap(leader, 'chats')).toBe(NO_SOURCES)
+    expect(emptyGap(leader, 'teams')).toBe(NO_SOURCES)
   })
 })
