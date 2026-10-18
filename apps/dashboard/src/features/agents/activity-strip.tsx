@@ -25,9 +25,9 @@ const SIX_HOURS = 6
 const STATES = [
   {
     key: 'working',
-    label: 'Working (hourly peak)',
+    label: 'Agents working (hourly peak, darker = more)',
     color: VX.line,
-    formatValue: (d: HourBucket) => `${d.working ?? 0} agents`,
+    formatValue: (d: HourBucket) => `${d.working ?? 0} ${d.working === 1 ? 'agent' : 'agents'}`,
   },
   {
     key: 'quiet',
@@ -36,12 +36,12 @@ const STATES = [
     formatValue: () => '0 agents',
   },
   { key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) },
-  { key: 'pending', label: 'Hour in progress, no snapshot yet', color: alpha(VX.line, 0.05) },
 ] as const
 
 /**
  * Agents working per hour over the window: one cell per hour, intensity = the hour's peak working
  * count, a distinct flat cell where no snapshot landed (a feed stall shows as a hole, not a zero).
+ * The legend names the three kinds of cell; an hour still in progress with no snapshot is not drawn.
  */
 export function ActivityStrip({ history, hours, now }: Props) {
   const { buckets, peakHour, fact } = useMemo(() => {
@@ -49,18 +49,20 @@ export function ActivityStrip({ history, hours, now }: Props) {
     const busiest = peakWorking(hourly)
     return { buckets: hourly, peakHour: busiest, fact: activityFact(hourly, busiest) }
   }, [history, hours, now])
+  // The hour in progress with no snapshot yet is not a gap and not yet an hour: it is left off.
   const currentHourMs = buckets.at(-1)?.hourMs
-  const gaps = gapHours(buckets, now)
+  const shown = buckets.filter((b) => !(b.hourMs === currentHourMs && b.working === null))
+  const gaps = gapHours(shown, now)
   const peak = peakHour?.value ?? 0
 
   const getBand = useMemo(
     () =>
       (d: HourBucket): BandSpan => {
-        if (d.working === null) return { state: d.hourMs === currentHourMs ? 'pending' : 'gap' }
+        if (d.working === null) return { state: 'gap' }
         if (d.working === 0) return { state: 'quiet' }
         return { state: 'working', fill: alpha(VX.line, 0.25 + 0.75 * (d.working / peak)) }
       },
-    [peak, currentHourMs],
+    [peak],
   )
   const ticks = buckets
     .filter((b) => new Date(b.hourMs).getHours() % SIX_HOURS === 0)
@@ -75,13 +77,12 @@ export function ActivityStrip({ history, hours, now }: Props) {
       <Box data-shot="activity-strip" pt="lg">
         <BandStrip
           ariaLabel={`Agents working per hour over the last ${hours} hours`}
-          data={buckets}
+          data={shown}
           x={(d) => d.hourMs}
           xTicks={ticks}
           formatX={clockOf}
           states={STATES}
           getBand={getBand}
-          legend={false}
           height={48}
         />
         <Text size="sm" ff="monospace" c="dimmed" mt="xs">
