@@ -49,7 +49,7 @@ describe('feedGap', () => {
     expect(feedGap(new Set(['personal', 'work']), new Set(['work', 'personal']))).toMatchObject({
       state: 'error',
       text: 'Google and Microsoft 365 failed to load — reload to retry',
-      card: 'Google and Microsoft 365 failed to load — reload to retry',
+      card: 'Google and Microsoft 365 failed to load',
     })
     expect(feedGap(new Set(['personal', 'work']), new Set(['work']))?.text).toBe(
       'Microsoft 365 failed to load — reload to retry',

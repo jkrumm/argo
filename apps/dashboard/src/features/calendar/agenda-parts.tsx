@@ -242,9 +242,7 @@ export function WeekStrip({
             <span>{gap?.card}</span>
           </Box>
         ) : noEvents ? (
-          <Text className={classes.muted}>
-            No events this week — Google and Microsoft 365 fill it
-          </Text>
+          <Text className={classes.muted}>No events this week in Google or Microsoft 365</Text>
         ) : null}
       </Section>
     </Card>
