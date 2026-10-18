@@ -107,7 +107,7 @@ function entriesOf(
 ): Entry[] {
   // One list, the one the Warden page counts from: decisions, unknown states, then failed items.
   const warden = raw?.board
-    ? waitingOnOwner(deriveAwaitingOwner(raw.board)).map((row): Entry => ({
+    ? waitingOnOwner(deriveAwaitingOwner(raw.board, raw.items)).map((row): Entry => ({
         source: 'warden',
         row,
         kind: row.state === 'failed' ? 'failed' : 'decision',

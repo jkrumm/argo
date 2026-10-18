@@ -12,6 +12,7 @@ import {
   type TimelineView,
 } from './model'
 import type { WardenItems } from '../../lib/queries/warden'
+import { NBSP } from '../../lib/format'
 
 type Props = {
   eventId: number | null
@@ -51,11 +52,7 @@ function TransitionLabel({ transition }: { transition: Row }) {
   if (transition['synthetic'] === true) return <Text size="sm">created</Text>
   const from = str(transition['from_state']) ?? '—'
   const to = str(transition['to_state']) ?? '—'
-  return (
-    <Text size="sm">
-      {from} → {to}
-    </Text>
-  )
+  return <Text size="sm">{`${from}${NBSP}→${NBSP}${to}`}</Text>
 }
 
 function TransitionRow({ transition }: { transition: Row }) {

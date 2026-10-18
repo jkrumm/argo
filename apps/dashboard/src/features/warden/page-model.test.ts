@@ -35,6 +35,7 @@ import {
   BUDGET_MISSING,
   emptyBoardText,
   emptyColumnText,
+  sharedEvidenceLines,
   fixesLegend,
   historyView,
   pollerFooter,
@@ -372,6 +373,13 @@ describe('planActions', () => {
       secondary: 'merge',
       menu: ['dismiss', 'note'],
     })
+  })
+
+  it('never offers Merge on a failed verification', () => {
+    const plan = planActions(['dismiss', 'merge', 'retry', 'note'], 'failed', 'verifying')
+    expect(plan).toEqual({ primary: 'retry', secondary: 'dismiss', menu: ['note'] })
+    expect(planActions(['merge', 'retry'], 'failed', 'working').secondary).toBe('merge')
+    expect(planActions(['merge', 'retry'], 'decision', 'verifying').primary).toBe('merge')
   })
 
   it('promotes the only offered verb to primary', () => {
@@ -846,7 +854,7 @@ describe('transitionText and historyView', () => {
   it('names a creation row and a move whole', () => {
     expect(transitionText({ from: null, to: 'new', at: null })).toBe('Created')
     expect(transitionText({ from: 'needs_decision', to: 'working', at: null })).toBe(
-      'Needs decision → Working',
+      'Needs decision\u00a0→\u00a0Working',
     )
   })
 
@@ -866,7 +874,10 @@ describe('transitionText and historyView', () => {
     )
     const view = historyView(many)
     expect(view?.layout).toBe('well')
-    expect(view?.lines.map((l) => l.text)).toEqual(['Triaged → Working', 'New → Triaged'])
+    expect(view?.lines.map((l) => l.text)).toEqual([
+      'Triaged\u00a0→\u00a0Working',
+      'New\u00a0→\u00a0Triaged',
+    ])
     expect(view?.earlier).toBe(3)
   })
 
@@ -937,6 +948,10 @@ describe('board empty copy', () => {
     expect(emptyBoardText(4)).toBe(
       'No other open items. The 4 open items are waiting on you, above.',
     )
+    expect(emptyBoardText(2, 1)).toBe(
+      'No other open items. The 2 open items are waiting on you and 1 failed, above.',
+    )
+    expect(emptyBoardText(0, 3)).toBe('No other open items. 3 failed, above.')
   })
 })
 
@@ -982,9 +997,16 @@ describe('deriveBoard', () => {
   })
 
   it('says every open item waits on the owner when all are claimed', () => {
-    const view = deriveBoard(board([item(1, 'needs_decision'), item(2, 'failed')]), new Set([1, 2]))
+    const view = deriveBoard(
+      board([item(1, 'needs_decision'), item(2, 'failed')]),
+      new Set([1, 2]),
+      new Set([2]),
+    )
     expect(view.open).toBe(0)
-    expect(view.emptyText).toBe('No other open items. The 2 open items are waiting on you, above.')
+    // The count is the `Needs you` badge's: the failed item is named apart, never added to it.
+    expect(view.emptyText).toBe(
+      'No other open items. The one open item is waiting on you and 1 failed, above.',
+    )
   })
 
   it('says nothing is open when nothing was claimed either', () => {
@@ -1020,9 +1042,29 @@ describe('wardenAsk across one surface', () => {
     expect(asks.map((a) => a.copy.question)).toEqual([
       'Implement {repo} change: Disk filling up?',
       'Implement {repo} change: Cache cold?',
-      'Reinvestigate {repo} item?',
+      'Re-investigate {repo} item?',
     ])
     expect(asks.map((a) => a.copy.entity)).toEqual([null, null, 'Latency high'])
+  })
+
+  it('frames a bracket-tagged alert as an alert whatever its origin, with a whole handle', () => {
+    const asks = resolve([
+      entry(1, '[alert] {key-a} disk full', { origin: 'job' }),
+      entry(2, '[ALERT] {key-b} disk full', { origin: null }),
+    ])
+    expect(asks.map((a) => a.copy.question)).toEqual([
+      'Implement fix for {repo} alert: {key-a} disk full?',
+      'Implement fix for {repo} alert: {key-b} disk full?',
+    ])
+  })
+
+  it('asks the verb its primary button carries', () => {
+    const { copy, plan } = wardenAsk(
+      { ...entry(1, '[alert] {key}').row, availableActions: ['implement', 'dismiss'] },
+      'decision',
+    )
+    expect(plan.primary).toBe('implement')
+    expect(copy.question).toStartWith('Implement ')
   })
 
   it('keeps an id that sits in both lists apart by kind', () => {
@@ -1042,7 +1084,7 @@ describe('wardenAsk across one surface', () => {
       entry(2, 'Queue deep', { origin: 'alert', availableActions: ['dismiss'] }),
       entry(3, 'Disk full', { origin: 'alert', availableActions: [] }),
     ])
-    expect(handle!.copy.question).toBe('Handle {repo} alert?')
+    expect(handle!.copy.question).toBe('Implement fix for {repo} alert?')
     expect(dismiss!.copy.question).toBe('Dismiss {repo} alert?')
     expect(none!.copy.question).toBe('Decide on {repo} alert?')
   })
@@ -1067,5 +1109,16 @@ describe('wardenAsk across one surface', () => {
       expect(ask!.copy.question).toBe('Implement this change?')
       expect(ask!.copy.entity).toBe('Item #1')
     }
+  })
+})
+
+describe('sharedEvidenceLines', () => {
+  const ask = (evidenceLine: string | null) =>
+    ({ copy: { evidenceLine } }) as unknown as Parameters<typeof sharedEvidenceLines>[0][number]
+  it('returns the lines two or more cards print word for word, once each', () => {
+    expect(
+      sharedEvidenceLines([ask('Same note.'), ask('same note.'), ask('Own fact.'), ask(null)]),
+    ).toEqual(['Same note.'])
+    expect(sharedEvidenceLines([ask('A.'), ask('B.')])).toEqual([])
   })
 })

@@ -20,6 +20,7 @@ import {
   localKey,
   meetingState,
   classLabels,
+  shortMeetingName,
   GARMIN_SYNC_HOURS,
   type Agenda,
   type LaterMeeting,
@@ -108,6 +109,12 @@ export function budgetCell(
   }
 }
 
+/** `{name} · {fact}`: which meeting the cell is about, in its shortest form; the fact alone with no name. */
+const withName = (title: string, fact: string): string => {
+  const name = shortMeetingName(title)
+  return name === null ? fact : `${name} · ${fact}`
+}
+
 // ── Next meeting ─────────────────────────────────────────────────────────────────────────────
 
 export function meetingCell(
@@ -131,7 +138,7 @@ export function meetingCell(
         key: 'meeting',
         caption: 'Next meeting',
         value: weekdayTime(later.startMs),
-        footer: countdownLabel(later.startMs - now),
+        footer: withName(later.title, countdownLabel(later.startMs - now)),
       }
     }
     return {
@@ -157,7 +164,7 @@ export function meetingCell(
         ? current === undefined
           ? 'no more meetings today'
           : `in a meeting until ${clockOf(current.endMs)}`
-        : `${remaining} remaining today`,
+        : withName(next.title, `${remaining} remaining`),
   }
 }
 

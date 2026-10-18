@@ -83,6 +83,8 @@ export type AwaitingOwnerRow = {
   title: string | null
   /** The board item's `origin` (`alert`, …); `null` when the item is past the board cap. */
   origin: string | null
+  /** For a `failed` row: the state it failed out of (`verifying`), from its own timeline; `null` when unknown. */
+  failedFrom?: string | null
   /** The entry's raw state — the badge of the `other` list, which holds states outside the vocabulary. */
   state: string | null
   prUrl: string | null
@@ -129,6 +131,18 @@ export const waitingOnOwner = (view: AwaitingOwnerView): AwaitingOwnerRow[] => [
 
 const EMPTY_AWAITING_OWNER: AwaitingOwnerView = { needsDecision: [], failed: [], other: [] }
 
+/** The state an item's latest move into `failed` came from, read off its transition timeline. */
+function failedFromOf(timeline: unknown): string | null {
+  const rows = (timeline as { transitions?: unknown } | null | undefined)?.transitions
+  if (!Array.isArray(rows)) return null
+  for (const row of rows.toReversed()) {
+    const move = row as { from_state?: unknown; to_state?: unknown } | null
+    if (move?.to_state !== 'failed') continue
+    return typeof move.from_state === 'string' ? move.from_state : null
+  }
+  return null
+}
+
 /**
  * Splits `board.awaiting_owner` into the `needs_decision`, `failed` and `other` lists, preserving
  * warden's own oldest-first order — this never re-sorts. Missing on an older snapshot reads as
@@ -140,7 +154,10 @@ const EMPTY_AWAITING_OWNER: AwaitingOwnerView = { needsDecision: [], failed: [],
  * `AWAITING_OWNER_STALE_DAYS` or longer; an unreported age never counts as stale (no fabricated
  * urgency out of a missing number).
  */
-export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): AwaitingOwnerView {
+export function deriveAwaitingOwner(
+  board: WardenRaw['board'] | undefined,
+  items?: WardenRaw['items'],
+): AwaitingOwnerView {
   const entries = board?.awaiting_owner
   if (!entries || entries.length === 0) return EMPTY_AWAITING_OWNER
   const itemsById = new Map((board?.items ?? []).map((item) => [item.event_id, item]))
@@ -163,6 +180,7 @@ export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): Awai
       revisionCount: entry.revision_count,
       failureClass: entry.failure_class ?? boardItem?.failure_class ?? null,
       redrives: entry.redrives ?? boardItem?.redrives ?? 0,
+      failedFrom: entry.state === 'failed' ? failedFromOf(items?.[String(entry.event_id)]) : null,
       availableActions: entry.availableActions ?? [],
       question: authoredQuestion(entry['question']) ?? authoredQuestion(boardItem?.['question']),
     }

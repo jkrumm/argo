@@ -73,6 +73,31 @@ describe('strip cells with no reading', () => {
       NOW,
     )
     expect(cell.value).toBe('Mon 09:30')
+    expect(cell.footer).toStartWith('{meeting} · in ')
+  })
+
+  it('names which meeting is next, in its shortest form', () => {
+    const meeting = (title: string) => ({
+      key: 'm',
+      title,
+      startMs: NOW + 30 * 60_000,
+      endMs: NOW + 60 * 60_000,
+      durationMin: 30,
+      attendees: 1,
+      videoLink: null,
+      sourceClass: 'work' as const,
+    })
+    const cell = (title: string) => {
+      const m = meeting(title)
+      return meetingCell({ meetings: [m], loaded: ['work'], unavailable: [] }, m, null, NOW)
+    }
+    expect(cell('{meeting}').footer).toBe('{meeting} · 1 remaining')
+    expect(cell('Sprint planning — team {name} and the whole extended crew').footer).toBe(
+      'Sprint planning · 1 remaining',
+    )
+    expect(cell('A very long meeting name without any clause break at all').footer).toBe(
+      'A very long meeting… · 1 remaining',
+    )
   })
 })
 

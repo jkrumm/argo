@@ -57,10 +57,14 @@ function WardenPage() {
     if (!isFetching) setRefreshRequested(false)
   }
   const raw = snapshot?.raw
-  const awaitingOwner = deriveAwaitingOwner(raw?.board)
+  const awaitingOwner = deriveAwaitingOwner(raw?.board, raw?.items)
   const waiting = waitingOnOwner(awaitingOwner)
   const claimed = new Set(waiting.map((row) => row.eventId))
-  const board = deriveBoard(raw?.board, claimed)
+  const board = deriveBoard(
+    raw?.board,
+    claimed,
+    new Set(awaitingOwner.failed.map((row) => row.eventId)),
+  )
   const pollers = derivePollers(raw?.metrics, raw?.health)
   const { pending, handleAction } = useWardenActions(snapshot?.machine, raw?.board?.items)
 

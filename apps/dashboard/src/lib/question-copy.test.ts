@@ -198,7 +198,7 @@ describe('wardenPlainQuestion', () => {
   it('names the verb the card offers first', () => {
     expect(ask('merge')).toBe('Merge {r} PR?')
     expect(ask('implement')).toBe('Implement {r} change?')
-    expect(ask('reinvestigate')).toBe('Reinvestigate {r} item?')
+    expect(ask('reinvestigate')).toBe('Re-investigate {r} item?')
     expect(ask('merge', false, null)).toBe('Merge this PR?')
   })
   it('says Retry failed run only for a failed item whose primary is retry', () => {
@@ -328,15 +328,15 @@ describe('plain rung: handles that tell items apart', () => {
     expect(copies.map((c) => c.question)).toEqual(['Ship it?', 'Ship it?'])
   })
 
-  it('cuts a handle at a word, with the ellipsis and the ? kept, within QUESTION_MAX', () => {
+  it('never cuts a handle: one that does not fit whole gives way to the ordinal', () => {
     const long = `Replication lag ${'on the standby node '.repeat(12)}is growing`
     const [only] = resolve([long])
     expect(only!.question).toBe('Implement project-a change?')
-    // Two cards sharing the same long opening are cut alike, so the ordinal tells them apart.
+    // Two cards sharing the same long opening: no whole handle fits, so the ordinal tells them apart.
     const copies = resolve([long, `${long} again`])
     expect(copies.map((c) => c.question)).toEqual([
-      'Implement project-a change: Replication lag on the standby node on the… (1)?',
-      'Implement project-a change: Replication lag on the standby node on the… (2)?',
+      'Implement project-a change (1)?',
+      'Implement project-a change (2)?',
     ])
     for (const copy of copies) expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
   })
@@ -420,14 +420,13 @@ describe('alerts are asked about, never framed as a change', () => {
     wardenPlainQuestion({ failed: false, repo: 'project-a', primary, alert: true })
 
   it('names the verb the card carries, for every primary', () => {
-    expect(ask('implement')).toBe('Handle project-a alert?')
-    expect(ask('reinvestigate')).toBe('Reinvestigate project-a alert?')
+    expect(ask('implement')).toBe('Implement fix for project-a alert?')
+    expect(ask('reinvestigate')).toBe('Re-investigate project-a alert?')
     expect(ask('retry')).toBe('Retry project-a alert?')
-    expect(ask('merge')).toBe('Merge project-a alert?')
+    expect(ask('merge')).toBe('Merge fix for project-a alert?')
     expect(ask('dismiss')).toBe('Dismiss project-a alert?')
     expect(ask('note')).toBe('Add a note to project-a alert?')
-    for (const primary of ['implement', 'dismiss', 'note'] as const)
-      expect(ask(primary)).not.toMatch(/implement|change|acknowledge/i)
+    expect(ask('implement')).not.toMatch(/change|handle/i)
   })
 
   it('is neutral when the card carries no verb', () => {
@@ -450,8 +449,8 @@ describe('alerts are asked about, never framed as a change', () => {
       }),
     }).map((r) => r.copy)
     expect(copies.map((c) => c.question)).toEqual([
-      'Handle project-a alert: Service A down?',
-      'Handle project-a alert: Service B down?',
+      'Implement fix for project-a alert: Service A down?',
+      'Implement fix for project-a alert: Service B down?',
     ])
   })
 })
@@ -470,5 +469,74 @@ describe('isAlert', () => {
     expect(isAlert({ title: 'Incident - api down' })).toBe(true)
     expect(isAlert({ title: 'Reduce alert noise' })).toBe(false)
     expect(isAlert({ kinds: [42, {}], title: 7 })).toBe(false)
+  })
+  it('reads the producer bracket tag in any case, ahead of the kind field', () => {
+    expect(isAlert({ title: '[alert] {key} disk full' })).toBe(true)
+    expect(isAlert({ title: '[ALERT] {key}' })).toBe(true)
+    expect(isAlert({ title: ' [Alert] {key}' })).toBe(true)
+    expect(isAlert({ kinds: ['job'], title: '[alert] {key}' })).toBe(true)
+    expect(isAlert({ kinds: ['alert'], title: 'no tag' })).toBe(true)
+    expect(isAlert({ title: '[alerting] rules' })).toBe(false)
+    expect(isAlert({ title: 'Fix [alert] rules' })).toBe(false)
+  })
+})
+
+describe('handles are whole', () => {
+  const surface = (titles: string[], plain = 'Implement fix for {r} alert?', terseStem = false) =>
+    resolveCopies(titles, {
+      key: (t) => t,
+      terseStem,
+      derive: (t, { handle }) => ({
+        copy: cardCopy({
+          title: t,
+          plain,
+          handle: handle === null ? null : { source: t, ...handle },
+        }),
+      }),
+    }).map((r) => r.copy.question)
+
+  it('drops the leading bracket tag and never leaves a bracket open', () => {
+    const q = surface(['[alert] {key-a} disk full', '[alert] {key-b} disk full'])
+    expect(q).toEqual([
+      'Implement fix for {r} alert: {key-a} disk full?',
+      'Implement fix for {r} alert: {key-b} disk full?',
+    ])
+  })
+
+  it('never cuts a token or ends in an ellipsis before the question mark', () => {
+    const long = (k: string) => `[alert] ${k} ${'overloaded '.repeat(12)}`.trim()
+    for (const q of surface([long('{key-a}'), long('{key-b}')])) {
+      expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
+      expect(q).not.toMatch(/…\?$/)
+      expect(q).not.toMatch(/[([][^)\]]*\?$/)
+    }
+  })
+
+  it('falls back to an ordinal when no whole handle fits', () => {
+    const huge = `${'x'.repeat(90)}`
+    const q = surface([huge, huge])
+    expect(q).toEqual(['Implement fix for {r} alert (1)?', 'Implement fix for {r} alert (2)?'])
+  })
+
+  it('does not repeat the handle in the evidence line', () => {
+    const copy = cardCopy({
+      body: 'Service down after deploy. Check the logs.',
+      title: 'Service down after deploy',
+      plain: 'Unblock {r} agent?',
+      handle: { source: 'Service down after deploy', clauses: 1, ordinal: null },
+    })
+    expect(copy.question).toBe('Unblock {r} agent: Service down after deploy?')
+    expect(copy.evidenceLine).toBe('Check the logs.')
+  })
+
+  it('keeps only the verb when one stem heads every card', () => {
+    expect(surface(['Disk full', 'Queue deep'], 'Answer this request?', true)).toEqual([
+      'Answer: Disk full?',
+      'Answer: Queue deep?',
+    ])
+    expect(surface(['Disk full', 'Queue deep'], 'Answer this request?')).toEqual([
+      'Answer this request: Disk full?',
+      'Answer this request: Queue deep?',
+    ])
   })
 })

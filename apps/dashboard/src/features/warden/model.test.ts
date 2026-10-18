@@ -149,6 +149,28 @@ describe('deriveAwaitingOwner', () => {
     expect(view.failed.map((r) => r.eventId)).toEqual([2, 4])
   })
 
+  it('reads the state a failed item failed out of from its timeline', () => {
+    const view = deriveAwaitingOwner(
+      {
+        awaiting_owner: [
+          entry({ event_id: 1, state: 'failed' }),
+          entry({ event_id: 2, state: 'failed' }),
+          entry({ event_id: 3 }),
+        ],
+      } as never,
+      {
+        '1': {
+          transitions: [
+            { from_state: 'working', to_state: 'verifying' },
+            { from_state: 'verifying', to_state: 'failed' },
+          ],
+        },
+      } as never,
+    )
+    expect(view.failed.map((r) => r.failedFrom)).toEqual(['verifying', null])
+    expect(view.needsDecision[0]?.failedFrom).toBeNull()
+  })
+
   it('reads failure_class/redrives off the entry, else the board item, else null/0', () => {
     const view = deriveAwaitingOwner({
       awaiting_owner: [

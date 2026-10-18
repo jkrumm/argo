@@ -1,4 +1,4 @@
-import { withUnit } from '../../lib/format'
+import { NBSP, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -383,8 +383,14 @@ export type ActionPlan = {
 
 /** One primary, at most one secondary, everything else in the menu — by fixed priority, over the
  * verbs warden offers and this dashboard knows (`isKnownActionVerb`). */
-export function planActions(available: readonly string[], kind: QueueKind): ActionPlan {
+export function planActions(
+  available: readonly string[],
+  kind: QueueKind,
+  failedFrom: string | null = null,
+): ActionPlan {
   const offered = new Set(available.filter(isKnownVerb))
+  // A verification that failed ran after the merge: there is no PR left to merge.
+  if (kind === 'failed' && failedFrom === 'verifying') offered.delete('merge')
   const order = PRIMARY_ORDER[kind]
   const primary = order.find((verb) => offered.has(verb)) ?? null
   const secondary =
@@ -455,6 +461,8 @@ export type AskSource = {
   title: string | null
   /** The wire `origin` (`alert`, `github_issue`, …); an alert is asked about as an alert. */
   origin?: string | null
+  /** For a failed item, the state it failed out of; a failed verification never offers `merge`. */
+  failedFrom?: string | null
   reason: string | null
   /** The raw producer `question`; read through `authoredQuestion`, so any junk reads as none. */
   question: unknown
@@ -492,7 +500,7 @@ export function wardenAsk(
   { handle = null }: { handle?: Disambiguation | null } = {},
 ): WardenAsk {
   const failed = kind === 'failed'
-  const plan = planActions(source.availableActions, kind)
+  const plan = planActions(source.availableActions, kind, source.failedFrom ?? null)
   // The wire is loose: only a string is a title, reason or repo.
   const named = stripShortcodes(asText(source.title))
   const title = named || `Item #${source.eventId}`
@@ -513,6 +521,22 @@ export function wardenAsk(
     handle: handle === null ? null : { source: title, ...handle },
   })
   return { plan, repo, tag: split?.tag ?? null, copy, repoNamed: namesRepo(copy.question, repo) }
+}
+
+/**
+ * The evidence lines two or more cards of one list print word for word. They say nothing that tells
+ * the cards apart, so the list prints each once and the cards drop it (the full reason stays behind
+ * each card's disclosure). Compared case-insensitively.
+ */
+export function sharedEvidenceLines(asks: readonly WardenAsk[]): string[] {
+  const counts = new Map<string, { line: string; n: number }>()
+  for (const { copy } of asks) {
+    if (copy.evidenceLine === null) continue
+    const key = copy.evidenceLine.toLowerCase()
+    const seen = counts.get(key)
+    counts.set(key, { line: seen?.line ?? copy.evidenceLine, n: (seen?.n ?? 0) + 1 })
+  }
+  return [...counts.values()].filter(({ n }) => n > 1).map(({ line }) => line)
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
@@ -666,11 +690,14 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionHisto
 
 // ── History preview ─────────────────────────────────────────────────────────
 
+/** The arrow with a no-break space each side, so a line never wraps right after it. */
+const ARROW = `${NBSP}→${NBSP}`
+
 /** `Needs decision → Working`; a creation row reads `Created` (or `Created → <state>`). */
 export function transitionText({ from, to }: TransitionLine): string {
   const target = sentenceCase(to) ?? to
-  if (from === null) return to === 'new' ? 'Created' : `Created → ${target}`
-  return `${sentenceCase(from) ?? from} → ${target}`
+  if (from === null) return to === 'new' ? 'Created' : `Created${ARROW}${target}`
+  return `${sentenceCase(from) ?? from}${ARROW}${target}`
 }
 
 export type HistoryView = {
@@ -718,8 +745,6 @@ export function splitBoardColumns(columns: readonly BoardColumn[]): {
 }
 
 // ── Strip footers ───────────────────────────────────────────────────────────
-
-const NBSP = '\u00a0'
 
 /** The reverts cell's footer: the reopen count and window (the term is defined in the info tooltip). */
 export function revertsFooter(
@@ -789,12 +814,14 @@ export function emptyColumnText(key: BoardColumnKey): string {
 /**
  * The whole board empty. Items waiting on the owner leave the board for the cards above it, so an
  * empty board says where they are rather than "No open items" under a non-zero Needs-you count.
+ * `needsYou` is the `Needs you` badge's own count; failed items are named apart, never added to it.
  */
-export function emptyBoardText(waitingOnOwner: number): string {
-  if (waitingOnOwner === 0) return 'No open items.'
-  return waitingOnOwner === 1
-    ? 'No other open items. The one open item is waiting on you, above.'
-    : `No other open items. The ${waitingOnOwner} open items are waiting on you, above.`
+export function emptyBoardText(needsYou: number, failed = 0): string {
+  if (needsYou === 0 && failed === 0) return 'No open items.'
+  const failedText = failed === 0 ? '' : `${needsYou === 0 ? '' : ' and '}${failed} failed`
+  if (needsYou === 0) return `No other open items. ${failedText}, above.`
+  const waiting = needsYou === 1 ? 'The one open item is' : `The ${needsYou} open items are`
+  return `No other open items. ${waiting} waiting on you${failedText}, above.`
 }
 
 /** A poller as the Today page names it: `watchdog poll · 4 min old`. */
@@ -817,8 +844,14 @@ export type BoardView = {
 export function deriveBoard(
   board: WardenBoard | undefined,
   claimed: ReadonlySet<number>,
+  failedIds: ReadonlySet<number> = new Set(),
 ): BoardView {
   const columns = deriveBoardColumns(board, claimed)
-  const leftForCards = (board?.items ?? []).filter((item) => claimed.has(item.event_id)).length
-  return { columns, open: openCount(columns), emptyText: emptyBoardText(leftForCards) }
+  const left = (board?.items ?? []).filter((item) => claimed.has(item.event_id))
+  const failed = left.filter((item) => failedIds.has(item.event_id)).length
+  return {
+    columns,
+    open: openCount(columns),
+    emptyText: emptyBoardText(left.length - failed, failed),
+  }
 }
