@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bars, ChartCard, type BarsBar } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
+import { withUnit } from '../../../lib/format'
 import { chartStateOf } from '../../../lib/chart-state'
 import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
@@ -34,7 +35,7 @@ type MonthRow = {
 
 // `formatValue` is per-bar: the axis `format` below drives the ticks (and is the tooltip's
 // fallback), so the tooltip's own precision belongs here.
-const fmtBudget = (v: number) => `${v.toFixed(1)}h`
+const fmtBudget = (v: number) => withUnit(v.toFixed(1), 'h')
 
 /**
  * Three progressively honest gates, side by side per month (grouped, not stacked) — at the four
@@ -46,6 +47,7 @@ const BARS: BarsBar<MonthRow>[] = [
   {
     key: 'flat',
     label: 'Flat atmospheric floor',
+    note: 'left bar',
     color: VX.faint,
     getValue: (d) => d.flat,
     formatValue: fmtBudget,
@@ -53,6 +55,7 @@ const BARS: BarsBar<MonthRow>[] = [
   {
     key: 'terrain',
     label: 'Flat + measured skyline',
+    note: 'middle bar',
     color: VX.muted,
     getValue: (d) => d.terrain,
     formatValue: fmtBudget,
@@ -60,6 +63,7 @@ const BARS: BarsBar<MonthRow>[] = [
   {
     key: 'terrainMoon',
     label: 'Skyline + moon behind it',
+    note: 'right bar',
     color: SERIES.coreAltitude,
     getValue: (d) => d.terrainMoon,
     formatValue: fmtBudget,
@@ -93,7 +97,7 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
         peak === null
           ? null
           : {
-              value: `${peak.hours} h`,
+              value: withUnit(peak.hours, 'h'),
               unit: `in ${MONTH_LABELS[peak.monthIndex]}`,
               period: 'best month, skyline and moon counted',
             },
@@ -111,7 +115,7 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
         x={(d) => d.month}
         bars={BARS}
         layout="grouped"
-        y={{ domain: 'auto', autoMinCeil: 0, format: (v) => `${v}h` }}
+        y={{ domain: 'auto', autoMinCeil: 0, format: (v) => withUnit(v, 'h') }}
       />
     </ChartCard>
   )

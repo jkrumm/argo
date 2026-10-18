@@ -28,7 +28,7 @@ export function ScoreCard({ night }: { night: Night }) {
         </Group>
         {out ? (
           <Text size="sm" c="dimmed">
-            Score withheld · gated by {night.killers.map((k) => k.label.toLowerCase()).join(', ')}
+            Score withheld on a ruled-out night
           </Text>
         ) : (
           <>

@@ -269,7 +269,7 @@ function AstroWindowPage() {
   const timelineNamesMiss = search.tab === 'forecast'
   const summary = pageSummary(data, {
     withWindow: search.tab === 'forecast',
-    withMiss: markedNight?.date !== selectedDate,
+    selectedDate,
   })
 
   return (

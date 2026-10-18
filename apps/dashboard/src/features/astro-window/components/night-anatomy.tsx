@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
-import { CORE_UNIT, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
+import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
 import {
   coreGaugeMax,
   coreMeterReading,
@@ -80,14 +80,14 @@ function coreCell(night: Night): StatStripCell {
     key: 'core',
     caption: 'Core',
     value: fmtDegrees(core.reading),
-    unit: CORE_UNIT,
+    unit: `of ${fmtDegrees(core.gate)} gate`,
     visual: gauge(
       `Core ${fmtDegrees(core.reading)} against a gate of ${fmtDegrees(core.gate)}`,
       core.reading,
       coreGaugeMax(core.gate),
       core.gate,
     ),
-    footer: `gate ${fmtDegrees(core.gate)} · ${coreTransitFooter(night)}`,
+    footer: coreTransitFooter(night),
   }
 }
 
