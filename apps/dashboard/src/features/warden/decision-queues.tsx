@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import { Anchor, Box, Button, SimpleGrid, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
@@ -38,19 +38,36 @@ type Props = {
   onAction: OnAction
 }
 
-/** Past this many characters the evidence is worth a clamp + expand; shorter text never needs one. */
-const CLAMP_MIN_CHARS = 120
+/** True while the element's content overflows its clamped box; re-measured whenever it resizes. */
+function useOverflows(active: boolean) {
+  const ref = useRef<HTMLParagraphElement>(null)
+  const [overflows, setOverflows] = useState(false)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!active || el === null) return
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [active])
+  return { ref, overflows }
+}
 
+/** The reason, clamped to three lines with an in-place expand/collapse whenever it is cut off at
+ * the current width — measured, not guessed from the character count. */
 function ClampedText({ text }: { text: string }) {
   const [expanded, { toggle }] = useDisclosure(false)
   const textId = useId()
-  const clampable = text.length > CLAMP_MIN_CHARS
+  const { ref, overflows } = useOverflows(!expanded)
+  // Expanded text no longer overflows, so the toggle stays while expanded to let the owner collapse.
+  const canToggle = overflows || expanded
   return (
     <Stack gap={4} align="flex-start">
-      <Text id={textId} size="sm" {...(clampable && !expanded ? { lineClamp: 3 } : {})}>
+      <Text id={textId} ref={ref} size="sm" {...(expanded ? {} : { lineClamp: 3 })}>
         {text}
       </Text>
-      {clampable ? (
+      {canToggle ? (
         <Button
           variant="subtle"
           color="gray"

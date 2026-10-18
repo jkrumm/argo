@@ -259,6 +259,12 @@ export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFoot
   return reported ? { kind: 'meters', meters } : { kind: 'not-reported' }
 }
 
+/** The dispatch meter as `{used, max}` for the headline, `null` unless both are reported. */
+export function dispatchOf(budget: WardenBudget | undefined): { used: number; max: number } | null {
+  const meter = deriveBudget(budget).find((m) => m.key === 'dispatch')
+  return meter?.used != null && meter.max != null ? { used: meter.used, max: meter.max } : null
+}
+
 // ── Summary sentence ────────────────────────────────────────────────────────
 
 /** `"42 min"` / `"3.2 h"` / `"2.1 d"` — a span with a unit, never a bare number. */
@@ -280,13 +286,21 @@ export type SummaryInput = {
   stalePoller: PollerRow | null
   /** `health.ok` from the snapshot; `false` is never read as a healthy loop. */
   healthOk?: boolean | undefined
+  /** Dispatches used today against the daily cap; `null` when warden does not report it. */
+  dispatch?: { used: number; max: number } | null
   now?: number
 }
 
 /** `stalled` (no fresh snapshot) and `degraded` (a stale poller) are loud; `ok` is plain text. */
 export type SummaryStatus = 'ok' | 'degraded' | 'stalled'
 
-export function deriveSummary(input: SummaryInput): { text: string; status: SummaryStatus } {
+/** The headline sentence plus the 0–4 short facts under it (`poller 4 min old`, `2 fixes in 7 d`,
+ * `budget 4 of 10`). Facts that are not reported are left out, never zero. */
+export function deriveSummary(input: SummaryInput): {
+  text: string
+  facts: string[]
+  status: SummaryStatus
+} {
   const { needsCount, oldestAgeDays, receivedAt, now = Date.now() } = input
   const needs =
     needsCount === 0
@@ -294,38 +308,35 @@ export function deriveSummary(input: SummaryInput): { text: string; status: Summ
       : `${pluralize(needsCount, 'item')} ${needsCount === 1 ? 'needs' : 'need'} you${
           oldestAgeDays === null ? '' : `, oldest ${formatAgeDays(oldestAgeDays)}`
         }`
+  const facts = [
+    input.oldestPollerMin === null ? null : `poller ${formatNumber(input.oldestPollerMin)} min old`,
+    input.unattendedFixes === null
+      ? null
+      : `${input.unattendedFixes === 1 ? '1 fix' : `${formatNumber(input.unattendedFixes)} fixes`} in ${input.windowDays} d`,
+    input.dispatch == null ? null : `budget ${input.dispatch.used} of ${input.dispatch.max}`,
+  ].filter((part): part is string => part !== null)
   if (isStale(receivedAt, now)) {
     const parsed = receivedAt === null ? Number.NaN : Date.parse(receivedAt)
     const age = Number.isFinite(parsed)
       ? ` — snapshot ${formatSpan(now - parsed)} old`
       : ' — no snapshot yet'
-    return { text: `${needs}. Loop stalled${age}.`, status: 'stalled' }
+    return { text: `${needs}. Loop stalled${age}.`, facts, status: 'stalled' }
   }
   if (input.stalePoller !== null) {
     return {
       text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)} min old.`,
+      facts,
       status: 'degraded',
     }
   }
   if (input.healthOk === false) {
     return {
       text: `${needs}. Loop degraded: warden's own health check is failing.`,
+      facts,
       status: 'degraded',
     }
   }
-  const parts = [
-    input.oldestPollerMin === null ? null : `poller ${formatNumber(input.oldestPollerMin)} min old`,
-    input.unattendedFixes === null
-      ? null
-      : `${input.unattendedFixes === 1 ? '1 fix' : `${formatNumber(input.unattendedFixes)} fixes`} in ${input.windowDays} d`,
-  ].filter((part): part is string => part !== null)
-  return {
-    text:
-      parts.length === 0
-        ? `${needs}. Loop healthy.`
-        : `${needs}. Loop healthy: ${parts.join(', ')}.`,
-    status: 'ok',
-  }
+  return { text: `${needs}. Loop healthy.`, facts, status: 'ok' }
 }
 
 // ── Decision cards ──────────────────────────────────────────────────────────
@@ -563,4 +574,46 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionLine[
     lines.push({ from, to, at })
   }
   return lines.slice(-limit)
+}
+
+// ── History preview ─────────────────────────────────────────────────────────
+
+/** The newest state change plus how many earlier ones sit behind it — a card shows one line, not a log. */
+export function historySummary(lines: readonly TransitionLine[]): {
+  latest: TransitionLine
+  earlier: number
+} | null {
+  const latest = lines.at(-1)
+  return latest === undefined ? null : { latest, earlier: lines.length - 1 }
+}
+
+// ── Board layout ────────────────────────────────────────────────────────────
+
+/** Columns with items take the width; empty ones fold into a single "Empty: …" line. */
+export function splitBoardColumns(columns: readonly BoardColumn[]): {
+  populated: BoardColumn[]
+  emptyLabels: string[]
+} {
+  return {
+    populated: columns.filter((column) => column.items.length > 0),
+    emptyLabels: columns.filter((column) => column.items.length === 0).map((c) => c.label),
+  }
+}
+
+// ── Reverts footer ──────────────────────────────────────────────────────────
+
+/** The reverts cell's footer: the definition in plain words, then the reopen count and window. */
+export function revertsFooter(
+  reverts: StripModel['reverts'],
+  noData: (reason: string) => string,
+): string {
+  const parts = [
+    reverts.reverts === null
+      ? `reverts ${noData(reverts.revertsUnavailable ?? 'not reported')}`
+      : 'revert = a merged fix that was undone',
+    reverts.reopens === null
+      ? `reopens ${noData(reverts.reopensUnavailable ?? 'not reported')}`
+      : `${reverts.reopens} reopened after fixed · last\u00a0${reverts.windowDays}\u00a0d`,
+  ]
+  return parts.join(' · ')
 }

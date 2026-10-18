@@ -5,7 +5,6 @@
 declare const classes: {
   readonly columns: string
   readonly column: string
-  readonly empty: string
   readonly text: string
 }
 export default classes

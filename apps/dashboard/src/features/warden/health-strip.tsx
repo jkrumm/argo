@@ -7,6 +7,7 @@ import {
   deriveBudgetFooter,
   deriveStrip,
   formatNumber,
+  revertsFooter,
   type BudgetMeter,
   type StripModel,
 } from './page-model'
@@ -196,21 +197,13 @@ function pollerCell({ poller }: StripModel): StatStripCell {
 
 function revertsCell({ reverts }: StripModel): StatStripCell {
   const caption = 'Reverts · reopens'
-  const parts = [
-    reverts.reverts === null
-      ? `reverts ${noData(reverts.revertsUnavailable ?? 'not reported')}`
-      : null,
-    reverts.reopens === null
-      ? `reopens ${noData(reverts.reopensUnavailable ?? 'not reported')}`
-      : `${reverts.reopens} reopen after fixed · last\u00a0${reverts.windowDays}\u00a0d`,
-  ].filter((part): part is string => part !== null)
   return {
     key: 'reverts',
     caption,
     value: reverts.reverts === null ? null : String(reverts.reverts),
     unit: reverts.reverts === 1 ? 'revert' : 'reverts',
     ...(reverts.reverts !== null && reverts.reverts > 0 && { tone: 'bad' as const }),
-    footer: parts.join(' · '),
+    footer: revertsFooter(reverts, noData),
   }
 }
 

@@ -24,6 +24,10 @@ import {
   sentenceCase,
   deriveBudgetFooter,
   recentTransitions,
+  dispatchOf,
+  historySummary,
+  splitBoardColumns,
+  revertsFooter,
 } from './page-model'
 
 const NOW = Date.parse('2026-01-01T12:00:00Z')
@@ -226,20 +230,22 @@ describe('deriveSummary', () => {
     unattendedFixes: 2,
     windowDays: 7,
     stalePoller: null,
+    dispatch: { used: 4, max: 10 },
     now: NOW,
   }
 
-  it('states the queue and a healthy loop', () => {
+  it('states the queue as the sentence and the loop numbers as facts', () => {
     expect(deriveSummary(base)).toEqual({
-      text: '3 items need you, oldest 5.1 d. Loop healthy: poller 4.5 min old, 2 fixes in 7 d.',
+      text: '3 items need you, oldest 5.1 d. Loop healthy.',
+      facts: ['poller 4.5 min old', '2 fixes in 7 d', 'budget 4 of 10'],
       status: 'ok',
     })
   })
 
   it('uses the singular for one item and one fix', () => {
-    expect(deriveSummary({ ...base, needsCount: 1, unattendedFixes: 1 }).text).toBe(
-      '1 item needs you, oldest 5.1 d. Loop healthy: poller 4.5 min old, 1 fix in 7 d.',
-    )
+    const summary = deriveSummary({ ...base, needsCount: 1, unattendedFixes: 1 })
+    expect(summary.text).toBe('1 item needs you, oldest 5.1 d. Loop healthy.')
+    expect(summary.facts).toContain('1 fix in 7 d')
   })
 
   it('says nothing needs you at zero', () => {
@@ -250,9 +256,14 @@ describe('deriveSummary', () => {
     ).toBe(true)
   })
 
-  it('omits loop facts that are not reported', () => {
-    const summary = deriveSummary({ ...base, oldestPollerMin: null, unattendedFixes: null })
-    expect(summary.text.endsWith('Loop healthy.')).toBe(true)
+  it('omits facts that are not reported', () => {
+    const summary = deriveSummary({
+      ...base,
+      oldestPollerMin: null,
+      unattendedFixes: null,
+      dispatch: null,
+    })
+    expect(summary.facts).toEqual([])
   })
 
   it('switches to the loud stalled variant past 30 minutes', () => {
@@ -260,10 +271,8 @@ describe('deriveSummary', () => {
       ...base,
       receivedAt: new Date(NOW - 2 * 3_600_000).toISOString(),
     })
-    expect(stalled).toEqual({
-      text: '3 items need you, oldest 5.1 d. Loop stalled — snapshot 2 h old.',
-      status: 'stalled',
-    })
+    expect(stalled.text).toBe('3 items need you, oldest 5.1 d. Loop stalled — snapshot 2 h old.')
+    expect(stalled.status).toBe('stalled')
   })
 
   it('reads a missing snapshot as stalled', () => {
@@ -277,6 +286,62 @@ describe('deriveSummary', () => {
     })
     expect(summary.status).toBe('degraded')
     expect(summary.text).toContain('Loop degraded: loop is 41 min old.')
+  })
+})
+
+describe('dispatchOf', () => {
+  it('needs both used and max', () => {
+    expect(dispatchOf({ usedToday: 4, max: 10 } as never)).toEqual({ used: 4, max: 10 })
+    expect(dispatchOf({ usedToday: 4 } as never)).toBeNull()
+    expect(dispatchOf(undefined)).toBeNull()
+  })
+})
+
+describe('historySummary', () => {
+  it('keeps the latest line and counts the earlier ones', () => {
+    const lines = [
+      { from: null, to: 'new', at: null },
+      { from: 'new', to: 'working', at: null },
+      { from: 'working', to: 'needs_decision', at: null },
+    ]
+    expect(historySummary(lines)).toEqual({ latest: lines[2], earlier: 2 })
+    expect(historySummary([])).toBeNull()
+  })
+})
+
+describe('splitBoardColumns', () => {
+  it('separates populated columns from the labels of empty ones', () => {
+    const col = (key: 'new' | 'working', label: string, n: number) => ({
+      key,
+      label,
+      items: Array.from({ length: n }, (_, i) => item({ event_id: i })),
+    })
+    const { populated, emptyLabels } = splitBoardColumns([
+      col('new', 'New', 0),
+      col('working', 'Working', 2),
+    ])
+    expect(populated.map((c) => c.key)).toEqual(['working'])
+    expect(emptyLabels).toEqual(['New'])
+  })
+})
+
+describe('revertsFooter', () => {
+  const nd = (reason: string) => `no data: ${reason}`
+  const strip = (reverts: number | null, reopens: number | null) =>
+    ({
+      reverts,
+      revertsUnavailable: reverts === null ? 'x' : null,
+      reopens,
+      reopensUnavailable: reopens === null ? 'y' : null,
+      windowDays: 7,
+    }) as never
+  it('defines a revert in plain words next to the reopen count', () => {
+    expect(revertsFooter(strip(0, 1), nd)).toBe(
+      'revert = a merged fix that was undone · 1 reopened after fixed · last\u00a07\u00a0d',
+    )
+  })
+  it('reports missing readings as no data', () => {
+    expect(revertsFooter(strip(null, null), nd)).toBe('reverts no data: x · reopens no data: y')
   })
 })
 
