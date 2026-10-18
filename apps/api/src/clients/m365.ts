@@ -282,6 +282,7 @@ export interface CalendarEvent {
   end: string
   isAllDay: boolean
   isOnlineMeeting: boolean
+  isCancelled: boolean
   location?: string
   organizer?: { name: string; email: string }
   attendees: Array<{ name: string; email: string; status: string }>
@@ -309,6 +310,7 @@ interface GraphEvent {
   webLink?: string
   isAllDay?: boolean
   isOnlineMeeting?: boolean
+  isCancelled?: boolean
   start?: GraphDateTime
   end?: GraphDateTime
   organizer?: { emailAddress?: GraphEmailAddress }
@@ -337,7 +339,7 @@ const RESPONSE_MAP: Record<string, string> = {
   organizer: 'organizer',
 }
 
-function normalizeEvent(e: GraphEvent): CalendarEvent {
+export function normalizeEvent(e: GraphEvent): CalendarEvent {
   const isAllDay = e.isAllDay ?? false
   const organizerEmail = e.organizer?.emailAddress
   const attendees = (e.attendees ?? []).map((a) => ({
@@ -352,6 +354,7 @@ function normalizeEvent(e: GraphEvent): CalendarEvent {
     end: graphDateTimeToIso(e.end, isAllDay),
     isAllDay,
     isOnlineMeeting: e.isOnlineMeeting ?? false,
+    isCancelled: e.isCancelled ?? false,
     ...(e.location?.displayName ? { location: e.location.displayName } : {}),
     ...(organizerEmail?.address
       ? { organizer: { name: organizerEmail.name ?? '', email: organizerEmail.address } }
@@ -717,6 +720,7 @@ export async function listUpcomingCalendarEvents(
       'webLink',
       'isAllDay',
       'isOnlineMeeting',
+      'isCancelled',
       'start',
       'end',
       'organizer',

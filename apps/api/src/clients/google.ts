@@ -427,6 +427,7 @@ export interface CalendarEventItem {
   start: string
   end: string
   isAllDay: boolean
+  isCancelled: boolean
   location?: string
   organizer?: { name: string; email: string }
   attendees: Array<{ name: string; email: string; status: string }>
@@ -477,6 +478,7 @@ export async function listCalendarEvents(
           start: ev.start.dateTime ?? ev.start.date ?? '',
           end: ev.end.dateTime ?? ev.end.date ?? '',
           isAllDay,
+          isCancelled: false,
           ...(ev.location !== undefined ? { location: ev.location } : {}),
           ...(ev.organizer?.email
             ? { organizer: { name: ev.organizer.displayName ?? '', email: ev.organizer.email } }

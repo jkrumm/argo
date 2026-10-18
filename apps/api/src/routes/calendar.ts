@@ -14,6 +14,9 @@ const CalendarEventSchema = z.object({
   start: z.string().describe('ISO timestamp or YYYY-MM-DD for all-day'),
   end: z.string().describe('ISO timestamp or YYYY-MM-DD for all-day'),
   isAllDay: z.boolean(),
+  isCancelled: z
+    .boolean()
+    .describe('Always false for Google: cancelled events are not returned by the Calendar API'),
   location: z.string().optional(),
   organizer: z.object({ name: z.string(), email: z.string() }).optional(),
   attendees: z.array(AttendeeSchema),
