@@ -11,6 +11,7 @@ import { ViewTabs } from 'basalt-ui/controls'
 import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { useState } from 'react'
+import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Grain, type Metric, type Range } from '../../lib/queries/usage'
 import { USAGE_SOURCE } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
@@ -67,9 +68,10 @@ export function FoldedChart({
   height = 280,
   printTotal,
 }: Props) {
-  const { data } = useSuspenseQuery(
+  const query = useSuspenseQuery(
     usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace }),
   )
+  const data = shotState() === 'empty' ? { ...query.data, buckets: [], groupKeys: [] } : query.data
   const now = useNow()
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
@@ -101,7 +103,7 @@ export function FoldedChart({
 
   return (
     <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-      <Grid.Col span={{ base: 12, lg: 8 }} data-shot={`${metric}-chart`}>
+      <Grid.Col span={{ base: 12, lg: 8 }} data-shot={`${metric}-chart`} data-shot-absent="loading">
         <ChartCard
           title={`${unitNoun} per ${perBucket} · by ${groupNoun} · ${periodNoun(range)}`}
           info={info}
@@ -127,7 +129,7 @@ export function FoldedChart({
           />
         </ChartCard>
       </Grid.Col>
-      <Grid.Col span={{ base: 12, lg: 4 }} data-shot={`${metric}-list`}>
+      <Grid.Col span={{ base: 12, lg: 4 }} data-shot={`${metric}-list`} data-shot-absent="loading">
         <ChartCard title={`${listTitle} · ${periodNoun(range)}${totalNote}`}>
           <BarList
             label={`${unitNoun} by ${groupNoun}, ${periodNoun(range)}`}

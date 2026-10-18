@@ -240,7 +240,7 @@ function HermesChatFeed() {
   if (!store.hydrated) {
     if (store.error !== undefined) {
       return (
-        <Center h={FILL_HEIGHT}>
+        <Center h={FILL_HEIGHT} data-shot="thread-state">
           <Alert
             icon={<IconAlertTriangle size={16} />}
             color="red"
@@ -253,7 +253,7 @@ function HermesChatFeed() {
       )
     }
     return (
-      <Center h={FILL_HEIGHT}>
+      <Center h={FILL_HEIGHT} data-shot="thread-state">
         <Loader />
       </Center>
     )
@@ -325,7 +325,7 @@ function HermesChatFeed() {
           </Stack>
           <ScrollArea style={{ flex: 1, minHeight: 0 }} px="md" pt="xs">
             {view.groups.length === 0 && view.untitled.length === 0 ? (
-              <Center py="xl">
+              <Center py="xl" data-shot="thread-empty">
                 <Text c="dimmed" size="sm" ta="center">
                   {emptyNote({
                     threads: everything.length,

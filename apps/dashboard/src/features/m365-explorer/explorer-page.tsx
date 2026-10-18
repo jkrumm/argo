@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { m365Mutations, m365Queries } from '../../lib/queries/m365'
+import { shotState } from '../../lib/shot-state'
 import { FeedPane } from './feed-pane'
 import { LabeledPane } from './labeled-pane'
 import {
@@ -77,8 +78,10 @@ export function M365ExplorerPage(): ReactElement {
   const chatsQ = useSuspenseQuery(m365Queries.chats(CHATS_TOP))
   const teamsQ = useSuspenseQuery(m365Queries.teams())
   const labelsQ = useSuspenseQuery(m365Queries.labels())
-  const teams = teamsQ.data.teams
-  const labels: readonly LabelLite[] = labelsQ.data.labels
+  // `shot-state=empty` renders the real no-chats / no-teams / no-labels branches.
+  const emptyShot = shotState() === 'empty'
+  const teams = emptyShot ? [] : teamsQ.data.teams
+  const labels: readonly LabelLite[] = emptyShot ? [] : labelsQ.data.labels
   const now = new Date(chatsQ.dataUpdatedAt)
 
   // Staggered: team i starts once fewer than CHANNEL_WINDOW unsettled teams sit ahead of it.
@@ -117,7 +120,7 @@ export function M365ExplorerPage(): ReactElement {
     channels: channels.channels.length,
   }))
 
-  const chatRows: ChatRow[] = chatsQ.data.chats.map((c) => ({
+  const chatRows: ChatRow[] = (emptyShot ? [] : chatsQ.data.chats).map((c) => ({
     ref: { kind: 'chat', chatId: c.id, displayName: chatTitle(c) },
     searchText: [c.topic ?? '', ...c.members.map((m) => m.name)].join(' ').toLowerCase(),
     chatType: c.chatType,
@@ -397,17 +400,19 @@ export function M365ExplorerPage(): ReactElement {
             <div
               ref={phoneRef}
               className={classes.phonePane}
-              {...(shown.shot === undefined ? {} : { 'data-shot': shown.shot })}
+              {...(shown.shot === undefined
+                ? {}
+                : { 'data-shot': shown.shot, 'data-shot-absent': 'loading' })}
             >
               {phonePanes[shownPane]}
             </div>
           </Section>
         ) : (
           <div className={classes.split}>
-            <Card className={classes.pane} data-shot="source-list">
+            <Card className={classes.pane} data-shot="source-list" data-shot-absent="loading">
               <Card.Section className={classes.paneBody}>{sourcesPane}</Card.Section>
             </Card>
-            <Card className={classes.pane} data-shot="detail-pane">
+            <Card className={classes.pane} data-shot="detail-pane" data-shot-absent="loading">
               <Card.Section className={classes.paneBody}>{detailPane}</Card.Section>
             </Card>
           </div>
