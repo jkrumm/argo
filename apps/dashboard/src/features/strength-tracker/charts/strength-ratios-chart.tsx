@@ -12,7 +12,8 @@ import {
   EM_DASH,
   fmtBound,
   isBorderline,
-  offText,
+  bandRange,
+  distanceText,
   ratioName,
   statusWord,
 } from '../model'
@@ -60,6 +61,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
         {ratios.map((pair) => {
           const [lo, hi] = pair.range
           const offset = bandOffset(pair.ratio, pair.range)
+          const distance = distanceText(offset)
           return (
             <Stack key={pair.label} gap={4}>
               <Group justify="space-between" gap="sm" wrap="nowrap">
@@ -79,7 +81,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   format={(v) => v.toFixed(2)}
                   zones={[
                     { from: 0, to: lo, label: '', color: MUTED_FILL },
-                    { from: lo, to: hi, label: 'Band', color: VX.good },
+                    { from: lo, to: hi, label: bandRange(pair.range), color: VX.good },
                     { from: hi, to: pair.scaleMax, label: '', color: MUTED_FILL },
                   ]}
                   startCaption={null}
@@ -88,7 +90,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
               )}
               {pair.ratio === null ? (
                 <Text size="xs" c="dimmed">
-                  {`${fmtBound(lo)}–${fmtBound(hi)} band · need both lifts`}
+                  {`${bandRange(pair.range)} band · need both lifts`}
                 </Text>
               ) : (
                 <Text size="xs" c="dimmed">
@@ -99,7 +101,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   >
                     {statusWord(pair.status, offset)}
                   </Text>
-                  {` · ${offText(offset, pair.range)}`}
+                  {distance === null ? '' : ` · ${distance} the band`}
                 </Text>
               )}
             </Stack>

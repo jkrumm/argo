@@ -169,3 +169,10 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: the diagnostics title whole at 390 (period in the section summary); one verdict per balance row; the call card's `·` stays with the text before it; the volume axis in t. Carried (basalt / harness): four type sizes in the section shells; the sparkline reference line unlabelled; the ACWR tooltip sets names one character per line; the bench-press focus timeout; full-page shots blank below the fold. **New:** the ACWR tooltip prints acute/chronic load as `{x} kg` beside the volume chart's t — not tonnes throughout. Unscored: tick formats mixed (`dd.mm` vs `d Mon yyyy`); the `Band` caption under each balance row repeats the row's `the {range} band`.
 - **Against Keel:** close — one verdict per row now; jargon density and four-size sections remain.
+
+### Wave 30 fixes
+
+- ACWR tooltip load: fixed — acute/chronic print in tonnes through `fmtTonnes` (`fmtLoadPair` in `model.ts`), like the weekly volume axis.
+- Mixed date ticks: fixed — the ACWR chart was the one chart passing `formatX` (`medium`); dropped, so every time axis uses basalt's default spelling. The default itself is basalt's, no local workaround.
+- Balance rows: fixed — the range is said once, as the meter's band label (`{lo}–{hi}`); the caption reads `{status} · {n} under|over the band`, bare status inside it. Rows without a meter keep `{lo}–{hi} band · need both lifts`.
+- Not fixed (basalt / not argo's): Meter detached ticks, Sparkline reference label, four type sizes in shells.
