@@ -17,6 +17,14 @@ export const ACWR_ZONE_NAME = {
   danger: 'Danger',
 } as const satisfies Record<AcwrZone, string>
 
+/** The narrow fallback a meter segment shows when the full name does not fit; the one abbreviation per zone. */
+export const ACWR_ZONE_SHORT = {
+  undertrained: 'Under',
+  optimal: 'Optimal',
+  caution: 'Caut.',
+  danger: 'Danger',
+} as const satisfies Record<AcwrZone, string>
+
 export function acwrZoneLabel(zone: AcwrZone | null): string {
   return zone === null ? '' : ACWR_ZONE_NAME[zone]
 }

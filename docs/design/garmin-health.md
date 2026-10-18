@@ -184,3 +184,9 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - ACWR chart legend: fixed — names `Undertrained`, `Optimal`, `Caution ({lo}–{hi})` and `Danger` (`ACWR_LEGEND` in `model.ts`, built from the shared `ACWR_ZONE_NAME` the load meters on the Garmin and Strength pages also read; Home's strip cell is another page's file and still spells its own names). Fills agree: amber below the floor and over the optimal ceiling up to the danger line, red above it; every swatch has a fill and every fill a name (desktop; the legend is off at 390).
 - Not fixed (basalt / not argo's): recovery cell part-empty, Meter detached ticks and unnamed caution at 390, ACWR tooltip name wrapping, Sparkline reference label, four type sizes in shells.
+
+Follow-up (w30-r1):
+
+- **One ACWR zone vocabulary** — fixed: `ACWR_ZONE_SHORT` sits next to `ACWR_ZONE_NAME`; strip-load, Home and Strength all pass `label` = full name and `short` = the abbreviation (`Under`, `Caut.`).
+- **`Undertrained` flush against `Optimal` at 390** — not fixed, basalt row: `Meter` shows the full label though it does not fit and ignores `short`. No width-dependent label prop in Argo; the fit logic is basalt's.
+- **Recovery footer opening a wrapped line with `·`** — fixed: each `·` is bound to the text before it (`{a}{NBSP}· {b}`, `recoveryGap`).

@@ -293,7 +293,7 @@ export function recoveryGap(input: {
   // The suffix is about the unscored day (`date`), never the last scored one; no date, no subject.
   const why =
     date != null && missing.length > 0
-      ? ` · ${dayLabel(date, 'day', today).replaceAll(' ', NBSP)}: ${missing.join(', ')} not scored`
+      ? `${NBSP}· ${dayLabel(date, 'day', today).replaceAll(' ', NBSP)}: ${missing.join(', ')} not scored`
       : ''
   if (last !== null) {
     const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
