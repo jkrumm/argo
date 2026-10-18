@@ -681,9 +681,9 @@ export function moonFooter({
 }
 
 /**
- * The cloud-layers headline as a `ChartFact`: `{v} % low cloud · dark-hours mean`. basalt-ui 2.22's
- * `period` list joins its items by `·` but puts no separator between unit and period, so the
- * period carries its own `· `; both phrases are glued.
+ * The cloud-layers headline as a `ChartFact`: `{v} % low cloud · dark-hours mean`. basalt-ui 2.23
+ * leads a `period` list with `·` behind the unit, so the basis is one glued list item; the unit
+ * is glued too.
  */
 export function cloudHeadline({ value, unit, basis }: LowCloudStat): ChartFact {
   return { value, unit: glue(unit), period: [glue(basis)] }
