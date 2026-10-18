@@ -3,7 +3,7 @@ import { formatMinutes } from '../../lib/format'
  * The Agenda tab's presentational pieces. They render `derive.ts` output and compute nothing:
  * every figure, count and window arrives already derived.
  */
-import { ActionIcon, Box, Card, Text } from '@mantine/core'
+import { ActionIcon, Box, Card, Skeleton, Text } from '@mantine/core'
 import { Meter, Section } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
@@ -19,6 +19,7 @@ import {
   toDate,
   dayHeadLabel,
   nothingBooked,
+  NO_EVENTS,
   SPLIT_LABEL,
   type AgendaDay,
   type AgendaRow,
@@ -39,6 +40,24 @@ const SPLIT_COLOR = { work: SERIES.calendarWork, personal: SERIES.calendarPerson
 const PILL_WITHIN_MIN = 12 * 60
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
+}
+
+/** A card's gap line: a pending read is a skeleton, never a sentence; a failure names the source. */
+export function GapLine({ gap, rows = 1 }: { gap: FeedGap; rows?: number }) {
+  if (gap.state === 'loading') {
+    return (
+      <Box role="status" aria-label="Loading" py="xs">
+        {Array.from({ length: rows }, (_, i) => (
+          <Skeleton key={i} height={14} width={i === 0 ? '60%' : '40%'} mt={i === 0 ? 0 : 6} />
+        ))}
+      </Box>
+    )
+  }
+  return (
+    <Text className={classes.muted} role="status">
+      {gap.card}
+    </Text>
+  )
 }
 
 export function AllDayChips({ items }: { items: readonly CalendarItem[] }) {
@@ -120,7 +139,7 @@ export function DayGroups({
   next: NextEvent | null
   /**
    * A calendar has not answered: the card says so once, and an empty day is unknown, so it is not
-   * listed as `no events`. Days that do hold items still show them.
+   * listed as `No events`. Days that do hold items still show them.
    */
   gap?: FeedGap | null
   /** Nothing in the whole window: each empty day carries the headline's short form. */
@@ -132,11 +151,7 @@ export function DayGroups({
     : days
   return (
     <div>
-      {gap && (
-        <Text className={classes.muted} role="status">
-          {gap.card}
-        </Text>
-      )}
+      {gap && <GapLine gap={gap} rows={3} />}
       {visible.map((day) => {
         const chips = allDay[day.key] ?? []
         const headLabel = dayHeadLabel(day, formatMinutes, chips.length)
@@ -144,7 +159,7 @@ export function DayGroups({
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              <span className={classes.muted}>{emptyWindow ? emptyWindow.short : 'no events'}</span>
+              <span className={classes.muted}>{emptyWindow ? emptyWindow.short : NO_EVENTS}</span>
             </Box>
           )
         }
@@ -253,7 +268,12 @@ export function WeekStrip({
                   </span>
                 )
               })}
-            {gap && <span className={classes.muted}>{gap.card}</span>}
+            {gap &&
+              (gap.state === 'loading' ? (
+                <GapLine gap={gap} />
+              ) : (
+                <span className={classes.muted}>{gap.card}</span>
+              ))}
           </Box>
         ) : emptyWeek ? (
           <Text className={classes.muted}>
@@ -285,7 +305,11 @@ export function TaskList({
       <Section title="Tasks due" {...(state === 'ready' ? { count: tasks.length } : {})}>
         <Text className={classes.muted}>Overdue or due within 7 days</Text>
         {state === 'loading' ? (
-          <Text className={classes.muted}>Loading tasks</Text>
+          <Box role="status" aria-label="Loading tasks" py="xs">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} height={14} width={i === 0 ? '70%' : '50%'} mt={i === 0 ? 0 : 8} />
+            ))}
+          </Box>
         ) : state === 'error' ? (
           <Text className={classes.muted}>Tasks failed to load — reload to retry</Text>
         ) : tasks.length === 0 ? (

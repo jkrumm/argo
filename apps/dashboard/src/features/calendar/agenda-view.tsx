@@ -8,7 +8,7 @@ import { EMPTY_WINDOW, summaryParts, todayCardState } from './summary'
 import { feedGap } from './query-state'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
-import { AllDayChips, DayGroups, EventRows, TaskList, WeekStrip } from './agenda-parts'
+import { AllDayChips, DayGroups, EventRows, GapLine, TaskList, WeekStrip } from './agenda-parts'
 import {
   addDays,
   agendaDays,
@@ -113,8 +113,8 @@ export function AgendaView({
                     title="Today"
                     {...(summary.incomplete ? {} : { count: model.today.count })}
                   >
-                    {todayState === 'unknown' ? (
-                      <Text className={classes.muted}>{gap?.card}</Text>
+                    {todayState === 'unknown' && gap ? (
+                      <GapLine gap={gap} />
                     ) : (
                       <EventRows rows={model.today.rows} now={now} next={summary.next} />
                     )}
@@ -171,6 +171,7 @@ export function AgendaView({
                     qualifier: 'today',
                     // A measured zero (the day is over) is `0 min`; a dash only where the feed is unknown.
                     value: summary.incomplete ? null : formatMinutes(free?.minutes ?? 0),
+                    ...(gap?.state === 'loading' ? { loading: true } : {}),
                     footer: gap
                       ? gap.card
                       : free

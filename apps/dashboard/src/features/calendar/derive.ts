@@ -383,7 +383,10 @@ export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKe
   return keys.map((key) => agendaDay(events, key))
 }
 
-/** `2 events · 3h` / `no events` / `` (live all-day items only) / `all cancelled` — the day heading's right-hand side. */
+/** The one wording of an empty day / window; the headline's sentence leads with it too. */
+export const NO_EVENTS = 'No events'
+
+/** `2 events · 3h` / `No events` / `` (live all-day items only) / `all cancelled` — the day heading's right-hand side. */
 export function dayHeadLabel(
   day: AgendaDay,
   format: (min: number) => string,
@@ -394,7 +397,7 @@ export function dayHeadLabel(
   // A live all-day item means the day is neither empty nor wholly cancelled: it has no timed
   // figure to state, and the chips beside the heading carry the item.
   if (liveAllDay > 0) return ''
-  return day.rows.length > 0 ? 'all cancelled' : 'no events'
+  return day.rows.length > 0 ? 'all cancelled' : NO_EVENTS
 }
 
 /** Live all-day events (never tasks, never cancelled) covering `key`, titles intact. */
