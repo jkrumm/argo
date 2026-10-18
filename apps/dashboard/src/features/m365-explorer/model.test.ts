@@ -8,7 +8,9 @@ import {
   formatTime,
   headlineOf,
   labeledCount,
-  outsideNote,
+  labeledBasis,
+  largestTeam,
+  sourceListName,
   sourcesTitle,
   validTag,
   matchesTag,
@@ -182,15 +184,29 @@ describe('formatTime', () => {
 })
 
 describe('headlineOf', () => {
-  test('leads with the week activity and keeps the facts to units', () => {
-    expect(headlineOf({ activeWeek: 4, labeled: 12, tags: 3, latest: '17 Oct, 11:58' })).toEqual({
+  test('leads with the week activity and prints only the newest stamp as a fact', () => {
+    expect(headlineOf({ activeWeek: 4, latest: '17 Oct, 11:58' })).toEqual({
       sentence: '4 chats active in the last 7 days',
-      facts: ['12 labeled', '3 tags in use', 'latest activity 17 Oct, 11:58'],
+      facts: ['latest activity 17 Oct, 11:58'],
     })
-    expect(headlineOf({ activeWeek: 1, labeled: 0, tags: 1, latest: null })).toEqual({
+    expect(headlineOf({ activeWeek: 1, latest: null })).toEqual({
       sentence: '1 chat active in the last 7 days',
-      facts: ['0 labeled', '1 tag in use'],
+      facts: [],
     })
+  })
+})
+
+describe('largestTeam', () => {
+  test('picks the team with the most channels, first wins a tie, none without channels', () => {
+    expect(
+      largestTeam([
+        { name: 'a', channels: 2 },
+        { name: 'b', channels: 5 },
+        { name: 'c', channels: 5 },
+      ]),
+    ).toEqual({ name: 'b', channels: 5 })
+    expect(largestTeam([{ name: 'a', channels: 0 }])).toBeNull()
+    expect(largestTeam([])).toBeNull()
   })
 })
 
@@ -200,13 +216,17 @@ describe('labeled count, outside note and sources title', () => {
     expect(labeledCount(cov)).toBe(2)
     expect(labeledCount({ ...cov, loading: 1 })).toBeNull()
     expect(labeledCount({ ...cov, failed: 1 })).toBeNull()
-    expect(headlineOf({ activeWeek: 1, labeled: null, tags: 1, latest: null }).facts).toEqual([
-      '1 tag in use',
-    ])
   })
-  test('the outside note names the set', () => {
-    expect(outsideNote(cov)).toBe('1 label on chats or channels not in this list')
-    expect(outsideNote({ ...cov, outside: 0 })).toBeNull()
+  test('the footer names the list the count ranges over', () => {
+    const list = sourceListName(50, true)
+    expect(list).toBe('newest 50 chats and channels')
+    expect(sourceListName(12, false)).toBe('chats and channels')
+    expect(labeledBasis(cov, list)).toBe(
+      '1 more label on sources outside the newest 50 chats and channels',
+    )
+    expect(labeledBasis({ ...cov, outside: 0 }, list)).toBe(
+      'across the newest 50 chats and channels',
+    )
   })
   test('the sources title is a fact per view', () => {
     const base = { chats: 3, channels: 7, teams: 2, labeled: 1 }

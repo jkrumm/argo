@@ -212,10 +212,18 @@ export function labeledCount(c: Coverage): number | null {
   return c.loading > 0 || c.failed > 0 ? null : c.labeled
 }
 
-/** The strip footer's note on labels the loaded set cannot place, naming the set. */
-export function outsideNote(c: Coverage): string | null {
-  if (c.outside === 0) return null
-  return `${plural(c.outside, 'label')} on chats or channels not in this list`
+/** What the strip counts over, in words: the newest-N chat window when the list is capped, plus channels. */
+export function sourceListName(chats: number, capped: boolean): string {
+  return capped ? `newest ${chats} chats and channels` : 'chats and channels'
+}
+
+/**
+ * The labeled cell's footer: the list the count ranges over, and, when labels sit on sources the
+ * list cannot place, how many — naming the same list.
+ */
+export function labeledBasis(c: Coverage, list: string): string {
+  if (c.outside === 0) return `across the ${list}`
+  return `${plural(c.outside, 'more label')} on sources outside the ${list}`
 }
 
 /** The phone Sources pane's heading: what the pane lists now, as a fact rather than the tab's name. */
@@ -234,23 +242,30 @@ export function sourcesTitle(input: {
     : `${plural(input.channels, 'channel')} in ${plural(input.teams, 'team')}`
 }
 
-/** The page's opening: how many chats moved this week, then labeled sources, tags and the newest stamp. */
+/**
+ * The page's opening: how many chats moved this week, then the newest stamp. The labeled count, the
+ * chat and team totals and the tag count are printed once each — in the strip, the tabs and the tags
+ * button — so none repeats here.
+ */
 export function headlineOf(h: {
   activeWeek: number
-  /** From `labeledCount`; `null` leaves the fact out. */
-  labeled: number | null
-  tags: number
   /** Pre-formatted stamp of the newest chat, or null when there is none. */
   latest: string | null
 }): { sentence: string; facts: string[] } {
   return {
     sentence: `${plural(h.activeWeek, 'chat')} active in the last 7 days`,
-    facts: [
-      h.labeled === null ? null : `${h.labeled} labeled`,
-      plural(h.tags, 'tag') + ' in use',
-      h.latest === null ? null : `latest activity ${h.latest}`,
-    ].filter((f): f is string => f !== null),
+    facts: h.latest === null ? [] : [`latest activity ${h.latest}`],
   }
+}
+
+/** The team holding the most channels (first wins a tie); `null` without a loaded channel. */
+export function largestTeam(
+  teams: ReadonlyArray<{ name: string; channels: number }>,
+): { name: string; channels: number } | null {
+  let best: { name: string; channels: number } | null = null
+  for (const t of teams)
+    if (t.channels > 0 && (best === null || t.channels > best.channels)) best = t
+  return best
 }
 
 export type ChipCounts = {

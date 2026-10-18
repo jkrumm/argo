@@ -74,8 +74,9 @@
   cursor: pointer;
 }
 
-.chip:hover {
-  background: var(--vx-surface-panel-hover);
+/* panel-hover is lighter than panel in the light scheme: an ink wash reads in both. */
+.chip:hover:not(.chipActive) {
+  background: color-mix(in srgb, var(--vx-ink) 12%, var(--vx-surface-subtle));
 }
 
 .chipActive,
@@ -215,6 +216,15 @@
 
 .rowShell > .row {
   flex: 1;
+}
+
+/* The wash covers the whole shell so the remove control sits on the hovered row, not beside it. */
+.rowShell:hover:not(:has(.rowSelected)) {
+  background: color-mix(in srgb, var(--vx-ink) 6%, transparent);
+}
+
+.rowShell > .row:hover:not(.rowSelected) {
+  background: transparent;
 }
 
 .rowShell > .removeWrap {

@@ -27,9 +27,12 @@ import {
   formatStamp,
   headlineOf,
   labeledCount,
+  LABELED_FILTER,
   sourcesTitle,
   parseChannelId,
   recencyOf,
+  largestTeam,
+  sourceListName,
   sourceIdFor,
   tagCountsOf,
   validTag,
@@ -155,12 +158,7 @@ export function M365ExplorerPage(): ReactElement {
   )
   const activeWeek = chatRows.filter((r) => recencyOf(r.lastUpdatedAt, now) !== 'Earlier').length
 
-  const headline = headlineOf({
-    activeWeek,
-    labeled: labeledCount(coverage),
-    tags: tagCounts.length,
-    latest: latest ? formatStamp(latest) : null,
-  })
+  const headline = headlineOf({ activeWeek, latest: latest ? formatStamp(latest) : null })
 
   const invalidateLabels = (): void => {
     void qc.invalidateQueries({ queryKey: [...m365Queries.all(), 'labels'] })
@@ -215,16 +213,9 @@ export function M365ExplorerPage(): ReactElement {
     setPane(ref ? 'detail' : 'sources')
   }
 
-  // The pane the phone shows: Labeled duplicates Sources in the feed view, and a Detail with nothing
-  // open (outside the feed) has nothing to show, so both fall back to Sources.
-  const shownPane: PaneKey =
-    view === 'feed'
-      ? pane === 'labeled'
-        ? 'sources'
-        : pane
-      : pane === 'detail' && selected === null
-        ? 'sources'
-        : pane
+  // The pane the phone shows: Labeled duplicates Sources in the feed view, so it falls back there.
+  // Detail with nothing open stays Detail and says so, so the pane is always reachable.
+  const shownPane: PaneKey = view === 'feed' && pane === 'labeled' ? 'sources' : pane
 
   // A phone swaps the list for the detail on a pick: move focus to the record's heading.
   useEffect(() => {
@@ -266,6 +257,12 @@ export function M365ExplorerPage(): ReactElement {
 
   const labeledPane = (
     <LabeledPane
+      {...(compact
+        ? {}
+        : {
+            title:
+              tag === '' || tag === LABELED_FILTER ? 'Labeled sources' : `Labeled sources · ${tag}`,
+          })}
       labels={labels}
       tag={tag}
       selectedId={selectedId}
@@ -377,10 +374,15 @@ export function M365ExplorerPage(): ReactElement {
 
         <ExplorerStrip
           coverage={coverage}
-          chatsCapped={chatRows.length >= CHATS_TOP}
-          chats={{ total: chatRows.length, ...kindCounts }}
-          teams={teams.length}
+          list={sourceListName(chatRows.length, chatRows.length >= CHATS_TOP)}
+          chats={kindCounts}
           channels={channelsTotal}
+          largestTeam={largestTeam(
+            teams.map((t, i) => ({
+              name: t.displayName,
+              channels: (channelStates[i] as TeamChannels).channels.length,
+            })),
+          )}
           onRetry={retryFailed}
         />
 
