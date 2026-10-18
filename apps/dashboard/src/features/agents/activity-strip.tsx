@@ -11,6 +11,7 @@ import {
   clockOf,
   gapHours,
   hourlyWorking,
+  NO_SNAPSHOT_SHORT,
   peakWorking,
   type HourBucket,
 } from './model'
@@ -23,23 +24,40 @@ type Props = {
 
 const SIX_HOURS = 6
 
+const agentCount = (n: number) => `${n} ${n === 1 ? 'agent' : 'agents'}`
+
+/** Intensity of a cell with `working` agents against the window's peak: lighter = fewer, darker = more. */
+const workingFill = (working: number, peak: number) =>
+  alpha(VX.line, 0.25 + 0.75 * (working / peak))
+
 /**
- * The legend names the scale in data terms: the lightest and the strongest cell, by agents working.
- * Keep every entry: basalt-ui renders a legend only with more than one entry (`CartesianChart`,
- * `entryCount > 1`), so trimming states absent from the shown hours hid the whole key and left the
- * shade range hover-only. The entries name the encoding, not the data present.
+ * The legend grades the scale: the lightest working cell (`1 agent`) and the darkest (`{peak} agents`),
+ * the two shades the strip's range runs between. Keep every entry: basalt-ui renders a legend only
+ * with more than one entry (`CartesianChart`, `entryCount > 1`), so trimming states absent from the
+ * shown hours hid the whole key and left the shade range hover-only. The entries name the encoding,
+ * not the data present; the quiet entry stays for the same reason.
  */
-const statesFor = (peak: number) =>
-  [
+const statesFor = (peak: number) => {
+  const count = (d: HourBucket) => agentCount(d.working ?? 0)
+  return [
     // At a peak of zero nothing was ever working: no cell carries that colour, so no entry names it.
-    ...(peak > 0
+    ...(peak > 1
       ? [
           {
             key: 'working',
-            label: peak === 1 ? '1 agent working' : `1 to ${peak} agents working`,
+            label: `${agentCount(1)} working, lighter`,
+            color: workingFill(1, peak),
+            formatValue: count,
+          },
+        ]
+      : []),
+    ...(peak > 0
+      ? [
+          {
+            key: 'peak',
+            label: `${agentCount(peak)} working${peak > 1 ? ', darker' : ''}`,
             color: VX.line,
-            formatValue: (d: HourBucket) =>
-              `${d.working ?? 0} ${d.working === 1 ? 'agent' : 'agents'}`,
+            formatValue: count,
           },
         ]
       : []),
@@ -51,6 +69,7 @@ const statesFor = (peak: number) =>
     },
     { key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) },
   ] as const
+}
 
 /**
  * Agents working per hour over the window: one cell per hour, intensity = the hour's peak working
@@ -74,7 +93,10 @@ export function ActivityStrip({ history, hours, now }: Props) {
       (d: HourBucket): BandSpan => {
         if (d.working === null) return { state: 'gap' }
         if (d.working === 0) return { state: 'quiet' }
-        return { state: 'working', fill: alpha(VX.line, 0.25 + 0.75 * (d.working / peak)) }
+        return {
+          state: d.working === peak ? 'peak' : 'working',
+          fill: workingFill(d.working, peak),
+        }
       },
     [peak],
   )
@@ -100,7 +122,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
           height={48}
         />
         <Text size="sm" ff="monospace" c="dimmed" mt="xs">
-          {fact ?? `No snapshot in the last ${withUnit(hours, 'h')}`}
+          {fact ?? NO_SNAPSHOT_SHORT}
         </Text>
         {fact !== null && gaps > 0 ? (
           <Text size="xs" c="dimmed" mt="xs">

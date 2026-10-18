@@ -69,29 +69,36 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
           caption: 'Oldest wait',
           value: oldest === null ? null : formatDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
-          footer: oldest === null ? undefined : `in ${oldest.project}`,
-          visual: (
-            <Meter
-              label="Oldest agent wait against the warn and abandoned marks"
-              value={oldest?.ms ?? null}
-              max={ABANDONED_AFTER_MS}
-              ticks={[
-                {
-                  at: OLDEST_WAIT_WARN_MS,
-                  label: `warn at ${withUnit(OLDEST_WAIT_WARN_MS / HOUR_MS, 'h')}`,
-                },
-                {
-                  at: ABANDONED_AFTER_MS,
-                  label: `abandoned at ${withUnit(ABANDONED_AFTER_MS / DAY_MS, 'd')}`,
-                },
-              ]}
-              format={formatDuration}
-              startCaption={null}
-              endCaption={null}
-              emptyText={oldestWaitEmptyText(needsYou)}
-              {...(oldestTone !== undefined && { color: VX.status[oldestTone] })}
-            />
-          ),
+          footer:
+            needsYou === null
+              ? WAITING_FOR_SNAPSHOT
+              : oldest === null
+                ? undefined
+                : `in ${oldest.project}`,
+          // No snapshot: the waiting line is the footer (as in the needs-you cell), so no empty meter.
+          visual:
+            needsYou === null ? undefined : (
+              <Meter
+                label="Oldest agent wait against the warn and abandoned marks"
+                value={oldest?.ms ?? null}
+                max={ABANDONED_AFTER_MS}
+                ticks={[
+                  {
+                    at: OLDEST_WAIT_WARN_MS,
+                    label: `warn at ${withUnit(OLDEST_WAIT_WARN_MS / HOUR_MS, 'h')}`,
+                  },
+                  {
+                    at: ABANDONED_AFTER_MS,
+                    label: `abandoned at ${withUnit(ABANDONED_AFTER_MS / DAY_MS, 'd')}`,
+                  },
+                ]}
+                format={formatDuration}
+                startCaption={null}
+                endCaption={null}
+                emptyText={oldestWaitEmptyText(needsYou)}
+                {...(oldestTone !== undefined && { color: VX.status[oldestTone] })}
+              />
+            ),
         },
         fleetCell(fleet, longestRunMs, needsYou !== null),
       ]}
@@ -110,13 +117,19 @@ function fleetCell(
       key: 'fleet',
       caption: 'Fleet',
       value: null,
-      visual: (
-        <Meter
-          label="Agents by state"
-          value={null}
-          emptyText={hasSnapshot ? 'No fleet counts in this snapshot' : WAITING_FOR_SNAPSHOT}
-        />
-      ),
+      // No snapshot: the waiting line is the footer, the one size the needs-you cell uses; a snapshot
+      // without counts keeps its meter and says so there.
+      ...(hasSnapshot
+        ? {
+            visual: (
+              <Meter
+                label="Agents by state"
+                value={null}
+                emptyText="No fleet counts in this snapshot"
+              />
+            ),
+          }
+        : { footer: WAITING_FOR_SNAPSHOT }),
     }
   }
   const { parts, total } = fleet
