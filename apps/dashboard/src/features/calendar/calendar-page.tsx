@@ -20,7 +20,14 @@ import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { calendarStore } from '../../lib/window-stores'
 import { AgendaView } from './agenda-view'
-import { failed, feedGap, taskFeedState, taskReadFailed, unanswered } from './query-state'
+import {
+  SOURCE_LABEL,
+  failed,
+  feedGap,
+  taskFeedState,
+  taskReadFailed,
+  unanswered,
+} from './query-state'
 import { failureReason, isAuthError, signInStep } from './sign-in'
 import { SourceErrorLine, type SourceError } from './sign-in-step'
 import { DayGroups } from './agenda-parts'
@@ -122,15 +129,15 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   const errors: SourceError[] = []
   if (googleQuery.error && !shotEmpty) {
     errors.push({
-      label: 'Google',
-      reason: failureReason(googleQuery.error, 'Google'),
+      label: SOURCE_LABEL.personal,
+      reason: failureReason(googleQuery.error, SOURCE_LABEL.personal),
       step: signInStep('personal', googleQuery.error),
     })
   }
   if (m365Query.error && !shotEmpty) {
     errors.push({
-      label: 'Microsoft 365',
-      reason: failureReason(m365Query.error, 'Microsoft 365'),
+      label: SOURCE_LABEL.work,
+      reason: failureReason(m365Query.error, SOURCE_LABEL.work),
       step: signInStep('work', m365Query.error),
     })
   }

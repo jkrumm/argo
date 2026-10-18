@@ -24,7 +24,7 @@ describe('summaryParts empty window', () => {
     const { sentence, facts } = summaryParts(agendaSummary([], now), null, EMPTY_WINDOW)
     expect(sentence).toBe(EMPTY_WINDOW.sentence)
     expect(sentence.startsWith(EMPTY_WINDOW.short)).toBe(true)
-    expect(sentence.match(/Google or Microsoft 365/g)).toHaveLength(1)
+    expect(sentence.match(/Google or Microsoft 365/g)).toHaveLength(1)
     expect(facts).toEqual([])
   })
   test('a meeting beyond the window keeps its countdown fact', () => {
@@ -69,7 +69,7 @@ describe('summaryParts', () => {
     expect(summaryParts(summary, loading)).toEqual({ sentence: 'Loading calendar', facts: [] })
     const failed = feedGap(new Set(['work']), new Set(['work']))
     expect(summaryParts(summary, failed)).toEqual({
-      sentence: 'Microsoft 365 failed to load',
+      sentence: 'Microsoft 365 failed to load',
       facts: [],
     })
   })

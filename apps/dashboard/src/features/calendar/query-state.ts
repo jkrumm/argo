@@ -1,3 +1,5 @@
+import { glue } from '../../lib/format'
+
 /**
  * Unknown while a source is pending, failed with nothing of this window cached, or is still
  * loading this window behind the previous window's placeholder data (`keepPreviousData`).
@@ -19,7 +21,8 @@ type FeedQuery = Parameters<typeof unanswered>[0]
 export const failed = (query: FeedQuery & { isError: boolean }) =>
   unanswered(query) && query.isError && !query.isFetching
 
-const SOURCE_LABEL = { personal: 'Google', work: 'Microsoft 365' } as const
+/** Product names as the copy prints them: multi-word ones glued, so a line never breaks inside one. */
+export const SOURCE_LABEL = { personal: 'Google', work: glue('Microsoft 365') } as const
 
 export type FeedGap = {
   state: 'loading' | 'error'
