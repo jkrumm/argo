@@ -429,3 +429,26 @@ export function summaryParts(s: SummaryInput): { sentence: string; facts: string
     facts: [`streak ${s.streakDays === null ? '—' : `${s.streakDays} d`}`, paceFact(s)],
   }
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * The headline of a window with no walks: it names the window and how long ago the last walk was
+ * (whole UTC-independent days, with the date), or says nothing was ever recorded.
+ */
+export function emptyWindowParts(input: {
+  preset: string | undefined
+  lastEndedAt: string | null
+  nowMs: number
+}): { sentence: string; facts: string[] } {
+  if (input.lastEndedAt === null) return { sentence: 'No walks recorded yet', facts: [] }
+  const endedMs = Date.parse(input.lastEndedAt)
+  const days = Math.max(0, Math.floor((input.nowMs - endedMs) / 86_400_000))
+  const key = dayKey(endedMs)
+  const date = `${MONTHS[Number(key.slice(5, 7)) - 1]} ${Number(key.slice(8, 10))}`
+  const ago = days === 0 ? 'today' : `${days} d ago`
+  return {
+    sentence: `No walks in ${windowPhrase(input.preset)}; the last was ${ago}, on ${date}`,
+    facts: [],
+  }
+}

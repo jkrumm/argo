@@ -134,3 +134,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail: an empty window renders no headline at all (the summary is gated on data), so the page is a one-line strip over an empty state, about 80 % blank.
 - **Against Keel:** does not yet — Keel keeps the KPI row (dimmed) above an empty chart instead of dropping structure.
+
+### Wave 25 fixes
+
+- An empty window always renders the headline: `No walks in the last {window}; the last was {n} d ago, on {date}` (`emptyWindowParts`, unit-tested); `No walks recorded yet` when none exists. `SummaryLine` takes an `empty` flag and reads the newest walk itself.
+- The KPI strip stays above the empty state as the same four cells, dimmed, every value `—` (`EmptyStrip` in `strip.tsx`).
+- The empty state says why and what fills it ("the strip and charts fill once a walk is recorded in this window; widen it to reach the last one"); the last-walk date moved to the headline, not repeated.
+- Basalt rows: none.

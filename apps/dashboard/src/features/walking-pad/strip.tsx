@@ -219,7 +219,35 @@ function useTotalsCell(params: WalkingPadWindowParams): StatStripCell {
   }
 }
 
-export function WalkingStrip({ params }: { params: WalkingPadWindowParams }) {
+/** The strip of a window with no walks: the same four cells, dimmed, every value `—`. */
+function EmptyStrip() {
+  const { window: preset } = walkingStore.useValues()
+  const cells: StatStripCell[] = [
+    { key: 'week', caption: 'This week', qualifier: 'Mon–Sun, UTC', value: null, unit: 'km' },
+    { key: 'pace', caption: 'Pace', qualifier: `avg ${windowQualifier(preset)}`, value: null },
+    { key: 'streak', caption: 'Streak', value: null, unit: 'days' },
+    {
+      key: 'totals',
+      caption: 'Totals',
+      qualifier: windowQualifier(preset),
+      value: null,
+      unit: 'km',
+    },
+  ].map((c) => ({ ...c, stale: true }))
+  return <StatGroup variant="strip" label="Walking at a glance, no walks" cols={4} cells={cells} />
+}
+
+export function WalkingStrip({
+  params,
+  empty = false,
+}: {
+  params: WalkingPadWindowParams
+  empty?: boolean
+}) {
+  return empty ? <EmptyStrip /> : <LiveStrip params={params} />
+}
+
+function LiveStrip({ params }: { params: WalkingPadWindowParams }) {
   const week = useWeekCell()
   const pace = usePaceCell(params)
   const streak = useStreakCell(params)
