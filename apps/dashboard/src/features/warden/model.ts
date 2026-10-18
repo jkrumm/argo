@@ -1,5 +1,5 @@
 import { asText, authoredQuestion, stripShortcodes } from '../../lib/text'
-import { NBSP, formatRelative, withUnit } from '../../lib/format'
+import { formatRelative } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoardItem,
@@ -88,7 +88,6 @@ export type AwaitingOwnerRow = {
   state: string | null
   prUrl: string | null
   ageDays: number | null
-  ageLabel: string
   stale: boolean
   /** The decision question for `needs_decision`, the failure note for `failed`. */
   reason: string | null
@@ -108,13 +107,6 @@ export type AwaitingOwnerView = {
   failed: AwaitingOwnerRow[]
   /** Entries in neither `needs_decision` nor `failed` — never dropped silently. */
   other: AwaitingOwnerRow[]
-}
-
-/** `"5.1 d"` / `"< 1 d"` / `"—"` for an unreported age — never a bare number with no unit. */
-export function formatAgeDays(ageDays: number | null): string {
-  if (ageDays === null) return '—'
-  if (ageDays < 1) return `< 1${NBSP}d`
-  return withUnit(ageDays.toFixed(1), 'd')
 }
 
 /**
@@ -185,7 +177,6 @@ export function deriveAwaitingOwner(
       state: entry.state,
       prUrl: entry.pr_url,
       ageDays: entry.age_days,
-      ageLabel: formatAgeDays(entry.age_days),
       stale: entry.age_days !== null && entry.age_days >= AWAITING_OWNER_STALE_DAYS,
       reason: entry.reason,
       strikes: boardItem?.strikes ?? 0,

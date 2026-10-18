@@ -3,7 +3,6 @@ import {
   AWAITING_OWNER_STALE_DAYS,
   buildItemFacts,
   deriveAwaitingOwner,
-  formatAgeDays,
   formatSourceLine,
   formatVerdictLine,
   isDeferredItem,
@@ -83,21 +82,6 @@ describe('isSafeHttpUrl', () => {
     expect(isSafeHttpUrl('javascript:alert(1)')).toBe(false)
     expect(isSafeHttpUrl('data:text/html,<script>alert(1)</script>')).toBe(false)
     expect(isSafeHttpUrl('not a url')).toBe(false)
-  })
-})
-
-describe('formatAgeDays', () => {
-  it('renders an em dash for an unreported age', () => {
-    expect(formatAgeDays(null)).toBe('—')
-  })
-
-  it('renders under a day as "< 1 d"', () => {
-    expect(formatAgeDays(0.4)).toBe('< 1\u00a0d')
-  })
-
-  it('renders a day or more to one decimal with a "d" unit', () => {
-    expect(formatAgeDays(5.14)).toBe('5.1\u00a0d')
-    expect(formatAgeDays(1)).toBe('1.0\u00a0d')
   })
 })
 
@@ -254,10 +238,8 @@ describe('deriveAwaitingOwner', () => {
     ]
     const rows = deriveAwaitingOwner({ awaiting_owner: entries } as never).needsDecision
     expect(rows[0]!.stale).toBe(true)
-    expect(rows[0]!.ageLabel).toBe(`${AWAITING_OWNER_STALE_DAYS.toFixed(1)}\u00a0d`)
     expect(rows[1]!.stale).toBe(false)
     expect(rows[2]!.stale).toBe(false)
-    expect(rows[2]!.ageLabel).toBe('—')
   })
 
   it('defaults a missing availableActions to an empty array', () => {

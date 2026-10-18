@@ -525,8 +525,8 @@ export function wardenAskInput(
     title: named || `Item #${source.eventId}`,
     subject: subjectOf(named) ?? `Item #${source.eventId}`,
     forms: wardenQuestionForms({ failed, repo, primary: plan.primary, alert, surface }),
-    // Home has no `Full reason` beside the card's own buttons: a reason that is only a question
-    // (an over-long ask, so not the title) is still the card's one line of evidence there.
+    // On Home a reason that is only questions (a long ask, so not the title) is still the card's
+    // evidence line, instead of leaving the card without one and the reason behind the disclosure.
     ...(surface === 'home' && { keepQuestionEvidence: true }),
   }
   return { plan, repo, tag: split?.tag ?? null, input }

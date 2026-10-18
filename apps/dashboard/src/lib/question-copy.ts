@@ -74,6 +74,9 @@ const sentencesOf = (text: string): string[] =>
     .split(/(?<=[.!?])\s+/)
     .filter((part) => part !== '')
 
+/** A sentence that asks, even when it ends `?!` or `?.`. */
+const asksQuestion = (sentence: string): boolean => /\?[!.]*$/.test(sentence)
+
 /**
  * A sentence that opens with a dash (`— PR left open`) continues the one before it: the dash goes
  * and the two read as clauses (`…commit: CI; PR left open`), never as a stray fragment.
@@ -85,8 +88,8 @@ function joinDashClauses(sentences: readonly string[]): string[] {
     const last = joined.at(-1)
     if (clause === undefined) joined.push(sentence)
     // A question is never folded into a statement: it stays a clause of its own.
-    else if (last === undefined || last.endsWith('?') || clause.endsWith('?')) joined.push(clause)
-    else joined[joined.length - 1] = `${last.replace(/[.!]$/, '')}; ${clause}`
+    else if (last === undefined || asksQuestion(last) || asksQuestion(clause)) joined.push(clause)
+    else joined[joined.length - 1] = `${last.replace(/[.!]+$/, '')}; ${clause}`
   }
   return joined
 }
@@ -101,7 +104,7 @@ function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
       .map(withoutUrls)
       .filter((sentence) => sentence !== '' && !/^[\s.,;:\-–—()[\]]+$/.test(sentence)),
   )
-  const statements = cleaned.filter((sentence) => !sentence.endsWith('?'))
+  const statements = cleaned.filter((sentence) => !asksQuestion(sentence))
   // Evidence that is itself a question (an agent's blocker) is still the evidence when it is all there is.
   const lines = statements.length > 0 || !keepQuestions ? statements : cleaned
   if (lines.length === 0) return null

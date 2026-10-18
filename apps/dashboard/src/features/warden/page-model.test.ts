@@ -58,7 +58,6 @@ const row = (overrides: Partial<AwaitingOwnerRow>): AwaitingOwnerRow => ({
   state: 'needs_decision',
   prUrl: null,
   ageDays: 2.4,
-  ageLabel: '2.4\u00a0d',
   stale: false,
   reason: null,
   strikes: 0,

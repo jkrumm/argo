@@ -14,8 +14,8 @@ export const withUnit = (value: string | number, unit: string): string => `${val
  * The one duration spelling: `21 d 4 h`, `5 h 12 min`, `42 min`, `< 1 min`. A whole larger unit
  * drops its zero tail (`21 d`, `5 h`) and minutes are `min`. A value, its unit and a compound's two
  * parts are joined with no-break spaces and never split; a caller's `ago` / `in` stays breakable. A
- * non-finite or negative value is `—`. Warden's day-fraction ages (`formatAgeDays`, `formatSpan`)
- * keep their own decimal spelling.
+ * non-finite or negative value is `—`. Warden's day-fraction span (`formatSpan`)
+ * keeps its own decimal spelling.
  */
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '—'
@@ -34,8 +34,11 @@ export function formatDuration(ms: number): string {
 /** {@link formatDuration} of a length given in minutes. */
 export const formatMinutes = (minutes: number): string => formatDuration(minutes * 60_000)
 
-const agoWith = (ms: number, gap: string): string =>
-  !Number.isFinite(ms) || ms < 0 ? '—' : ms < 60_000 ? 'just now' : `${formatDuration(ms)}${gap}ago`
+function agoWith(ms: number, gap: string): string {
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+  if (ms < 60_000) return 'just now'
+  return `${formatDuration(ms)}${gap}ago`
+}
 
 /** `5 min ago`, or `just now` under a minute; `—` for a bad duration. `ago` may wrap onto its own line. */
 export const formatAgo = (ms: number): string => agoWith(ms, ' ')
