@@ -3,6 +3,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceRange,
+  paceTicks,
   ratingShape,
   ratingsFooter,
   shelfParts,
@@ -44,8 +45,8 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
   }
   const footer = ratingsFooter(shape)
   const peak = Math.max(...shape.buckets)
-  // Bucket i holds [i, i + 1), so the track spans 1…6 and a mean of m lands at (m − 1) / 5.
-  const meanAt = Math.min(100, Math.max(0, ((shape.mean - 1) / 5) * 100))
+  // Bucket i holds (i, i + 1], so the track spans 0…5 and a mean of m lands at m / 5.
+  const meanAt = Math.min(100, Math.max(0, (shape.mean / 5) * 100))
   return {
     key: 'ratings',
     caption: `Ratings (★) · ${shape.n} rated`,
@@ -93,12 +94,35 @@ function paceCell(pace: Pace): StatStripCell {
   if (pace.median === null || pace.median <= 0) {
     return { key: 'pace', caption: 'Reading pace', value: null, footer: NO_PACE_REASON }
   }
+  const ticks = paceTicks(pace.paces, pace.median)
+  const books = `${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`
   return {
     key: 'pace',
-    caption: `Pace · median of ${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`,
+    caption: `Pace · median of ${books}`,
     value: String(pace.median),
     unit: 'pages/h',
-    footer: paceRange(pace.paces) ?? 'one book has reading time so far',
+    // The axis ends state slowest and fastest, so the range footer is only for what the axis cannot draw.
+    ...(ticks === null
+      ? { footer: paceRange(pace.paces) ?? 'one book has reading time so far' }
+      : {
+          visual: (
+            <div
+              role="img"
+              aria-label={`Pages per hour for ${books}: slowest ${ticks.slowest}, median ${pace.median}, fastest ${ticks.fastest}`}
+            >
+              <div className={classes.paceTrack}>
+                {ticks.at.map((at, i) => (
+                  <div key={i} className={classes.paceTick} style={{ left: `${at}%` }} />
+                ))}
+                <div className={classes.paceMedian} style={{ left: `${ticks.medianAt}%` }} />
+              </div>
+              <div className={classes.paceAxis}>
+                <span>{ticks.slowest}</span>
+                <span>{ticks.fastest}</span>
+              </div>
+            </div>
+          ),
+        }),
   }
 }
 
