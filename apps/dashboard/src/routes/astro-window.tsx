@@ -180,7 +180,7 @@ function AstroWindowPage() {
   const { data: sitesResponse } = useSuspenseQuery(astroQueries.sites())
   // `?shot-state=empty`: the real empty branch is an empty site list (the Forecast tab's "Unknown site" card).
   const sites: typeof sitesResponse =
-    shotState() === 'empty' ? { ...sitesResponse, data: [] } : sitesResponse
+    shotState() === 'empty' ? { ...sitesResponse, data: [], total: 0 } : sitesResponse
   // Resolved from the deferred params so a site switch never pairs the old night with the new site.
   const selectedSite = sites.data.find((s) => s.id === deferredParams.site)
 
@@ -407,7 +407,7 @@ function AstroWindowPage() {
 
           {search.tab === 'forecast' && selectedNight && (
             <>
-              <Box data-shot="night-timeline" data-shot-states="empty">
+              <Box data-shot="night-timeline">
                 <NightTimelineChart
                   hourly={data.detail.hourly}
                   night={selectedNight}
@@ -432,7 +432,7 @@ function AstroWindowPage() {
                       <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
                     }
                   >
-                    <Box data-shot="sky-panorama" data-shot-absent="empty">
+                    <Box data-shot="sky-panorama" data-shot-states="empty" data-shot-absent="empty">
                       <SkyPanorama
                         key={`${selectedSite.id}-${selectedDate}`}
                         site={selectedSite}
