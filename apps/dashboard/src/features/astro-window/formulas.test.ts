@@ -459,13 +459,19 @@ describe('the core gate miss clause at its boundaries', () => {
     expect(nightNote(night)).toBe('core low')
   })
 
+  test('gate 8 / peak 7.95 reads 0.1° despite float noise', () => {
+    const night = outNight('2026-06-13', 8, 7.95)
+    expect(gateMissText(night)).toBe('core 0.1° under its gate')
+    expect(nightNote(night)).toBe('core 0.1° under its gate')
+  })
+
   test('a raw gap of 0.05° reads 0.1°', () => {
     const night = outNight('2026-06-13', 10, 9.95)
     expect(gateMissText(night)).toBe('core 0.1° under its gate')
     expect(nightNote(night)).toBe('core 0.1° under its gate')
   })
 
-  test('the strip cell and coreGateFailure agree when moon is the first killer', () => {
+  test('a core miss listed after the moon killer still shows in the strip cell note', () => {
     const night = {
       ...outNight('2026-06-13', 8, 4.1),
       killers: [
