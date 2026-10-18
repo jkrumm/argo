@@ -1,4 +1,3 @@
-import { relativeTime } from 'basalt-ui/format'
 import { describe, expect, it } from 'bun:test'
 import {
   busiestCell,
@@ -429,10 +428,16 @@ describe('emptyWindowParts', () => {
 
   it('says how long ago the last walk was, in the live header’s wording, and never names the window', () => {
     expect(emptyWindowParts({ last: last('2026-01-05T08:00:00Z'), nowMs: now }).sentence).toBe(
-      `The last walk was ${relativeTime('2026-01-05T08:00:00Z', { now })}`,
+      'The last walk was 2 weeks ago',
     )
     expect(emptyWindowParts({ last: last('2025-10-20T08:00:00Z'), nowMs: now }).sentence).toBe(
       'The last walk was 3 months ago',
+    )
+  })
+
+  it('a walk under a minute old just ended', () => {
+    expect(emptyWindowParts({ last: last('2026-01-20T09:59:30Z'), nowMs: now }).sentence).toBe(
+      'The last walk just ended',
     )
   })
 
@@ -490,6 +495,14 @@ describe('emptyWindowHint', () => {
     expect(emptyWindowHint({ last: far, wider: '30d', nowMs: now })).toBe(
       'The last walk is older than the last 30 days.',
     )
+  })
+
+  it('names the wider window with the page-wide phrase and says nothing for all time', () => {
+    const far = { state: 'last', endedAt: '2024-01-01T08:00:00Z' } as const
+    expect(emptyWindowHint({ last: far, wider: '1y', nowMs: now })).toBe(
+      'The last walk is older than the last year.',
+    )
+    expect(emptyWindowHint({ last: far, wider: 'all', nowMs: now })).toBeUndefined()
   })
 
   it('never describes the UI, and has nothing to say without a wider window', () => {

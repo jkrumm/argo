@@ -86,7 +86,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
         cells={cells}
       />
 
-      <WeightChart params={params} goal={goal} />
+      <WeightChart params={params} goal={goal} ageDays={ageDays} />
 
       {sessions.length >= 2 ? (
         <SkinfoldChart params={params} />

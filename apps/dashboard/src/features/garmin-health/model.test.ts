@@ -26,7 +26,6 @@ import {
   stressFact,
   recoveryGap,
   lastScored,
-  loadVsBaseline,
   recoverySentence,
   summaryParts,
 } from './model'
@@ -388,17 +387,5 @@ describe('lastScored', () => {
   test('an unscored window is null', () => {
     expect(lastScored([{ date: '2026-01-01', recovery: null }])).toBeNull()
     expect(lastScored([])).toBeNull()
-  })
-})
-
-describe('loadVsBaseline', () => {
-  test('names the direction and size against the 28 d baseline', () => {
-    expect(loadVsBaseline(0.62)).toBe('38% below your 28 d baseline')
-    expect(loadVsBaseline(1.12)).toBe('12% above your 28 d baseline')
-    expect(loadVsBaseline(1)).toBe('level with your 28 d baseline')
-  })
-  test('an unknown ratio has no sentence', () => {
-    expect(loadVsBaseline(null)).toBeNull()
-    expect(loadVsBaseline(Number.NaN)).toBeNull()
   })
 })
