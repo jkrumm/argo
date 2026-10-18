@@ -28,15 +28,17 @@
   height: 52px;
 }
 
+/* Invariant: every count sits on the one reserved row at the top of the histogram, above every
+   bar, and the bars (and the mean marker) live only in the zone below it, so the marker can never
+   cross a count whichever column the mean lands in. */
 .bucket {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-rows: var(--reading-count-h) minmax(0, 1fr);
   height: 100%;
 }
 
-/* A column's count rides on its bar, one line above it. */
 .count {
+  grid-row: 1;
   height: var(--reading-count-h);
   font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-micro);
@@ -46,6 +48,8 @@
 }
 
 .bar {
+  grid-row: 2;
+  align-self: end;
   min-height: 2px;
   border-radius: var(--vx-radius-ctrl);
   background: var(--vx-surface-hairline);

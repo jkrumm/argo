@@ -72,7 +72,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
                 {count > 0 && <span className={classes.count}>{count}</span>}
                 <div
                   className={count > 0 ? `${classes.bar} ${classes.barFilled}` : classes.bar}
-                  style={{ height: `calc((100% - var(--reading-count-h)) * ${share})` }}
+                  style={{ height: `${share * 100}%` }}
                 />
               </div>
             )
