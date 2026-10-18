@@ -14,6 +14,7 @@ import {
   ACWR_FLOOR,
   ACWR_OPTIMAL_TO,
   acwrFact,
+  acwrLegendLabels,
   dayLabel,
   divergenceFact,
   signed,
@@ -33,6 +34,8 @@ type TrainingLoadPoint = {
   divergence: number | null
 }
 
+const LEGEND = acwrLegendLabels()
+
 const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   {
     key: 'acwr',
@@ -44,15 +47,23 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
   {
     key: 'optimal',
-    label: `Optimal (${ACWR_FLOOR}–${ACWR_OPTIMAL_TO})`,
+    label: LEGEND.optimal,
     color: VX.goodSolid,
     mark: 'bar',
     role: 'reference',
     getValue: () => null,
   },
   {
+    key: 'caution',
+    label: LEGEND.caution,
+    color: VX.warnSolid,
+    mark: 'bar',
+    role: 'reference',
+    getValue: () => null,
+  },
+  {
     key: 'danger',
-    label: `Danger (> ${ACWR_CAUTION_TO})`,
+    label: LEGEND.danger,
     color: VX.badSolid,
     mark: 'bar',
     role: 'reference',

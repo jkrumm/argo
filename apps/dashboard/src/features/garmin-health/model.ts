@@ -5,6 +5,7 @@
  */
 
 import { NBSP, withUnit } from '../../lib/format'
+import { acwrZoneLabel } from './formulas'
 
 const EM_DASH = '—'
 
@@ -26,6 +27,15 @@ const RECOVERY_WEIGHT_PTS = { hrv: 40, sleep: 35, rhr: 25 } as const
 export const ACWR_FLOOR = 0.8
 export const ACWR_OPTIMAL_TO = 1.3
 export const ACWR_CAUTION_TO = 1.5
+
+/** The chart legend's zone names, from the same `acwrZoneLabel` vocabulary the load meter uses. */
+export function acwrLegendLabels(): { optimal: string; caution: string; danger: string } {
+  return {
+    optimal: `${acwrZoneLabel('optimal')} (${ACWR_FLOOR}–${ACWR_OPTIMAL_TO})`,
+    caution: `${acwrZoneLabel('caution')} (${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO})`,
+    danger: `${acwrZoneLabel('danger')} (> ${ACWR_CAUTION_TO})`,
+  }
+}
 export const ACWR_METER_MAX = 2
 
 /** Stress zone edges: below 25 rest, 25–49 low, 50–74 moderate, from 75 high. */
