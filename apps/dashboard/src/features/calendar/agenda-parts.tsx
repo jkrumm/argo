@@ -11,7 +11,7 @@ import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { SERIES } from '../../lib/series'
 import classes from './agenda.module.css'
 import { untilLabel } from './summary'
-import { sourceGapWord, type FeedGap } from './query-state'
+import type { FeedGap } from './query-state'
 import {
   DAY_TARGET_H,
   dayLabel,
@@ -116,18 +116,23 @@ export function DayGroups({
   allDay: Readonly<Record<DayKey, readonly CalendarItem[]>>
   now: Date
   next: NextEvent | null
-  /** A calendar has not answered: an empty day says why it is unknown, never "no events". */
+  /**
+   * A calendar has not answered: the card says so once, and an empty day is unknown, so it is not
+   * listed as `no events`. Days that do hold items still show them.
+   */
   gap?: FeedGap | null
 }) {
   return (
     <div>
+      {gap && <Text className={classes.muted}>{gap.card}</Text>}
       {days.map((day) => {
         const chips = allDay[day.key] ?? []
         if (day.rows.length === 0 && chips.length === 0) {
+          if (gap) return null
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              <span className={classes.muted}>{gap ? gap.short : 'no events'}</span>
+              <span className={classes.muted}>no events</span>
             </Box>
           )
         }
@@ -135,9 +140,11 @@ export function DayGroups({
           <Box key={day.key} className={classes.group}>
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              <span className={classes.muted}>
-                {gap ? gap.short : dayHeadLabel(day, formatMinutes, chips.length)}
-              </span>
+              {!gap && (
+                <span className={classes.muted}>
+                  {dayHeadLabel(day, formatMinutes, chips.length)}
+                </span>
+              )}
             </Box>
             {chips.length > 0 && (
               <Box pt="xs">
@@ -158,7 +165,7 @@ export function WeekStrip({
   split,
   todayKey,
   unknown,
-  failed,
+  gap,
 }: {
   title: string
   load: readonly DayLoad[]
@@ -166,10 +173,11 @@ export function WeekStrip({
   todayKey: DayKey
   /** Source classes whose feed failed; their figures read `—`, not 0. */
   unknown: ReadonlySet<keyof SourceSplit>
-  /** The unknown sources that failed rather than still load. */
-  failed: ReadonlySet<keyof SourceSplit>
+  /** Why those sources are unknown: the one shared wording. */
+  gap: FeedGap | null
 }) {
   const total = split.work + split.personal
+  const noEvents = unknown.size === 0 && load.every((day) => day.count === 0)
   const showSplitBar = unknown.size === 0 && split.work > 0 && split.personal > 0
   return (
     <Card data-shot="week-strip" data-shot-states="empty loading error">
@@ -219,19 +227,24 @@ export function WeekStrip({
             }))}
           />
         ) : unknown.size > 0 ? (
-          // The week's total is the headline's; a split is only worth a line when a source is
-          // missing: the known source keeps its minutes, the missing one says so.
+          // The week's total is the headline's; a source that did answer keeps its minutes, the
+          // missing one is named by the card's one gap line.
           <Box className={classes.split}>
-            {(['work', 'personal'] as const).map((key) => (
-              <span key={key}>
-                {SPLIT_LABEL[key]}{' '}
-                {unknown.has(key)
-                  ? sourceGapWord(key, failed)
-                  : // Personal is the booked time minus work: without the work feed it is a floor.
-                    `${formatMinutes(split[key])}${key === 'personal' && unknown.has('work') ? ' (partial)' : ''}`}
-              </span>
-            ))}
+            {(['work', 'personal'] as const)
+              .filter((key) => !unknown.has(key))
+              .map((key) => (
+                <span key={key}>
+                  {SPLIT_LABEL[key]}{' '}
+                  {/* Personal is the booked time minus work: without the work feed it is a floor. */}
+                  {`${formatMinutes(split[key])}${key === 'personal' && unknown.has('work') ? ' (partial)' : ''}`}
+                </span>
+              ))}
+            <span>{gap?.card}</span>
           </Box>
+        ) : noEvents ? (
+          <Text className={classes.muted}>
+            No events this week — Google and Microsoft 365 fill it
+          </Text>
         ) : null}
       </Section>
     </Card>

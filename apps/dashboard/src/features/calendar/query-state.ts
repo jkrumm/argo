@@ -25,8 +25,11 @@ export type FeedGap = {
   state: 'loading' | 'error'
   /** The one sentence for a block or a cell: loading says loading; a failure names the source and the step. */
   text: string
-  /** The same gap in a row's width. */
-  short: string
+  /**
+   * The same gap inside a card: a loading card says `Loading` (the page headline already says
+   * `Loading calendar`), a failed one repeats the shared failure wording.
+   */
+  card: string
 }
 
 /**
@@ -41,19 +44,14 @@ export function feedGap(
   const names = (['personal', 'work'] as const)
     .filter((key) => failedSources.has(key))
     .map((key) => SOURCE_LABEL[key])
-  if (names.length === 0) return { state: 'loading', text: 'Loading calendar', short: 'loading' }
+  if (names.length === 0) return { state: 'loading', text: 'Loading calendar', card: 'Loading' }
+  const text = `${names.join(' and ')} failed to load — reload to retry`
   return {
     state: 'error',
-    text: `${names.join(' and ')} failed to load — reload to retry`,
-    short: 'failed to load',
+    text,
+    card: text,
   }
 }
-
-/** The word for one source in a split line: still loading, or failed. */
-export const sourceGapWord = (
-  key: keyof typeof SOURCE_LABEL,
-  failedSources: ReadonlySet<keyof typeof SOURCE_LABEL>,
-): string => (failedSources.has(key) ? 'failed to load' : 'loading')
 
 /**
  * The task list's own fetch state: the projects read, then one read per project. Unknown tasks are

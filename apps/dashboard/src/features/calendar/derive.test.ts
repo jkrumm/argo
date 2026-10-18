@@ -403,8 +403,8 @@ describe('cancelled meetings', () => {
     const fmt = (m: number) => `${m}m`
     const only = agendaDay([cancelled('b', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`)], D)
     expect(dayHeadLabel(only, fmt)).toBe('all cancelled')
-    expect(dayHeadLabel(only, fmt, 1)).toBe('no meetings')
-    expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('no meetings')
+    expect(dayHeadLabel(only, fmt, 1)).toBe('no events')
+    expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('no events')
     expect(dayHeadLabel(agendaDay([ev('a', `${D} 09:00:00`, `${D} 10:00:00`)], D), fmt)).toBe(
       '1 event · 60m',
     )
