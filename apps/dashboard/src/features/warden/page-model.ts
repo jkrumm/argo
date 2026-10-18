@@ -262,7 +262,9 @@ export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFoot
 /** The dispatch meter as `{used, max}` for the headline, `null` unless both are reported. */
 export function dispatchOf(budget: WardenBudget | undefined): { used: number; max: number } | null {
   const meter = deriveBudget(budget).find((m) => m.key === 'dispatch')
-  return meter?.used != null && meter.max != null ? { used: meter.used, max: meter.max } : null
+  return meter === undefined || meter.used === null || meter.max === null
+    ? null
+    : { used: meter.used, max: meter.max }
 }
 
 // ── Summary sentence ────────────────────────────────────────────────────────
@@ -308,12 +310,17 @@ export function deriveSummary(input: SummaryInput): {
       : `${pluralize(needsCount, 'item')} ${needsCount === 1 ? 'needs' : 'need'} you${
           oldestAgeDays === null ? '' : `, oldest ${formatAgeDays(oldestAgeDays)}`
         }`
+  // A degraded headline that names the stale poller already carries its age: say it once.
   const facts = [
-    input.oldestPollerMin === null ? null : `poller ${formatNumber(input.oldestPollerMin)} min old`,
+    input.oldestPollerMin === null || input.stalePoller !== null
+      ? null
+      : `poller ${formatNumber(input.oldestPollerMin)} min old`,
     input.unattendedFixes === null
       ? null
       : `${input.unattendedFixes === 1 ? '1 fix' : `${formatNumber(input.unattendedFixes)} fixes`} in ${input.windowDays} d`,
-    input.dispatch == null ? null : `budget ${input.dispatch.used} of ${input.dispatch.max}`,
+    input.dispatch === null || input.dispatch === undefined
+      ? null
+      : `budget ${input.dispatch.used} of ${input.dispatch.max}`,
   ].filter((part): part is string => part !== null)
   if (isStale(receivedAt, now)) {
     const parsed = receivedAt === null ? Number.NaN : Date.parse(receivedAt)
@@ -559,9 +566,13 @@ export function deferredNote(item: WardenBoardItem): string | null {
 /** One state change; `from` is `null` for the item's creation, `at` is `null` when untimed. */
 export type TransitionLine = { from: string | null; to: string; at: string | null }
 
+/** The shown transitions, carrying the item's real transition count so a preview can say how many
+ * earlier ones it left out. A plain `TransitionLine[]` (no `total`) counts only its own lines. */
+export type TransitionHistory = TransitionLine[] & { total?: number }
+
 /** The last `limit` state changes of one item, oldest first — the context beside a decision. A
  * synthetic `created` row has no `from_state`, so its `from` is `null`. */
-export function recentTransitions(timeline: unknown, limit = 3): TransitionLine[] {
+export function recentTransitions(timeline: unknown, limit = 3): TransitionHistory {
   const rows = bag(timeline)?.['transitions']
   if (!Array.isArray(rows)) return []
   const lines: TransitionLine[] = []
@@ -573,18 +584,21 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionLine[
     const at = typeof r?.['at'] === 'string' ? r['at'] : null
     lines.push({ from, to, at })
   }
-  return lines.slice(-limit)
+  return Object.assign(lines.slice(-limit), { total: lines.length })
 }
 
 // ── History preview ─────────────────────────────────────────────────────────
 
 /** The newest state change plus how many earlier ones sit behind it — a card shows one line, not a log. */
-export function historySummary(lines: readonly TransitionLine[]): {
+export function historySummary(
+  lines: readonly TransitionLine[],
+  total: number = lines.length,
+): {
   latest: TransitionLine
   earlier: number
 } | null {
   const latest = lines.at(-1)
-  return latest === undefined ? null : { latest, earlier: lines.length - 1 }
+  return latest === undefined ? null : { latest, earlier: Math.max(total, lines.length) - 1 }
 }
 
 // ── Board layout ────────────────────────────────────────────────────────────
