@@ -37,10 +37,10 @@ Route `/calendar` (`?view=week|month&date=`) — `apps/dashboard/src/routes/cale
 - Left: `Today · {n}` agenda list, then `Next 7 days` day-grouped (`{weekday} {day}`; days with no events are one muted line `{weekday} {day} · free`), each group headed by its count and booked hours.
 - Right: the week strip card (day load + the source segmented bar underneath), then `Longest free block` cell, then `Tasks due · {n}`.
 - **One derivation module owns every computed number:** `apps/dashboard/src/features/calendar/derive.ts`, pure and React-free (unit-testable). It exports day load, booked hours (per day, week and `sourceClass`), the longest free block and the week window, and owns the constants `FREE_WINDOW` (08:00–18:00), `DAY_TARGET_H` (8), `WEEK_WINDOW_CLAMP` (07:00–22:00) and `WEEK_WINDOW_FALLBACK` (08:00–18:00). Components render its output and compute nothing.
-- All-day chip row sits between the summary sentence and the grid.
+- Today's all-day chip row heads the `Today` card, so the card's count reconciles with the list under it; other days carry theirs under the day heading.
 - The legend is deleted. Charts: none new; the Week and Month grids stay as tabs.
 
-**390.** Single column: summary, all-day chips, `Today` agenda, free-block cell, week strip card, `Next 7 days`, tasks. Rows do not wrap: duration moves under the time, the source chip drops into the muted meta line. The Week tab renders a 3-day window anchored on the selected `date` (± 1 day, so `Today` and the arrows move it); Month is a dot-per-day grid.
+**390.** Single column: summary, `Today` agenda (today's all-day chips head it), free-block cell, week strip card, `Next 7 days`, tasks. Rows do not wrap: duration moves under the time, the source chip drops into the muted meta line. The Week tab renders a 3-day window anchored on the selected `date` (± 1 day, so `Today` and the arrows move it); Month is a dot-per-day grid.
 
 ## Copy
 

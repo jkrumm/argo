@@ -1,7 +1,7 @@
 import { formatMinutes } from '../../lib/format'
 /** The Agenda's summary sentence — pure, so its wording is tested on synthetic events. */
 import { SOURCES_LABEL, type FeedGap } from './query-state'
-import { addDays, displayTitle, keyToDate, NO_EVENTS, type AgendaSummary } from './derive'
+import { addDays, displayTitle, keyToDate, noun, NO_EVENTS, type AgendaSummary } from './derive'
 
 const weekdayShort = (key: string) =>
   keyToDate(key).toLocaleDateString('en-GB', { weekday: 'short' })
@@ -32,6 +32,10 @@ export const EMPTY_WINDOW: EmptyWindow = {
   sentence: `${EMPTY_WINDOW_SHORT} — nothing is booked in ${SOURCES_LABEL} this week or the next 7 days`,
 }
 
+/** `, 2 h booked` — stated only when timed time is booked (an all-day-only day books none). */
+const bookedSuffix = (bookedMin: number): string =>
+  bookedMin > 0 ? `, ${formatMinutes(bookedMin)} booked` : ''
+
 /**
  * The page opening, built from the same derivation as the lists and the strip beside it: the
  * headline answers "what is today", the facts carry the countdown and the week. The free time
@@ -57,7 +61,7 @@ export function summaryParts(
   }
   const sentence =
     summary.todayCount > 0
-      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'event' : 'events'} today${summary.todayBookedMin > 0 ? `, ${formatMinutes(summary.todayBookedMin)} booked` : ''}`
+      ? `${noun(summary.todayCount)} today${bookedSuffix(summary.todayBookedMin)}`
       : 'No events today'
   const week =
     summary.weekBookedMin === 0
@@ -74,9 +78,9 @@ export function summaryParts(
  * calendar keeps it as unknown, because absence of rows is then not absence of events.
  */
 export function todayCardState(
-  rowCount: number,
+  eventCount: number,
   incomplete: boolean,
 ): 'rows' | 'unknown' | 'hidden' {
-  if (rowCount > 0) return 'rows'
+  if (eventCount > 0) return 'rows'
   return incomplete ? 'unknown' : 'hidden'
 }

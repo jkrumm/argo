@@ -26,7 +26,6 @@ import {
   addDays,
   agendaDays,
   isCancelled,
-  allDayEvents,
   dayKey,
   hourToTime,
   queryFromKey,
@@ -284,7 +283,6 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
       {view === 'week' && compact && (
         <DayGroups
           days={agendaDays(meetings, compactKeys)}
-          allDay={Object.fromEntries(compactKeys.map((k) => [k, allDayEvents(meetings, k)]))}
           now={new Date(nowMs)}
           next={null}
           gap={gap.gap}

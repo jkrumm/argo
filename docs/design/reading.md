@@ -220,4 +220,3 @@ Follow-up (w30-r2):
 - **Encoding:** pace is a tick distribution on a slowest-to-fastest axis, books at one displayed pace sharing a tick whose height grows with the count, the median drawn full height in ink; the axis ends carry `slowest {a}` and `fastest {b}`, so the range footer is subtracted. One book, or all books at one pace, has no span: no axis is drawn and the footer states it. Ratings keep the five-bar histogram, but every bar now holds exactly two half steps, `(i, i + 1]` (`0.5`, `1` → bar 1; `4.5`, `5` → bar 5), the mean marker at `mean / 5` on the same 0…5 track.
 - **Why:** with a handful of books a histogram of pace bins would be mostly empty bars; ticks show every book and its spread, and the median says where the figure sits inside it.
 - **Keel pattern:** a stat cell whose micro-visual is fitted to its data (`stat-cell`), as the shelf Meter and the ratings histogram already are.
-
