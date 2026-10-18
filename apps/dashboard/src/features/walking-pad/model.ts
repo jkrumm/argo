@@ -76,7 +76,7 @@ export function fmtDuration(seconds: number): string {
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
   if (h === 0) return `${m}${NBSP}min`
-  return `${h}${NBSP}h ${String(m).padStart(2, '0')}${NBSP}min`
+  return `${h}${NBSP}h${NBSP}${String(m).padStart(2, '0')}${NBSP}min`
 }
 
 const plural = (n: number, one: string, many = `${one}s`): string => (n === 1 ? one : many)

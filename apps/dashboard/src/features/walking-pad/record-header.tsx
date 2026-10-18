@@ -22,7 +22,9 @@ function Row({
       <Group justify="space-between" gap="sm" wrap="wrap">
         <Group gap="sm" wrap="nowrap">
           <Box className={dot === 'live' ? `${classes.dot} ${classes.live}` : classes.dot} />
-          <Text fw={600}>{status}</Text>
+          <Text fw={600} className={classes.status}>
+            {status}
+          </Text>
           <Text size="sm" c="dimmed" className={classes.facts}>
             {facts}
           </Text>
@@ -37,9 +39,10 @@ function Row({
 
 /**
  * One row for what the pad is doing: live while a session streams (polled every 2 s while the tab is
- * visible), otherwise the last closed walk. The window never filters it.
+ * visible), otherwise the last closed walk. The window never filters it. When the window is empty
+ * the headline already says how long ago the last walk was, so the row leaves the age out.
  */
-export function RecordHeader() {
+export function RecordHeader({ empty = false }: { empty?: boolean }) {
   const visible = useDocumentVisibility() === 'visible'
   const live = useQuery({
     ...walkingPadQueries.live(),
@@ -80,7 +83,7 @@ export function RecordHeader() {
     <Row
       dot="idle"
       status={status}
-      facts={`last walk ${relativeTime(walk.ended_at)} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
+      facts={`last walk${empty ? '' : ` ${relativeTime(walk.ended_at)}`} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
       stats={`${withSteps(walk.steps)} · ${withKcal(walk.kcal)}, last walk`}
     />
   )

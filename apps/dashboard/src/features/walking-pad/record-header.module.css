@@ -26,3 +26,7 @@
 .facts {
   font-variant-numeric: proportional-nums;
 }
+
+.status {
+  white-space: nowrap;
+}

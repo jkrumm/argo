@@ -3,5 +3,6 @@ declare const classes: {
   readonly dot: string
   readonly live: string
   readonly facts: string
+  readonly status: string
 }
 export default classes

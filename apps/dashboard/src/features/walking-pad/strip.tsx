@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
+import { withUnit } from '../../lib/format'
 import { useNow } from '../../lib/use-now'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { walkingStore } from '../../lib/window-stores'
@@ -137,7 +138,9 @@ function useStreakCell(params: WalkingPadWindowParams): StatStripCell {
   return {
     key: 'streak',
     caption: 'Streak',
-    ...(streak !== undefined && { qualifier: `consecutive days · best ${streak.bestDays} d` }),
+    ...(streak !== undefined && {
+      qualifier: `consecutive days · best ${withUnit(streak.bestDays, 'd')}`,
+    }),
     value: streak === undefined ? null : String(streak.currentDays),
     unit: streak?.currentDays === 1 ? 'day' : 'days',
     loading: heroes.isPending || days.isPending,
@@ -163,10 +166,6 @@ function useStreakCell(params: WalkingPadWindowParams): StatStripCell {
         ))}
       </Box>
     ),
-    footer:
-      heroes.isPending || days.isPending
-        ? null
-        : `${streak?.currentDays === 0 ? 'No walk today or yesterday · ' : ''}${ticks.filter((t) => t.state === 'walked').length} walked this week · UTC days`,
   }
 }
 
@@ -232,7 +231,6 @@ function EmptyStrip() {
       qualifier: 'consecutive days',
       value: null,
       unit: 'days',
-      footer: 'Not loaded for an empty window · counts back from today or yesterday',
     },
     {
       key: 'totals',
