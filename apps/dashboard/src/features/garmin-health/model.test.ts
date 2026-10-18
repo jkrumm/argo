@@ -24,6 +24,8 @@ import {
   missingInputs,
   recoveryFact,
   recoveryGap,
+  recoveryMeterProps,
+  recoveryVerdict,
   recoverySentence,
   shortDate,
   signed,
@@ -464,5 +466,25 @@ describe('ACWR zone vocabulary', () => {
       [1.3, 1.5],
       [1.5, 2],
     ])
+  })
+})
+
+describe('recovery verdict', () => {
+  test('cuts at 40 and 70, boundaries belong to the higher zone', () => {
+    expect([0, 39.9, 40, 69.9, 70, 100].map(recoveryVerdict)).toEqual([
+      'rest',
+      'rest',
+      'normal',
+      'normal',
+      'push',
+      'push',
+    ])
+  })
+
+  test('the meter names the verdict and the cut-offs', () => {
+    expect(recoveryMeterProps(72).label).toBe('Recovery score, Push zone')
+    expect(recoveryMeterProps(null).label).toBe('Recovery score')
+    expect(recoveryMeterProps(50).startCaption).toBe('rest < 40 · push ≥ 70')
+    expect(recoveryMeterProps(50).zones.map((z) => z.label)).toEqual(['Rest', 'Normal', 'Push'])
   })
 })

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'bun:test'
+import { isValidElement } from 'react'
+import { recoveryMeterProps, recoveryVerdict } from '../garmin-health/model'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
@@ -112,5 +114,36 @@ describe('agentsCell', () => {
     })
     expect(cell).toMatchObject({ caption: 'Agents working · now', value: '2', unit: 'of 5 agents' })
     expect(cell.footer).toBeUndefined()
+  })
+})
+
+describe('recovery agrees with Garmin', () => {
+  const reading = (score: number) => ({
+    score,
+    mean: 60,
+    days: 7,
+    ceiling: null,
+    trend: [score],
+    date: '2026-01-15',
+    isToday: true,
+  })
+
+  it('states the score and the same zone verdict from the shared meter derivation', () => {
+    for (const score of [0, 39, 40, 69, 70, 100]) {
+      const cell = recoveryCell(reading(score))
+      expect(cell.value).toBe(String(score))
+      const meter = (cell.visual as { props: { children: unknown[] } }).props.children[0]
+      expect(isValidElement(meter)).toBe(true)
+      const props = (meter as { props: ReturnType<typeof recoveryMeterProps> }).props
+      expect(props.zones).toEqual(recoveryMeterProps(score).zones)
+      expect(props.label).toBe(recoveryMeterProps(score).label)
+      expect(props.label).toContain(
+        { rest: 'Rest', normal: 'Normal', push: 'Push' }[recoveryVerdict(score)],
+      )
+    }
+  })
+
+  it('keeps the 7 d mean as its own labelled fact', () => {
+    expect(recoveryCell(reading(55)).footer).toBe('7\u00a0d mean 60 · 7 observed days of 7')
   })
 })

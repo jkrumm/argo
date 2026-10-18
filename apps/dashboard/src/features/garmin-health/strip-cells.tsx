@@ -29,8 +29,7 @@ import {
   fitnessRange,
   lastDaysRange,
   vo2Hero,
-  RECOVERY_PUSH_FROM,
-  RECOVERY_REST_BELOW,
+  recoveryMeterProps,
   contributorItems,
   firstToLast,
   lastScored,
@@ -134,25 +133,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
         )
       ) : (
         <>
-          <Meter
-            label="Recovery score"
-            value={score}
-            min={0}
-            max={100}
-            zones={[
-              { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', color: VX.bad },
-              {
-                from: RECOVERY_REST_BELOW,
-                to: RECOVERY_PUSH_FROM,
-                label: 'Normal',
-                color: VX.warn,
-              },
-              { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
-            ]}
-            startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
-            endCaption="100"
-            loading={summary.isPending}
-          />
+          <Meter {...recoveryMeterProps(score)} value={score} loading={summary.isPending} />
           <ContributorRows
             label="Recovery contributors, points of their weight"
             rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
@@ -245,7 +226,8 @@ function signalRow(spec: SignalSpec): StatStripRow {
   return {
     key: spec.label,
     label: spec.label,
-    value: spec.hideValue === true ? '' : current === null ? null : reading(spec, current),
+    value: current === null ? null : reading(spec, current),
+    ...(spec.hideValue === true && { hideValue: true }),
     visual:
       present.length > 1 && new Set(present).size > 1 ? (
         <Sparkline
