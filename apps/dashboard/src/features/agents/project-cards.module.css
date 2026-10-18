@@ -29,7 +29,7 @@
 
 .quietRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 6rem 6.5rem 6rem;
+  grid-template-columns: minmax(0, 1fr) 5.5rem 6.5rem 7.5rem;
   align-items: center;
   column-gap: var(--vx-space-stack-md);
   padding-block: var(--vx-space-stack-xs);
@@ -43,7 +43,7 @@
 
 @container (max-width: 479.9px) {
   .quietRow {
-    grid-template-columns: minmax(0, 1fr) auto 6rem;
+    grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
   .quietRow > :nth-child(2) {

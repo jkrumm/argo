@@ -16,6 +16,7 @@ import {
   snapshotAgeMs,
   feedAside,
   summaryParts,
+  longestRunMs,
 } from '../features/agents/model'
 import { FeedNotice } from '../features/agents/feed-notice'
 import { StaleBanner } from '../features/agents/stale-banner'
@@ -107,10 +108,20 @@ function AgentsPage() {
                 history={historyQuery.data?.data}
                 hours={HISTORY_HOURS}
                 oldest={oldest}
+                longestRunMs={longestRunMs(
+                  agents.filter((a) => a.state === 'working'),
+                  now,
+                )}
                 now={now}
               />
             )}
-            <NeedsYouSection humanQueue={humanQueue} agents={agents} unknown={latest === null} />
+            <NeedsYouSection
+              humanQueue={humanQueue}
+              agents={agents}
+              unknown={latest === null}
+              machine={latest?.machine ?? null}
+              snapshotAgeMs={latest === null ? null : snapshotAgeMs(latest, now)}
+            />
             {feed === 'failed' ? null : <ProjectCards active={active} quiet={quiet} now={now} />}
             {feed === 'failed' ? null : (
               <ActivityStrip history={historyQuery.data?.data} hours={HISTORY_HOURS} now={now} />

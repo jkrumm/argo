@@ -160,18 +160,11 @@ export function fleetParts(
 }
 
 /**
- * The fleet's non-working states with counts, `2 idle · 1 stale`. Two fallbacks: `every agent
- * working` when only working agents exist, `no agents in this snapshot` when every count is 0.
+ * The one fleet fact the meter does not show: how long the longest-running working agent has been
+ * up. `null` when nothing is working, so the cell has no footer rather than a filler one.
  */
-export const fleetFooter = (parts: readonly FleetPart[]): string => {
-  if (parts.every((p) => p.value === 0)) return 'no agents in this snapshot'
-  return (
-    parts
-      .filter((p) => p.key !== 'working' && p.value > 0)
-      .map((p) => `${p.value} ${p.label}`)
-      .join(' · ') || 'every agent working'
-  )
-}
+export const fleetFact = (longestRunMs: number | null): string | null =>
+  longestRunMs === null ? null : `longest run ${formatWaitDuration(longestRunMs)}`
 
 // ── Needs-you trend ──────────────────────────────────────────────────────────────────────────
 
@@ -188,6 +181,35 @@ export function peakNeedsYou(history: HistoryPoint[] | undefined): Peak | null {
       peak = { value, atMs }
   }
   return peak
+}
+
+/** Hours of the window in which at least one snapshot showed an item waiting; `null` when no hour carries data. */
+export function hoursWithNeedsYou(
+  history: HistoryPoint[] | undefined,
+  hours: number,
+  now: number,
+): number | null {
+  const endHour = Math.floor(now / 3_600_000) * 3_600_000
+  const startHour = endHour - (hours - 1) * 3_600_000
+  const seen = new Set<number>()
+  const waiting = new Set<number>()
+  for (const p of history ?? []) {
+    const n = p.summary?.needsYou
+    const atMs = parseMs(p.receivedAt)
+    if (!isCount(n) || atMs === null) continue
+    const hour = Math.floor(atMs / 3_600_000) * 3_600_000
+    if (hour < startHour || hour > endHour) continue
+    seen.add(hour)
+    if (n > 0) waiting.add(hour)
+  }
+  return seen.size === 0 ? null : waiting.size
+}
+
+/** The needs-you cell's footer: how many of the window's hours had something waiting. */
+export function needsYouWindowFact(waitingHours: number | null, hours: number): string {
+  if (waitingHours === null) return `no data in ${hours} h`
+  if (waitingHours === 0) return `none waiting in ${hours} h`
+  return `waiting in ${waitingHours} of ${hours} h`
 }
 
 export type HourBucket = { hourMs: number; working: number | null }
@@ -238,6 +260,19 @@ export function peakWorking(
 export const gapHours = (buckets: readonly HourBucket[], now: number): number => {
   const currentHourMs = Math.floor(now / HOUR_MS) * HOUR_MS
   return buckets.filter((b) => b.working === null && b.hourMs !== currentHourMs).length
+}
+
+/** Activity-strip footer: the busiest hour and how many hours had an agent working; `null` when nothing was measured. */
+export function activityFact(buckets: readonly HourBucket[]): string | null {
+  const peak = peakWorking(buckets)
+  if (peak === null) return null
+  const active = buckets.filter((b) => (b.working ?? 0) > 0).length
+  const clock = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
+    peak.hourMs,
+  )
+  return peak.value === 0
+    ? `no agent working in ${buckets.length} h`
+    : `busiest hour ${clock} · agents working in ${active} of ${buckets.length} h`
 }
 
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
@@ -463,11 +498,14 @@ export function ageAgo(ms: number): string {
 export type NeedsYouCard = {
   key: string
   kind: 'human-queue' | 'agent'
+  /** A short question; the full ask sits behind {@link NeedsYouCard.fullAsk}. */
   headline: string
-  /** `[host, 'asked 6m ago']` / `[project, 'waiting 6m']`; a missing clock or host is left out. */
+  /** `[project, 'waiting 6m', machine]`; a missing clock or host is left out. */
   facts: string[]
-  /** Mono inset body: the command, or the blocker. */
+  /** The one evidence line: the command, or the latest blocker. */
   inset: string | null
+  /** Context excerpt for the right column; `null` unless the payload carries a real one. */
+  preview: string | null
   /** The one copy action, backed by a payload field. */
   copy: { label: string; value: string } | null
   /** The full ask, behind a disclosure. */
@@ -479,6 +517,63 @@ export type NeedsYouCard = {
 
 const isText = (v: string | null): v is string => v !== null && v !== ''
 
+const QUESTION_MAX = 80
+const EVIDENCE_MAX = 160
+const PREVIEW_MAX = 220
+
+const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim()
+
+/** Cuts at the last word boundary that fits, with an ellipsis. */
+function ellipsize(text: string, max: number): string {
+  if (text.length <= max) return text
+  const cut = text.slice(0, max - 1)
+  const space = cut.lastIndexOf(' ')
+  return `${(space > max * 0.5 ? cut.slice(0, space) : cut).trimEnd()}…`
+}
+
+/**
+ * A short question for a card title: the ask's first sentence, markdown marks removed, ended at the
+ * last clause boundary that fits {@link QUESTION_MAX}, else at a word with an ellipsis. The full
+ * text stays behind the card's disclosure.
+ */
+export function questionOf(text: string): string {
+  const flat = flatten(text.replace(/[`*_#>]/g, ''))
+  const stop = flat.search(/[.!?](\s|$)/)
+  const sentence = stop === -1 ? flat : flat.slice(0, stop + 1)
+  if (sentence.length <= QUESTION_MAX) return sentence
+  let clauseEnd = -1
+  for (const match of sentence.matchAll(CLAUSE_END)) {
+    if (match.index > QUESTION_MAX) break
+    if (match.index >= QUESTION_MAX * 0.4) clauseEnd = match.index
+  }
+  if (clauseEnd !== -1) return sentence.slice(0, clauseEnd).replace(/[\s,;:—-]+$/, '')
+  return ellipsize(sentence, QUESTION_MAX)
+}
+
+const nonEmptyLines = (text: string): string[] =>
+  text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+/** The blocker the agent reports, one line; `null` when it reports none. */
+export function evidenceLine(a: AgentRow): string | null {
+  const text = a.blocker ?? a.waitingFor ?? a.standing
+  const line = text ? nonEmptyLines(text)[0] : undefined
+  return line ? ellipsize(line, EVIDENCE_MAX) : null
+}
+
+/** The agent's last reply as context: its final paragraph, kept only when it adds to the evidence line. */
+export function previewOf(a: AgentRow, evidence: string | null): string | null {
+  const paragraphs = (a.lastReply ?? '')
+    .split(/\n\s*\n/)
+    .map(flatten)
+    .filter(Boolean)
+  const last = paragraphs.at(-1)
+  if (!last || last === evidence) return null
+  return ellipsize(last, PREVIEW_MAX)
+}
+
 type QueueItem = {
   id: string
   askedAt?: string | null | undefined
@@ -487,29 +582,41 @@ type QueueItem = {
   [key: string]: unknown
 }
 
+export type CardContext = {
+  /** Producer host of the snapshot, used when an ask carries no host of its own. */
+  machine?: string | null
+  /** Age of the snapshot, the evidence line's fallback. */
+  snapshotAgeMs?: number | null
+}
+
 /** Human-queue asks and `needs_you` agents as one list, longest wait first. */
 export function needsYouCards(
   humanQueue: readonly QueueItem[],
   agents: readonly AgentRow[],
   now: number,
+  ctx: CardContext = {},
 ): NeedsYouCard[] {
+  const machine = ctx.machine ?? null
   const asks: NeedsYouCard[] = humanQueue.map((item) => {
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
-    const host = typeof item['host'] === 'string' ? item['host'] : null
-    const facts = [host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(isText)
-    const headline = headlineOf(item.question)
-    const long = headline !== item.question.replace(/\s+/g, ' ').trim()
+    const host = typeof item['host'] === 'string' ? item['host'] : machine
+    const facts = ['human queue', host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(
+      isText,
+    )
+    const headline = questionOf(item.question)
     return {
       key: `hq-${item.id}`,
       kind: 'human-queue',
       headline,
       facts,
       inset: item.cmd?.trim() || null,
+      preview: null,
       copy: item.cmd?.trim() ? { label: 'Copy command', value: item.cmd.trim() } : null,
-      fullAsk: long
-        ? { label: `Full ask · ${item.question.length} chars`, text: item.question }
-        : null,
+      fullAsk:
+        headline === flatten(item.question)
+          ? null
+          : { label: `Full ask · ${item.question.length} chars`, text: item.question },
       abandoned: false,
       waitMs,
     }
@@ -521,19 +628,25 @@ export function needsYouCards(
       const facts = [
         a.project,
         waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
+        machine,
       ].filter(isText)
       const title = a.title ?? a.lastPrompt ?? a.id
-      const flatTitle = title.replace(/\s+/g, ' ').trim()
-      const headline = headlineOf(title)
+      const headline = questionOf(title)
+      const blocker = evidenceLine(a)
+      const fallback =
+        ctx.snapshotAgeMs == null
+          ? null
+          : `no blocker reported · snapshot ${ageAgo(ctx.snapshotAgeMs)}`
       return {
         key: `agent-${a.id}`,
         kind: 'agent',
         headline,
         facts,
-        inset: a.blocker ?? a.waitingFor ?? a.standing ?? null,
+        inset: blocker ?? fallback,
+        preview: previewOf(a, blocker),
         copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
         fullAsk:
-          headline === flatTitle
+          headline === flatten(title)
             ? null
             : { label: `Full ask · ${title.length} chars`, text: title },
         abandoned: isAbandonedWait(a, now),

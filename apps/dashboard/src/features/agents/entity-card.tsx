@@ -18,14 +18,14 @@ export type EntityCardProps = {
   identity: ReactNode
   /** Right of the identity: a state chip. */
   status: ReactNode
-  /** The 2×2 inner panel, row-major. */
-  cells: readonly [EntityCardCell, EntityCardCell, EntityCardCell, EntityCardCell]
+  /** The inner panel, row-major, two columns; a trailing odd cell spans both. */
+  cells: readonly EntityCardCell[]
   /** The closing line: `Now <title>`. */
   now?: ReactNode
 }
 
 /**
- * Identity + status line, a 2×2 inner panel of four different micro-readings divided by hairlines,
+ * Identity + status line, an inner panel of different micro-readings divided by hairlines,
  * then one `Now …` line (Keel's crew card). Prototype of the SPEC §6.9 entity card.
  */
 export function EntityCard({ identity, status, cells, now }: EntityCardProps) {
