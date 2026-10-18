@@ -250,3 +250,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (`w36-r1`):** pass, incl. both pane presets. Fixed (confirmed, #155): with the Labeled cell leading, the channels cell reads `No chats or channels came back` (w35's `No teams came back` noun mismatch); the phone Detail line is the screen's short form (`Nothing to open — …` gone). Unscored before (argo, P3): the chats cell and the source list still read `No chats came back` on the both-empty screen — the next wave decides whether a chats-only gap is a narrower gap with its own sentence or takes the leading clause. Carried (harness / basalt, P3): the labeled-phone focus ring under the sticky tabs, the ~640 px band under the panes, the chip hover crop, ragged strip footers. No lost fact.
 - **Against Keel:** close — one gap, one sentence; Keel's rows still carry real columns.
+
+### Wave 37 round
+
+- **Decision:** a both-empty screen is ONE gap, so every surface (Labeled cell, chats cell, channels cell, source list in either view, phone Detail line) takes the leading clause verbatim: `No chats or channels came back`. `No chats came back` stays only for the narrower chats-only gap (channels present), where the chats cell leads with its own full sentence. Selection lives in `chatsCellGap` / `sourceListGap` / `detailGap` (`model.ts`).

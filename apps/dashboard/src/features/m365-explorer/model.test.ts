@@ -3,6 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
   channelsCellGap,
+  chatsCellGap,
+  sourceListGap,
   detailGap,
   withStep,
   nothingToLabel,
@@ -422,6 +424,20 @@ describe('channelsCellGap', () => {
     expect(channelsCellGap('chats')).toBe(NO_TEAMS)
     expect(channelsCellGap('channels')).toBe(NO_TEAMS)
     expect(channelsCellGap(null)).toBe(NO_TEAMS)
+  })
+})
+
+describe('chatsCellGap / sourceListGap', () => {
+  test('both lists empty: one gap, every surface takes the leading clause', () => {
+    expect(chatsCellGap('labeled')).toBe(NO_SOURCES)
+    expect(sourceListGap(true, 'chats')).toBe(NO_SOURCES)
+    expect(sourceListGap(true, 'teams')).toBe(NO_SOURCES)
+  })
+  test('chats only empty: the narrower gap keeps its own wording', () => {
+    expect(chatsCellGap('chats')).toBe(NO_CHATS)
+    expect(chatsCellGap(null)).toBe(NO_CHATS)
+    expect(sourceListGap(false, 'chats')).toBe(NO_CHATS)
+    expect(sourceListGap(false, 'teams')).toBe(NO_TEAMS)
   })
 })
 

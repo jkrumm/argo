@@ -309,6 +309,7 @@ export function M365ExplorerPage(): ReactElement {
           now={now}
           selected={selected}
           onSelect={select}
+          bothEmpty={nothingToLabel(coverage)}
         />
       )}
     </>

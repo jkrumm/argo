@@ -7,8 +7,7 @@ import {
   formatTime,
   groupByRecency,
   matchesTag,
-  NO_CHATS,
-  NO_TEAMS,
+  sourceListGap,
   plural,
   sourceIdFor,
   type ChannelState,
@@ -41,6 +40,8 @@ export type SourceListProps = {
   now: Date
   selected: SourceRef | null
   onSelect: (ref: SourceRef) => void
+  /** Chats and channels are both empty: one gap, so the empty message is the screen's leading clause. */
+  bothEmpty: boolean
 }
 
 type Filters = Pick<SourceListProps, 'tag' | 'query'>
@@ -72,13 +73,13 @@ function visibleTeams(props: SourceListProps) {
 }
 
 /** The message for a list nothing of which is shown: a search, a label, or (no filter) nothing came back. */
-function emptyMessage(f: Filters, noun: 'chats' | 'teams'): string {
+function emptyMessage(f: Filters, noun: 'chats' | 'teams', bothEmpty: boolean): string {
   const term = f.query.trim()
   if (term)
     return noun === 'chats' ? `No chats match "${term}"` : `No teams or channels match "${term}"`
   if (f.tag !== '') return `No ${noun} with this label`
   // Unfiltered and empty: a team with no channel still lists, so an empty teams list is no teams.
-  return noun === 'chats' ? NO_CHATS : NO_TEAMS
+  return sourceListGap(bothEmpty, noun)
 }
 
 export function SourceList(props: SourceListProps) {
@@ -86,7 +87,7 @@ export function SourceList(props: SourceListProps) {
   const teams = props.view === 'teams' ? visibleTeams(props) : []
   if (props.view === 'chats' ? chats.length === 0 : teams.length === 0) {
     // Outside the scroller, so the message centres in the pane.
-    return <p className={classes.emptyCenter}>{emptyMessage(props, props.view)}</p>
+    return <p className={classes.emptyCenter}>{emptyMessage(props, props.view, props.bothEmpty)}</p>
   }
   return (
     <ScrollArea

@@ -8,7 +8,7 @@ import {
   chatsStat,
   labeledBasis,
   labeledSegmentCaption,
-  NO_CHATS,
+  chatsCellGap,
   NO_SOURCES,
   gapLeader,
   nothingToLabel,
@@ -87,9 +87,10 @@ function labeledCell(
  * The chat kinds as one split bar, shaded by rank (a split is not a verdict); the hero is the leading
  * kind with its count and the bar's row captions name every kind, with the count of every kind but the lead. A kind with no chats is left out; `other` takes any kind the API adds later.
  */
-function chatsCell(chats: Chats, noChats: boolean, leading: boolean): StatStripCell {
+function chatsCell(chats: Chats, noChats: boolean, leader: GapLeader): StatStripCell {
   if (noChats) {
-    const reason = leading ? withStep(NO_CHATS) : NO_CHATS
+    const short = chatsCellGap(leader)
+    const reason = leader === 'chats' ? withStep(short) : short
     return { key: 'chats', caption: 'Chats by kind', state: { kind: 'empty', reason } }
   }
   const parts = chatKindParts(chats)
@@ -188,7 +189,7 @@ export function ExplorerStrip({
       cols={3}
       cells={[
         labeledCell(coverage, list, onRetry, leader === 'labeled'),
-        chatsCell(chats, noChats, leader === 'chats'),
+        chatsCell(chats, noChats, leader),
         channelsCell({ channels, largest: largestTeam, failed: coverage.failed, noTeams, leader }),
       ]}
     />
