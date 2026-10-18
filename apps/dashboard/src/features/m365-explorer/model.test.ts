@@ -2,6 +2,10 @@ import { NBSP } from '../../lib/format'
 import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
+  nothingToOpen,
+  NO_CHANNELS,
+  NO_CHATS,
+  NO_TEAMS,
   chatKindParts,
   chatsStat,
   showTagChips,
@@ -403,5 +407,13 @@ describe('showTagChips', () => {
     expect(showTagChips(0, 'alerts')).toBe(true)
     expect(showTagChips(3, '')).toBe(true)
     expect(showTagChips(null, '')).toBe(true)
+  })
+})
+
+describe('nothingToOpen', () => {
+  test('lower-cases the strip cause after the dash', () => {
+    expect(nothingToOpen(NO_CHATS)).toBe('Nothing to open — no chats came back')
+    expect(nothingToOpen(NO_TEAMS)).toBe('Nothing to open — no teams came back')
+    expect(nothingToOpen(NO_CHANNELS)).toBe('Nothing to open — no channels came back')
   })
 })

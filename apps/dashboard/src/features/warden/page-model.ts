@@ -277,7 +277,7 @@ export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFoot
 }
 
 /** How often Warden pushes a snapshot to Argo. */
-const WARDEN_PUSH_MIN = 10
+export const WARDEN_PUSH_MIN = 10
 
 /** What a missing budget says: the cause is on warden's side, the fix is its next push. */
 export const BUDGET_MISSING = {
