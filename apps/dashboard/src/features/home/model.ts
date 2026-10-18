@@ -501,10 +501,10 @@ export type HomeSummaryInput = {
   loading: readonly string[]
 }
 
-/** `Warden unavailable, Agents loading`: the one wording for sources the list cannot yet count. */
+/** `Warden failed to load, Agents loading`: the one wording for sources the list cannot yet count. */
 export function unknownPhrase(unavailable: readonly string[], loading: readonly string[]): string {
   return [
-    ...(unavailable.length > 0 ? [`${unavailable.join(' and ')} unavailable`] : []),
+    ...(unavailable.length > 0 ? [`${unavailable.join(' and ')} failed to load`] : []),
     ...(loading.length > 0 ? [`${loading.join(' and ')} loading`] : []),
   ].join(', ')
 }
