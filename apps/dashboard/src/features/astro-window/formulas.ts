@@ -605,7 +605,7 @@ export function skyCellFooter({
   const clarity = transparency === null ? '—' : `${transparency}/8`
   return joinPhrases([
     glue(`town glow ${dome}`),
-    `${glue(`transparency ${clarity}`)} ${glue('(lower = clearer)')}`,
+    `${glue(`transparency ${clarity}`)} ${glue('(low = clear)')}`,
   ])
 }
 
@@ -627,11 +627,11 @@ export function moonFooter({
 }
 
 /**
- * The cloud-layers headline as a `ChartFact`: `{v} % low cloud · dark-hours mean`. ChartCard puts
- * no separator between unit and period, so the period carries its own `· `; both phrases are glued.
+ * The cloud-layers headline as a `ChartFact`: `{v} % low cloud · dark-hours mean`. `period` is a list
+ * ChartCard joins by `·`; both phrases are glued.
  */
 export function cloudHeadline({ value, unit, basis }: LowCloudStat): ChartFact {
-  return { value, unit: glue(unit), period: `· ${glue(basis)}` }
+  return { value, unit: glue(unit), period: [glue(basis)] }
 }
 
 /**

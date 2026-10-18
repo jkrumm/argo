@@ -643,10 +643,10 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: dome and transparency; the threshold lives on the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
+      'town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (low\u00a0=\u00a0clear)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
+      'town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (low\u00a0=\u00a0clear)',
     )
   })
 
@@ -679,7 +679,7 @@ describe('cloudHeadline', () => {
     expect(cloudHeadline(stat)).toEqual({
       value: '40\u00a0%',
       unit: 'low\u00a0cloud',
-      period: '· dark-hours\u00a0mean',
+      period: ['dark-hours\u00a0mean'],
     })
   })
 })
