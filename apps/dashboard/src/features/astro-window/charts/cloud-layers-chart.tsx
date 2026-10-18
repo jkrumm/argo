@@ -2,10 +2,16 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { withUnit } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { fmtShortDay, hourlyTicks, hourlyTimeLabel, lowCloudStat, withFacts } from '../formulas'
+import {
+  flatLayersNote,
+  fmtPercent,
+  fmtShortDay,
+  hourlyTicks,
+  hourlyTimeLabel,
+  lowCloudStat,
+  withFacts,
+} from '../formulas'
 import type { HourlyPoint, Night } from '../types'
-
-const fmtCloud = (v: number) => withUnit(Math.round(v), '%')
 
 // The 0 gridline is not the plot floor — a series pinned at 0% (a common outcome for "low cloud")
 // draws as a visible line above the axis rule instead of merging with it.
@@ -40,7 +46,7 @@ function toSeries(def: CloudSeriesDef): ChartSeries<HourlyPoint> {
     color: SERIES[def.key],
     strokeWidth: def.strokeWidth,
     getValue: (d) => d[def.key],
-    formatValue: fmtCloud,
+    formatValue: fmtPercent,
     ...(def.dash !== undefined && { dash: def.dash }),
   }
 }
@@ -75,6 +81,7 @@ export default function CloudLayersChart({
     <ChartCard
       title={`Cloud cover by layer · ${fmtShortDay(night.date)}`}
       info={METRIC_TOOLTIPS.cloudLayers}
+      subtitle={flatLayersNote(hourly) ?? undefined}
       {...withFacts(
         stat === null ? null : { value: stat.value, unit: stat.unit, period: stat.basis },
       )}
