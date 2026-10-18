@@ -4,10 +4,15 @@ import type { ReactNode } from 'react'
 import type { WardenBudget, WardenHealth, WardenMetrics } from '../../lib/queries/warden'
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import {
+  BUDGET_MISSING,
+  REVERTS_INFO,
   deriveBudgetFooter,
   deriveStrip,
+  fixesLegend,
   formatNumber,
+  pollerFooter,
   revertsFooter,
+  verdictsFooter,
   type BudgetMeter,
   type StripModel,
 } from './page-model'
@@ -32,7 +37,7 @@ const toneMeter = (tone: VerdictTone) => (tone === undefined ? {} : { color: VX.
 const noData = (reason: string) => `no data: ${reason}`
 
 function verdictsCell({ verdicts }: StripModel): StatStripCell {
-  const { pct, numerator, denominator, unavailable } = verdicts
+  const { pct, unavailable } = verdicts
   if (pct === null) {
     return {
       key: 'verdicts',
@@ -47,18 +52,7 @@ function verdictsCell({ verdicts }: StripModel): StatStripCell {
     info: 'Items warden has recorded a verdict for, out of every item it tracks, since history began.',
     value: String(Math.round(pct)),
     unit: '%',
-    footer: 'all time',
-    visual: (
-      <Meter
-        label="Verdicts recorded, all time"
-        value={pct}
-        max={100}
-        startCaption={
-          numerator !== null && denominator !== null ? `${numerator} of ${denominator} items` : null
-        }
-        endCaption={null}
-      />
-    ),
+    footer: verdictsFooter(verdicts),
   }
 }
 
@@ -78,20 +72,18 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
     { label: 'quiet', value: fixes.quiet, color: VX.status.warn },
   ]
   const present = parts.filter((part) => part.value !== null)
-  const unknown = parts.filter((part) => part.value === null).map((part) => `${part.label}\u00a0—`)
   const total = present.reduce((sum, part) => sum + (part.value ?? 0), 0)
   return {
     key: 'fixes',
     caption,
-    info: 'Fixed as a share of fixed plus quiet items. Closed items are counted in the qualifier only.',
+    info: 'Fixed as a share of fixed plus quiet items. Closed items are counted in the legend only.',
     value: String(Math.round(fixes.pct)),
     unit: '%',
     footer: (
       <>
-        all time · share of fixed + quiet
+        all time
         <br />
-        {`closed\u00a0${fixes.closed ?? '—'}`}
-        {unknown.length > 0 && ` · ${unknown.join(' · ')}`}
+        {fixesLegend(fixes)}
       </>
     ),
     visual: (
@@ -157,7 +149,7 @@ function unattendedCell({ unattended }: StripModel): StatStripCell {
     info: 'Fixes verified without owner input in the window.',
     value: formatNumber(unattended.fixes),
     unit: unattended.fixes === 1 ? 'fix' : 'fixes',
-    footer: `last ${unattended.windowDays} d · no prior-window delta`,
+    footer: `last ${unattended.windowDays} d`,
   }
 }
 
@@ -180,7 +172,7 @@ function pollerCell({ poller }: StripModel): StatStripCell {
     value: formatNumber(poller.oldestMin),
     unit: 'min',
     ...toneCell(tone),
-    footer: `stale at ${limit} min`,
+    ...(pollerFooter(poller) === null ? {} : { footer: pollerFooter(poller) }),
     visual: (
       <Meter
         label={`Oldest poller age against ${limit} minutes`}
@@ -203,6 +195,7 @@ function revertsCell({ reverts }: StripModel): StatStripCell {
     value: reverts.reverts === null ? null : String(reverts.reverts),
     unit: reverts.reverts === 1 ? 'revert' : 'reverts',
     ...(reverts.reverts !== null && reverts.reverts > 0 && { tone: 'bad' as const }),
+    info: REVERTS_INFO,
     footer: revertsFooter(reverts, noData),
   }
 }
@@ -221,7 +214,7 @@ function BudgetMeterRow({ meter }: { meter: BudgetMeter }) {
           —
         </Text>
         <Text size="xs" c="dimmed">
-          {meter.name} budget — not reported by Warden
+          {BUDGET_MISSING.one(meter.name)}
         </Text>
       </Stack>
     )
@@ -262,7 +255,7 @@ export function HealthStrip({ metrics, health, budget }: Props) {
             key: 'budget',
             content: (
               <Text size="xs" c="dimmed">
-                Dispatch and implement budget — not reported by Warden
+                {BUDGET_MISSING.both}
               </Text>
             ),
           },

@@ -11,6 +11,8 @@ import classes from './board.module.css'
 import { boardStore } from './board-store'
 import {
   deferralOf,
+  emptyColumnText,
+  stripShortcodes,
   openCount,
   originKind,
   splitBoardColumns,
@@ -54,8 +56,9 @@ function BoardCard({
   const at = item.updated_at ?? item.created_at
   const { deferred, detail } = deferralOf(item)
   const ref = item.issue ? issueRefLabel(item.issue) : null
-  const source = [item.repo, ref].filter(Boolean).join(' · ') || `Item #${item.event_id}`
-  const title = item.title ?? `Item #${item.event_id}`
+  const source =
+    stripShortcodes([item.repo, ref].filter(Boolean).join(' · ')) || `Item #${item.event_id}`
+  const title = stripShortcodes(item.title ?? '') || `Item #${item.event_id}`
   return (
     <Card data-shot={`board-card-${item.event_id}`}>
       <Stack gap={6}>
@@ -71,7 +74,7 @@ function BoardCard({
           ta="left"
         >
           <Text size="sm" lineClamp={2} className={classes.text}>
-            {item.title ?? '—'}
+            {stripShortcodes(item.title ?? '') || '—'}
           </Text>
         </UnstyledButton>
         {showState ? (
@@ -84,7 +87,7 @@ function BoardCard({
             <Text span size="xs" fw={600} c={VX.status.warn}>
               Deferred
             </Text>
-            {detail === null ? null : ` · ${detail}`}
+            {detail === null ? null : ` · ${stripShortcodes(detail)}`}
           </Text>
         ) : null}
         <Group gap="xs" justify="space-between">
@@ -97,8 +100,6 @@ function BoardCard({
     </Card>
   )
 }
-
-const NOTHING_OPEN = 'Nothing open'
 
 function ColumnHeader({ column }: { column: BoardColumn }) {
   return (
@@ -124,7 +125,7 @@ function ColumnBody({
     <Stack gap="xs">
       {column.items.length === 0 ? (
         <Text size="xs" c="dimmed">
-          Nothing in {column.label}
+          {emptyColumnText(column.key)}
         </Text>
       ) : (
         column.items.map((item) => (
@@ -148,9 +149,12 @@ function ColumnBody({
  */
 export function Board({
   columns,
+  emptyText,
   onSelectItem,
 }: {
   columns: readonly BoardColumn[]
+  /** What the empty board says (a fact, from `emptyBoardText`). */
+  emptyText: string
   onSelectItem: (eventId: number) => void
 }) {
   const narrow = useSizeClass() === 'compact'
@@ -194,7 +198,7 @@ export function Board({
             ) : null}
             {emptyLabels.length > 0 ? (
               <Text size="xs" c="dimmed">
-                {populated.length === 0 ? NOTHING_OPEN : `Empty: ${emptyLabels.join(', ')}`}
+                {populated.length === 0 ? emptyText : `Empty: ${emptyLabels.join(', ')}`}
               </Text>
             ) : null}
           </Stack>

@@ -29,6 +29,17 @@ import {
   historySummary,
   splitBoardColumns,
   revertsFooter,
+  REVERTS_INFO,
+  askCopy,
+  BUDGET_MISSING,
+  emptyBoardText,
+  emptyColumnText,
+  fixesLegend,
+  historyView,
+  pollerFooter,
+  stripShortcodes,
+  transitionText,
+  verdictsFooter,
 } from './page-model'
 
 const NOW = Date.parse('2026-01-01T12:00:00Z')
@@ -361,10 +372,9 @@ describe('revertsFooter', () => {
     reopensUnavailable: reopens === null ? 'y' : null,
     windowDays: 7,
   })
-  it('defines a revert in plain words next to the reopen count', () => {
-    expect(revertsFooter(strip(0, 1), nd)).toBe(
-      'revert = a merged fix that was undone · 1 reopened after fixed · last\u00a07\u00a0d',
-    )
+  it('states the reopen count and window; the definition lives in the tooltip', () => {
+    expect(revertsFooter(strip(0, 1), nd)).toBe('1 reopened after fixed · last\u00a07\u00a0d')
+    expect(REVERTS_INFO).toContain('A revert is a merged fix that was undone')
   })
   it('reports missing readings as no data', () => {
     expect(revertsFooter(strip(null, null), nd)).toBe('reverts no data: x · reopens no data: y')
@@ -453,8 +463,7 @@ describe('cardFacts', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
       'waiting 1.2 d',
-      'revision 1',
-      '2 redrives',
+      'revision 1, 2 redrives',
     ])
   })
 
@@ -773,5 +782,133 @@ describe('cardCategory', () => {
     expect(cardCategory('failed', null, null)).toBeNull()
     expect(cardCategory('decision', '   ', null)).toBeNull()
     expect(cardCategory('decision', null, null)).toBeNull()
+  })
+})
+
+describe('stripShortcodes', () => {
+  it('keeps the text of a bracketed shortcode and drops bare ones', () => {
+    expect(stripShortcodes(':white_check_mark: {service} recovered')).toBe('{service} recovered')
+    expect(stripShortcodes('[red_circle: {service} down]')).toBe('{service} down')
+  })
+  it('leaves colon identifiers alone', () => {
+    expect(stripShortcodes('job m365:auth:prod at 10:30:45')).toBe('job m365:auth:prod at 10:30:45')
+  })
+})
+
+describe('askCopy', () => {
+  it('strips shortcodes before splitting and keeps a short question', () => {
+    const ask = askCopy({
+      title: ':rotating_light: {title}',
+      reason: '[blocker] Ship {thing}? It touches the loop.',
+      failed: false,
+    })
+    expect(ask.tag).toBe('blocker')
+    expect(ask.title).toBe('{title}')
+    expect(ask.copy).toMatchObject({
+      question: 'Ship {thing}?',
+      evidenceLine: 'It touches the loop.',
+      fromTitle: false,
+    })
+  })
+
+  it('asks about the title when the first sentence is prose, keeping the whole ask', () => {
+    const sentence = `Should warden ${'merge the change and then redeploy the loop '.repeat(3)}now?`
+    const ask = askCopy({ title: '{title}', reason: `${sentence} Tests pass.`, failed: false })
+    expect(ask.copy.question).toBe('Decide on {title}?')
+    expect(ask.copy.detail).toBe(`${sentence} Tests pass.`)
+  })
+
+  it('keeps Retry for a failed item whatever the title length', () => {
+    const title = 'x'.repeat(120)
+    const ask = askCopy({ title, reason: 'Exit code 1.', failed: true })
+    expect(ask.copy.question).toBe(`Retry ${title}?`)
+    expect(ask.copy.evidenceLine).toBe('Exit code 1.')
+  })
+})
+
+describe('transitionText and historyView', () => {
+  it('names a creation row and a move whole', () => {
+    expect(transitionText({ from: null, to: 'new', at: null })).toBe('Created')
+    expect(transitionText({ from: 'needs_decision', to: 'working', at: null })).toBe(
+      'Needs decision → Working',
+    )
+  })
+
+  it('is inline for one transition and a well for more, newest first', () => {
+    const one = Object.assign([{ from: null, to: 'new', at: 't1' }], { total: 1 })
+    expect(historyView(one)).toEqual({
+      layout: 'inline',
+      lines: [{ text: 'Created', at: 't1' }],
+      earlier: 0,
+    })
+    const many = Object.assign(
+      [
+        { from: 'new', to: 'triaged', at: 't1' },
+        { from: 'triaged', to: 'working', at: 't2' },
+      ],
+      { total: 5 },
+    )
+    const view = historyView(many)
+    expect(view?.layout).toBe('well')
+    expect(view?.lines.map((l) => l.text)).toEqual(['Triaged → Working', 'New → Triaged'])
+    expect(view?.earlier).toBe(3)
+  })
+
+  it('is null without history', () => {
+    expect(historyView([])).toBeNull()
+  })
+})
+
+describe('strip footers', () => {
+  const fixes = (fixed: number | null, quiet: number | null, closed: number | null) =>
+    ({ pct: 50, fixed, quiet, closed, unavailable: null }) as StripModel['fixes']
+
+  it('writes the fixes legend as a sum', () => {
+    expect(fixesLegend(fixes(3, 2, 1))).toBe(
+      '3\u00a0fixed + 2\u00a0quiet + 1\u00a0closed = 6\u00a0items',
+    )
+  })
+  it('shows a dash and no total for an unreported count', () => {
+    expect(fixesLegend(fixes(3, null, 1))).toBe('3\u00a0fixed + —\u00a0quiet + 1\u00a0closed')
+  })
+
+  it('gives the verdicts cell a fact instead of a bare share', () => {
+    const v = { pct: 50, numerator: 5, denominator: 10, unavailable: null }
+    expect(verdictsFooter(v)).toBe('5 of 10 tracked items · all time')
+    expect(verdictsFooter({ ...v, numerator: null })).toBe('all time')
+  })
+
+  it('names the oldest poller instead of repeating the tick', () => {
+    const poller = { oldestMin: 4, thresholdMin: 30, stale: false, unavailable: null }
+    expect(pollerFooter({ ...poller, name: 'merge_poller', count: 3 })).toBe(
+      'merge poller · oldest of 3',
+    )
+    expect(pollerFooter({ ...poller, name: 'merge_poller', count: 1 })).toBe('merge poller')
+    expect(pollerFooter({ ...poller, name: null, count: 0 })).toBeNull()
+  })
+
+  it('carries the oldest poller name through the strip', () => {
+    const strip = deriveStrip(undefined, {
+      pollers: { a_poller: { age_minutes: 9 }, b_poller: { age_minutes: 3 } },
+    } as never)
+    expect(strip.poller).toMatchObject({ name: 'a_poller', count: 2 })
+  })
+
+  it('tells a missing budget when it arrives', () => {
+    expect(BUDGET_MISSING.both).toContain('about every 10 min')
+    expect(BUDGET_MISSING.one('Dispatch')).toContain('Dispatch budget')
+    expect(REVERTS_INFO).toContain('reopen')
+  })
+})
+
+describe('board empty copy', () => {
+  it('describes what an empty column would hold', () => {
+    expect(emptyColumnText('working')).toBe('No item being worked on.')
+  })
+  it('states how much warden has resolved, or just that nothing is open', () => {
+    const fixes = (fixed: number | null) =>
+      ({ pct: null, fixed, quiet: 2, closed: 3, unavailable: null }) as StripModel['fixes']
+    expect(emptyBoardText(fixes(1))).toBe('No open items. Warden has resolved 6 so far.')
+    expect(emptyBoardText(fixes(null))).toBe('No open items.')
   })
 })

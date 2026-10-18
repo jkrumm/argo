@@ -1,6 +1,5 @@
 import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
-import { VX } from 'basalt-ui/tokens'
 import { Link } from '@tanstack/react-router'
 import { useClipboard } from '@mantine/hooks'
 import { IconCheck, IconCircleCheck, IconCopy } from '@tabler/icons-react'
@@ -9,6 +8,7 @@ import type { Decision } from '../../lib/decisions'
 import { NEEDS_YOU_SOURCES } from './model'
 import { StatusChip } from '../agents/status-chip'
 import { HistoryPreview } from '../warden/history-preview'
+import { historyView } from '../warden/page-model'
 
 /** Cards shown before the rest is left to the Agents and Warden pages. */
 const CARD_LIMIT = 3
@@ -21,30 +21,6 @@ type Props = {
   unavailable: readonly string[]
 }
 
-/** `warden · <repo> · waiting 3.6 d` above the question; an age past its limit takes the status tone. */
-function Kicker({ facts }: { facts: Decision['facts'] }) {
-  return (
-    <Text size="xs" c="dimmed">
-      {facts.map((fact, i) => {
-        const text = typeof fact === 'string' ? fact : fact.text
-        const tone = typeof fact === 'string' ? undefined : fact.tone
-        return (
-          <span key={text}>
-            {i > 0 ? ' · ' : ''}
-            <Text
-              span
-              inherit
-              {...(tone && { c: tone === 'bad' ? VX.status.bad : VX.status.warn })}
-            >
-              {text}
-            </Text>
-          </span>
-        )
-      })}
-    </Text>
-  )
-}
-
 function Card({ decision }: { decision: Decision }) {
   const clipboard = useClipboard({ timeout: 1500 })
   const open = {
@@ -55,21 +31,31 @@ function Card({ decision }: { decision: Decision }) {
   // else has no command in its payload, so opening the owning page is the primary.
   const command = decision.source === 'queue' ? decision.evidence : null
   const narrow = useSizeClass() === 'compact'
-  const evidence = decision.evidence ? (
-    <Text size="sm" {...(!narrow && { lineClamp: 3 })}>
-      {decision.evidence}
-    </Text>
-  ) : undefined
+  const view = historyView(decision.history)
   return (
     <DecisionCard
-      actor={<Kicker facts={decision.facts} />}
       question={decision.headline}
-      facts={[]}
-      {...(!narrow &&
-        decision.history.length > 0 && { preview: <HistoryPreview lines={decision.history} /> })}
+      facts={decision.facts}
+      evidenceLine={decision.evidenceLine}
+      {...(decision.entity !== null && {
+        actor: (
+          <Text span fz="xs" title={decision.entity}>
+            {decision.entity}
+          </Text>
+        ),
+      })}
+      {...(view !== null &&
+        (!narrow || view.layout === 'inline') && {
+          preview: <HistoryPreview lines={decision.history} />,
+        })}
+      {...(view?.layout === 'inline' && { inlinePreview: true })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
-      {...(!narrow && evidence && { evidence })}
-      {...(narrow && evidence && { disclosure: { label: 'Details', content: evidence } })}
+      {...(decision.detail !== null && {
+        disclosure: {
+          label: 'Full text',
+          content: <Text size="sm">{decision.detail}</Text>,
+        },
+      })}
       {...(command === null
         ? { primary: open }
         : {

@@ -1,23 +1,24 @@
 import { Text } from '@mantine/core'
-import { AgentsBand, DayAxis } from './strip-visuals'
+import { DayAxis } from './strip-visuals'
 import { Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { hourlyWorking, peakWorking } from '../agents/model'
+import { hourlyWorking } from '../agents/model'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
 } from '../garmin-health/model'
-import { deriveBudget } from '../warden/page-model'
+import { BUDGET_MISSING, deriveBudget } from '../warden/page-model'
 import {
   countdownLabel,
+  fleetPulse,
   localKey,
   meetingState,
-  noMeetingsLabel,
+  classLabels,
   type Agenda,
   type LaterMeeting,
   weekdayTime,
@@ -44,17 +45,12 @@ export function agentsCell(
   now: number,
 ): StatStripCell {
   const working = summary?.working
-  const peak = peakWorking(hourlyWorking(history, HISTORY_HOURS, now))
   return {
     key: 'agents',
     caption: 'Agents working · 24 h',
     value: typeof working === 'number' ? String(working) : null,
     ...(typeof working === 'number' && total !== null && { unit: `of ${total} agents` }),
-    visual: <AgentsBand history={history} fleetSize={total} now={now} />,
-    footer:
-      peak === null
-        ? 'no snapshot in 24 h'
-        : `peak ${peak.value}${total === null ? '' : ` of ${total}`} at ${clock(peak.hourMs)} · shade is share of the fleet`,
+    footer: fleetPulse(hourlyWorking(history, HISTORY_HOURS, now), total) ?? 'no snapshot in 24 h',
   }
 }
 
@@ -86,14 +82,14 @@ export function budgetCell(
         />
       ) : (
         <Text size="sm" c="dimmed">
-          Dispatch budget not reported by Warden
+          {BUDGET_MISSING.short}
         </Text>
       ),
     footer: (
       <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
         {poller === undefined
           ? 'poller age unknown'
-          : `${poller.name.replaceAll('_', ' ')} ${Math.round(poller.ageMin)} min since last run`}
+          : `${poller.name.replaceAll('_', ' ')} poller ${Math.round(poller.ageMin)} min old`}
       </Text>
     ),
   }
@@ -137,7 +133,9 @@ export function meetingCell(
       caption: 'Next meeting',
       value: null,
       footer:
-        agenda.unavailable.length === 0 ? 'none in the next 7 days' : `${noMeetingsLabel(agenda)}.`,
+        agenda.unavailable.length === 0
+          ? 'none in 7 days'
+          : `none today · ${classLabels(agenda.unavailable)} unavailable`,
     }
   }
   const remaining = agenda.meetings.filter((m) => m.startMs > now).length
@@ -183,7 +181,10 @@ export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
       key: 'recovery',
       caption: 'Recovery · today',
       value: null,
-      footer: reading === null ? 'unavailable' : 'not measured yet today',
+      footer:
+        reading === null
+          ? 'Garmin data not loaded; reload to retry'
+          : 'no reading yet · Garmin syncs every 6 h',
     }
   }
   const { score, mean, days, trend, date, isToday } = reading
@@ -218,7 +219,7 @@ export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
     ),
     footer: isToday
       ? `${days} measured ${days === 1 ? 'day' : 'days'} of 7`
-      : 'not scored yet today',
+      : 'today fills after the next Garmin sync (every 6 h)',
   }
 }
 

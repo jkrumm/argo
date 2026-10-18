@@ -167,3 +167,23 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail: the `Latest change` line truncates mid-state at 1440; long identifiers and URLs overflow or break mid-token in reasons; raw emoji shortcodes in alert source lines; the fixes-vs-silence caption wraps into a fragment and its legend does not sum to the closed total; `no prior-window delta` is jargon; the poller caption repeats the tick label; the verdicts meter has nothing to compare against; the budget's missing state gives no next step; the board's empty copy is filler. Harness: info-icon tooltips are not declared as shot states. Basalt: the `Full reason` button inset.
 - **Against Keel:** close, the biggest move of the round — the headline and six-tile strip match Keel's rhythm; the `Latest change` well is mostly empty, titles are long prose, and the revert definition belongs in the tooltip rather than the footer.
+
+### Wave 25 fixes
+
+- **Card interior (shared with Home):** a decision card now reads question → entity + at most three `·` facts → one evidence line → actions → context. `cardCopy` (`components/upstream/decision-card-model.ts`, unit-tested) derives the question and evidence line: a first sentence over 80 characters becomes `Decide on {title}?` and the whole ask moves behind the existing `Full reason` disclosure; a short question keeps its sentence and the text after it leads as the evidence line. `askCopy` (`page-model.ts`) applies it to a Warden ask (failed items keep `Retry {title}?`).
+- Facts are capped at three (`capFacts`): `{repo} · waiting {n} d · revision {n}[, {n} redrives]`.
+- `Latest change` well: one transition is a plain inline sentence under the facts (`Latest change: {from} → {to} · {age}`), no well and no box; several are a short newest-first list in the right-hand well. State names wrap at their spaces and are never truncated (`historyView`, `transitionText`).
+- Reasons, titles and source lines wrap anywhere (`overflow-wrap: anywhere`) instead of overflowing; emoji shortcodes (`:name:`, `[name: text]`) are stripped from titles, reasons, repo/source lines and deferral notes (`stripShortcodes`, now owned by `page-model.ts`; Home re-exports it).
+- Fixes cell: the legend is a sum, `{a} fixed + {b} quiet + {c} closed = {n} items` (a missing count is `—` and the total is dropped); the definition stays in the tooltip.
+- `no prior-window delta` removed (`last {n} d`); the poller footer names the oldest poller (`{name} · oldest of {n}`) instead of repeating the tick label.
+- Verdicts cell: the bar is gone (no limit to compare a share against); the footer states `{n} of {m} tracked items · all time`.
+- Budget missing: says when it arrives (`Warden sends it with each push, about every 10 min`) in the strip footer and, shortened, on Home (`BUDGET_MISSING`).
+- Board empty copy is a fact: an empty column reads `No item {meaning}.` (`emptyColumnText`), an empty board `No open items. Warden has resolved {n} so far.` (`emptyBoardText`).
+- The `revert` definition moved from the footer into the cell's info tooltip (`REVERTS_INFO`); the footer is the reopen count and window.
+
+Basalt rows for `UPSTREAM.md`:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `DecisionCard` | `question` (short title), `facts` (entity + ≤3), `evidenceLine` (one line), `disclosure` (full ask), `inlinePreview` (one-line history without a well) | Keel's card anatomy; a Warden ask is long prose and its history is often a single transition | `components/upstream/decision-card.tsx` takes `evidenceLine` and `inlinePreview` additively; `cardCopy` / `capFacts` in `decision-card-model.ts` derive the copy |
+| `Meter` | optional hide of the track with no `target`/`ticks` | verdicts share has nothing to compare against | argo drops the visual and states the counts in the footer |

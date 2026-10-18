@@ -20,6 +20,9 @@ import {
   type ActivityEvent,
   type RawCalendarEvent,
   stripShortcodes,
+  shortName,
+  fleetPulse,
+  narrativeEvents,
 } from './model'
 import type { Decision } from '../../lib/decisions'
 
@@ -292,6 +295,62 @@ describe('wardenEvents', () => {
     const later = wardenEvents(raw).find((r) => r.ms === NOW - 5 * MIN)
     expect(later?.title).toBe('moved {repo} item')
     expect(later?.outcome).toBe('working → needs decision')
+  })
+})
+
+describe('long names in the feed', () => {
+  it('shortens a long repo in the title and keeps the full sentence for the tooltip', () => {
+    const repo = 'a-very-long-repository-name-indeed'
+    const long = {
+      board: { items: [{ event_id: 9, repo, title: '{t}' }] },
+      items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
+    } as unknown as Parameters<typeof wardenEvents>[0]
+    const [row] = wardenEvents(long)
+    expect(row?.title).toBe('moved a-very-long… item')
+    expect(row?.full).toBe(`warden moved ${repo} item · new → triaged`)
+  })
+
+  it('keeps a short repo whole and sets no tooltip text', () => {
+    const [row] = wardenEvents({
+      board: { items: [{ event_id: 9, repo: '{repo}', title: '{t}' }] },
+      items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
+    } as unknown as Parameters<typeof wardenEvents>[0])
+    expect(row?.title).toBe('moved {repo} item')
+    expect(row?.full).toBeUndefined()
+  })
+
+  it('shortens a long project chip', () => {
+    const [row] = narrativeEvents([
+      { project: 'an-extremely-long-project-name', summary: '{s}', revisedAt: ago(5) },
+    ] as unknown as Parameters<typeof narrativeEvents>[0])
+    expect(row?.chip).toBe('an-extremely…')
+    expect(row?.full).toContain('an-extremely-long-project-name')
+  })
+})
+
+describe('shortName', () => {
+  it('keeps a name that fits', () => {
+    expect(shortName('argo')).toBe('argo')
+  })
+  it('cuts after a separator, else at the limit', () => {
+    expect(shortName('alpha-beta-gamma-delta-epsilon')).toBe('alpha-beta-gamma…')
+    expect(shortName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopq…')
+  })
+})
+
+describe('fleetPulse', () => {
+  const hour = (h: number, working: number | null) => ({
+    hourMs: new Date(2026, 0, 15, h).getTime(),
+    working,
+  })
+  it('names the busiest hour and how many hours had an agent working', () => {
+    expect(fleetPulse([hour(8, 0), hour(9, 4), hour(10, 2), hour(11, null)], 10)).toBe(
+      'peak 4 of 10 at 09:00 · working in 2 of 4 h',
+    )
+  })
+  it('says nothing was working when every hour is zero, and null with no snapshot', () => {
+    expect(fleetPulse([hour(8, 0), hour(9, 0)], null)).toBe('none working in the last 2 h')
+    expect(fleetPulse([hour(8, null)], 3)).toBeNull()
   })
 })
 

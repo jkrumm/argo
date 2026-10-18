@@ -13,6 +13,7 @@ import {
   deriveStrip,
   deriveSummary,
   dispatchOf,
+  emptyBoardText,
   needsCards,
   oldestAgeDays,
 } from '../features/warden/page-model'
@@ -120,7 +121,11 @@ function WardenPage() {
           onSelectItem={setSelectedEventId}
           onAction={handleAction}
         />
-        <Board columns={columns} onSelectItem={setSelectedEventId} />
+        <Board
+          columns={columns}
+          emptyText={emptyBoardText(strip.fixes)}
+          onSelectItem={setSelectedEventId}
+        />
         <PollersList pollers={pollers} />
       </Stack>
 

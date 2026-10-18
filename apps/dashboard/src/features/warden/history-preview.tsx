@@ -1,44 +1,49 @@
 import { Group, Stack, Text } from '@mantine/core'
+import { VX } from 'basalt-ui/tokens'
 import { relativeTime } from 'basalt-ui/format'
-import {
-  historySummary,
-  sentenceCase,
-  type TransitionHistory,
-  type TransitionLine,
-} from './page-model'
+import classes from './board.module.css'
+import { historyView, type TransitionHistory } from './page-model'
 
-function transitionText({ from, to }: TransitionLine): string {
-  const target = sentenceCase(to) ?? to
-  if (from === null) return to === 'new' ? 'Created' : `Created → ${target}`
-  return `${sentenceCase(from) ?? from} → ${target}`
-}
+const when = (at: string | null) => (at ? relativeTime(at) : '—')
 
 /**
- * The decision card's right-hand context: the latest state change on ONE line (`from → to`, time in
- * mono), with a count of the earlier ones. The full text rides in `title`; the whole log is in the
- * item timeline.
+ * The decision card's change history. One transition is a single inline sentence
+ * (`Latest change: A → B · 2 h ago`) with no well; several are a short list, newest first, in the
+ * card's right-hand well. State names are never truncated: a line wraps at its spaces instead.
  */
 export function HistoryPreview({ lines }: { lines: TransitionHistory }) {
-  const summary = historySummary(lines, lines.total)
-  if (summary === null) return null
-  const { latest, earlier } = summary
-  const text = transitionText(latest)
+  const view = historyView(lines)
+  if (view === null) return null
+  if (view.layout === 'inline') {
+    const [only] = view.lines
+    return (
+      <Text size="xs" c="dimmed">
+        Latest change:{' '}
+        <Text span inherit c={VX.ink}>
+          {only?.text}
+        </Text>{' '}
+        · {when(only?.at ?? null)}
+      </Text>
+    )
+  }
   return (
     <Stack gap={4}>
       <Text size="xs" c="dimmed">
-        Latest change
+        Latest changes
       </Text>
-      <Group gap="xs" wrap="nowrap" justify="space-between">
-        <Text size="xs" truncate="end" title={text} miw={0}>
-          {text}
-        </Text>
-        <Text size="xs" c="dimmed" ff="monospace" style={{ flex: 'none' }}>
-          {latest.at ? relativeTime(latest.at) : '—'}
-        </Text>
-      </Group>
-      {earlier > 0 ? (
+      {view.lines.map((line, i) => (
+        <Group key={`${i}-${line.text}`} gap={4} align="baseline" wrap="wrap">
+          <Text size="xs" miw={0} className={classes.text}>
+            {line.text}
+          </Text>
+          <Text span size="xs" c="dimmed">
+            {when(line.at)}
+          </Text>
+        </Group>
+      ))}
+      {view.earlier > 0 ? (
         <Text size="xs" c="dimmed">
-          +{earlier} earlier
+          +{view.earlier} earlier
         </Text>
       ) : null}
     </Stack>
