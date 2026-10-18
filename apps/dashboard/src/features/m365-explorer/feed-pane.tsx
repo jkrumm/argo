@@ -1,6 +1,7 @@
 import { Alert, ScrollArea } from '@mantine/core'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { m365Queries } from '../../lib/queries/m365'
+import { shotState } from '../../lib/shot-state'
 import { MessageRow, MessageSkeleton } from './message-row'
 import { plural } from './model'
 import classes from './m365.module.css'
@@ -15,7 +16,8 @@ export function FeedPane({ tag }: { tag: string }) {
     ...m365Queries.important({ ...(label ? { label } : {}), top: FEED_TOP, limit: FEED_LIMIT }),
     placeholderData: keepPreviousData,
   })
-  const items = q.data?.messages
+  // `shot-state=empty` renders the real no-messages branch.
+  const items = shotState() === 'empty' ? [] : q.data?.messages
   return (
     <>
       <header className={classes.recordHeader} data-shot="feed-header">

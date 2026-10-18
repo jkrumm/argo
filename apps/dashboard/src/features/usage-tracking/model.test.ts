@@ -496,6 +496,11 @@ describe('tokensFormatterFor', () => {
     expect(f(123_000_000)).toBe(`0.12${NB}B`)
     expect(f(1_800_000_000)).toBe(`1.8${NB}B`)
   })
+  it('rolls a value that rounds to one unit up to one decimal, not two', () => {
+    // 0.96 M prints `1.0 M` (rounded-value rule), never `0.96 M` beside `1.0 M`.
+    expect(tokensFormatterFor(5_600_000)(960_000)).toBe(`1.0${NB}M`)
+    expect(tokensFormatterFor(5_600_000)(940_000)).toBe(`0.94${NB}M`)
+  })
   it('never prints a non-zero value as zero, and keeps the sign', () => {
     const f = tokensFormatterFor(5_600_000)
     expect(f(1_000)).toBe(`<0.01${NB}M`)

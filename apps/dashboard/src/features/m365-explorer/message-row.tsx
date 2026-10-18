@@ -20,7 +20,7 @@ export function MessageRow(props: { message: MessageLite; meta?: string; channel
   const m = props.message
   const high = HIGH.has(m.importance)
   return (
-    <article className={classes.message} data-shot="message-row">
+    <article className={classes.message} data-shot="message-row" data-shot-absent="empty">
       <div className={classes.messageHead}>
         {high ? (
           <span role="img" aria-label={`${m.importance} importance`}>

@@ -29,51 +29,46 @@ export function LabeledPane(props: LabeledPaneProps) {
         <h2 className={classes.recordName}>{props.title}</h2>
       </header>
     )
-  if (groups.length === 0) {
-    return (
-      <div data-shot="labeled-pane">
-        {header}
+  return (
+    <div className={classes.labeledPane} data-shot="labeled-pane">
+      {header}
+      {groups.length === 0 ? (
         <p className={classes.empty}>
           No labeled sources — label a chat to include it in /m365/important
         </p>
-      </div>
-    )
-  }
-  return (
-    <>
-      {header}
-      <ScrollArea
-        className={classes.paneScroll}
-        classNames={{ scrollbar: classes.scrollbar }}
-        type="auto"
-        scrollbars="y"
-        data-shot="labeled-pane"
-      >
-        {props.error ? (
-          <Alert color="red" variant="light" m="sm">
-            {props.error}
-          </Alert>
-        ) : null}
-        {groups.map((g) => (
-          <section key={g.tag} aria-label={g.tag}>
-            <h3 className={classes.groupHeading}>
-              {g.tag} · {g.rows.length}
-            </h3>
-            {g.rows.map((l) => (
-              <SourceRow
-                key={l.sourceId}
-                glyph={l.kind === 'chat' ? 'group' : 'channel'}
-                name={l.displayName ?? l.sourceId}
-                meta={l.kind === 'channel' ? 'team channel' : undefined}
-                selected={props.selectedId === l.sourceId}
-                onSelect={() => props.onOpen(l)}
-                onRemove={() => props.onRemove(l.sourceId)}
-                removing={props.removingId === l.sourceId}
-              />
-            ))}
-          </section>
-        ))}
-      </ScrollArea>
-    </>
+      ) : (
+        <ScrollArea
+          className={classes.paneScroll}
+          classNames={{ scrollbar: classes.scrollbar }}
+          type="auto"
+          scrollbars="y"
+        >
+          {props.error ? (
+            <Alert color="red" variant="light" m="sm">
+              {props.error}
+            </Alert>
+          ) : null}
+          {groups.map((g) => (
+            <section key={g.tag} aria-label={g.tag}>
+              <h3 className={classes.groupHeading}>
+                {g.tag} · {g.rows.length}
+              </h3>
+              {g.rows.map((l) => (
+                <SourceRow
+                  key={l.sourceId}
+                  glyph={l.kind === 'chat' ? 'group' : 'channel'}
+                  name={l.displayName ?? l.sourceId}
+                  meta={l.kind === 'channel' ? 'team channel' : undefined}
+                  selected={props.selectedId === l.sourceId}
+                  onSelect={() => props.onOpen(l)}
+                  onRemove={() => props.onRemove(l.sourceId)}
+                  removing={props.removingId === l.sourceId}
+                />
+              ))}
+            </section>
+          ))}
+        </ScrollArea>
+      )}
+    </div>
   )
 }
