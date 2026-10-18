@@ -8,7 +8,14 @@ import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queri
 import { shotState } from '../../../lib/shot-state'
 import { NBSP } from '../../../lib/format'
 import { METRIC_TOOLTIPS } from '../constants'
-import { NO_WEIGHT_ENTRIES, weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
+import {
+  NO_WEIGHT_ENTRIES_SHORT,
+  NO_WEIGHT_POINTS,
+  weightHeaderFact,
+  windowLabel,
+  windowDays,
+  withKg,
+} from '../model'
 import {
   axisDateFormat,
   markerRadiusFor,
@@ -20,9 +27,6 @@ import {
 const CHART_HEIGHT = { base: 220, regular: 280 }
 const PLACEHOLDER_HEIGHT = 280
 
-// Stable reference: `apiPoints` feeds `useMemo` deps.
-const NO_POINTS: [] = []
-
 const fmtKg = (v: number): string => withKg(v, 1)
 
 export default function WeightChart({
@@ -33,7 +37,7 @@ export default function WeightChart({
   goal: number | null
 }) {
   const query = useQuery(weightLogQueries.series(params))
-  const apiPoints = shotState() === 'empty' ? NO_POINTS : query.data?.points
+  const apiPoints = shotState() === 'empty' ? NO_WEIGHT_POINTS : query.data?.points
 
   const span = windowDays(params)
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
@@ -76,7 +80,7 @@ export default function WeightChart({
     return [min - pad, max + pad]
   }, [chartData, goal])
 
-  const empty = chartData.length === 0 ? NO_WEIGHT_ENTRIES : undefined
+  const empty = chartData.length === 0 ? NO_WEIGHT_ENTRIES_SHORT : undefined
 
   return (
     <Box data-shot="weight-chart" data-shot-states="empty">

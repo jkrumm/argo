@@ -5,6 +5,7 @@ import {
   ageLabel,
   NO_WEIGHT_ENTRIES,
   NO_WEIGHT_ENTRIES_SHORT,
+  rateQualifier,
   rateDays,
   dayKey,
   daysBetween,
@@ -430,6 +431,20 @@ describe('one fixture, two live-review items', () => {
     const noisy = daily(40, 100, 0).map((p, i) => ({ ...p, weightKg: 100 + (i % 3) }))
     expect(weightWindowStats(noisy, null).mean7).toBeCloseTo(
       toWeightChartPoints(noisy, null).at(-1)!.ma,
+    )
+  })
+})
+
+describe('no-entries wording', () => {
+  test('headline carries cause and next step; strip and chart carry the cause only', () => {
+    expect(NO_WEIGHT_ENTRIES).toBe('No entries in this window — log a weight to start the trend.')
+    expect(NO_WEIGHT_ENTRIES_SHORT).toBe('No entries in this window')
+  })
+
+  test('rate qualifier claims no slope window without an entry', () => {
+    expect(rateQualifier(28, undefined)).toBe('maintain \u00b10.1\u00a0kg/wk')
+    expect(rateQualifier(28, '3 Mar')).toBe(
+      '28\u00a0d slope to 3 Mar, maintain \u00b10.1\u00a0kg/wk',
     )
   })
 })

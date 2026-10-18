@@ -13,6 +13,8 @@ import {
   dayKey,
   entryAgeDays,
   latestDate,
+  NO_WEIGHT_POINTS,
+  NO_WEIGHT_SUMMARY,
   rateDays,
   siteRows,
   summaryParts,
@@ -22,18 +24,6 @@ import {
 import { compareByDate, type SkinfoldPoint } from '../charts/series-data'
 import type { SkinfoldSummary, WeightSummary } from '../types'
 
-// Exactly what `GET /weight-log/summary` answers for a window with no entries.
-const NO_WEIGHT_SUMMARY: WeightSummary = {
-  current: null,
-  ma7: null,
-  ma30: null,
-  trend: 'flat',
-  weeklyDelta: null,
-  monthlyDelta: null,
-  kgPerWeek: null,
-  phase: 'maintaining',
-  intensity: 'No trend',
-}
 import classes from './body-composition.module.css'
 import { SkinfoldHistoryTable } from './skinfold-history-table'
 import { rateCell, skinfoldCell, weightCell } from './strip-cells'
@@ -51,7 +41,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   const isEmpty = shotState() === 'empty'
   const summary = isEmpty ? NO_WEIGHT_SUMMARY : (weight as WeightSummary)
   const skinfoldSummary = skinfold as SkinfoldSummary
-  const weightPoints = isEmpty ? [] : weightSeries.points
+  const weightPoints = isEmpty ? NO_WEIGHT_POINTS : weightSeries.points
   const loggedSessions: SkinfoldPoint[] = skinfoldSeries.points
   const sessions: SkinfoldPoint[] = isEmpty ? [] : loggedSessions
 
