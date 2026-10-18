@@ -1,6 +1,7 @@
 import { MutationCache, QueryCache } from '@tanstack/react-query'
 import { createBasaltRouter } from 'basalt-ui'
 import { clearToken, isUnauthorizedError, safeRedirect } from './auth'
+import { shotState } from './shot-state'
 import { routeTree } from '../routeTree.gen'
 
 const onUnauthorized = (error: unknown): void => {
@@ -35,7 +36,7 @@ export const router = createBasaltRouter({
       queries: {
         staleTime: 60_000,
         retry: (failureCount, error) => {
-          if (isUnauthorizedError(error)) return false
+          if (isUnauthorizedError(error) || shotState() === 'error') return false
           return failureCount < 1
         },
       },
