@@ -6,7 +6,7 @@ import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { format } from 'date-fns'
-import { NBSP } from '../../../lib/format'
+import { NBSP, withUnit } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
 import { skinfoldDirectionLabel } from '../formulas'
 import {
@@ -52,6 +52,8 @@ export function weightCell({
   const progress = goalProgress({ start: startWeight, current: summary.current, goal })
   const latest = dateLabel(latestDate)
 
+  const meanFooter = `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
+
   return {
     key: 'weight',
     caption: 'Weight',
@@ -87,10 +89,7 @@ export function weightCell({
       }),
     footer: (
       <>
-        <span>
-          7{NBSP}d{NBSP}mean {fixed(stats.mean7)}
-          {NBSP}kg
-        </span>
+        <span>{meanFooter}</span>
         {goal === null && (
           <Box pt="xs">
             <GoalPopover lastWeight={summary.current} />

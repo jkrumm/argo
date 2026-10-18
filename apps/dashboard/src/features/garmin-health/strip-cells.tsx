@@ -33,7 +33,7 @@ import {
   contributorItems,
   firstToLast,
   lastScored,
-  recoveryGapLine,
+  recoveryGap,
   loadFooter,
   windowDayCount,
   fmtNum,
@@ -104,12 +104,13 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   // A fact about the window, so it waits for both reads to settle on the window itself.
   const settled =
     summary.isSuccess && !summary.isPlaceholderData && series.isSuccess && !series.isPlaceholderData
-  const gapLine = recoveryGapLine({
+  const gapLine = recoveryGap({
+    date: data?.date,
+    status: summary.isError || series.isError ? 'error' : 'success',
     settled,
-    failed: summary.isError,
     last,
     windowDays: windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN),
-  })
+  }).line
   return {
     key: 'recovery',
     caption: 'Recovery',

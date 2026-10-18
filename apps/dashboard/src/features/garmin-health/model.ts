@@ -213,8 +213,8 @@ export function recoverySentence(input: {
   if (input.recovery !== null) {
     return [`Recovery ${fmtNum(input.recovery)}/100`, input.load].filter(Boolean).join(', ')
   }
-  const gap = recoveryGap(input.recoveryDate, input.recoveryStatus)
-  return capitalize([input.load, gap].filter(Boolean).join('; '))
+  const { headline } = recoveryGap({ date: input.recoveryDate, status: input.recoveryStatus })
+  return capitalize([input.load, headline].filter(Boolean).join('; '))
 }
 
 /** The newest finite recovery score in a window (points ascending by date) and the date it was scored on. */
@@ -241,41 +241,41 @@ export function loadFooter(input: {
   placeholder: boolean
 }): string | null {
   const { acwr, status, placeholder } = input
-  if (status === 'pending') return null
   if (status === 'error') return 'The load ratio failed to load'
-  if (acwr !== null) return null
-  return placeholder ? null : 'No day in this window has a load ratio yet'
+  if (status === 'pending' || acwr !== null || placeholder) return null
+  return 'No day in this window has a load ratio yet'
 }
 
 /**
- * The headline's reason for a missing recovery score. A failed query is its own wording, never the
- * data gap.
+ * Why there is no recovery score, worded once for both places that say so: the headline clause and
+ * the recovery cell's line. A failed read is its own wording, never the data gap. `line` is `null`
+ * until the reads settle (a loading cell is not a data gap).
  */
-export function recoveryGap(
-  date: string | null | undefined,
-  status: QueryStatus = 'success',
-  today: Date = new Date(),
-): string {
-  if (status === 'pending') return 'recovery loading'
-  if (status === 'error') return 'the recovery score failed to load'
-  return `no recovery score for ${date === null || date === undefined ? 'the latest day' : dayLabel(date, 'day', today)}`
-}
-
-/**
- * The recovery cell's one line when there is no score today: nothing until the reads settle, a
- * failure says so, otherwise the newest score and its day (or that the window holds none).
- */
-export function recoveryGapLine(input: {
-  settled: boolean
-  failed: boolean
-  last: { value: number; date: string } | null
-  windowDays: number
-}): string | null {
-  if (input.failed) return 'Recovery score failed to load'
-  if (!input.settled) return null
-  if (input.last === null) return `No score in this ${withUnit(input.windowDays, 'd')} window`
-  const day = dayLabel(input.last.date).replaceAll(' ', NBSP)
-  return `Last scored ${fmtNum(input.last.value)}/100 on ${day}`
+export function recoveryGap(input: {
+  date?: string | null | undefined
+  status?: QueryStatus | undefined
+  /** Both recovery reads have settled on the selected window. */
+  settled?: boolean
+  /** The newest scored day in the window, if any. */
+  last?: { value: number; date: string } | null
+  windowDays?: number
+  today?: Date
+}): { headline: string; line: string | null } {
+  const { date, status = 'success', settled = false, last = null, windowDays = 0 } = input
+  if (status === 'pending') return { headline: 'recovery loading', line: null }
+  if (status === 'error') {
+    const headline = 'the recovery score failed to load'
+    return { headline, line: capitalize(headline) }
+  }
+  const day = date == null ? 'the latest day' : dayLabel(date, 'day', input.today)
+  const headline = `no recovery score for ${day}`
+  if (!settled) return { headline, line: null }
+  if (last !== null) {
+    const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
+    return { headline, line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}` }
+  }
+  const window = windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
+  return { headline, line: `No score in ${window}` }
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────
