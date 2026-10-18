@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ACWR_ZONE_NAME, acwrZoneLabel } from './formulas'
+import { ACWR_ZONE_NAME, ACWR_ZONE_SHORT, acwrZoneLabel } from './formulas'
 import {
   activitiesFact,
   activityScoreFact,
@@ -127,10 +127,10 @@ describe('recoveryGap', () => {
 
   test('the cell line names the unscored day and what it could not score from', () => {
     expect(recoveryGap({ ...settled, date: '2026-01-06', missing: ['HRV', 'sleep'] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01 · today: HRV, sleep not scored',
+      'Last scored 62/100 on Jan\u00a01\u00a0· today: HRV, sleep not scored',
     )
     expect(recoveryGap({ ...settled, date: '2026-01-02', last: null, missing: ['RHR'] }).line).toBe(
-      'No score in this 30\u00a0d window · Jan\u00a02: RHR not scored',
+      'No score in this 30\u00a0d window\u00a0· Jan\u00a02: RHR not scored',
     )
   })
 
@@ -450,5 +450,14 @@ describe('ACWR_ZONE_NAME', () => {
     }
     expect(ACWR_ZONE_NAME.undertrained).toBe('Undertrained')
     expect(acwrZoneLabel(null)).toBe('')
+  })
+})
+
+describe('ACWR zone vocabulary', () => {
+  test('every zone has a full name and one short name, and only the narrow ones abbreviate', () => {
+    expect(Object.keys(ACWR_ZONE_SHORT)).toEqual(Object.keys(ACWR_ZONE_NAME))
+    expect(ACWR_ZONE_SHORT.undertrained).toBe('Under')
+    expect(ACWR_ZONE_SHORT.caution).toBe('Caut.')
+    expect(ACWR_ZONE_SHORT.optimal).toBe(ACWR_ZONE_NAME.optimal)
   })
 })
