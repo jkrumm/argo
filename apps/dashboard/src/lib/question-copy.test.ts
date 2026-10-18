@@ -176,6 +176,14 @@ describe('evidence line', () => {
     expect(copy.detail).toBe('Checks failed, see https://example.com/runs/42')
   })
 
+  it('glues PR left open last: no duplicate detail, and a subject saying it still suppresses the line', () => {
+    const whole = cardCopy({ authored: 'Merge?', body: 'PR left open' })
+    expect(whole.evidenceLine).toBe('PR\u00a0left\u00a0open')
+    expect(whole.detail).toBeNull()
+    const said = cardCopy({ authored: 'PR left open?', body: 'PR left open' })
+    expect(said.evidenceLine).toBeNull()
+  })
+
   it('drops the colon or bare label that introduced a removed URL', () => {
     const left = cardCopy({
       authored: 'Merge?',
