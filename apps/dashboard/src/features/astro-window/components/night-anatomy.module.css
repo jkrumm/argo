@@ -33,7 +33,7 @@
   /* Ends under the tick, so it never overruns the track's right end (the tick sits near it). */
   transform: translateX(-100%);
   white-space: nowrap;
-  /* The cell's micro size, in the sans the cell's qualifier uses (mono at this length would overrun the left edge). */
+  /* The cell's micro size, in sans: the label ends at the tick near the track's right end, and mono at this length would overrun the cell's left edge. */
   font-size: var(--vx-text-micro);
   line-height: 1;
   color: var(--vx-muted);

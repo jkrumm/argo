@@ -647,11 +647,19 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: dome and transparency; the threshold lives on the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'town glow +1.04\u00a0mag\u00a0· transparency 3/8 (lower = clearer)',
+      'town glow +1.04\u00a0mag\u00a0· transparency 3/8 (lower\u00a0=\u00a0clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'town glow —\u00a0· transparency — (lower = clearer)',
+      'town glow —\u00a0· transparency — (lower\u00a0=\u00a0clearer)',
     )
+    const other = skyCellFooter({ domePenaltyMag: 0.5, transparency: 6 })
+    expect(other).toBe(
+      'town glow +0.50\u00a0mag\u00a0· transparency 6/8 (lower\u00a0=\u00a0clearer)',
+    )
+    // A plain space before a dot would let a wrap open a line on it (a no-break space is not ' ').
+    for (const footer of [other, skyCellFooter({ domePenaltyMag: null, transparency: null })]) {
+      expect(footer).not.toContain(' ·')
+    }
   })
 })
 
@@ -1056,7 +1064,7 @@ describe('moonReadout', () => {
 
 describe('darkSkyTickText and moonInterferes', () => {
   test('the tick carries its unit, glued to the number', () => {
-    expect(darkSkyTickText(21.6)).toBe('dark ≥ 21.6\u00a0mag/arcsec²')
+    expect(darkSkyTickText(21.6)).toBe('dark\u00a0≥\u00a021.6\u00a0mag/arcsec²')
   })
   test('the interference rule is at-or-over the limit', () => {
     expect(moonInterferes(0.25, 0.25)).toBe(true)

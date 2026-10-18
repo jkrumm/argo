@@ -271,7 +271,7 @@ const moonState = (altitude: number, behindTerrain: boolean): MoonState => {
 }
 
 export function darkSkyTickText(threshold: number): string {
-  return `dark ≥ ${withUnit(threshold, 'mag/arcsec²')}`
+  return `dark${NBSP}≥${NBSP}${withUnit(threshold, 'mag/arcsec²')}`
 }
 
 /** The Darkness gate row's one line. */
@@ -648,7 +648,7 @@ export function skyCellFooter({
 }): string {
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
-  return joinPhrases([`town glow ${dome}`, `transparency ${clarity} (lower = clearer)`])
+  return joinPhrases([`town glow ${dome}`, `transparency ${clarity} ${glue('(lower = clearer)')}`])
 }
 
 /** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */
