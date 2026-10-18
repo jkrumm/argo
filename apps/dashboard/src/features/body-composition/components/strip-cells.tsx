@@ -15,6 +15,7 @@ import {
   goalProgress,
   NO_WEIGHT_ENTRIES_SHORT,
   RATE_NEUTRAL_KG_WK,
+  rateQualifier,
   rateFooter,
   RATE_SCALE_KG_WK,
   signed,
@@ -53,10 +54,10 @@ export function weightCell({
   const progress = goalProgress({ start: startWeight, current: summary.current, goal })
   const latest = dateLabel(latestDate)
 
-  const meanFooter =
-    summary.current === null && stats.mean7 === null
-      ? NO_WEIGHT_ENTRIES_SHORT
-      : `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
+  const noEntries = summary.current === null && stats.mean7 === null
+  const meanFooter = noEntries
+    ? NO_WEIGHT_ENTRIES_SHORT
+    : `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
 
   return {
     key: 'weight',
@@ -123,7 +124,7 @@ export function rateCell({
   return {
     key: 'rate',
     caption: 'Rate',
-    qualifier: `${rateDays}${NBSP}d slope to ${dateLabel(latestDate) ?? 'latest entry'}, maintain \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`,
+    qualifier: rateQualifier(rateDays, dateLabel(latestDate)),
     value: rate === null ? null : signed(rate, 2),
     unit: 'kg/wk',
     visual: (

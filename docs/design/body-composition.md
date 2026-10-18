@@ -200,4 +200,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 33 fixes
 
-- **Empty state:** the page substitutes the empty weight summary and series at the read under `?shot-state=empty`, so the strip (latest value, `7 d mean`, 30 d delta, 28 d slope, rate) empties with the chart — production with no entries renders the same. The headline and the chart's empty carry the full sentence (`NO_WEIGHT_ENTRIES`: cause + next step); the weight and rate cell footers say the cause only (`NO_WEIGHT_ENTRIES_SHORT`: `No entries in this window`).
+- **Empty state:** the page substitutes the empty weight summary and series at the read under `?shot-state=empty`, so the strip (latest value, `7 d mean`, 30 d delta, 28 d slope, rate) empties with the chart — production with no entries renders the same. The headline carries the full sentence (`NO_WEIGHT_ENTRIES`: cause + next step); the chart empty and the weight and rate cell footers say the cause only (`NO_WEIGHT_ENTRIES_SHORT`: `No entries in this window`).

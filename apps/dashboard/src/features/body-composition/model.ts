@@ -6,7 +6,7 @@ import { NBSP, withUnit } from '../../lib/format'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
-import type { WeightWindowStats } from './types'
+import type { WeightSummary, WeightWindowStats } from './types'
 
 /** The API's trailing-rate lookback. */
 const RATE_LOOKBACK_DAYS = 28
@@ -131,18 +131,40 @@ function trend(kgPerWeek: number): string {
   return kgPerWeek < 0 ? 'falling' : 'rising'
 }
 
-/**
- * Headline: direction over a stated window, then the distance to the goal. The rate figure and the
- * current weight live in their strip cells and are not repeated. The window ends at the last
- * weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
- * Facts: the weigh-in count and the last weigh-in's age.
- */
 /** The one wording for a window with no weigh-ins: what is missing and the next step. */
 export const NO_WEIGHT_ENTRIES = 'No entries in this window — log a weight to start the trend.'
 
 /** The cause alone, for strip cells that sit under a headline already carrying the next step. */
 export const NO_WEIGHT_ENTRIES_SHORT = 'No entries in this window'
 
+/** Exactly what `GET /weight-log/summary` answers for a window with no entries. */
+export const NO_WEIGHT_SUMMARY: WeightSummary = {
+  current: null,
+  ma7: null,
+  ma30: null,
+  trend: 'flat',
+  weeklyDelta: null,
+  monthlyDelta: null,
+  kgPerWeek: null,
+  phase: 'maintaining',
+  intensity: 'No trend',
+}
+
+/** Stable empty series for the shot-state substitution (memo deps downstream). */
+export const NO_WEIGHT_POINTS: readonly never[] = []
+
+/** The rate cell's qualifier; claims a slope window only when there is an entry to end it on. */
+export function rateQualifier(days: number, latest: string | undefined): string {
+  const band = `maintain \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`
+  return latest === undefined ? band : `${days}${NBSP}d slope to ${latest}, ${band}`
+}
+
+/**
+ * Headline: direction over a stated window, then the distance to the goal. The rate figure and the
+ * current weight live in their strip cells and are not repeated. The window ends at the last
+ * weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
+ * Facts: the weigh-in count and the last weigh-in's age.
+ */
 export function summaryParts({
   current,
   kgPerWeek,
