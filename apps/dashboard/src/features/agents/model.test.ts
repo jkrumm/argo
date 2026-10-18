@@ -14,10 +14,9 @@ import {
   clockTime,
   feedState,
   agentsSummaryParts,
-  sourceLabel,
   fleetFact,
-  hoursWithNeedsYou,
-  needsYouWindowFact,
+  needsYouSplit,
+  waitingProjects,
   activityFact,
   previewOf,
   gapHours,
@@ -148,7 +147,7 @@ describe('fleetParts', () => {
   it('adds unknown-state agents as a sixth part so the total matches the roster', () => {
     const summary = { needsYou: 0, working: 1, idle: 0, stale: 0, done: 0, dispatch: 0 }
     const fleet = fleetParts(summary, 2)
-    expect(fleet?.parts.at(-1)).toEqual({ key: 'unknown', label: 'unknown', value: 2 })
+    expect(fleet?.parts.at(-1)).toEqual({ key: 'unknown', label: 'state not reported', value: 2 })
     expect(fleet?.total).toBe(3)
   })
 
@@ -280,44 +279,49 @@ describe('headlineOf', () => {
 // ── summaryParts ────────────────────────────────────────────────────────────
 
 describe('agentsSummaryParts', () => {
-  it('names who waits without repeating the count, the oldest wait or the fleet', () => {
-    expect(agentsSummaryParts({ agentWaits: 2, asks: 1 })).toEqual({
-      sentence: 'Agents and the human queue are waiting on you.',
-      facts: ['2 agents blocked', '1 queued ask'],
-    })
+  it('carries the one figure the strip lacks: the projects the blocked agents sit in', () => {
+    expect(agentsSummaryParts({ agentWaits: 2, asks: 1, projects: 2 }).sentence).toBe(
+      'Agents in 2 projects and the human queue are waiting on you.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2 }).sentence).toBe(
+      'Agents in 2 projects are waiting on you.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 1, asks: 0, projects: 1 }).sentence).toBe(
+      'An agent in 1 project is waiting on you.',
+    )
   })
 
-  it('reads agents alone and asks alone, singular and plural', () => {
-    expect(agentsSummaryParts({ agentWaits: 1, asks: 0 })).toEqual({
-      sentence: 'An agent is waiting on you.',
-      facts: ['1 agent blocked'],
-    })
-    expect(agentsSummaryParts({ agentWaits: 3, asks: 0 }).sentence).toBe(
-      'Agents are waiting on you.',
-    )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 1 }).sentence).toBe(
+  it('reads asks alone without a figure, and says nothing waits', () => {
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0 }).sentence).toBe(
       'A request is waiting for your answer.',
     )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 2 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 2, projects: 0 }).sentence).toBe(
       'Requests are waiting for your answer.',
     )
-  })
-
-  it('says nothing waits, with no fact', () => {
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 0 })).toEqual({
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 0, projects: 0 })).toEqual({
       sentence: 'Nothing needs you.',
-      facts: [],
     })
   })
 })
 
-describe('sourceLabel', () => {
-  it('names a known tool as a reader would', () => {
-    expect(sourceLabel('claude-code')).toBe('Claude Code')
-    expect(sourceLabel('opencode')).toBe('OpenCode')
+describe('needsYouSplit', () => {
+  it('splits the tile count into agents and asks, leaving out a kind with none', () => {
+    expect(needsYouSplit(2, 1)).toBe('2 agents · 1 ask')
+    expect(needsYouSplit(1, 0)).toBe('1 agent')
+    expect(needsYouSplit(0, 3)).toBe('3 asks')
+    expect(needsYouSplit(0, 0)).toBe('')
   })
-  it('turns an unlisted source into words, never a raw key', () => {
-    expect(sourceLabel('my_tool-x')).toBe('My tool x')
+})
+
+describe('waitingProjects', () => {
+  it('counts distinct projects among needs-you agents only', () => {
+    const rows = [
+      agent({ id: 'a', state: 'needs_you', project: 'p1' }),
+      agent({ id: 'b', state: 'needs_you', project: 'p1' }),
+      agent({ id: 'c', state: 'needs_you', project: 'p2' }),
+      agent({ id: 'd', state: 'working', project: 'p3' }),
+    ]
+    expect(waitingProjects(rows)).toBe(2)
   })
 })
 
@@ -326,37 +330,6 @@ describe('fleetFact', () => {
     expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3 h 5 m')
     expect(fleetFact(null, 0)).toBe('no agent working')
     expect(fleetFact(null, 3)).toBe('longest run not reported')
-  })
-})
-
-describe('needs-you window facts', () => {
-  const at = (iso: string, needsYou: number): HistoryPoint =>
-    ({ receivedAt: iso, summary: { needsYou } }) as unknown as HistoryPoint
-  const now = Date.parse('2026-01-10T12:30:00Z')
-
-  it('counts the hours that had something waiting', () => {
-    const history = [
-      at('2026-01-10T09:10:00Z', 1),
-      at('2026-01-10T09:40:00Z', 2),
-      at('2026-01-10T10:10:00Z', 0),
-      at('2025-12-01T10:10:00Z', 3),
-    ]
-    expect(hoursWithNeedsYou(history, 24, now)).toEqual({ observed: 2, waiting: 1 })
-    // a snapshot stamped after `now` is clock skew, not an observed hour
-    expect(hoursWithNeedsYou([at('2026-01-10T13:00:00Z', 2)], 24, now)).toBeNull()
-    expect(hoursWithNeedsYou([], 24, now)).toBeNull()
-  })
-
-  it('words the three cases with a unit', () => {
-    expect(needsYouWindowFact(null, 24)).toBe('no data in 24 h')
-    expect(needsYouWindowFact({ observed: 24, waiting: 0 }, 24)).toBe('no agent waiting in 24 h')
-    expect(needsYouWindowFact({ observed: 24, waiting: 5 }, 24)).toBe('agents waiting in 5 of 24 h')
-  })
-
-  it('claims only the observed hours when the window is not fully covered', () => {
-    const one = hoursWithNeedsYou([at('2026-01-10T11:10:00Z', 0)], 24, now)
-    expect(one).toEqual({ observed: 1, waiting: 0 })
-    expect(needsYouWindowFact(one, 24)).toBe('no agent waiting in 1 h observed')
   })
 })
 

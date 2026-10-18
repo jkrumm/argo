@@ -139,6 +139,16 @@ export type FleetPart = { key: FleetState; label: string; value: number }
 export const countUnknownAgents = (agents: readonly AgentRow[]): number =>
   agents.filter((a) => !(FLEET_STATES as readonly string[]).includes(a.state)).length
 
+/** The meter legend's words: `idle` and `unknown` are named for what they say about the agent. */
+const FLEET_LABEL: Record<FleetState, string> = {
+  working: 'working',
+  needs_you: 'needs you',
+  idle: 'open, not working',
+  stale: 'stale',
+  done: 'done',
+  unknown: 'state not reported',
+}
+
 const summaryKey = (key: SummaryState) => (key === 'needs_you' ? 'needsYou' : key)
 
 /**
@@ -156,10 +166,11 @@ export function fleetParts(
   if (!counts.every((n) => typeof n === 'number' && Number.isFinite(n))) return null
   const parts: FleetPart[] = FLEET_STATES.map((key, i) => ({
     key,
-    label: STATE_LABEL[key].toLowerCase(),
+    label: FLEET_LABEL[key],
     value: Math.max(0, counts[i] ?? 0),
   }))
-  if (unknownAgents > 0) parts.push({ key: 'unknown', label: 'unknown', value: unknownAgents })
+  if (unknownAgents > 0)
+    parts.push({ key: 'unknown', label: FLEET_LABEL.unknown, value: unknownAgents })
   return { parts, total: parts.reduce((sum, p) => sum + p.value, 0) }
 }
 
@@ -174,46 +185,7 @@ export const fleetFact = (longestRunMs: number | null, working: number): string 
     : `longest run ${formatWaitDuration(longestRunMs)}`
 }
 
-// ── Needs-you window ──────────────────────────────────────────────────────────────────────────
-
-export type NeedsYouCoverage = { observed: number; waiting: number }
-
-/**
- * Hours of the window that carry a snapshot, and how many of them showed an item waiting; `null`
- * when no hour carries data. Hours without a snapshot are unobserved, not "nothing waiting".
- */
-export function hoursWithNeedsYou(
-  history: HistoryPoint[] | undefined,
-  hours: number,
-  now: number,
-): NeedsYouCoverage | null {
-  const endHour = Math.floor(now / HOUR_MS) * HOUR_MS
-  const startHour = endHour - (hours - 1) * HOUR_MS
-  const seen = new Set<number>()
-  const waiting = new Set<number>()
-  for (const p of history ?? []) {
-    const n = p.summary?.needsYou
-    const atMs = parseMs(p.receivedAt)
-    if (!isCount(n) || atMs === null) continue
-    const hour = Math.floor(atMs / HOUR_MS) * HOUR_MS
-    if (atMs > now || hour < startHour || hour > endHour) continue
-    seen.add(hour)
-    if (n > 0) waiting.add(hour)
-  }
-  return seen.size === 0 ? null : { observed: seen.size, waiting: waiting.size }
-}
-
-/**
- * The needs-you cell's footer. History carries agent counts only (the human queue is not in it), so
- * the wording is for agents; a window claim is made only for hours that were observed.
- */
-export function needsYouWindowFact(coverage: NeedsYouCoverage | null, hours: number): string {
-  if (coverage === null) return `no data in ${hours} h`
-  const partial = coverage.observed < hours
-  const scope = partial ? `${coverage.observed} h observed` : `${hours} h`
-  if (coverage.waiting === 0) return `no agent waiting in ${scope}`
-  return `agents waiting in ${coverage.waiting} of ${scope}`
-}
+// ── Activity window ──────────────────────────────────────────────────────────────────────────
 
 export type HourBucket = { hourMs: number; working: number | null }
 
@@ -410,46 +382,40 @@ export type AgentsSummaryInput = {
   agentWaits: number
   /** Asks in the human queue, counted from the same cards. */
   asks: number
+  /** Distinct projects those waiting agents belong to. */
+  projects: number
 }
 
 const nounFor = (n: number, one: string, many: string): string => (n === 1 ? one : many)
 
-/** Who is waiting, as a sentence that names no figure the strip under it shows. */
-function waitingSentence(agentWaits: number, asks: number): string {
-  if (agentWaits > 0 && asks > 0) return 'Agents and the human queue are waiting on you.'
-  if (agentWaits > 0) return `${nounFor(agentWaits, 'An agent is', 'Agents are')} waiting on you.`
-  return `${nounFor(asks, 'A request is', 'Requests are')} waiting for your answer.`
-}
+/** Distinct projects with an agent waiting on the owner. */
+export const waitingProjects = (agents: readonly AgentRow[]): number =>
+  new Set(agents.filter((a) => a.state === 'needs_you').map((a) => a.project)).size
 
 /**
- * The page's verdict and where the waiting sits. The strip under it prints the count, the oldest
- * wait and the fleet, so the headline names no figure the strip already shows.
+ * The page's verdict. Its one figure is the one nothing else on the page prints: how many projects
+ * the blocked agents sit in (the strip has the count, the oldest wait and the fleet).
  */
-export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string; facts: string[] } {
-  const { agentWaits, asks } = s
-  if (agentWaits === 0 && asks === 0) return { sentence: 'Nothing needs you.', facts: [] }
-  const facts = [
-    agentWaits > 0 ? `${agentWaits} ${nounFor(agentWaits, 'agent', 'agents')} blocked` : null,
-    asks > 0 ? `${asks} queued ${nounFor(asks, 'ask', 'asks')}` : null,
-  ].filter((f): f is string => f !== null)
-  return { sentence: waitingSentence(agentWaits, asks), facts }
+export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } {
+  const { agentWaits, asks, projects } = s
+  if (agentWaits === 0 && asks === 0) return { sentence: 'Nothing needs you.' }
+  if (agentWaits === 0)
+    return { sentence: `${nounFor(asks, 'A request is', 'Requests are')} waiting for your answer.` }
+  const where = `in ${projects} ${nounFor(projects, 'project', 'projects')}`
+  if (asks > 0) return { sentence: `Agents ${where} and the human queue are waiting on you.` }
+  return {
+    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')} ${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you.`,
+  }
 }
 
-/** The tool an agent runs in, as a reader names it: `claude-code` is `Claude Code`. */
-const SOURCE_NAME: Record<string, string> = {
-  claude: 'Claude Code',
-  'claude-code': 'Claude Code',
-  opencode: 'OpenCode',
-  codex: 'Codex',
-  droid: 'Droid',
-}
-
-/** Display name of an agent source; an unlisted one becomes words (`my_tool` → `My tool`). */
-export function sourceLabel(source: string): string {
-  const known = SOURCE_NAME[source.toLowerCase()]
-  if (known !== undefined) return known
-  const words = source.replace(/[_-]+/g, ' ').trim()
-  return words === '' ? source : words.charAt(0).toUpperCase() + words.slice(1)
+/** The needs-you tile's footer: the split of its count into the two kinds of item. */
+export function needsYouSplit(agentWaits: number, asks: number): string {
+  return [
+    agentWaits > 0 ? `${agentWaits} ${nounFor(agentWaits, 'agent', 'agents')}` : null,
+    asks > 0 ? `${asks} ${nounFor(asks, 'ask', 'asks')}` : null,
+  ]
+    .filter((part) => part !== null)
+    .join(' · ')
 }
 
 // ── Narratives ───────────────────────────────────────────────────────────────────────────────

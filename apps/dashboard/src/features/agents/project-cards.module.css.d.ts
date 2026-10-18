@@ -3,8 +3,6 @@
  * signature — so dot access stays verbatim under the package's strict flags.
  */
 declare const classes: {
-  readonly share: string
-  readonly shareFill: string
   readonly listHead: string
   readonly quiet: string
   readonly quietBox: string
