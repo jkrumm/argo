@@ -21,6 +21,11 @@ import {
   fmtTokens,
   fmtUsdWhole,
   foldTopN,
+  countAgainst,
+  dropPartialDay,
+  regroup,
+  toolGroupKey,
+  toolLabel,
   OTHER_KEY,
   pctChange,
   pctDelta,
@@ -303,11 +308,76 @@ describe('error days, peak and source note', () => {
   it('words the health and fold info from the constants', () => {
     expect(healthInfo('week')).toContain('a week under 1%')
     expect(foldInfo('billing lane')).toBe(
-      'The six largest billing lanes in the window are named, the rest are grouped as Other.',
+      'The largest billing lanes in the window are named (at least 6, more while the rest would outweigh the smallest), the rest are grouped as Other.',
     )
   })
   it('states what the source percentage is of', () => {
     expect(topSourceNote('api', 30, 100)).toBe('30% from api')
     expect(topSourceNote('api', 0, 0)).toBe('api')
+  })
+})
+
+describe('foldTopN widening', () => {
+  const points = [day(1, { a: 10, b: 9, c: 8, d: 7, e: 6 })]
+  const keys = ['a', 'b', 'c', 'd', 'e']
+
+  it('widens until Other no longer outweighs the smallest named series', () => {
+    const f = foldTopN(points, keys, 2, 5)
+    expect(f.keys).toEqual(['a', 'b', 'c', 'd', OTHER_KEY])
+    const other = f.totals.find((t) => t.key === OTHER_KEY)?.value ?? 0
+    expect(other).toBeLessThanOrEqual(7)
+  })
+  it('stops at max even when Other is still the largest', () => {
+    const f = foldTopN(points, keys, 1, 2)
+    expect(f.keys).toEqual(['a', 'b', OTHER_KEY])
+  })
+  it('keeps n when max is not given', () => {
+    expect(foldTopN(points, keys, 2).keys).toEqual(['a', 'b', OTHER_KEY])
+  })
+})
+
+describe('tool names', () => {
+  it('counts every tool of one MCP server under the server', () => {
+    expect(toolGroupKey('mcp__agent-gateway__check')).toBe('mcp__agent-gateway')
+    expect(toolGroupKey('mcp__agent-gateway__review')).toBe('mcp__agent-gateway')
+    expect(toolGroupKey('Bash')).toBe('Bash')
+  })
+  it('prints identifiers in words', () => {
+    expect(toolLabel('mcp__agent-gateway')).toBe('Agent gateway (MCP)')
+    expect(toolLabel('mcp__chrome-devtools__take_screenshot')).toBe(
+      'Chrome devtools · Take screenshot',
+    )
+    expect(toolLabel('web_search')).toBe('Web search')
+    expect(toolLabel('Bash')).toBe('Bash')
+    expect(toolLabel(OTHER_KEY)).toBe(OTHER_KEY)
+  })
+  it('regroups buckets by key and adds them up', () => {
+    const r = regroup(
+      [day(1, { mcp__s__a: 2, mcp__s__b: 3, Bash: 1 })],
+      ['mcp__s__a', 'mcp__s__b', 'Bash'],
+      toolGroupKey,
+    )
+    expect(r.groupKeys).toEqual(['mcp__s', 'Bash'])
+    expect(r.points[0]?.groups).toEqual({ mcp__s: 5, Bash: 1 })
+  })
+})
+
+describe('dropPartialDay', () => {
+  const now = new Date(2026, 0, 3, 14, 0).getTime()
+  const days = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+
+  it('drops the bucket dated today and keeps full days', () => {
+    expect(dropPartialDay(days, now).map((d) => d.value)).toEqual([1, 2])
+  })
+  it('keeps everything when the feed ends before today', () => {
+    expect(dropPartialDay(days.slice(0, 2), now)).toHaveLength(2)
+  })
+})
+
+describe('countAgainst', () => {
+  it('counts days strictly above or below a line and ignores gaps', () => {
+    const values = [1, 2, null, 3, 2]
+    expect(countAgainst(values, 2, 'above')).toEqual({ count: 1, of: 4 })
+    expect(countAgainst(values, 2, 'below')).toEqual({ count: 1, of: 4 })
   })
 })

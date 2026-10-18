@@ -1,5 +1,5 @@
 /**
- * A stacked area folded to its top 6 series plus "Other", with the ranked list that keys it. The list
+ * A stacked area folded to its top series (6 to 8) plus "Other", with the ranked list that keys it. The list
  * and the chart read the same folded totals, so a swatch, a bar and an area band are the same series
  * and the header total equals the list's sum. Used for cost (by source / machine / billing) and tokens
  * (by tool / model / project / source).
@@ -22,7 +22,18 @@ import { USAGE_SOURCE } from '../../lib/series'
 import { usageStore } from '../../lib/window-stores'
 import type { BillingValue, WorkspaceValue } from './types'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
-import { EM_DASH, FOLD_TOP_N, foldTopN, fmtShare, OTHER_KEY, periodNoun } from './model'
+import {
+  EM_DASH,
+  FOLD_MAX_N,
+  FOLD_TOP_N,
+  foldTopN,
+  fmtShare,
+  OTHER_KEY,
+  periodNoun,
+  regroup,
+  toolGroupKey,
+  toolLabel,
+} from './model'
 import classes from './usage.module.css'
 
 const dayFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
@@ -70,7 +81,14 @@ export function FoldedChart({
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
 
-  const folded = foldTopN(toTimePoints(data.buckets), data.groupKeys, FOLD_TOP_N)
+  // Tools are counted per MCP server (not per call name) and shown in words; other dimensions as sent.
+  const tools = groupBy === 'sub_tool'
+  const raw = toTimePoints(data.buckets)
+  const source = tools
+    ? regroup(raw, data.groupKeys, toolGroupKey)
+    : { points: raw, groupKeys: data.groupKeys }
+  const labelOf = (key: string) => (tools ? toolLabel(key) : key)
+  const folded = foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N)
   // Open-ended keys (tool, model, project) take a palette slot by rank, not by hash, so the six
   // named series are always six different hues; source and billing keep their identity colours.
   const byRank = groupBy !== 'source' && groupBy !== 'billing'
@@ -79,7 +97,7 @@ export function FoldedChart({
     if (!byRank) return color(key)
     return RANK_PALETTE[folded.keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
-  const series = groupBands(folded.keys, colorOf)
+  const series = groupBands(folded.keys, colorOf, labelOf)
   const rows = compact && !showAll ? folded.totals.slice(0, COMPACT_ROWS) : folded.totals
   const hidden = folded.totals.length - rows.length
   // Unfiltered 30 d is the strip's own window: print its figure so the page never shows two totals
@@ -124,7 +142,7 @@ export function FoldedChart({
             emptyText="No data in this window"
             items={rows.map((t) => ({
               key: t.key,
-              label: t.key,
+              label: labelOf(t.key),
               value: t.value,
               secondary: (
                 <span className={classes.share}>
