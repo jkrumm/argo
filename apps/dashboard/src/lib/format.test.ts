@@ -89,11 +89,28 @@ describe('glue', () => {
 })
 
 describe('glueIdentifiers', () => {
+  const WJ = '\u2060'
   test('forbids a break inside an identifier but keeps spaces breakable', () => {
-    expect(glueIdentifiers('Merge repo/feat-x now')).toBe('Merge repo/\u2060feat-\u2060x now')
+    expect(glueIdentifiers('Merge repo/feat-x now')).toBe(`Merge repo/${WJ}feat-${WJ}x now`)
   })
-  test('leaves plain words and edge punctuation alone', () => {
+  test('glues delimiter runs inside a token', () => {
+    expect(glueIdentifiers('a--b')).toBe(`a-${WJ}-${WJ}b`)
+    expect(glueIdentifiers('a//b')).toBe(`a/${WJ}/${WJ}b`)
+    expect(glueIdentifiers('a-/b')).toBe(`a-${WJ}/${WJ}b`)
+    expect(glueIdentifiers('repo/-branch')).toBe(`repo/${WJ}-${WJ}branch`)
+  })
+  test('is idempotent and accepts input that already has joiners', () => {
+    const once = glueIdentifiers('repo/feature--flag a-b')
+    expect(glueIdentifiers(once)).toBe(once)
+    expect(glueIdentifiers(`a/${WJ}b`)).toBe(`a/${WJ}b`)
+  })
+  test('leaves edge punctuation alone', () => {
     expect(glueIdentifiers('Retry item? - ok')).toBe('Retry item? - ok')
     expect(glueIdentifiers('path/')).toBe('path/')
+    expect(glueIdentifiers('-x /y')).toBe('-x /y')
+  })
+  test('only adds joiners, so stripping them returns the raw text', () => {
+    const raw = 'Merge repo/feat--x, a//b and -c now'
+    expect(glueIdentifiers(raw).replaceAll(WJ, '')).toBe(raw)
   })
 })

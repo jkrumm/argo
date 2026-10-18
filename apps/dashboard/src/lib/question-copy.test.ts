@@ -949,6 +949,9 @@ describe('addsText', () => {
     expect(addsText('CI failed on {sha}. Exit code 1.', 'CI failed on {sha}.')).toBe(true)
     expect(addsText('CI failed on {sha} after retries', 'CI failed on {sha}…')).toBe(true)
   })
+  it('is false when the reason sits mid-string inside the evidence line', () => {
+    expect(addsText('failed on {sha}', 'CI failed on {sha} after retries.')).toBe(false)
+  })
   it('is true when there is no evidence line', () => {
     expect(addsText('Whole reason.', null)).toBe(true)
   })
