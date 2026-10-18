@@ -1,11 +1,4 @@
-/* Verdict card evidence: the readiness Meter and the ACWR Meter, each with its method line. */
-.meterBlock {
-  display: flex;
-  flex-direction: column;
-  gap: var(--vx-space-stack-xs);
-  min-width: 0;
-}
-
+/* Verdict card: the method line under each meter. */
 .method {
   font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-xs);

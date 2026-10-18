@@ -2,23 +2,24 @@
  * The top of the Charts tab: one summary sentence, today's call (readiness and ACWR against their
  * zone bands) and a joined strip with a cell per lift. Every figure comes from `model.ts`.
  */
-import { Box, Stack, Text } from '@mantine/core'
+import { ActionIcon, Card, Group, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core'
+import { IconInfoCircle } from '@tabler/icons-react'
+import type { ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
-import { alpha, VX } from 'basalt-ui/tokens'
+import { alpha, CONTAINER_KEYS as CQ, VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
-import { DecisionCard } from '../../components/upstream/decision-card'
 import { PageSummary } from '../../components/upstream/page-summary'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { workoutsQueries } from '../../lib/queries/workouts'
+import { TERM_DEFINITIONS } from './constants'
 import { exerciseLabel } from './formulas'
 import {
   ACWR_CAUTION_TO,
   DELTA_DAYS,
   ACWR_FLOOR,
   ACWR_METER_MAX,
-  ACWR_METHOD,
   ACWR_OPTIMAL_TO,
   EM_DASH,
   READINESS_PUSH_FROM,
@@ -31,10 +32,10 @@ import {
   recentDeload,
   liftDelta,
   lastSession,
+  liftFooter,
   latestE1rm,
   acwrReading,
   readinessReading,
-  sessionCount,
   summaryParts,
   todaysCall,
   type Point,
@@ -105,6 +106,26 @@ export function SummaryLine(props: Params) {
   return <PageSummary {...summaryLine} />
 }
 
+/** A term of art with its plain-word definition behind an info icon. */
+function Term({ label, definition }: { label: ReactNode; definition: string }) {
+  return (
+    <Group gap={4} wrap="nowrap" align="center">
+      {label}
+      <Tooltip
+        label={definition}
+        multiline
+        maw={300}
+        withArrow
+        events={{ hover: true, focus: true, touch: true }}
+      >
+        <ActionIcon variant="transparent" color="gray" size="xs" aria-label={definition}>
+          <IconInfoCircle size={14} />
+        </ActionIcon>
+      </Tooltip>
+    </Group>
+  )
+}
+
 export function TodaysCall(props: Params) {
   const { readiness, deload, lastDate, series, call, acwr, acwrWeek } = useOverview(props)
   const score = readiness?.score ?? null
@@ -113,11 +134,6 @@ export function TodaysCall(props: Params) {
   const facts = [
     ...(call.asOf === null ? [] : [`latest ${call.asOf}`]),
     ...(readiness?.driver ? [`driver ${readiness.driver}`] : []),
-    ...(session === null
-      ? []
-      : [
-          `last session ${exerciseLabel(session.exercise_id)} INOL ${session.inol.toFixed(2)}, ${dayLabel(session.date)}`,
-        ]),
   ]
   const meta = [
     deloadLine(deload, lastDate),
@@ -129,83 +145,115 @@ export function TodaysCall(props: Params) {
     .join(' · ')
 
   return (
-    <Box data-shot="strength-call">
-      <DecisionCard
-        question={readinessTitle(call)}
-        facts={facts}
-        evidence={
-          <Stack gap="md">
-            <Box className={classes.meterBlock}>
-              <Text size="xs" fw={600}>
-                Score {readinessHeader(readiness)?.text ?? EM_DASH}
-              </Text>
-              {score === null ? (
-                <Text size="xs" c="dimmed">
-                  Readiness needs 7 days of Garmin metrics
+    <Card data-shot="strength-call">
+      <Stack gap="sm">
+        <Text component="h3" m={0} fw={600} size="md" lh={1.35}>
+          {readinessTitle(call)}
+        </Text>
+        {facts.length === 0 && session === null ? null : (
+          <Group gap={4} wrap="wrap" align="center">
+            <Text size="xs" c="dimmed">
+              {[
+                ...facts,
+                ...(session === null
+                  ? []
+                  : [
+                      `last session ${exerciseLabel(session.exercise_id)}, ${dayLabel(session.date)}`,
+                    ]),
+              ].join(' · ')}
+            </Text>
+            {session === null ? null : (
+              <Term
+                label={
+                  <Text size="xs" c="dimmed">
+                    · INOL {session.inol.toFixed(2)}
+                  </Text>
+                }
+                definition={TERM_DEFINITIONS.inol}
+              />
+            )}
+          </Group>
+        )}
+        <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
+          <Stack gap="xs" miw={0}>
+            <Term
+              label={
+                <Text size="xs" fw={600}>
+                  Score {readinessHeader(readiness)?.text ?? EM_DASH}
                 </Text>
-              ) : (
-                <Meter
-                  label="Readiness score with its Rest and Push thresholds"
-                  value={score}
-                  min={0}
-                  max={100}
-                  format={(v) => String(Math.round(v))}
-                  zones={[
-                    { from: 0, to: READINESS_REST_BELOW, label: 'Rest', color: VX.warn },
-                    {
-                      from: READINESS_REST_BELOW,
-                      to: READINESS_PUSH_FROM,
-                      label: 'Normal',
-                      color: MUTED_FILL,
-                    },
-                    { from: READINESS_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
-                  ]}
-                  startCaption={null}
-                  endCaption={null}
-                />
-              )}
-              <Text className={classes.method}>
-                Rest below {READINESS_REST_BELOW} · Push from {READINESS_PUSH_FROM}
+              }
+              definition={TERM_DEFINITIONS.readiness}
+            />
+            {score === null ? (
+              <Text size="xs" c="dimmed">
+                Readiness needs 7 days of Garmin metrics
               </Text>
-            </Box>
-            <Box className={classes.meterBlock}>
-              <Text size="xs" fw={600}>
-                ACWR {acwr === null ? EM_DASH : acwr.toFixed(2)}
-              </Text>
-              {acwr === null ? null : (
-                <Meter
-                  label="Acute to chronic workload ratio"
-                  value={acwr}
-                  min={0}
-                  max={ACWR_METER_MAX}
-                  format={(v) => v.toFixed(2)}
-                  zones={[
-                    { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
-                    { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
-                    {
-                      from: ACWR_OPTIMAL_TO,
-                      to: ACWR_CAUTION_TO,
-                      label: 'Caution',
-                      color: VX.warn,
-                    },
-                    { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
-                  ]}
-                  startCaption={null}
-                  endCaption={null}
-                />
-              )}
-              <Text className={classes.method}>
-                optimal {ACWR_FLOOR}–{ACWR_OPTIMAL_TO} ·{' '}
-                {acwr === null && acwrWeek !== null
-                  ? `no training week in the last 28 d, last was the week of ${shortDate(acwrWeek)}`
-                  : ACWR_METHOD}
-              </Text>
-            </Box>
+            ) : (
+              <Meter
+                label="Readiness score with its Rest and Push thresholds"
+                value={score}
+                min={0}
+                max={100}
+                format={(v) => String(Math.round(v))}
+                zones={[
+                  { from: 0, to: READINESS_REST_BELOW, label: 'Rest', color: VX.warn },
+                  {
+                    from: READINESS_REST_BELOW,
+                    to: READINESS_PUSH_FROM,
+                    label: 'Normal',
+                    color: MUTED_FILL,
+                  },
+                  { from: READINESS_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
+                ]}
+                startCaption={null}
+                endCaption={null}
+              />
+            )}
+            <Text className={classes.method}>
+              Rest below {READINESS_REST_BELOW} · Push from {READINESS_PUSH_FROM}
+            </Text>
           </Stack>
-        }
-        meta={meta}
-      />
-    </Box>
+          <Stack gap="xs" miw={0}>
+            <Term
+              label={
+                <Text size="xs" fw={600}>
+                  ACWR {acwr === null ? EM_DASH : acwr.toFixed(2)}
+                </Text>
+              }
+              definition={TERM_DEFINITIONS.acwr}
+            />
+            {acwr === null ? null : (
+              <Meter
+                label="Acute to chronic workload ratio"
+                value={acwr}
+                min={0}
+                max={ACWR_METER_MAX}
+                format={(v) => v.toFixed(2)}
+                zones={[
+                  { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
+                  { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
+                  { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
+                  { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
+                ]}
+                startCaption={null}
+                endCaption={null}
+              />
+            )}
+            <Text className={classes.method}>
+              optimal {ACWR_FLOOR}–{ACWR_OPTIMAL_TO}
+              {acwr === null && acwrWeek !== null
+                ? ` · no training week in the last 28 d, last was the week of ${shortDate(acwrWeek)}`
+                : ''}
+            </Text>
+          </Stack>
+        </SimpleGrid>
+        {meta === '' ? null : (
+          <Text size="xs" c="dimmed">
+            {meta}
+          </Text>
+        )}
+      </Stack>
+    </Card>
   )
 }
 
@@ -233,9 +281,6 @@ function liftCell({
   const { delta, phrase } = liftDelta(points, now)
   const plotted = points.filter((p) => p.e1rm !== null).slice(-SPARK_POINTS)
   const spark = plotted.map((p) => p.e1rm as number)
-  const sparkFrom = plotted[0]?.date ?? ''
-  const sparkTo = plotted.at(-1)?.date ?? ''
-  const sessions = pr?.sessionCountWindow ?? sessionCount(points)
   return {
     key: id,
     caption: exerciseLabel(id),
@@ -266,23 +311,11 @@ function liftCell({
         />
       ),
     }),
-    footer: (
-      <>
-        {delta === null ? (
-          <>
-            {phrase}
-            <br />
-          </>
-        ) : null}
-        {spark.length > 1
-          ? `line: last ${spark.length} sessions, ${shortDate(sparkFrom)}–${shortDate(sparkTo)}${pr?.bestE1RM == null ? '' : ', dashed: PR'}`
-          : null}
-        {spark.length > 1 ? <br /> : null}
-        PR {pr?.bestE1RM == null ? '' : `${pr.bestE1RM.toFixed(1)} kg · `}
-        {pr?.prDate ? shortDate(pr.prDate) : EM_DASH} · {sessions}{' '}
-        {sessions === 1 ? 'session' : 'sessions'}, all time
-      </>
-    ),
+    footer: liftFooter({
+      delta: { delta, phrase },
+      prKg: pr?.bestE1RM ?? null,
+      prDate: pr?.prDate ?? null,
+    }),
   }
 }
 

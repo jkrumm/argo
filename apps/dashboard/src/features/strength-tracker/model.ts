@@ -234,6 +234,24 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
   return { delta, phrase: `${signed(delta)} kg in ${days}d` }
 }
 
+/**
+ * The strip cell's one footer line: the personal record (kg and day), led by the reason there is
+ * no 28 d move when the badge is absent. Never explains the sparkline.
+ */
+export function liftFooter(input: {
+  delta: LiftDelta
+  prKg: number | null
+  prDate: string | null
+}): string {
+  const { delta, prKg, prDate } = input
+  const record =
+    prKg === null
+      ? null
+      : `PR ${prKg.toFixed(1)} kg${prDate === null ? '' : ` · ${shortDate(prDate)}`}`
+  if (delta.delta === null) return [delta.phrase, record].filter((v) => v !== null).join(' · ')
+  return record ?? EM_DASH
+}
+
 export function sessionCount(points: readonly Point[]): number {
   return points.filter((p) => isNum(p.e1rm)).length
 }

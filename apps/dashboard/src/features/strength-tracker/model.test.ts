@@ -10,6 +10,7 @@ import {
   dayLabel,
   groupByDay,
   lastSession,
+  liftFooter,
   liftDelta,
   localIso,
   offText,
@@ -342,5 +343,19 @@ describe('records and periods', () => {
     expect(periodLabel('90d')).toBe('90 days')
     expect(periodLabel('1y')).toBe('1 year')
     expect(periodLabel('custom', '2026-01-01', '2026-02-01')).toBe('2026-01-01 – 2026-02-01')
+  })
+})
+
+describe('liftFooter', () => {
+  test('a lift with a 28 d move shows only its PR', () => {
+    const delta = { delta: 2.5, phrase: '+2.5 kg in 28d' }
+    expect(liftFooter({ delta, prKg: 100, prDate: '2026-08-13' })).toBe('PR 100.0 kg · 13 Aug')
+  })
+  test('without a move the reason leads, then the PR', () => {
+    const delta = { delta: null, phrase: 'no session in 28d' }
+    expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('no session in 28d · PR 100.0 kg')
+  })
+  test('nothing known is a dash, never a zero', () => {
+    expect(liftFooter({ delta: { delta: 1, phrase: '' }, prKg: null, prDate: null })).toBe('—')
   })
 })
