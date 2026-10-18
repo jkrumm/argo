@@ -261,12 +261,12 @@ const plural = (n: number, one: string): string => `${n} ${n === 1 ? one : `${on
 export function summaryHeadline(entries: readonly ThreadEntry[]): { sentence: string } | null {
   if (entries.length === 0) return null
   const running = entries.filter((entry) => entry.streaming).length
-  const total = plural(entries.length, 'thread')
+  const threads = plural(entries.length, 'thread')
   return {
     sentence:
       running === 0
-        ? `Nothing running in ${total}`
-        : `Hermes is replying in ${running} of ${total}`,
+        ? `Nothing running in ${threads}`
+        : `Hermes is replying in ${running} of ${threads}`,
   }
 }
 

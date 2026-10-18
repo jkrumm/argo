@@ -398,8 +398,6 @@ describe('printTotal', () => {
   it('prints a total only where the strip does not', () => {
     const base = { filtered: false } as const
     expect(printTotal({ ...base, range: '30d' })).toBe(false)
-    expect(printTotal({ ...base, range: '30d' })).toBe(false)
-    expect(printTotal({ ...base, range: '7d' })).toBe(true)
     expect(printTotal({ ...base, range: '7d' })).toBe(true)
     expect(printTotal({ ...base, range: '90d' })).toBe(true)
     expect(printTotal({ ...base, range: 'all' })).toBe(true)
