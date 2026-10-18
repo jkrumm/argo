@@ -117,7 +117,7 @@ export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<
     const one = key === 'meeting' ? label : `${label} chat`
     return [{ key, label, noun: noun(value, one), text: plural(value, one), value }]
   })
-  // Biggest first (reading order on a tie; sort is stable), so the bar, the hero and the footer agree.
+  // Biggest first (reading order on a tie; sort is stable), so the bar and the hero agree on the order.
   return parts.sort((a, b) => b.value - a.value)
 }
 

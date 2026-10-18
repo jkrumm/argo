@@ -119,6 +119,7 @@
   color: var(--vx-ink);
 }
 
+/* Rows use basalt's row-hover / row-selected surfaces (panel-hover is lighter than panel in light). */
 .row:hover:not(.rowSelected) {
   background: var(--vx-surface-row-hover);
 }

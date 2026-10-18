@@ -7,14 +7,12 @@ import {
   summaryExcerpt,
   titleExcerpt,
   listTime,
+  UNTITLED_FOLD_NAME,
   untitledFoldLabel,
   type ThreadEntry,
   type ThreadGroup,
 } from './thread-list-model'
 import classes from './thread-list.module.css'
-
-/** The fold row's name: the `Untitled` chip beside the list carries the count, so the row does not repeat it. */
-const UNTITLED_FOLD_NAME = 'Untitled chats'
 
 export function TypeChip({ type }: { type: ThreadEntry['type'] }) {
   if (type === null) return null
