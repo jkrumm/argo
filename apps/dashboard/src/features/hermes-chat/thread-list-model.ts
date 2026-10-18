@@ -336,7 +336,10 @@ export function emptyNote(input: { threads: number; active: number; filtered: bo
   return 'No thread matches this filter.'
 }
 
-/** The fold's label: what it folds, with the count read once (`3 untitled chats`). */
+/** The fold row's name: the `Untitled` chip beside the list carries the count, so the row does not repeat it. */
+export const UNTITLED_FOLD_NAME = 'Untitled chats'
+
+/** Count and noun (`3 untitled chats`), for the delete confirmation where the count is the consequence. */
 export function untitledFoldLabel(count: number): string {
   return plural(count, 'untitled chat')
 }

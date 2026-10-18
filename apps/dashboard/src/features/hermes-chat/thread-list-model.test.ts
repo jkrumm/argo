@@ -10,6 +10,7 @@ const {
   groupEntries,
   isUntitled,
   untitledFoldLabel,
+  UNTITLED_FOLD_NAME,
   listTime,
   startedDate,
   summaryExcerpt,
@@ -294,7 +295,11 @@ describe('emptyNote', () => {
 })
 
 describe('untitledFoldLabel', () => {
-  it('names what the fold holds, with its count', () => {
+  it('the fold row names itself without a count; the chip carries it', () => {
+    expect(UNTITLED_FOLD_NAME).not.toMatch(/\d/)
+  })
+
+  it('names what the fold holds, with its count, for the delete confirmation', () => {
     expect(untitledFoldLabel(1)).toBe('1 untitled chat')
     expect(untitledFoldLabel(12)).toBe('12 untitled chats')
   })
