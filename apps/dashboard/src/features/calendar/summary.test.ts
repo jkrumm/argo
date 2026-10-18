@@ -2,7 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { agendaSummary, type CalendarItem } from './derive'
 import { feedGap } from './query-state'
-import { countdown, summaryParts, todayCardState, untilLabel } from './summary'
+import {
+  EMPTY_WINDOW_SENTENCE,
+  EMPTY_WINDOW_SHORT,
+  countdown,
+  summaryParts,
+  todayCardState,
+  untilLabel,
+} from './summary'
 
 const D = '2026-10-14'
 const ev = (id: string, start: string, end: string): CalendarItem => ({
@@ -18,6 +25,22 @@ const events = [
   ev('b', `${D} 11:20:00`, `${D} 12:00:00`),
   ev('c', `${D} 15:00:00`, `${D} 16:00:00`),
 ]
+
+describe('summaryParts empty window', () => {
+  test('the headline carries the full sentence once; its leading clause is the short form', () => {
+    const { sentence, facts } = summaryParts(agendaSummary([], now), null, true)
+    expect(sentence).toBe(EMPTY_WINDOW_SENTENCE)
+    expect(sentence.startsWith(EMPTY_WINDOW_SHORT)).toBe(true)
+    expect(sentence.match(/Google or Microsoft 365/g)).toHaveLength(1)
+    expect(facts).toEqual([])
+  })
+  test('an unanswered calendar is still the gap, never the empty window', () => {
+    const loading = { state: 'loading' as const, text: 'Loading calendar', card: 'Loading' }
+    expect(summaryParts(agendaSummary([], now, new Set(['work'])), loading, true).sentence).toBe(
+      'Loading calendar',
+    )
+  })
+})
 
 describe('summaryParts', () => {
   test('a busy day: the headline carries the count and booked time, the facts the countdown and week', () => {

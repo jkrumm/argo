@@ -19,6 +19,7 @@ import {
   agendaDay,
   keyToDate,
   longestFreeBlock,
+  nothingBooked,
   tasksDue,
   type CalendarItem,
   type DayKey,
@@ -71,7 +72,15 @@ export function AgendaView({
 
   const { summary, free } = model
   const gap = feedGap(unknown, failed)
-  const parts = summaryParts(summary, gap)
+  // One gap across the strip, the next days and the headline: the whole window holds nothing.
+  const emptyWindow =
+    !summary.incomplete &&
+    summary.todayCount === 0 &&
+    nothingBooked(model.load) &&
+    model.nextCount === 0 &&
+    model.todayAllDay.length === 0 &&
+    Object.values(model.allDay).every((chips) => chips.length === 0)
+  const parts = summaryParts(summary, gap, emptyWindow)
   const todayState = todayCardState(model.today.rows.length, summary.incomplete)
   return (
     <Stack gap="md">
@@ -134,6 +143,7 @@ export function AgendaView({
                     now={now}
                     next={summary.next}
                     gap={gap}
+                    emptyWindow={emptyWindow}
                   />
                 </Section>
               </Card>
@@ -148,6 +158,7 @@ export function AgendaView({
                 todayKey={summary.todayKey}
                 unknown={unknown}
                 gap={gap}
+                emptyWindow={emptyWindow}
               />
             </Box>
             <Box
@@ -163,7 +174,12 @@ export function AgendaView({
                     key: 'free-block',
                     caption: 'Longest free block',
                     qualifier: 'today',
-                    value: free ? formatMinutes(free.minutes) : null,
+                    // A measured zero (the day is over) is `0 min`; a dash only where the feed is unknown.
+                    value: free
+                      ? formatMinutes(free.minutes)
+                      : summary.incomplete
+                        ? null
+                        : formatMinutes(0),
                     footer: gap
                       ? gap.card
                       : free
