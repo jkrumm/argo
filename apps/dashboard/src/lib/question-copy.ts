@@ -89,11 +89,14 @@ function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
   return leadOf(lines.join(' '), EVIDENCE_LINE_MAX)
 }
 
-/** A caller-built plain question: bounded at a word (no ellipsis before the `?`), never empty. */
+/** A caller-built plain question: bounded at a word, never inside a bracket (no ellipsis before the `?`), never empty. */
 function boundedQuestion(question: string, max = QUESTION_MAX - 1): string {
   const stem = flatten(question).replace(/[?\s]+$/, '')
   if (stem === '') return NEUTRAL_QUESTION
-  return `${stem.length > max ? (cutAtWord(stem, max) ?? stem.slice(0, max)) : stem}?`
+  if (stem.length <= max) return `${stem}?`
+  // Cut at a word, balanced; a question with no such cut is the neutral one, never a fragment.
+  const cut = cutAtWord(stem, max)
+  return cut === null ? NEUTRAL_QUESTION : `${cut}?`
 }
 
 const ALERT_WORD = /^(?:alert|incident|outage)s?$/i
@@ -248,17 +251,24 @@ function composeApart(input: QuestionInput, others: readonly string[]): Question
   const stem = flatten(input.terse)
   const room = QUESTION_MAX - 1 - stem.length - 2
   const clause = own.slice(start).join(' ')
-  for (let size = start; size >= 1; size -= 1) {
-    const head = trimmedTail(own.slice(0, size).join(' '))
-    if (!names(head) || !balanced(head)) continue
-    const joint = size === start ? ' ' : ' … '
-    const clauseRoom = room - head.length - joint.length
-    const shown = clause.length <= clauseRoom ? clause : cutAtWord(clause, clauseRoom)
-    // The clause must reach the first word the others lack, or it tells nothing apart.
-    if (shown === null || shown.split(' ').length < common - start + 1) continue
-    return { question: `${stem}: ${head}${joint}${shown}?`, subject: head }
+  // The whole clause with the longest opening that leaves it room; failing that, a cut clause.
+  for (const whole of [true, false]) {
+    for (let size = start; size >= 1; size -= 1) {
+      const head = trimmedTail(own.slice(0, size).join(' '))
+      if (!names(head) || !balanced(head)) continue
+      const joint = size === start ? ' ' : ' … '
+      const clauseRoom = room - head.length - joint.length
+      const shown =
+        clause.length <= clauseRoom ? clause : whole ? null : cutAtWord(clause, clauseRoom)
+      // The clause must reach the first word the others lack, or it tells nothing apart.
+      if (shown === null || shown.split(' ').length < common - start + 1) continue
+      return { question: `${stem}: ${head}${joint}${shown}?`, subject: head }
+    }
   }
-  return null
+  // No opening fits beside the clause: the clause alone, as long as it reaches the distinguishing word.
+  const alone = clause.length <= room ? clause : cutAtWord(clause, room)
+  if (alone === null || alone.split(' ').length < common - start + 1) return null
+  return { question: `${stem}: ${alone}?`, subject: null }
 }
 
 const byKey = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
@@ -274,8 +284,10 @@ const byKey = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
  *     that alone tells them apart;
  *  4. siblings still the same whose FULL subjects differ are told apart by subject: the opening
  *     words, then the clause where each parts from the others (`… {clause}?`);
- *  5. only cards whose normalised full subjects are identical are numbered ` (n)`, in `key` order
- *     (code-unit comparison), each taking the lowest ordinal no other card already reads.
+ *  5. only cards whose normalised full subjects are word-for-word identical are numbered ` (n)`, in
+ *     `key` order (code-unit comparison), each taking the lowest ordinal no other card already reads.
+ *     A subject that is a word-prefix of a sibling's is never numbered: the longer one shows its
+ *     extra words; if even they cannot be shown whole, both keep their titles, unnumbered.
  */
 export function questionTitles(inputs: readonly QuestionInput[]): QuestionTitle[] {
   const titles = inputs.map((input) => {
@@ -329,7 +341,14 @@ export function questionTitles(inputs: readonly QuestionInput[]): QuestionTitle[
     })
   }
 
-  const order = clashing(titles).toSorted((a, b) => byKey(inputs[a]!.key, inputs[b]!.key))
+  // Only word-identical normalised subjects are numbered; a card whose subject differs keeps its
+  // apart or terse title, even in the rare case no title can show its extra words.
+  const still = clashing(titles)
+  const order = still
+    .filter((i) =>
+      still.some((j) => j !== i && keyOf(titles[j]!) === keyOf(titles[i]!) && full[j] === full[i]),
+    )
+    .toSorted((a, b) => byKey(inputs[a]!.key, inputs[b]!.key))
   const taken = new Set(titles.map(keyOf))
   for (const i of order) {
     const numbered = (n: number) =>
@@ -356,8 +375,9 @@ export function questionForms(verb: string, noun: string, where: string | null):
   }
 }
 
-/** A conventional-commit label: `fix(scope): `, `ci: `, `feat!: ` — lowercase type, optional scope. */
-const COMMIT_PREFIX = /^[a-z]+(?:\([^)]*\))?!?:\s+/
+/** A conventional-commit label: `fix(scope): `, `ci: `, `feat!: ` — a known type only, so `warning: …` keeps its word. */
+const COMMIT_PREFIX =
+  /^(?:feat|fix|chore|ci|docs|style|refactor|perf|test|build|deps|revert|security|release)(?:\([^)]*\))?!?:\s+/
 
 /** The commit label {@link subjectOf} strips (`fix(scope)`), `null` when the title has none. */
 export function commitLabelOf(title: unknown): string | null {
