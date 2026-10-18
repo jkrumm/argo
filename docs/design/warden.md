@@ -276,3 +276,7 @@ Follow-up (w30-r2):
 - **Reviewer (`w36-r1`):** fail (basalt P1 plus one argo P3). Unscored before (argo, P3): at 1440 decision cards were shorter than their grid cell, leaving an empty band (emptyRatio ~0.4) — fixed in #158 (the queue grid aligns rows to start). The w35 `waiting 0 min` false zero is fixed in #153 (one clock with the history line, `<1 min` under a minute, never shorter than the latest history age) and unit-tested, but not shot: every decision in the live snapshot had waited hours.
 - **Re-score `w36-r2` (after #158):** **pass.** Confirmed: no band under a short card (highest decision-card emptyRatio below 0.3). Carried (basalt): the `Code` radius 3, the info tooltips over the next cell, `all time` stranded, decision-card hover identical to rest. No lost fact.
 - **Against Keel:** close — decision cards distinct; raw alert keys still stand in for authored questions (frozen rung).
+
+### Wave 37 round (`w37-r2`)
+
+- **One wait clock.** `age_days` carries one decimal, so a card could print `waiting 1 d` beside a history line of `{22} h {53} min ago`. When the latest history line agrees with the `age_days` wait within that resolution, the wait prints the history's duration through the same formatter; otherwise the longer of the two stands.

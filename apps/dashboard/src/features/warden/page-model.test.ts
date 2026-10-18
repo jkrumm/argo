@@ -509,6 +509,14 @@ describe('cardFacts waiting boundaries', () => {
     expect(waitingAt(0, 10_000, historyAgeMs)).toBe('waiting 3\u00a0min')
     expect(historyAge(transitionAt, now)).toBe('3\u00a0min\u00a0ago')
   })
+  it('one clock, one form: age_days 1.0 beside a 22 h 53 min history line reads 22 h 53 min', () => {
+    const historyAgeMs = 22 * 60 * MIN + 53 * MIN
+    expect(waitingAt(1, 0, historyAgeMs)).toBe('waiting 22\u00a0h\u00a053\u00a0min')
+    expect(formatDuration(historyAgeMs)).toBe('22\u00a0h\u00a053\u00a0min')
+  })
+  it('a history line far from age_days leaves the longer wait standing', () => {
+    expect(waitingAt(3, 0, 2 * 60 * MIN)).toEqual({ text: 'waiting 3\u00a0d', tone: 'warn' })
+  })
   it('the history floor is 0 without a readable line', () => {
     expect(latestHistoryAgeMs([], 10)).toBe(0)
     expect(latestHistoryAgeMs([{ from: null, to: 'new', at: 'nope' }], 10)).toBe(0)
