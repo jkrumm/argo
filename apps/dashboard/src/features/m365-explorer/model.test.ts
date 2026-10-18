@@ -1,8 +1,11 @@
+import { NBSP } from '../../lib/format'
 import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
   chatKindParts,
   chatsStat,
+  chatsCapped,
+  CHATS_TOP,
   sectionTitleFor,
   groupByRecency,
   chipCounts,
@@ -188,9 +191,30 @@ describe('formatTime', () => {
 })
 
 describe('headlineOf', () => {
-  test('only the empty state speaks; chats leave no headline', () => {
-    expect(headlineOf(0)).toEqual({ sentence: 'No chat activity yet' })
-    expect(headlineOf(3)).toBeNull()
+  const at = (day: number) => new Date(2026, 9, day, 12).toISOString()
+  test('says how many days the loaded chats span', () => {
+    expect(headlineOf({ times: [at(17), at(3), null], capped: false })).toEqual({
+      sentence: `Chats span 14${NBSP}d`,
+    })
+  })
+  test('a capped list says the span belongs to the newest slice', () => {
+    expect(headlineOf({ times: [at(17), at(10)], capped: true })).toEqual({
+      sentence: `Newest 2 chats span 7${NBSP}d`,
+    })
+  })
+  test('one day and no stamps', () => {
+    expect(headlineOf({ times: [at(17), at(17)], capped: false }).sentence).toBe(
+      'Chats all from one day',
+    )
+    expect(headlineOf({ times: [], capped: false })).toEqual({ sentence: 'No chat activity yet' })
+    expect(headlineOf({ times: [null], capped: false }).sentence).toBe('No chat activity yet')
+  })
+})
+
+describe('chatsCapped', () => {
+  test('a list of exactly the request size may be cut', () => {
+    expect(chatsCapped(CHATS_TOP - 1)).toBe(false)
+    expect(chatsCapped(CHATS_TOP)).toBe(true)
   })
 })
 
@@ -211,25 +235,21 @@ describe('chatKindParts', () => {
 describe('chatsStat', () => {
   test('the leading kind is the hero and the footer never repeats it', () => {
     expect(chatsStat({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual({
-      value: '4',
-      unit: '1:1 chats',
+      hero: { value: '4', unit: '1:1 chats' },
       footer: '1 group chat · 2 meetings',
     })
     expect(chatsStat({ oneOnOne: 1, group: 3, meeting: 3, other: 0 })).toEqual({
-      value: '3',
-      unit: 'group chats',
+      hero: { value: '3', unit: 'group chats' },
       footer: '1 1:1 chat · 3 meetings',
     })
   })
   test('one kind has no footer, none says so', () => {
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 1, other: 0 })).toEqual({
-      value: '1',
-      unit: 'meeting',
+      hero: { value: '1', unit: 'meeting' },
       footer: null,
     })
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual({
-      value: null,
-      unit: null,
+      hero: null,
       footer: 'no chats',
     })
   })
@@ -293,15 +313,23 @@ describe('labeled count, outside note and sources title', () => {
     const list = sourceListName(50, true)
     expect(list).toBe('newest 50 chats and all channels')
     expect(sourceListName(12, false)).toBe('chats and channels')
-    expect(labeledBasis(cov, { chats: 50, capped: true })).toBe(
-      '1 more label on chats older than the newest 50',
+    expect(labeledBasis(cov, { chats: CHATS_TOP, capped: true })).toBe(
+      '1 more label on chats older than the newest 50, or no longer listed',
     )
     expect(labeledBasis(cov, { chats: 12, capped: false })).toBe(
       '1 more label on sources no longer listed',
     )
-    expect(labeledBasis({ ...cov, outside: 0 }, { chats: 50, capped: true })).toBe(
+    expect(labeledBasis({ ...cov, outside: 0 }, { chats: CHATS_TOP, capped: true })).toBe(
       'across the newest 50 chats and all channels',
     )
+  })
+  test('a loading or failed team never reads as covered', () => {
+    expect(
+      labeledBasis({ ...cov, outside: 0, loading: 1 }, { chats: CHATS_TOP, capped: true }),
+    ).toBe('across the newest 50 chats and channels')
+    expect(
+      labeledBasis({ ...cov, outside: 0, failed: 1 }, { chats: CHATS_TOP, capped: true }),
+    ).toBe('across the newest 50 chats and channels')
   })
   test('the sources title is the pane name only', () => {
     expect(sourcesTitle('chats')).toBe('Chats')

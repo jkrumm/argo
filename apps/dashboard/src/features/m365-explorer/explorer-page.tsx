@@ -18,7 +18,9 @@ import { LabeledPane } from './labeled-pane'
 import {
   CHAT_TYPE_LABEL,
   channelSourceId,
+  CHATS_TOP,
   chatKindCounts,
+  chatsCapped as isCapped,
   chatSourceId,
   chatTitle,
   chipCounts,
@@ -56,7 +58,6 @@ const PANE_META: Record<PaneKey, { tab: string; shot?: string }> = {
   labeled: { tab: 'Labeled', shot: 'labeled-pane-phone' },
   detail: { tab: 'Detail', shot: 'detail-pane' },
 }
-const CHATS_TOP = 50
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
 const CHANNEL_WINDOW = 4
 
@@ -130,7 +131,7 @@ export function M365ExplorerPage(): ReactElement {
   const tagNames = tagCounts.map(([t]) => t)
   const tag = validTag(storedTag, tagNames)
   const kindCounts = chatKindCounts(chatRows)
-  const chatsCapped = chatRows.length >= CHATS_TOP
+  const chatsCapped = isCapped(chatRows.length)
 
   const coverage = coverageOf({
     chatIds: chatRows.map((r) => r.ref.chatId),
@@ -165,7 +166,10 @@ export function M365ExplorerPage(): ReactElement {
     tag,
   )
 
-  const headline = headlineOf(chatRows.length)
+  const headline = headlineOf({
+    times: chatRows.map((r) => r.lastUpdatedAt),
+    capped: chatsCapped,
+  })
 
   const invalidateLabels = (): void => {
     void qc.invalidateQueries({ queryKey: [...m365Queries.all(), 'labels'] })
@@ -367,7 +371,7 @@ export function M365ExplorerPage(): ReactElement {
       />
 
       <div className={classes.stack}>
-        {headline !== null && <PageSummary sentence={headline.sentence} />}
+        <PageSummary sentence={headline.sentence} />
 
         <ExplorerStrip
           coverage={coverage}

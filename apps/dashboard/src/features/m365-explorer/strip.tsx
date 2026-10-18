@@ -67,7 +67,7 @@ function chatsCell(chats: Chats): StatStripCell {
   return {
     key: 'chats',
     caption: 'Chats by kind',
-    ...(stat.value === null || stat.unit === null ? {} : { value: stat.value, unit: stat.unit }),
+    ...stat.hero,
     visual:
       parts.length === 0 ? undefined : (
         <Meter
