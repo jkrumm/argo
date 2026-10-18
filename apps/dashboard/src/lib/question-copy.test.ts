@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { deriveDecisions } from './decisions'
+import { glue } from './format'
 import { needsYouCards } from '../features/agents/model'
 import { deriveAwaitingOwner } from '../features/warden/model'
 import { needsCards, resolveQueueAsks } from '../features/warden/page-model'
@@ -7,6 +8,7 @@ import {
   ENTITY_MAX,
   EVIDENCE_LINE_MAX,
   QUESTION_MAX,
+  addsText,
   cardCopy,
   isAlert,
   leadOf,
@@ -935,5 +937,19 @@ describe('named regressions', () => {
     })
     expect(q).not.toContain('…')
     expect(q).toBe(`Implement change: ${'x'.repeat(30)} ${'y'.repeat(30)}?`)
+  })
+})
+
+describe('addsText', () => {
+  it('is false when the reason only repeats the evidence line', () => {
+    expect(addsText('CI failed on {sha}.', 'CI failed on {sha}')).toBe(false)
+    expect(addsText('CI failed on {sha}', glue('CI failed on {sha}.'))).toBe(false)
+  })
+  it('is true when the reason has text beyond the line', () => {
+    expect(addsText('CI failed on {sha}. Exit code 1.', 'CI failed on {sha}.')).toBe(true)
+    expect(addsText('CI failed on {sha} after retries', 'CI failed on {sha}…')).toBe(true)
+  })
+  it('is true when there is no evidence line', () => {
+    expect(addsText('Whole reason.', null)).toBe(true)
   })
 })

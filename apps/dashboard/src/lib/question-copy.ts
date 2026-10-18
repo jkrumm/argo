@@ -6,7 +6,7 @@ import {
   lastWhitespace,
   stripShortcodes,
 } from './text'
-import { glue } from './format'
+import { NBSP, glue } from './format'
 import type { WardenActionVerb } from './queries/warden'
 
 // THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
@@ -35,6 +35,21 @@ export function leadOf(text: string, max: number): string {
 
 /** A title without its trailing punctuation: the form a question is compared against. */
 const bareTitle = (title: string): string => flatten(title).replace(/[.!?…:;,]+$/, '')
+
+/** A text as the evidence comparison reads it: flattened (no-break spaces included), lower-case, no tail punctuation. */
+const comparable = (text: string): string => bareTitle(text.replaceAll(NBSP, ' ')).toLowerCase()
+
+/**
+ * Whether the full reason shows anything the evidence line does not. A reason the line already
+ * shows whole (same words, ignoring case, glue and tail punctuation) or inside itself only repeats
+ * it; a line cut with `…` is a stem of the reason, so the reason adds the cut tail.
+ */
+export function addsText(reason: string, evidenceLine: string | null): boolean {
+  if (evidenceLine === null) return true
+  const full = comparable(reason)
+  const shown = comparable(evidenceLine)
+  return full !== shown && !shown.includes(full)
+}
 
 /** A URL with the words that introduce it, or the whole `(see https://…)` it sits in. */
 const BRACKETED_URL = /\s*[([]\s*(?:(?:see|at|in|via|on)\s+)?https?:\/\/[^\s)\]]*[)\]]/gi
@@ -573,7 +588,7 @@ function finishCopy(input: CardInput, source: CardCopySource, title: QuestionTit
     entity: entityFits ? item : null,
     evidenceLine:
       evidenceLine === null ? null : evidenceLine.replaceAll(PR_LEFT_OPEN, glue(PR_LEFT_OPEN)),
-    detail: whole !== '' && !shownAll ? whole : null,
+    detail: whole !== '' && !shownAll && addsText(whole, evidenceLine) ? whole : null,
     source,
     subject,
   }
