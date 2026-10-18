@@ -7,7 +7,6 @@ import {
   itemNoun,
   OLDEST_WAIT_WARN_MS,
   oldestWaitEmptyText,
-  noSnapshotText,
   WAITING_FOR_SNAPSHOT,
   type FleetPart,
   type FleetState,
@@ -115,7 +114,7 @@ function fleetCell(
         <Meter
           label="Agents by state"
           value={null}
-          emptyText={hasSnapshot ? 'No fleet counts in this snapshot' : noSnapshotText()}
+          emptyText={hasSnapshot ? 'No fleet counts in this snapshot' : WAITING_FOR_SNAPSHOT}
         />
       ),
     }

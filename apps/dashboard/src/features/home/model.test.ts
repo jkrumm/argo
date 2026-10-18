@@ -256,7 +256,7 @@ describe('homeSummaryParts', () => {
 
   it('names an unavailable source instead of implying an empty inbox', () => {
     expect(homeSummaryParts({ unavailable: ['Warden'], loading: [], decisions: [] }).sentence).toBe(
-      'Nothing needs you (Warden unavailable).',
+      'Nothing needs you (Warden failed to load).',
     )
   })
 
@@ -264,7 +264,7 @@ describe('homeSummaryParts', () => {
     expect(
       homeSummaryParts({ unavailable: ['Warden', 'Agents'], loading: [], decisions: [] }),
     ).toEqual({
-      sentence: "Can't tell — Warden and Agents unavailable.",
+      sentence: "Can't tell — Warden and Agents failed to load.",
       facts: [],
     })
   })
@@ -278,7 +278,7 @@ describe('homeSummaryParts', () => {
     ).toEqual({ sentence: 'Loading Warden and Agents.', facts: [] })
     expect(
       homeSummaryParts({ unavailable: ['Agents'], loading: ['Warden'], decisions: [] }).sentence,
-    ).toBe("Can't tell — Agents unavailable, Warden loading.")
+    ).toBe("Can't tell — Agents failed to load, Warden loading.")
   })
 
   it('omits an unknown age rather than printing a figure it lacks', () => {
@@ -465,13 +465,13 @@ describe('staleFeeds and unavailable sources', () => {
 
   it('does not say nothing needs you when neither source loaded', () => {
     expect(homeSummaryParts({ ...base, unavailable: ['Warden', 'Agents'] }).sentence).toBe(
-      "Can't tell — Warden and Agents unavailable.",
+      "Can't tell — Warden and Agents failed to load.",
     )
   })
 
   it('names the one source that is down', () => {
     expect(homeSummaryParts({ ...base, unavailable: ['Agents'] }).sentence).toBe(
-      'Nothing needs you (Agents unavailable).',
+      'Nothing needs you (Agents failed to load).',
     )
   })
 })
