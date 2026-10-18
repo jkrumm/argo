@@ -8,6 +8,7 @@ import type {
 } from '../../lib/queries/warden'
 import {
   cardCopy,
+  titleQuestion,
   type CardCopy,
   type DecisionCardFact,
 } from '../../components/upstream/decision-card-model'
@@ -287,12 +288,15 @@ export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFoot
   return reported ? { kind: 'meters', meters } : { kind: 'not-reported' }
 }
 
+/** How often Warden pushes a snapshot to Argo. */
+export const WARDEN_PUSH_MIN = 10
+
 /** What a missing budget says: the cause is on warden's side, the fix is its next push. */
 export const BUDGET_MISSING = {
-  both: 'Dispatch and implement budget not reported yet. Warden sends it with each push (about every 10 min).',
+  both: `Dispatch and implement budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN} min).`,
   one: (name: string) =>
-    `${name} budget not reported yet. Warden sends it with each push (about every 10 min).`,
-  short: 'Not reported yet; Warden sends it with each push, about every 10 min.',
+    `${name} budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN} min).`,
+  short: `Not reported yet; Warden sends it with each push, about every ${WARDEN_PUSH_MIN} min.`,
 } as const
 
 /** The dispatch meter as `{used, max}` for the headline, `null` unless both are reported. */
@@ -483,42 +487,41 @@ export function splitReason(
 }
 
 /**
- * The question, evidence line and disclosure text of one Warden ask: emoji shortcodes stripped,
- * a failed item as `Retry <title>?` with its reason as the body, a decision as the reason's first
- * sentence (or `Decide on <title>?` when that sentence is prose). `tag` is the lifted `[tag]`.
+ * The question, evidence line and disclosure text of one Warden ask: emoji shortcodes stripped
+ * (a title that is nothing else falls back to `Item #<id>`), a failed item as `Retry <title>?`
+ * with its reason as the body, a decision as the reason's first sentence (or `Approve <title>?`
+ * when that sentence is prose). `tag` is the lifted `[tag]`; `entity` is the title to show above
+ * the question, `null` when the question already names it.
  */
 export function askCopy({
+  eventId,
   title,
   reason,
   failed,
 }: {
-  title: string
+  eventId: number
+  title: string | null
   reason: string | null
   failed: boolean
-}): { tag: string | null; title: string; copy: CardCopy } {
-  const cleanTitle = stripShortcodes(title)
+}): { tag: string | null; entity: string | null; copy: CardCopy } {
+  const cleanTitle = stripShortcodes(title ?? '') || `Item #${eventId}`
   const cleanReason = reason === null ? null : stripShortcodes(reason)
+  const named = (copy: CardCopy) => (copy.question.includes(cleanTitle) ? null : cleanTitle)
   if (failed) {
-    return {
-      tag: null,
-      title: cleanTitle,
-      copy: cardCopy({
-        question: retryQuestion(cleanTitle),
-        body: cleanReason === '' ? null : cleanReason,
-      }),
-    }
+    const copy = cardCopy({
+      question: retryQuestion(cleanTitle),
+      body: cleanReason === '' ? null : cleanReason,
+    })
+    return { tag: null, entity: named(copy), copy }
   }
   const split = splitReason(cleanReason, cleanTitle)
-  return {
-    tag: split.tag,
-    title: cleanTitle,
-    copy: cardCopy({ question: split.question, body: split.rest, title: cleanTitle }),
-  }
+  const copy = cardCopy({ question: split.question, body: split.rest, title: cleanTitle })
+  return { tag: split.tag, entity: named(copy), copy }
 }
 
 /** `Retry <title>?` — a title that already ends in punctuation does not get a second mark. */
 export function retryQuestion(title: string): string {
-  return `Retry ${title.trim().replace(/[.!?…:;,]+$/, '')}?`
+  return titleQuestion('Retry', title)
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
@@ -758,9 +761,9 @@ export function verdictsFooter(verdicts: StripModel['verdicts']): string {
     : 'all time'
 }
 
-/** The oldest poller's name and rank (`merge poller · oldest of 3`); `null` when unnamed. */
-export function pollerFooter(poller: StripModel['poller']): string | null {
-  if (poller.name === null) return null
+/** The oldest poller's name and rank (`merge poller · oldest of 3`); an unnamed one states its stale mark. */
+export function pollerFooter(poller: StripModel['poller']): string {
+  if (poller.name === null) return `stale at ${poller.thresholdMin} min`
   const name = poller.name.replaceAll('_', ' ')
   return poller.count > 1 ? `${name} · oldest of ${poller.count}` : name
 }

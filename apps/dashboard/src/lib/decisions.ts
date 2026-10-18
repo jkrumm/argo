@@ -1,3 +1,4 @@
+import { stripShortcodes } from './text'
 import {
   capFacts,
   cardCopy,
@@ -27,7 +28,7 @@ export type Decision = {
   source: DecisionSource
   /** Unique across sources (`warden-12`, `queue-abc`, `agent-xyz`). */
   id: string
-  /** The question the owner answers: short (a long ask becomes `Decide on <title>?`). */
+  /** The question the owner answers: short (a long ask becomes `Approve <title>?`). */
   headline: string
   /** The item the question is about, when the headline does not already name it. */
   entity: string | null
@@ -57,9 +58,6 @@ export type DecisionInput = {
   now: number
 }
 
-const isText = (v: string | null | undefined): v is string =>
-  v !== null && v !== undefined && v !== ''
-
 const parseMs = (iso: string | null | undefined): number | null => {
   if (!iso) return null
   const ms = Date.parse(iso)
@@ -88,8 +86,9 @@ function wardenDecisions(
     ageMs: number | null,
   ) => {
     seen.add(eventId)
-    const label = title ?? `Item #${eventId}`
-    const { copy, title: entity } = askCopy({ title: label, reason, failed })
+    const { copy, entity } = askCopy({ eventId, title, reason, failed })
+    // Cleaned here, where the item is read, so no view renders a `:name:` shortcode.
+    const cleanRepo = stripShortcodes(repo ?? '')
     const waiting =
       ageMs === null
         ? ''
@@ -103,8 +102,8 @@ function wardenDecisions(
       source: 'warden',
       id: `warden-${eventId}`,
       headline: copy.question,
-      entity: copy.fromTitle || copy.question === entity ? null : entity,
-      facts: capFacts([`warden${repo ? ` · ${repo}` : ''}`, waiting]),
+      entity,
+      facts: capFacts([`warden${cleanRepo ? ` · ${cleanRepo}` : ''}`, waiting]),
       evidenceLine: copy.evidenceLine,
       detail: copy.detail,
       ageMs,
@@ -149,12 +148,12 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
     const ageMs = askedMs === null ? null : Math.max(0, now - askedMs)
     const host = typeof item['host'] === 'string' ? item['host'] : null
     const evidence = item.cmd?.trim() || null
-    const headline = headlineOf(item.question)
-    const copy = cardCopy({ question: headline, body: evidence })
+    const title = typeof item['title'] === 'string' ? item['title'] : null
+    const copy = cardCopy({ question: headlineOf(item.question), body: evidence, title })
     return {
       source: 'queue',
       id: `queue-${item.id}`,
-      headline,
+      headline: copy.question,
       entity: null,
       facts: capFacts([
         `queue${host ? ` · ${host}` : ''}`,
@@ -174,19 +173,20 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
     .map((a): Decision => {
       const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
       const evidence = a.blocker ?? a.waitingFor ?? a.standing ?? null
-      const headline = headlineOf(a.title ?? a.lastPrompt ?? a.id)
-      const copy = cardCopy({ question: headline, body: evidence })
+      const copy = cardCopy({
+        question: headlineOf(a.title ?? a.lastPrompt ?? a.id),
+        body: evidence,
+        title: a.title,
+      })
       return {
         source: 'agent',
         id: `agent-${a.id}`,
-        headline,
+        headline: copy.question,
         entity: null,
-        facts: capFacts(
-          [
-            `agent · ${a.project}`,
-            ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,
-          ].filter(isText),
-        ),
+        facts: capFacts([
+          `agent · ${a.project}`,
+          ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,
+        ]),
         evidenceLine: copy.evidenceLine,
         detail: copy.detail,
         ageMs,

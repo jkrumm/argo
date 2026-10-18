@@ -19,6 +19,8 @@ import {
   localKey,
   meetingState,
   classLabels,
+  clockOf,
+  GARMIN_SYNC_HOURS,
   type Agenda,
   type LaterMeeting,
   weekdayTime,
@@ -32,9 +34,6 @@ const HISTORY_HOURS = 24
 const BUDGET_HEADROOM = 1.25
 /** The recovery sparkline's ink: a trend, not a verdict (`Meter` has `tone="muted"` for its own fill). */
 const MUTED_FILL = alpha(VX.muted, 0.35)
-
-const clock = (ms: number) =>
-  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
 
 // ── Agents working ───────────────────────────────────────────────────────────────────────────
 
@@ -142,7 +141,7 @@ export function meetingCell(
   const current = agenda.meetings.find((m) => meetingState(m, now) === 'now')
   return {
     key: 'meeting',
-    caption: next === null ? 'Next meeting' : `Next meeting · ${clock(next.startMs)}`,
+    caption: next === null ? 'Next meeting' : `Next meeting · ${clockOf(next.startMs)}`,
     value:
       next === null ? (current === undefined ? null : 'now') : countdownLabel(next.startMs - now),
     visual: <DayAxis meetings={agenda.meetings} next={next} now={now} />,
@@ -151,7 +150,7 @@ export function meetingCell(
         current === undefined ? (
           'no more meetings today'
         ) : (
-          `in a meeting until ${clock(current.endMs)}`
+          `in a meeting until ${clockOf(current.endMs)}`
         )
       ) : (
         <>
@@ -184,7 +183,7 @@ export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
       footer:
         reading === null
           ? 'Garmin data not loaded; reload to retry'
-          : 'no reading yet · Garmin syncs every 6 h',
+          : `no reading yet · Garmin syncs every ${GARMIN_SYNC_HOURS} h`,
     }
   }
   const { score, mean, days, trend, date, isToday } = reading
@@ -219,7 +218,7 @@ export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
     ),
     footer: isToday
       ? `${days} measured ${days === 1 ? 'day' : 'days'} of 7`
-      : 'today fills after the next Garmin sync (every 6 h)',
+      : `today fills after the next Garmin sync (every ${GARMIN_SYNC_HOURS} h)`,
   }
 }
 

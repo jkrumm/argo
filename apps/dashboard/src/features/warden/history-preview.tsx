@@ -1,8 +1,8 @@
 import { Group, Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import { relativeTime } from 'basalt-ui/format'
-import classes from './board.module.css'
-import { historyView, type TransitionHistory } from './page-model'
+import classes from '../../components/upstream/decision-card.module.css'
+import type { HistoryView } from './page-model'
 
 const when = (at: string | null) => (at ? relativeTime(at) : '—')
 
@@ -11,9 +11,7 @@ const when = (at: string | null) => (at ? relativeTime(at) : '—')
  * (`Latest change: A → B · 2 h ago`) with no well; several are a short list, newest first, in the
  * card's right-hand well. State names are never truncated: a line wraps at its spaces instead.
  */
-export function HistoryPreview({ lines }: { lines: TransitionHistory }) {
-  const view = historyView(lines)
-  if (view === null) return null
+export function HistoryPreview({ view }: { view: HistoryView }) {
   if (view.layout === 'inline') {
     const [only] = view.lines
     return (
@@ -33,7 +31,7 @@ export function HistoryPreview({ lines }: { lines: TransitionHistory }) {
       </Text>
       {view.lines.map((line, i) => (
         <Group key={`${i}-${line.text}`} gap={4} align="baseline" wrap="wrap">
-          <Text size="xs" miw={0} className={classes.text}>
+          <Text size="xs" miw={0} className={classes.wrap}>
             {line.text}
           </Text>
           <Text span size="xs" c="dimmed">

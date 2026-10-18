@@ -4,7 +4,7 @@ import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
 import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
-import classes from './board.module.css'
+import classes from '../../components/upstream/decision-card.module.css'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
@@ -42,7 +42,7 @@ type Props = {
 /** The whole ask, behind the card's disclosure; long identifiers and URLs wrap anywhere. */
 function FullAsk({ text }: { text: string }) {
   return (
-    <Text size="sm" className={classes.text}>
+    <Text size="sm" className={classes.wrap}>
       {text}
     </Text>
   )
@@ -86,7 +86,8 @@ function QueueCard({
   ]
 
   const ask = askCopy({
-    title: row.title ?? `Item #${row.eventId}`,
+    eventId: row.eventId,
+    title: row.title,
     reason: row.reason,
     failed: kind === 'failed',
   })
@@ -107,9 +108,9 @@ function QueueCard({
         facts={capFacts(cardFacts(row))}
         status={status}
         actor={
-          kind === 'decision' && !copy.fromTitle && copy.question !== ask.title ? (
-            <Text component="span" fz="xs" title={ask.title} className={classes.text}>
-              {ask.title}
+          ask.entity !== null ? (
+            <Text component="span" fz="xs" title={ask.entity} className={classes.wrap}>
+              {ask.entity}
             </Text>
           ) : undefined
         }
@@ -118,9 +119,9 @@ function QueueCard({
           ? { disclosure: { label: 'Full reason', content: <FullAsk text={copy.detail} /> } }
           : {})}
         {...(view !== null && (!narrow || view.layout === 'inline')
-          ? { preview: <HistoryPreview lines={history} /> }
+          ? { preview: <HistoryPreview view={view} /> }
           : {})}
-        {...(view?.layout === 'inline' ? { inlinePreview: true } : {})}
+        {...(view?.layout === 'inline' ? { previewPlacement: 'inline' as const } : {})}
         primary={plan.primary ? toAction(plan.primary) : undefined}
         secondary={plan.secondary ? toAction(plan.secondary) : undefined}
         menu={menu}

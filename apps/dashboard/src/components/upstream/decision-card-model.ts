@@ -54,7 +54,7 @@ export function isInactive(action: DecisionCardAction): boolean {
 /** A question longer than this reads as prose, not a title. */
 export const QUESTION_MAX = 80
 /** A card carries the entity plus two or three facts, not a record. */
-export const FACTS_MAX = 3
+const FACTS_MAX = 3
 /** The evidence line is the lead of the reason; the full text sits behind the disclosure. */
 export const EVIDENCE_LINE_MAX = 140
 
@@ -71,16 +71,27 @@ export function leadOf(text: string, max: number): string {
   if (flat.length <= max) return flat
   const cut = flat.slice(0, max)
   const space = cut.lastIndexOf(' ')
-  return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:.\-–—]+$/, '')}…`
+  return `${(space > max / 2 ? cut.slice(0, space) : cut.slice(0, max - 1)).replace(/[\s,;:.\-–—]+$/, '')}…`
 }
 
-/** `Decide on <title>?`: the short question for an ask whose own first sentence is prose. */
-export function decideQuestion(title: string): string {
-  return `Decide on ${title.trim().replace(/[.!?…:;,]+$/, '')}?`
+/**
+ * `<verb> <title>?`, never longer than {@link QUESTION_MAX}: only the title is ellipsized, at a
+ * word boundary.
+ */
+export function titleQuestion(verb: string, title: string): string {
+  const clean = title.trim().replace(/[.!?…:;,]+$/, '')
+  const room = QUESTION_MAX - verb.length - 2
+  return `${verb} ${clean.length > room ? leadOf(clean, room) : clean}?`
+}
+
+/** A title that is already a question stays one (bounded); anything else becomes `Approve <title>?`. */
+function asQuestion(title: string): string {
+  if (!title.endsWith('?')) return titleQuestion('Approve', title)
+  return title.length <= QUESTION_MAX ? title : `${leadOf(title.slice(0, -1), QUESTION_MAX - 1)}?`
 }
 
 export type CardCopy = {
-  /** Short enough to be a title: the ask's first sentence, or `Decide on <title>?` when that is prose. */
+  /** Short enough to be a title: the ask's first sentence, or `Approve <title>?` (a yes/no question) when that is prose. */
   question: string
   /** One line of evidence, the lead of the reason; `null` when there is none. */
   evidenceLine: string | null
@@ -92,8 +103,9 @@ export type CardCopy = {
 
 /**
  * The text of a decision card's interior. `question` is the ask's first sentence, `body` what
- * follows it; `title` (the entity) replaces a question longer than {@link QUESTION_MAX} and the
- * long sentence moves into the body, so nothing is cut and nothing is lost.
+ * follows it; `title` (the entity) replaces a question longer than {@link QUESTION_MAX} (as
+ * itself when it is already a question, else `Approve <title>?`) and the long sentence moves
+ * into the body, so nothing is cut and nothing is lost.
  */
 export function cardCopy({
   question,
@@ -113,7 +125,7 @@ export function cardCopy({
     .trim()
   const lead = text === '' ? null : leadOf(text, EVIDENCE_LINE_MAX)
   return {
-    question: long ? decideQuestion(entity) : question,
+    question: long ? asQuestion(entity) : question,
     evidenceLine: lead,
     detail: lead !== null && lead !== text ? text : null,
     fromTitle: long,

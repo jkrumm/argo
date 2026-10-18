@@ -12,7 +12,7 @@ import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { untilLabel } from '../calendar/summary'
-import { stripShortcodes } from '../warden/page-model'
+import { stripShortcodes } from '../../lib/text'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
 // and the summary sentence. No React, no queries. A reading that is absent stays `null` (rendered
@@ -29,6 +29,12 @@ const parseMs = (iso: string | null | undefined): number | null => {
   const ms = Date.parse(iso)
   return Number.isFinite(ms) ? ms : null
 }
+
+/** `09:30` for an epoch ms: the one clock format of the Today page. */
+export const clockOf = (ms: number): string => clockTime(new Date(ms).toISOString())
+
+/** How often the Garmin sidecar syncs, in hours (the recovery cell's "when it fills"). */
+export const GARMIN_SYNC_HOURS = 6
 
 // ── Meetings ─────────────────────────────────────────────────────────────────────────────────
 
@@ -285,7 +291,7 @@ export type ActivityEvent = {
 }
 
 /** Longest name a feed row shows before the model shortens it (the full name rides in `full`). */
-export const NAME_MAX = 18
+const NAME_MAX = 18
 
 /**
  * A repo or project name that fits a feed row: whole when it fits, else cut after a `-`, `_`, `/`
@@ -297,8 +303,6 @@ export function shortName(name: string, max = NAME_MAX): string {
   const sep = Math.max(...['-', '_', '/', '.'].map((c) => head.lastIndexOf(c)))
   return `${sep >= max / 2 ? head.slice(0, sep) : head}…`
 }
-
-export { stripShortcodes }
 
 /** Rows older than the start of yesterday are history, not "today's stream". */
 const activityHorizon = (now: number) => addDays(startOfDayDate(now), -1).getTime()
@@ -339,8 +343,11 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
   for (const [eventId, timeline] of Object.entries(items)) {
     const board = boardItems.get(eventId)
     const itemBag = bag(bag(timeline)?.['item'])
-    const repo = board?.repo ?? str(itemBag?.['repo'])
-    const itemTitle = board?.title ?? str(itemBag?.['title'])
+    const rawRepo = board?.repo ?? str(itemBag?.['repo'])
+    const rawTitle = board?.title ?? str(itemBag?.['title'])
+    // Cleaned once, where the item is read, so every row built from it renders a clean string.
+    const repo = rawRepo === null ? null : stripShortcodes(rawRepo) || null
+    const itemTitle = rawTitle === null ? null : stripShortcodes(rawTitle) || null
     const steps: Step[] = []
     for (const t of timeline.transitions ?? []) {
       const row = bag(t)
@@ -367,11 +374,11 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
       const path = pathOf(burst)
       const dispatches = burst.flatMap((s) => (s.dispatch ? [s.dispatch] : []))
       const verb = path ? 'moved' : 'dispatched'
-      const title = `${verb}${repo ? ` ${shortName(repo)}` : ''} item`
+      const shown = repo === null ? null : shortName(repo)
+      const title = `${verb}${shown ? ` ${shown}` : ''} item`
       const outcome = [path, dispatches.length > 0 ? dispatches.join(', ') : '']
         .filter(Boolean)
         .join(' · ')
-      const fullTitle = `${verb}${repo ? ` ${repo}` : ''} item`
       out.push({
         key: `w-${eventId}-b${i}`,
         ms: burst.at(-1)?.ms ?? 0,
@@ -379,9 +386,9 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
         title,
         ...(outcome ? { outcome } : {}),
         ...(itemTitle ? { detail: itemTitle } : {}),
-        ...(title === fullTitle
-          ? {}
-          : { full: `warden ${fullTitle}${outcome ? ` · ${outcome}` : ''}` }),
+        ...(shown !== repo
+          ? { full: `warden ${verb} ${repo} item${outcome ? ` · ${outcome}` : ''}` }
+          : {}),
       })
     }
   }
@@ -391,20 +398,19 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
 export function narrativeEvents(narratives: readonly Narrative[] | undefined): ActivityEvent[] {
   return (narratives ?? []).flatMap((n) => {
     const ms = parseMs(n.revisedAt)
-    return ms === null
-      ? []
-      : [
-          {
-            key: `n-${n.project}`,
-            ms,
-            actor: 'narrator' as const,
-            title: headlineOf(n.summary),
-            chip: shortName(n.project),
-            ...(shortName(n.project) !== n.project
-              ? { full: `narrator ${headlineOf(n.summary)} · ${n.project}` }
-              : {}),
-          },
-        ]
+    if (ms === null) return []
+    const title = headlineOf(n.summary)
+    const chip = shortName(n.project)
+    return [
+      {
+        key: `n-${n.project}`,
+        ms,
+        actor: 'narrator' as const,
+        title,
+        chip,
+        ...(chip !== n.project ? { full: `narrator ${title} · ${n.project}` } : {}),
+      },
+    ]
   })
 }
 
@@ -521,9 +527,6 @@ export function summaryParts(s: SummaryInput): SummaryParts {
 
 // ── Agents strip ─────────────────────────────────────────────────────────────────────────────
 
-const clock = (ms: number) =>
-  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
-
 /**
  * The agents cell's fact line: the busiest hour and how many of the last 24 h had an agent
  * working. `null` when no hour has a snapshot. (A shade band of hourly counts answered neither.)
@@ -535,5 +538,5 @@ export function fleetPulse(buckets: readonly HourBucket[], total: number | null)
   const of = total === null ? '' : ` of ${total}`
   return peak.value === 0
     ? `none working in the last ${buckets.length} h`
-    : `peak ${peak.value}${of} at ${clock(peak.hourMs)} · working in ${busy} of ${buckets.length} h`
+    : `peak ${peak.value}${of} at ${clockOf(peak.hourMs)} · working in ${busy} of ${buckets.length} h`
 }

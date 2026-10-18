@@ -19,7 +19,6 @@ import {
   todayAgenda,
   type ActivityEvent,
   type RawCalendarEvent,
-  stripShortcodes,
   shortName,
   fleetPulse,
   narrativeEvents,
@@ -48,7 +47,10 @@ const decision = (ageMs: number | null): Decision => ({
   source: 'warden',
   id: `d-${ageMs}`,
   headline: '{q}',
+  entity: null,
   facts: [],
+  evidenceLine: null,
+  detail: null,
   ageMs,
   href: '/warden',
   evidence: null,
@@ -176,18 +178,6 @@ const ev = (key: string, ms: number): ActivityEvent => ({
   title: '{t}',
 })
 
-describe('stripShortcodes', () => {
-  it('unwraps the bracketed form and drops bare shortcodes', () => {
-    expect(stripShortcodes('[red_circle: build failed]')).toBe('build failed')
-    expect(stripShortcodes(':warning: disk  almost full')).toBe('disk almost full')
-    expect(stripShortcodes('standup at 10:30:45')).toBe('standup at 10:30:45')
-    expect(stripShortcodes('ran bun m365:auth:prod')).toBe('ran bun m365:auth:prod')
-    expect(stripShortcodes('agent:main:slack:group:X')).toBe('agent:main:slack:group:X')
-    expect(stripShortcodes('see http://x:y')).toBe('see http://x:y')
-    expect(stripShortcodes('shipped :rocket: today')).toBe('shipped today')
-  })
-})
-
 describe('activityStream', () => {
   it('sorts newest first, groups by day and drops what is outside the horizon or in the future', () => {
     const day = 24 * 60 * MIN
@@ -308,6 +298,15 @@ describe('long names in the feed', () => {
     const [row] = wardenEvents(long)
     expect(row?.title).toBe('moved a-very-long… item')
     expect(row?.full).toBe(`warden moved ${repo} item · new → triaged`)
+  })
+
+  it('strips a shortcode from the repo and the item title', () => {
+    const [row] = wardenEvents({
+      board: { items: [{ event_id: 9, repo: ':warning: service', title: ':fire: {t}' }] },
+      items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
+    } as unknown as Parameters<typeof wardenEvents>[0])
+    expect(row?.title).toBe('moved service item')
+    expect(row?.detail).toBe('{t}')
   })
 
   it('keeps a short repo whole and sets no tooltip text', () => {

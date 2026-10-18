@@ -37,7 +37,6 @@ import {
   fixesLegend,
   historyView,
   pollerFooter,
-  stripShortcodes,
   transitionText,
   verdictsFooter,
 } from './page-model'
@@ -785,25 +784,16 @@ describe('cardCategory', () => {
   })
 })
 
-describe('stripShortcodes', () => {
-  it('keeps the text of a bracketed shortcode and drops bare ones', () => {
-    expect(stripShortcodes(':white_check_mark: {service} recovered')).toBe('{service} recovered')
-    expect(stripShortcodes('[red_circle: {service} down]')).toBe('{service} down')
-  })
-  it('leaves colon identifiers alone', () => {
-    expect(stripShortcodes('job m365:auth:prod at 10:30:45')).toBe('job m365:auth:prod at 10:30:45')
-  })
-})
-
 describe('askCopy', () => {
   it('strips shortcodes before splitting and keeps a short question', () => {
     const ask = askCopy({
+      eventId: 1,
       title: ':rotating_light: {title}',
       reason: '[blocker] Ship {thing}? It touches the loop.',
       failed: false,
     })
     expect(ask.tag).toBe('blocker')
-    expect(ask.title).toBe('{title}')
+    expect(ask.entity).toBe('{title}')
     expect(ask.copy).toMatchObject({
       question: 'Ship {thing}?',
       evidenceLine: 'It touches the loop.',
@@ -811,18 +801,34 @@ describe('askCopy', () => {
     })
   })
 
-  it('asks about the title when the first sentence is prose, keeping the whole ask', () => {
+  it('asks to approve the title when the first sentence is prose, keeping the whole ask', () => {
     const sentence = `Should warden ${'merge the change and then redeploy the loop '.repeat(3)}now?`
-    const ask = askCopy({ title: '{title}', reason: `${sentence} Tests pass.`, failed: false })
-    expect(ask.copy.question).toBe('Decide on {title}?')
+    const ask = askCopy({
+      eventId: 1,
+      title: '{title}',
+      reason: `${sentence} Tests pass.`,
+      failed: false,
+    })
+    expect(ask.copy.question).toBe('Approve {title}?')
+    expect(ask.entity).toBeNull()
     expect(ask.copy.detail).toBe(`${sentence} Tests pass.`)
   })
 
-  it('keeps Retry for a failed item whatever the title length', () => {
-    const title = 'x'.repeat(120)
-    const ask = askCopy({ title, reason: 'Exit code 1.', failed: true })
-    expect(ask.copy.question).toBe(`Retry ${title}?`)
+  it('keeps Retry for a failed item, bounded, and does not repeat the title above it', () => {
+    const ask = askCopy({ eventId: 1, title: '{title}', reason: 'Exit code 1.', failed: true })
+    expect(ask.copy.question).toBe('Retry {title}?')
+    expect(ask.entity).toBeNull()
     expect(ask.copy.evidenceLine).toBe('Exit code 1.')
+    const long = askCopy({ eventId: 1, title: 'x'.repeat(120), reason: null, failed: true })
+    expect(long.copy.question.length).toBeLessThanOrEqual(80)
+    expect(long.entity).toBe('x'.repeat(120))
+  })
+
+  it('falls back to the item number when the title is only a shortcode', () => {
+    const ask = askCopy({ eventId: 42, title: ':warning:', reason: null, failed: true })
+    expect(ask.copy.question).toBe('Retry Item #42?')
+    const none = askCopy({ eventId: 7, title: null, reason: null, failed: true })
+    expect(none.copy.question).toBe('Retry Item #7?')
   })
 })
 
@@ -884,7 +890,7 @@ describe('strip footers', () => {
       'merge poller · oldest of 3',
     )
     expect(pollerFooter({ ...poller, name: 'merge_poller', count: 1 })).toBe('merge poller')
-    expect(pollerFooter({ ...poller, name: null, count: 0 })).toBeNull()
+    expect(pollerFooter({ ...poller, name: null, count: 0 })).toBe('stale at 30 min')
   })
 
   it('carries the oldest poller name through the strip', () => {

@@ -1,9 +1,6 @@
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
-import { axisPosition, dayAxis, meetingState, type Meeting } from './model'
+import { axisPosition, clockOf, dayAxis, meetingState, type Meeting } from './model'
 import classes from './home.module.css'
-
-const clock = (ms: number) =>
-  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
 
 export function DayAxis({
   meetings,
@@ -16,7 +13,7 @@ export function DayAxis({
 }) {
   const axis = dayAxis(meetings)
   const label = meetings
-    .map((m) => `${clock(m.startMs)}, ${formatDurationMin(m.durationMin)}`)
+    .map((m) => `${clockOf(m.startMs)}, ${formatDurationMin(m.durationMin)}`)
     .join('; ')
   return (
     <div>
