@@ -205,10 +205,10 @@ describe('headlineOf', () => {
   test('across years both ends carry their year, even with the same month name', () => {
     const on = (y: number, mo: number, d: number) => new Date(y, mo, d, 12).toISOString()
     expect(headlineOf({ times: [on(2026, 9, 3), on(2025, 9, 17)], capped: false }).sentence).toBe(
-      `Chats span 351${NBSP}d, 17${NBSP}Oct 2025 – 3${NBSP}Oct 2026`,
+      `Chats span 351${NBSP}d, 17${NBSP}Oct${NBSP}2025 – 3${NBSP}Oct${NBSP}2026`,
     )
     expect(headlineOf({ times: [on(2026, 0, 2), on(2025, 11, 30)], capped: false }).sentence).toBe(
-      `Chats span 3${NBSP}d, 30${NBSP}Dec 2025 – 2${NBSP}Jan 2026`,
+      `Chats span 3${NBSP}d, 30${NBSP}Dec${NBSP}2025 – 2${NBSP}Jan${NBSP}2026`,
     )
   })
   test('across months the ends name their month', () => {

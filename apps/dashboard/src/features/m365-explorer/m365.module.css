@@ -190,17 +190,18 @@
   color: var(--vx-ink);
 }
 
-/* The one control on a labeled-source row: muted at rest, ink on hover or focus. */
+/* The one control on a labeled-source row (Wave 22 ruling): hidden at rest, revealed in muted ink on
+   row hover or keyboard focus. Opacity, not display, so it stays in the tab order. */
 .removeWrap {
   flex: none;
   color: var(--vx-muted);
+  opacity: 0;
 }
 
-.row:hover .removeWrap,
 .rowShell:hover .removeWrap,
 .rowShell:focus-within .removeWrap,
 .removeWrap:focus-within {
-  color: var(--vx-ink);
+  opacity: 1;
 }
 
 .rowShell {

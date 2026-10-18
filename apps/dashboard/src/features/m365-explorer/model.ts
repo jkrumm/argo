@@ -285,7 +285,7 @@ export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
 
 /** `3–17 Oct` within a month, `28 Sep – 17 Oct` across two, `17 Oct 2025 – 3 Oct 2026` across years. Day↔month is glued. */
 function spanDates(from: number, to: number): string {
-  const day = (ms: number, pattern: string) => format(ms, pattern).replace(' ', NBSP)
+  const day = (ms: number, pattern: string) => format(ms, pattern).replaceAll(' ', NBSP)
   if (format(from, 'yyyy') !== format(to, 'yyyy'))
     return `${day(from, 'd MMM yyyy')} – ${day(to, 'd MMM yyyy')}`
   return format(from, 'MMM') === format(to, 'MMM')
@@ -312,7 +312,7 @@ export function headlineOf(h: {
   return {
     sentence:
       days === 0
-        ? `${lead} all from ${format(newest, 'd MMM').replace(' ', NBSP)}`
+        ? `${lead} all from ${format(newest, 'd MMM').replaceAll(' ', NBSP)}`
         : `${lead} span ${withUnit(days, 'd')}, ${spanDates(oldest, newest)}`,
   }
 }
