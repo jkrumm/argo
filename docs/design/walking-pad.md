@@ -203,3 +203,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (`w36-r1`):** pass (w35: fail). Fixed (#153): with the 30-day window empty, Pace and Totals read `No walks in the last 30 days`, the empty card's title verbatim; This week and Streak keep their real readings (not window-bound). Partial, basalt-owned (P3): `StatStrip`'s `state: { kind: 'empty' }` still prints `—` in the value slot above the reason (UPSTREAM § "Wave 36"). Unscored before (argo, P3): the target button's focus ring covers the end of `of target`. Carried (basalt): the button hover crop identical to rest. No lost fact.
 - **Against Keel:** close (w35: does not yet) — two tiles hold a short form with no visual.
+
+### Wave 37 round 16 fixes (`w37-r2`)
+
+- The week footer's `{p} % of target` is glued with non-breaking spaces, so at 390 it wraps only at the `·` and never splits the phrase.
