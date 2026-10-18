@@ -17,13 +17,7 @@ import { HermesHealth } from './hermes-health'
 import { HermesRow } from './hermes-row'
 import { ThreadList } from './thread-list'
 import { PageSummary } from '../../components/upstream/page-summary'
-import {
-  buildView,
-  lastReplyOf,
-  listEndNote,
-  summaryHeadline,
-  toEntries,
-} from './thread-list-model'
+import { buildView, listEndNote, summaryHeadline, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
 import { ThreadSpeaker } from './use-auto-speak'
@@ -270,7 +264,7 @@ function HermesChatFeed() {
   const entries = everything.filter((entry) => !entry.archived)
   const archived = everything.filter((entry) => entry.archived)
   const view = buildView({ entries, archived, filter: { type: typeFilter, query }, now })
-  const headline = summaryHeadline(lastReplyOf(entries, now))
+  const headline = summaryHeadline(everything)
   const endNote = listEndNote(entries, view.archivedCount, now, store.total)
   const openEntry = everything.find((entry) => entry.id === expandedId)
   const openThread = store.threads.find((thread) => thread.id === expandedId)
@@ -318,7 +312,7 @@ function HermesChatFeed() {
       ) : (
         <>
           <Stack gap="sm" px="md" pt="lg">
-            <PageSummary sentence={headline.sentence} />
+            {headline !== null && <PageSummary sentence={headline.sentence} />}
             <ThreadToolbar
               allCount={view.allCount}
               typeCounts={view.typeCounts}
@@ -334,7 +328,7 @@ function HermesChatFeed() {
             {view.groups.length === 0 && view.untitled.length === 0 ? (
               <Center py="xl">
                 <Text c="dimmed" size="sm" ta="center">
-                  {entries.length === 0
+                  {everything.length === 0
                     ? 'No threads yet. Type below to start.'
                     : 'No thread matches this filter.'}
                 </Text>

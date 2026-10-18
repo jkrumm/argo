@@ -1,13 +1,16 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Skeleton, UnstyledButton } from '@mantine/core'
-import { withUnit } from '../../lib/format'
 import { channelsFooter, chatKindParts, labeledBasis, type Coverage } from './model'
 import classes from './m365.module.css'
 
 /** A split is not a verdict: neutral fills, never a status colour. */
 const FILL_STRONG = alpha(VX.muted, 0.95)
 const FILL_FAINT = alpha(VX.muted, 0.4)
+/** The kind bar's shades step down by rank from the strongest fill, never below the faint one. */
+const KIND_ALPHA_TOP = 0.95
+const KIND_ALPHA_STEP = 0.25
+const KIND_ALPHA_FLOOR = 0.3
 
 type Chats = { oneOnOne: number; group: number; meeting: number; other: number }
 
@@ -68,12 +71,14 @@ function chatsCell(chats: Chats): StatStripCell {
           segments={parts.map((p, i) => ({
             label: p.label,
             value: p.value,
-            color: alpha(VX.muted, Math.max(0.95 - i * 0.25, 0.3)),
+            color: alpha(
+              VX.muted,
+              Math.max(KIND_ALPHA_TOP - i * KIND_ALPHA_STEP, KIND_ALPHA_FLOOR),
+            ),
           }))}
         />
       ),
-    footer:
-      parts.length === 0 ? 'no chats' : parts.map((p) => withUnit(p.value, p.label)).join(' · '),
+    footer: parts.length === 0 ? 'no chats' : parts.map((p) => p.text).join(' · '),
   }
 }
 

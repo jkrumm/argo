@@ -11,7 +11,7 @@ const {
   isUntitled,
   listTime,
   startedDate,
-  lastReplyOf,
+  summaryExcerpt,
   listEndNote,
   clampAtWord,
   summaryHeadline,
@@ -181,24 +181,33 @@ describe('buildView', () => {
 })
 
 describe('summary', () => {
-  it('is the last reply only: no count a group heading or chip already prints', () => {
-    const entries = [
-      entry({ id: 'a', pinned: true, updatedAt: new Date(2026, 9, 17, 14, 5).getTime() }),
-      entry({ id: 'b', updatedAt: NOW - 3 * DAY }),
-    ]
-    expect(lastReplyOf(entries, NOW)).toBe('14:05')
-    expect(summaryHeadline(lastReplyOf(entries, NOW))).toEqual({ sentence: 'Last reply 14:05' })
+  it('carries no figure: what is running, over every thread', () => {
+    expect(summaryHeadline([entry({ id: 'a' }), entry({ id: 'b', streaming: true })])).toEqual({
+      sentence: 'Hermes is replying',
+    })
+    expect(summaryHeadline([entry({ id: 'a' })])).toEqual({ sentence: 'Nothing running' })
   })
 
-  it('states an empty list instead of a zero', () => {
-    expect(summaryHeadline(lastReplyOf([], NOW))).toEqual({ sentence: 'No threads yet' })
-    expect(
-      lastReplyOf([entry({ id: 'a', updatedAt: new Date(2026, 9, 9, 9, 0).getTime() })], NOW),
-    ).toBe('9 Oct')
+  it('counts archived threads, and has no headline with none at all', () => {
+    expect(summaryHeadline([entry({ id: 'a', archived: true })])).toEqual({
+      sentence: 'Nothing running',
+    })
+    expect(summaryHeadline([])).toBeNull()
   })
 
-  it('words the untitled fold without the chip count', () => {
-    expect(untitledLabel('2 months ago')).toBe('Untitled chats · oldest 2 months ago')
+  it('words the untitled fold, the one place the count is printed', () => {
+    expect(untitledLabel(3, '2 months ago')).toBe('3 untitled chats · oldest 2 months ago')
+    expect(untitledLabel(1, 'yesterday')).toBe('1 untitled chat · oldest yesterday')
+  })
+})
+
+describe('summaryExcerpt', () => {
+  const long =
+    'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho'
+  it('cuts the phone shorter than the desktop, always at a word', () => {
+    expect(summaryExcerpt(long, true).length).toBeLessThanOrEqual(53)
+    expect(summaryExcerpt(long, true).endsWith('…')).toBe(true)
+    expect(summaryExcerpt(long, false)).toBe(long)
   })
 })
 

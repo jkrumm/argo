@@ -10,12 +10,10 @@ export default function TopProjects({
   range,
   billing,
   workspace,
-  headlineTotal,
 }: {
   range: Range
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
-  headlineTotal?: number | null | undefined
 }) {
   const { data } = useSuspenseQuery(
     usageQueries.breakdown({
@@ -27,15 +25,11 @@ export default function TopProjects({
       workspace,
     }),
   )
-  const unfiltered = range === '30d' && billing === undefined && workspace === undefined
-  const total = unfiltered && headlineTotal != null ? headlineTotal : data.total
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
-  const rest = Math.max(0, total - shown)
+  const rest = Math.max(0, data.total - shown)
 
   return (
-    <ChartCard
-      title={`Top projects · ${periodNoun(range)}${unfiltered ? '' : ` · ${fmtUsdWhole(total)}`}`}
-    >
+    <ChartCard title={`Top projects · ${periodNoun(range)}`}>
       <BarList
         label={`Top ${data.rows.length} projects by cost, ${periodNoun(range)}`}
         format={fmtUsdWhole}

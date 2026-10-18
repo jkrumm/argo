@@ -13,6 +13,7 @@ import {
   fmtPct,
   ERROR_BAD_ABOVE,
   ERROR_WARN_FROM,
+  barStateOf,
   errorDayState,
   type ErrorDayState,
   topSourceNote,
@@ -50,7 +51,7 @@ const VERDICT_BARS = (
   key: state,
   label: `${label} of calls`,
   color,
-  getValue: (d: ErrorBucket) => ((d.state === 'none' ? 'ok' : d.state) === state ? d.count : null),
+  getValue: (d: ErrorBucket) => (barStateOf(d) === state ? d.count : null),
 }))
 
 export default function HealthCard({

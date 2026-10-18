@@ -28,7 +28,7 @@ const GLYPHS: Record<Glyph, typeof IconUser> = {
 export type SourceRowProps = {
   glyph: Glyph
   name: string
-  meta?: string
+  meta?: string | undefined
   time?: string
   selected?: boolean | undefined
   /** A labeled source shows a star at rest; the tag name is the accessible text. */

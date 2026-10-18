@@ -19,7 +19,6 @@ import {
   CHAT_TYPE_LABEL,
   channelSourceId,
   chatKindCounts,
-  detailSectionTitle,
   chatSourceId,
   chatTitle,
   chipCounts,
@@ -28,7 +27,7 @@ import {
   formatStamp,
   headlineOf,
   labeledPaneTitle,
-  labeledSectionTitle,
+  sectionTitleFor,
   sourcesTitle,
   parseChannelId,
   largestTeam,
@@ -41,7 +40,7 @@ import {
   type LabelLite,
   type SourceRef,
 } from './model'
-import { MESSAGE_TOP, RecordPane } from './record-pane'
+import { RecordPane } from './record-pane'
 import { SourceList, type TeamRow } from './source-list'
 import { ExplorerStrip } from './strip'
 import { explorerStore, type PaneKey, type ViewKey } from './store'
@@ -317,19 +316,18 @@ export function M365ExplorerPage(): ReactElement {
     detail: detailPane,
   }
   const shown = PANE_META[shownPane]
-  // The phone Section title is a fact about the pane in view, never the tab's own name.
-  const sectionTitle =
-    shownPane === 'sources'
-      ? sourcesTitle({
-          view,
-          chats: chatRows.length,
-          channels: channelsTotal,
-          teams: teams.length,
-          labeled: labels.length,
-        })
-      : shownPane === 'labeled'
-        ? labeledSectionTitle(tag)
-        : detailSectionTitle(selected !== null, MESSAGE_TOP)
+  const sectionTitle = sectionTitleFor({
+    pane: shownPane,
+    tag,
+    open: selected !== null,
+    sources: sourcesTitle({
+      view,
+      chats: chatRows.length,
+      channels: channelsTotal,
+      teams: teams.length,
+      labeled: labels.length,
+    }),
+  })
 
   const retryFailed = (): void => {
     for (const { channels } of teamRows) {
