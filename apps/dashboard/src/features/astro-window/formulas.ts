@@ -2,7 +2,7 @@ import { VX } from 'basalt-ui/tokens'
 import { weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
 import { NBSP, formatMinutes, withUnit } from '../../lib/format'
-import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE } from './constants'
+import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
 import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
@@ -587,9 +587,8 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
 }
 
 /**
- * The Sky cell's footer: only what the cell's own scale does not draw. The dark-sky threshold is
- * the scale's tick (and the Forecast panorama states it), so it is not repeated here. Each phrase
- * is glued internally; the plain-space ` · ` between them may wrap.
+ * The Sky cell's footer: the dark-sky threshold the scale's unlabelled tick marks, the town glow
+ * and the transparency. Each phrase is glued internally; the plain-space ` · ` between them may wrap.
  */
 export function skyCellFooter({
   domePenaltyMag,
@@ -602,6 +601,7 @@ export function skyCellFooter({
   const clarity = transparency === null ? '—' : `${transparency}/8`
   const glue = (text: string) => text.replaceAll(' ', NBSP)
   return [
+    glue(`dark ≥ ${SKY_DARK_THRESHOLD}`),
     glue(`town glow ${dome}`),
     `${glue(`transparency ${clarity}`)} ${glue('(lower is clearer)')}`,
   ].join(' · ')
