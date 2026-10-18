@@ -17,7 +17,8 @@ declare const classes: {
   readonly feedGroup: string
   readonly feedHeading: string
   readonly feedRow: string
-  readonly feedSentence: string
+  readonly feedBody: string
+  readonly feedMeta: string
   readonly feedLead: string
   readonly feedOutcome: string
   readonly chip: string
