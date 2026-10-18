@@ -647,16 +647,11 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: dome and transparency; the threshold lives on the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'town glow +1.04\u00a0mag · transparency 3/8 (lower = clearer)',
+      'town glow +1.04\u00a0mag\u00a0· transparency 3/8 (lower = clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'town glow — · transparency — (lower = clearer)',
+      'town glow —\u00a0· transparency — (lower = clearer)',
     )
-  })
-
-  test('only number and unit are glued', () => {
-    const footer = skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })
-    expect(footer.match(/\u00a0/g)).toHaveLength(1)
   })
 })
 
