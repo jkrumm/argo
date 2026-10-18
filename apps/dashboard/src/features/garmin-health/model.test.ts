@@ -23,6 +23,7 @@ import {
   lastScored,
   loadGap,
   chartEmpty,
+  RECOVERY_GAP_METRIC,
   allocateForms,
   cadenceGap,
   gapLine,
@@ -518,6 +519,8 @@ describe('chartEmpty', () => {
     const noScore = recoveryGap(rec).line!
     expect(noScore.short).toBe('No score in this 30\u00a0d window')
     expect(noScore.full?.startsWith(noScore.short)).toBe(true)
+    // The recovery chart's short form is the strip cell's clause, built from one noun.
+    expect(chartEmpty(RECOVERY_GAP_METRIC, 30).short).toBe(noScore.short)
     expect(recoveryGap({ ...rec, last: { value: 62, date: '2026-01-01' } }).line?.short).toBe(
       'Last scored 62/100 on 1\u00a0Jan',
     )

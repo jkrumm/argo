@@ -11,6 +11,7 @@ import { ZONE_FILL } from '../zone-fills'
 import {
   RECOVERY_PUSH_FROM,
   RECOVERY_REST_BELOW,
+  RECOVERY_GAP_METRIC,
   RECOVERY_VERDICT_NAME,
   countWhere,
   mean,
@@ -90,7 +91,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
   const high = countWhere(values, (v) => v >= RECOVERY_PUSH_FROM)
   const fact = recoveryFact({ mean: mean(values), high: high.hits, dayCount: high.days })
 
-  const emptyLabel = useChartEmpty('recoveryChart', 'recovery score', params, {
+  const emptyLabel = useChartEmpty('recoveryChart', RECOVERY_GAP_METRIC, params, {
     settled: query.isSuccess && !query.isPlaceholderData,
     empty: !hasRecovery,
   })

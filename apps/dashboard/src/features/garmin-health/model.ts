@@ -352,6 +352,9 @@ export const gapLine = (gap: Gap, form: GapForm): string =>
 export const chartEmpty = (metric: string, windowDays: number): Gap =>
   dataGap(`No ${metric} in ${thisWindow(windowDays)}`)
 
+/** The recovery gap's noun: the strip cell and the recovery chart both build their clause from it. */
+export const RECOVERY_GAP_METRIC = 'score'
+
 /**
  * What the load cell says when it has no ratio, once (the meter's empty line; the cell has no
  * footer or bar list for it). A loading or placeholder read is never a data gap: it has no copy, a
@@ -433,7 +436,7 @@ export function recoveryGap(input: {
   const clause =
     last !== null
       ? `Last scored ${fmtNum(last.value)}/100 on ${dayLabel(last.date).replaceAll(' ', NBSP)}`
-      : `No score in ${thisWindow(windowDays)}`
+      : chartEmpty(RECOVERY_GAP_METRIC, windowDays).short
   return { headline, line: dataGap(clause, `${clause}${why}${SYNC_NEXT_STEP}`) }
 }
 
