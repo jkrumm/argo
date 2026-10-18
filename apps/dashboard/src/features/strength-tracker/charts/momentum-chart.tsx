@@ -12,6 +12,7 @@ import { localDay } from '../../garmin-health/charts/local-day'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
+import { withUnit } from '../../../lib/format'
 import { fmtMonthly, perMonthRaw } from '../model'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
 
@@ -22,9 +23,9 @@ const local = createLocalStore({
   fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
 })
 
-const HEIGHT = 320
-/** Top pane share of the inner plot: the lower pane keeps room for a −, 0 and + tick. */
-const TOP_FRACTION = 0.7
+const HEIGHT = 360
+/** Top pane share of the inner plot: the lower pane keeps room for a −, 0 and + tick apart. */
+const TOP_FRACTION = 0.62
 /** Zero-noise floor, in %/mo, so a flat velocity plateau doesn't amplify the bottom pane to full height. */
 const BOTTOM_MAX_ABS_FLOOR = 3
 
@@ -110,7 +111,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
                 {fmtMonthly(monthly)}
               </Text>
               <Text span size="xs" c="dimmed">
-                %/mo, 28 d velocity
+                %/mo, {withUnit(28, 'd')} velocity
               </Text>
               <Text span fw={600} size="xs" c={directionColor(dir)}>
                 {directionArrow(dir)}

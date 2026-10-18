@@ -18,7 +18,6 @@ import {
   periodLabel,
   perMonth,
   ratioName,
-  ratioDetail,
   isBorderline,
   fmtBound,
   readinessReading,
@@ -120,68 +119,38 @@ describe('deload recency', () => {
   })
 })
 
-type PartsInput = Parameters<typeof summaryParts>[0]
-/** The headline and its facts, as the one line they used to be. */
-const summaryText = (input: PartsInput) => {
-  const { sentence, facts } = summaryParts(input)
-  return [sentence, ...facts.map((f) => f.text)].join(' · ')
-}
+const move = (delta: number | null) => ({
+  delta: { delta, phrase: '', stale: delta === null, days: 28 },
+})
 
 describe('summaryParts', () => {
-  test('the headline is the leader lift, the facts are load and readiness', () => {
-    const call = todaysCall(
-      readinessReading([{ date: '2026-10-17', readiness: 50, driver: null }]),
-      undefined,
-      NOW,
+  test('counts the lifts up over the window, out of those with a scored move', () => {
+    expect(summaryParts([move(10), move(-2.5), move(0), move(null)]).sentence).toBe(
+      '1 of 3 lifts up in 28\u00a0d',
     )
-    expect(
-      summaryParts({
-        leader: 'deadlift',
-        e1rm: 110,
-        delta: { delta: 10, phrase: '+10.0 kg in 28 d', stale: false, days: 28 },
-        acwr: 1.2,
-        call,
-        score: 50,
-      }),
-    ).toEqual({
-      sentence: 'Deadlift e1RM 110.0 kg, +10.0 kg in 28 d',
-      facts: [
-        { kind: 'acwr', text: 'ACWR 1.20 optimal' },
-        { kind: 'plain', text: 'readiness 50/100 Normal' },
-      ],
-    })
+  })
+  test('a single scored lift is singular', () => {
+    expect(summaryParts([move(2.5), move(null)]).sentence).toBe('1 of 1 lift up in 28\u00a0d')
+  })
+  test('no scored move says so instead of 0 of 0', () => {
+    expect(summaryParts([move(null)]).sentence).toBe('No lift scored in 28\u00a0d')
+    expect(summaryParts([]).sentence).toBe('No lift scored in 28\u00a0d')
   })
 })
 
-describe('readiness reads one value everywhere', () => {
-  // One fixture: the card heading, the summary sentence and the section header all read it.
+describe('readiness reads one value', () => {
   const reading = readinessReading([{ date: '2026-10-17', readiness: 87.6, driver: 'HRV' }])
-  test('the same figure, verdict and date in all three', () => {
+  test('the card header and the call title share figure and verdict', () => {
     const header = readinessHeader(reading)
     const call = todaysCall(reading, undefined, NOW)
-    const sentence = summaryText({
-      leader: null,
-      e1rm: null,
-      delta: liftDelta([], NOW),
-      acwr: null,
-      call,
-      score: reading?.score ?? null,
-    })
     expect(header).toEqual({ text: '88/100', verdict: 'Push', date: '17 Oct' })
-    expect(sentence).toContain(`Readiness ${header?.text} ${header?.verdict}`)
     expect(call.title).toBe(`Today: ${header?.verdict}`)
   })
   test('a capped call names both the reading and the call', () => {
     const call = todaysCall(reading, { verdict: 'monitor', activeSignals: ['x'] }, NOW)
-    const sentence = summaryText({
-      leader: null,
-      e1rm: null,
-      delta: liftDelta([], NOW),
-      acwr: null,
-      call,
-      score: reading?.score ?? null,
-    })
-    expect(sentence).toContain('Readiness 88/100 (Push), capped to Normal by a monitor signal')
+    expect(call.readinessVerdict).toBe('Push')
+    expect(call.verdict).toBe('Normal')
+    expect(call.monitor).not.toBeNull()
   })
   test('no reading is null', () => {
     expect(readinessHeader(null)).toBeNull()
@@ -202,14 +171,14 @@ describe('liftDelta', () => {
   test('compares to the last session at or before the cutoff', () => {
     expect(liftDelta(pts, NOW)).toEqual({
       delta: 6,
-      phrase: '+6.0 kg in 28 d',
+      phrase: '+6.0\u00a0kg in 28\u00a0d',
       stale: false,
       days: 28,
     })
   })
   test('says so when the last session is older than the window', () => {
     const r = liftDelta([pt('2026-08-01', 100), pt('2026-09-02', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: 'last scored session 2 Sep', stale: true, days: 28 })
+    expect(r).toEqual({ delta: null, phrase: 'no scored e1RM in 28\u00a0d', stale: true, days: 28 })
   })
   test('a first session inside the window is not "no session"', () => {
     const r = liftDelta([pt('2026-10-10', 100), pt('2026-10-14', 110)], NOW)
@@ -244,34 +213,14 @@ describe('acwrReading', () => {
   })
 })
 
-describe('card, summary sentence and chart header agree', () => {
-  // One fixture feeds the figures the three surfaces print.
+describe('card and strip read one figure each', () => {
   const lifts = [{ points: [week('2026-10-12', 120, 100)] }]
   const series = [pt('2026-09-01', 100), pt('2026-10-10', 110)]
-  test('the same ACWR, delta and readiness appear in every place', () => {
-    const { acwr } = acwrReading(lifts, NOW) // card Meter and chart header read this
-    const delta = liftDelta(series, NOW) // strip cell and summary read this
-    const readiness = readinessReading([{ date: '2026-10-17', readiness: 50, driver: null }])
-    const call = todaysCall(readiness, undefined, NOW)
-    const sentence = summaryText({
-      leader: 'deadlift',
-      e1rm: 110,
-      delta,
-      acwr,
-      call,
-      score: readiness?.score ?? null,
-    })
-    expect(acwr).toBe(1.2)
-    expect(sentence).toBe(
-      'Deadlift e1RM 110.0 kg, +10.0 kg in 28 d · ACWR 1.20 optimal · readiness 50/100 Normal',
-    )
-  })
-  test('unknowns are dashes', () => {
-    const call = todaysCall(null, undefined, NOW)
-    const delta = liftDelta([], NOW)
-    expect(summaryText({ leader: null, e1rm: null, delta, acwr: null, call, score: null })).toBe(
-      'Readiness — — · ACWR —',
-    )
+  test('the ACWR for the card and the move for the headline come from one function each', () => {
+    expect(acwrReading(lifts, NOW).acwr).toBe(1.2)
+    const delta = liftDelta(series, NOW)
+    expect(delta.delta).toBe(10)
+    expect(summaryParts([{ delta }]).sentence).toBe('1 of 1 lift up in 28\u00a0d')
   })
 })
 
@@ -329,7 +278,7 @@ describe('balance', () => {
   })
   test('a hair outside the band never prints inside it', () => {
     expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 over the 1.0–2.0 band')
-    expect(offText(0, [1, 2])).toBe('inside the 1.0–2.0 band')
+    expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
     expect(offText(-0.1, [1, 2])).toBe('0.10 under the 1.0–2.0 band')
     expect(offText(null, [1, 2])).toBe('—')
   })
@@ -342,7 +291,7 @@ describe('balance', () => {
   test('bounds keep one decimal at least, and more when they have more', () => {
     expect(fmtBound(1)).toBe('1.0')
     expect(fmtBound(1.25)).toBe('1.25')
-    expect(offText(0, [1, 1.25])).toBe('inside the 1.0–1.25 band')
+    expect(offText(0, [1, 1.25])).toBe('1.0–1.25 band')
   })
   test('borderline is a status of the API against the band, not a display word', () => {
     expect(isBorderline('balanced', -0.2)).toBe(true)
@@ -350,13 +299,11 @@ describe('balance', () => {
     expect(isBorderline('imbalanced', -0.2)).toBe(false)
     expect(isBorderline('balanced', null)).toBe(false)
   })
-  test('one verdict, the band named once, the tolerance only where it applies', () => {
-    expect(ratioDetail('balanced', -0.2, [1, 2])).toBe(
-      '0.20 under the 1.0–2.0 band, within 15 % of its nearest edge',
-    )
-    expect(ratioDetail('balanced', 0, [1, 2])).toBe('inside the 1.0–2.0 band')
-    expect(ratioDetail('critical', 0.4, [1, 2])).toBe('0.40 over the 1.0–2.0 band')
-    expect(ratioDetail(null, null, [1, 2])).toBe('—')
+  test('inside the band the row names the band alone, outside it the distance', () => {
+    expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
+    expect(offText(-0.2, [1, 2])).toBe('0.20 under the 1.0–2.0 band')
+    expect(offText(0.4, [1, 2])).toBe('0.40 over the 1.0–2.0 band')
+    expect(offText(null, [1, 2])).toBe('—')
   })
 })
 
@@ -383,18 +330,18 @@ describe('records and periods', () => {
 
 describe('liftFooter', () => {
   test('a lift with a 28 d move shows only its PR', () => {
-    const delta = { delta: 2.5, phrase: '+2.5 kg in 28 d', stale: false, days: 28 }
-    expect(liftFooter({ delta, prKg: 100, prDate: '2026-08-13' })).toBe('PR 100.0 kg · 13 Aug')
+    const delta = { delta: 2.5, phrase: '+2.5\u00a0kg in 28\u00a0d', stale: false, days: 28 }
+    expect(liftFooter({ delta, prKg: 100, prDate: '2026-08-13' })).toBe('PR 100.0 kg · 13 Aug')
   })
   test('without a move the reason leads, then the PR', () => {
     const delta = { delta: null, phrase: 'first session 13 Aug', stale: false, days: 28 }
     expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe(
-      'first session 13 Aug · PR 100.0 kg',
+      'first session 13 Aug · PR 100.0 kg',
     )
   })
   test('a stale lift carries its record alone; the strip says why once', () => {
-    const delta = { delta: null, phrase: 'last scored session 2 Sep', stale: true, days: 28 }
-    expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('PR 100.0 kg')
+    const delta = { delta: null, phrase: 'no scored e1RM in 28\u00a0d', stale: true, days: 28 }
+    expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('PR 100.0 kg')
   })
   test('an empty phrase and no PR is a dash, not an empty string', () => {
     expect(
@@ -420,7 +367,7 @@ describe('callFacts', () => {
   const session = { exercise_id: 'squat', date: '2026-10-16', inol: 0.756 }
   test('joins the as-of date, driver and last session; INOL is returned apart', () => {
     expect(callFacts({ asOf: '2026-10-17', driver: 'sleep', session })).toEqual({
-      text: 'latest 2026-10-17 · driver sleep · last session Squat, Fri 16 Oct',
+      text: 'readiness from 2026-10-17 · driver sleep · last session Squat, Fri 16 Oct',
       inol: 'INOL 0.76',
     })
   })
@@ -442,20 +389,9 @@ describe('staleNote', () => {
         { id: 'deadlift', delta: fresh },
         { id: 'bench_press', delta: stale },
       ]),
-    ).toBe('No scored e1RM in 28 d: Squat, Bench Press')
+    ).toBe('No scored e1RM in 28 d: Squat, Bench Press')
   })
   test('every lift stale is one sentence', () => {
-    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('Every lift: no scored e1RM in 28 d')
-  })
-})
-
-describe('summaryParts with a stale leader', () => {
-  test('the headline keeps the staleness as the last session, the strip note gives the reason', () => {
-    const call = todaysCall(null, undefined, NOW)
-    const delta = liftDelta([pt('2026-08-01', 100)], NOW)
-    expect(
-      summaryParts({ leader: 'deadlift', e1rm: 100, delta, acwr: null, call, score: null })
-        .sentence,
-    ).toBe('Deadlift e1RM 100.0 kg, last scored session 1 Aug')
+    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('Every lift: no scored e1RM in 28 d')
   })
 })

@@ -58,9 +58,6 @@ type Params = { params: StrengthQueryParams; exercises: readonly string[] }
 function useOverview({ params, exercises }: Params) {
   // The verdict inputs read fixed recent windows, never the page's: a past or custom range filters
   // the charts below, not "today". The history behind ACWR's EWMAs is the full record.
-  const { data: heroes } = useSuspenseQuery(
-    strengthQueries.heroes({ window: '90d', exercises: params.exercises }),
-  )
   const { data: readinessSeries } = useSuspenseQuery(
     strengthQueries.readiness({ window: VERDICT_WINDOW }),
   )
@@ -81,17 +78,11 @@ function useOverview({ params, exercises }: Params) {
   const deloadNow = recentDeload(deload, lastDate, now)
   const call = todaysCall(readiness, deloadNow, now)
   const { acwr, week: acwrWeek } = acwrReading(load.byExercise, now)
-  const leader =
-    exercises.find((e) => e === heroes.strengthDirection.leaderExercise) ?? exercises[0] ?? null
-  const leaderPoints = series.byExercise.find((l) => l.exercise_id === leader)?.points ?? []
-  const summaryLine = summaryParts({
-    leader,
-    e1rm: latestE1rm(leaderPoints),
-    delta: liftDelta(leaderPoints, now),
-    acwr,
-    call,
-    score: readiness?.score ?? null,
-  })
+  const summaryLine = summaryParts(
+    exercises.map((id) => ({
+      delta: liftDelta(series.byExercise.find((l) => l.exercise_id === id)?.points ?? [], now),
+    })),
+  )
   return {
     readiness,
     deload: deloadNow,
@@ -108,20 +99,7 @@ function useOverview({ params, exercises }: Params) {
 
 export function SummaryLine(props: Params) {
   const { summaryLine } = useOverview(props)
-  // The headline's ACWR carries its definition; the other facts are plain words.
-  const facts = summaryLine.facts.map((fact) =>
-    fact.kind === 'acwr' ? (
-      <Term
-        key={fact.text}
-        name={ACWR_LABEL}
-        label={fact.text}
-        definition={TERM_DEFINITIONS.acwr}
-      />
-    ) : (
-      fact.text
-    ),
-  )
-  return <PageSummary sentence={summaryLine.sentence} facts={facts} />
+  return <PageSummary sentence={summaryLine.sentence} />
 }
 
 /** A term of art with its plain-word definition behind an info icon. */

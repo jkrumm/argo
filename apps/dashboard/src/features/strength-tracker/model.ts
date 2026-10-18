@@ -4,13 +4,8 @@
  * never 0.
  */
 import { format } from 'date-fns'
-import {
-  ACWR_CAUTION_TO,
-  ACWR_FLOOR,
-  ACWR_OPTIMAL_TO,
-  READINESS_PUSH_FROM,
-  READINESS_REST_BELOW,
-} from './bands'
+import { READINESS_PUSH_FROM, READINESS_REST_BELOW } from './bands'
+import { withUnit } from '../../lib/format'
 import { exerciseLabel, type RatioStatus } from './formulas'
 
 export const EM_DASH = '—'
@@ -204,18 +199,8 @@ export function acwrReading(lifts: readonly AcwrLift[], now: number): AcwrReadin
   return { acwr: chronic > 0 ? Math.round((acute / chronic) * 100) / 100 : null, week }
 }
 
-export function acwrZoneWord(acwr: number | null): string {
-  if (acwr === null) return EM_DASH
-  if (acwr < ACWR_FLOOR) return 'undertrained'
-  if (acwr <= ACWR_OPTIMAL_TO) return 'optimal'
-  if (acwr <= ACWR_CAUTION_TO) return 'caution'
-  return 'danger'
-}
-
-/** The headline fact's prefix. */
+/** The ACWR term's name, on the call card. */
 export const ACWR_LABEL = 'ACWR'
-
-export const ACWR_METHOD = '4 wk / 16 wk EWMA of weekly tonnage, all lifts summed'
 
 // ── Lifts ────────────────────────────────────────────────────────────────────────────────────
 
@@ -225,7 +210,7 @@ export function latestE1rm(points: readonly Point[]): number | null {
 
 /**
  * `stale`: no session inside the window. The reason is the strip's one note (`staleNote`); the
- * phrase then carries the date of the last session, which the headline keeps as its qualifier.
+ * phrase then names the window.
  */
 export type LiftDelta = {
   delta: number | null
@@ -245,7 +230,7 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
   if (Date.parse(last.date) <= cutoff) {
-    return { delta: null, phrase: `last scored session ${shortDate(last.date)}`, stale: true, days }
+    return { delta: null, phrase: `no scored e1RM in ${withUnit(days, 'd')}`, stale: true, days }
   }
   const base = sessions.findLast((p) => Date.parse(p.date) <= cutoff)
   if (base === undefined || !isNum(base.e1rm)) {
@@ -258,7 +243,12 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
     }
   }
   const delta = Math.round((last.e1rm - base.e1rm) * 10) / 10
-  return { delta, phrase: `${signed(delta)} kg in ${days} d`, stale: false, days }
+  return {
+    delta,
+    phrase: `${withUnit(signed(delta), 'kg')} in ${withUnit(days, 'd')}`,
+    stale: false,
+    days,
+  }
 }
 
 /**
@@ -275,7 +265,7 @@ export function liftFooter(input: {
   const record =
     prKg === null
       ? null
-      : `PR ${prKg.toFixed(1)} kg${prDate === null ? '' : ` · ${shortDate(prDate)}`}`
+      : `PR ${withUnit(prKg.toFixed(1), 'kg')}${prDate === null ? '' : ` · ${shortDate(prDate)}`}`
   // A move that cannot be computed is explained on the cell, except a stale lift: the strip's note does that.
   const reasonOnCell = delta.delta === null && !delta.stale
   const parts = (reasonOnCell ? [delta.phrase, record] : [record]).filter(
@@ -296,8 +286,8 @@ export function staleNote(lifts: readonly { id: string; delta: LiftDelta }[]): s
   if (stale.length === 0) return null
   // Only sessions with a scored e1RM move the figure; a session without one does not count.
   const days = stale[0]?.delta.days ?? DELTA_DAYS
-  if (stale.length === lifts.length) return `Every lift: no scored e1RM in ${days} d`
-  return `No scored e1RM in ${days} d: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
+  if (stale.length === lifts.length) return `Every lift: no scored e1RM in ${withUnit(days, 'd')}`
+  return `No scored e1RM in ${withUnit(days, 'd')}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
 }
 
 /** The call card's facts line, split around the INOL figure (which carries its own definition). */
@@ -306,7 +296,7 @@ export function callFacts({ asOf, driver, session }: CallFactsInput): {
   inol: string | null
 } {
   const parts = [
-    ...(asOf === null ? [] : [`latest ${asOf}`]),
+    ...(asOf === null ? [] : [`readiness from ${asOf}`]),
     ...(driver ? [`driver ${driver}`] : []),
     ...(session === null
       ? []
@@ -353,39 +343,17 @@ export function lastSession(
 
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
-export type SummaryFact = { kind: 'acwr' | 'plain'; text: string }
-
-export function summaryParts(input: {
-  leader: string | null
-  e1rm: number | null
-  delta: LiftDelta
-  acwr: number | null
-  call: TodaysCall
-  score: number | null
-}): { sentence: string; facts: SummaryFact[] } {
-  const { leader, e1rm, delta, acwr, call, score } = input
-  const load: SummaryFact = {
-    kind: 'acwr',
-    text:
-      acwr === null ? `${ACWR_LABEL} —` : `${ACWR_LABEL} ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`,
-  }
-  const figure = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`}`
-  const when = call.asOf === null ? '' : `, ${call.asOf}`
-  const ready =
-    call.verdict === call.readinessVerdict
-      ? `${figure} ${call.readinessVerdict}${when}`
-      : `${figure} (${call.readinessVerdict})${when}, ${
-          call.overridden
-            ? `overridden to ${call.verdict} by the deload signal`
-            : `capped to ${call.verdict} by a monitor signal`
-        }`
-  // The headline is the leader lift's e1RM and its move; without one, the call leads.
-  if (leader === null || e1rm === null) {
-    return { sentence: ready.charAt(0).toUpperCase() + ready.slice(1), facts: [load] }
-  }
+/**
+ * The headline counts the lifts that moved up over the delta window, out of those with a scored
+ * move. The per-lift e1RM and move are the strip's, the score and ACWR the call card's: the
+ * headline repeats none of them.
+ */
+export function summaryParts(lifts: readonly { delta: LiftDelta }[]): { sentence: string } {
+  const moves = lifts.flatMap((l) => (l.delta.delta === null ? [] : [l.delta.delta]))
+  if (moves.length === 0) return { sentence: `No lift scored in ${withUnit(DELTA_DAYS, 'd')}` }
+  const up = moves.filter((m) => m > 0).length
   return {
-    sentence: `${exerciseLabel(leader)} e1RM ${e1rm.toFixed(1)} kg, ${delta.phrase}`,
-    facts: [load, { kind: 'plain', text: ready }],
+    sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${withUnit(DELTA_DAYS, 'd')}`,
   }
 }
 
@@ -428,18 +396,6 @@ export function statusWord(status: RatioStatus | null, offset: number | null): S
   return status === 'balanced' ? 'borderline' : status
 }
 
-/** The words after the verdict: how far from the band, and for a borderline ratio the tolerance. */
-export function ratioDetail(
-  status: RatioStatus | null,
-  offset: number | null,
-  range: readonly [number, number],
-): string {
-  const detail = offText(offset, range)
-  return isBorderline(status, offset)
-    ? `${detail}, within ${Math.round(RATIO_TOLERANCE * 100)} % of its nearest edge`
-    : detail
-}
-
 /** Unrounded: a ratio a hair outside the band is outside it. */
 export function bandOffset(
   ratio: number | null,
@@ -454,11 +410,11 @@ export function bandOffset(
 /** A band bound with at least one decimal: `1.0`, `1.25`. */
 export const fmtBound = (v: number): string => (Number.isInteger(v) ? v.toFixed(1) : String(v))
 
-/** `0.12 under the 0.8–1.0 band`, `inside the 0.8–1.0 band`, `—`. */
+/** `0.12 under the 0.8–1.0 band`, the bare `0.8–1.0 band` inside it (the verdict says the rest), `—`. */
 export function offText(offset: number | null, [lo, hi]: readonly [number, number]): string {
   if (offset === null) return EM_DASH
   const band = `${fmtBound(lo)}–${fmtBound(hi)} band`
-  if (offset === 0) return `inside the ${band}`
+  if (offset === 0) return band
   const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
   return `${size} ${offset < 0 ? 'under' : 'over'} the ${band}`
 }
