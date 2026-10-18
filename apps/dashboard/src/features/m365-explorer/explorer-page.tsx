@@ -20,7 +20,6 @@ import {
   channelSourceId,
   CHATS_TOP,
   NO_CHATS,
-  nothingToOpen,
   nothingToLabel,
   teamsGap,
   chatKindCounts,
@@ -323,7 +322,7 @@ export function M365ExplorerPage(): ReactElement {
   const emptyCause = view === 'chats' ? NO_CHATS : teamsGap(teams.length)
   const emptyDetail = (
     <p className={classes.empty}>
-      {sourcesEmpty ? nothingToOpen(emptyCause) : 'Pick a chat or channel in Sources to open it'}
+      {sourcesEmpty ? emptyCause : 'Pick a chat or channel in Sources to open it'}
     </p>
   )
   const detailPane =

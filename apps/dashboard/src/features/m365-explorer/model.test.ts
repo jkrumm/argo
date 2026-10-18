@@ -2,7 +2,7 @@ import { NBSP } from '../../lib/format'
 import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
-  nothingToOpen,
+  channelsCellGap,
   withStep,
   nothingToLabel,
   teamsGap,
@@ -415,11 +415,10 @@ describe('showTagChips', () => {
   })
 })
 
-describe('nothingToOpen', () => {
-  test('lower-cases the strip cause after the dash', () => {
-    expect(nothingToOpen(NO_CHATS)).toBe('Nothing to open — no chats came back')
-    expect(nothingToOpen(NO_TEAMS)).toBe('Nothing to open — no teams came back')
-    expect(nothingToOpen(NO_CHANNELS)).toBe('Nothing to open — no channels came back')
+describe('channelsCellGap', () => {
+  test('repeats the leading clause: sources when Labeled leads, else teams', () => {
+    expect(channelsCellGap(true)).toBe(NO_SOURCES)
+    expect(channelsCellGap(false)).toBe(NO_TEAMS)
   })
 })
 
