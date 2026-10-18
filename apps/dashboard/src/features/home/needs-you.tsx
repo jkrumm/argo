@@ -21,8 +21,6 @@ type Props = {
   decisions: readonly Decision[]
   /** Sources whose feed is not loaded: what needs the owner there is unknown, not empty. */
   unavailable: readonly string[]
-  /** A source is still answering: what is waiting is not yet known, not empty. */
-  pending?: boolean
 }
 
 const COPY_LABEL = { queue: 'Copy command', agent: 'Copy blocker', warden: 'Copy PR link' } as const
@@ -75,31 +73,25 @@ function Card({ decision }: { decision: Decision }) {
  * The merged inbox: the first {@link CARD_LIMIT} decisions as cards, then `Show n more` pointing at
  * the page that owns each remaining item. The heading count is the whole list, not the cards shown.
  */
-export function NeedsYou({ decisions, unavailable, pending = false }: Props) {
+export function NeedsYou({ decisions, unavailable }: Props) {
   const shown = decisions.slice(0, CARD_LIMIT)
   const rest = decisions.slice(CARD_LIMIT)
   const unknown = unavailable.length >= NEEDS_YOU_SOURCES
-  const loading = pending && decisions.length === 0 && !unknown
   const restBy = (href: Decision['href']) => rest.filter((d) => d.href === href).length
   return (
-    <Section
-      title="Needs you"
-      {...(unknown || loading ? { value: '—' } : { count: decisions.length })}
-    >
-      <Stack gap="sm" data-shot="needs-you" data-shot-states="empty loading error">
+    <Section title="Needs you" {...(unknown ? { value: '—' } : { count: decisions.length })}>
+      <Stack gap="sm" data-shot="needs-you" data-shot-states="empty error">
         {decisions.length === 0 ? (
           <EmptyState
             tier="section"
             icon={<IconCircleCheck size={28} />}
-            title={loading ? 'Loading' : unknown ? "Can't tell" : 'Nothing needs you'}
+            title={unknown ? "Can't tell" : 'Nothing needs you'}
             description={
-              loading
-                ? 'Warden and Agents are still answering.'
-                : unknown
-                  ? `${unavailable.join(' and ')} unavailable, so what is waiting is unknown.`
-                  : unavailable.length === 0
-                    ? 'No decision is waiting in Warden or on an agent.'
-                    : `Nothing waiting in the source that loaded; ${unavailable.join(' and ')} unavailable.`
+              unknown
+                ? `${unavailable.join(' and ')} unavailable, so what is waiting is unknown.`
+                : unavailable.length === 0
+                  ? 'No decision is waiting in Warden or on an agent.'
+                  : `Nothing waiting in the source that loaded; ${unavailable.join(' and ')} unavailable.`
             }
           />
         ) : (
@@ -107,14 +99,14 @@ export function NeedsYou({ decisions, unavailable, pending = false }: Props) {
             <Box
               key={decision.id}
               data-shot={`decision-card-${i + 1}`}
-              data-shot-absent="empty loading error"
+              data-shot-absent="empty error"
             >
               <Card decision={decision} />
             </Box>
           ))
         )}
         {rest.length > 0 ? (
-          <Group gap="xs" data-shot="show-more" data-shot-absent="empty loading error">
+          <Group gap="xs" data-shot="show-more" data-shot-absent="empty error">
             <Text size="sm" c="dimmed">
               Show {rest.length} more:
             </Text>

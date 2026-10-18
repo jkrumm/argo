@@ -1,8 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import type { BasaltRouterContext } from 'basalt-ui'
 import { z } from 'zod'
 import { format } from 'date-fns'
-import { shotLoader } from '../lib/shot-state'
 import { calendarStore } from '../lib/window-stores'
 import { CalendarPage } from '../features/calendar/calendar-page'
 import { CALENDAR_DAYS_RANGE, calendarQueries } from '../lib/queries/calendar'
@@ -22,16 +20,14 @@ export const Route = createFileRoute('/calendar')({
     ...calendarStore.validateSearch(raw),
     ...DateSchema.parse(raw),
   }),
-  loader: shotLoader(
-    ({ context, location }: { context: BasaltRouterContext; location: { search: unknown } }) => {
-      const search = location.search as { view?: string; date?: string }
-      const view = search.view === 'week' || search.view === 'month' ? search.view : 'agenda'
-      const fromKey = queryFromKey(view, search.date ?? dayKey(new Date()), dayKey(new Date()))
-      void context.queryClient.prefetchQuery(calendarQueries.google(CALENDAR_DAYS_RANGE, fromKey))
-      void context.queryClient.prefetchQuery(calendarQueries.m365(CALENDAR_DAYS_RANGE, fromKey))
-      void context.queryClient.prefetchQuery(calendarQueries.ticktickProjects())
-    },
-  ),
+  loader: ({ context, location }) => {
+    const search = location.search as { view?: string; date?: string }
+    const view = search.view === 'week' || search.view === 'month' ? search.view : 'agenda'
+    const fromKey = queryFromKey(view, search.date ?? dayKey(new Date()), dayKey(new Date()))
+    void context.queryClient.prefetchQuery(calendarQueries.google(CALENDAR_DAYS_RANGE, fromKey))
+    void context.queryClient.prefetchQuery(calendarQueries.m365(CALENDAR_DAYS_RANGE, fromKey))
+    void context.queryClient.prefetchQuery(calendarQueries.ticktickProjects())
+  },
   component: CalendarRoute,
 })
 

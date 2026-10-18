@@ -217,11 +217,7 @@ export function TodayPage() {
         />
 
         <div className={classes.columns}>
-          <NeedsYou
-            decisions={decisions}
-            unavailable={unavailable}
-            pending={agentsQuery.isPending || wardenQuery.isPending}
-          />
+          <NeedsYou decisions={decisions} unavailable={unavailable} />
           <Stack gap="md">
             <Meetings agenda={agenda} tasks={tasks} now={now} />
             <ActivityFeed
