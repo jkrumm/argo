@@ -16,6 +16,8 @@ const STALE_AFTER_MIN = 30
 const STALE_IN_HOURS_FROM_MIN = 120
 /** Series kept in a stacked chart before the rest fold into "Other". */
 export const FOLD_TOP_N = 6
+/** The fold widens past `FOLD_TOP_N` up to this many named series while `Other` outweighs the smallest one. */
+export const FOLD_MAX_N = 8
 export const ERROR_FOLD_TOP_N = 3
 export const OTHER_KEY = 'Other'
 
@@ -167,6 +169,30 @@ export function meanOf(values: readonly (number | null)[]): number | null {
 }
 
 /**
+ * Drop today's bucket: the day is still running, so its total would draw as a drop against full
+ * days. Only a day dated today (local) goes; a feed that stopped earlier keeps every bucket.
+ */
+export function dropPartialDay<T extends { date: Date }>(days: readonly T[], now: number): T[] {
+  const today = new Date(now)
+  const isToday = (d: Date) =>
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  return days.filter((d) => !isToday(d.date))
+}
+
+/** How many of the readings are strictly above (`above`) or strictly below (`below`) a line; gaps do not count. */
+export function countAgainst(
+  values: readonly (number | null)[],
+  line: number,
+  side: 'above' | 'below',
+): { count: number; of: number } {
+  const present = values.filter((v): v is number => v !== null && Number.isFinite(v))
+  const count = present.filter((v) => (side === 'above' ? v > line : v < line)).length
+  return { count, of: present.length }
+}
+
+/**
  * The mean of the last `n` daily readings: the cache cell's recent figure, because the headline
  * carries no prior-30 d cache ratio. Slots are calendar days, so a trailing gap (`null`) shortens the
  * window rather than reaching further back. Compare it with the printed 30 d ratio via `pointsDelta`.
@@ -219,6 +245,7 @@ export function foldTopN(
   points: readonly TimePoint[],
   groupKeys: readonly string[],
   n: number,
+  max: number = n,
 ): FoldedSeries {
   const sums = new Map<string, number>()
   for (const key of groupKeys) sums.set(key, 0)
@@ -226,8 +253,20 @@ export function foldTopN(
     for (const key of groupKeys) sums.set(key, (sums.get(key) ?? 0) + (p.groups[key] ?? 0))
   }
   const ranked = [...groupKeys].toSorted((a, b) => (sums.get(b) ?? 0) - (sums.get(a) ?? 0))
-  const kept = ranked.slice(0, n)
-  const rest = ranked.slice(n)
+  const sumOf = (keys: readonly string[]) =>
+    keys.reduce((acc, key) => acc + (sums.get(key) ?? 0), 0)
+  // `Other` must never be the largest bucket: widen the named set (up to `max`) while the remainder
+  // outweighs the smallest named series.
+  let keep = n
+  while (
+    keep < max &&
+    keep < ranked.length &&
+    sumOf(ranked.slice(keep)) > (sums.get(ranked[keep - 1] ?? '') ?? 0)
+  ) {
+    keep++
+  }
+  const kept = ranked.slice(0, keep)
+  const rest = ranked.slice(keep)
   const keys = rest.length > 0 ? [...kept, OTHER_KEY] : kept
   const folded = points.map((p): TimePoint => {
     const groups: Record<string, number | null> = {}
@@ -238,9 +277,7 @@ export function foldTopN(
     return { date: p.date, groups }
   })
   const totals = kept.map((key) => ({ key, value: sums.get(key) ?? 0 }))
-  if (rest.length > 0) {
-    totals.push({ key: OTHER_KEY, value: rest.reduce((acc, key) => acc + (sums.get(key) ?? 0), 0) })
-  }
+  if (rest.length > 0) totals.push({ key: OTHER_KEY, value: sumOf(rest) })
   return {
     keys,
     points: folded,
@@ -311,7 +348,60 @@ export function healthInfo(unit: 'day' | 'week'): string {
 
 /** The cost and tokens info tail: how many series are named and what they are called. */
 export function foldInfo(noun: string): string {
-  return `The ${FOLD_TOP_N === 6 ? 'six' : FOLD_TOP_N} largest ${noun}s in the window are named, the rest are grouped as Other.`
+  return `The largest ${noun}s in the window are named (at least ${FOLD_TOP_N}, more while the rest would outweigh the smallest), the rest are grouped as Other.`
+}
+
+// ── Tool names ───────────────────────────────────────────────────────────────────────────────
+
+const MCP_PREFIX = 'mcp__'
+
+/** `my_server-name` → `My server name`. */
+function plainWords(raw: string): string {
+  const words = raw.replace(/[_-]+/g, ' ').trim()
+  return words === '' ? raw : words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** The group a tool is counted under: every `mcp__{server}__{tool}` joins its server's one bucket. */
+export function toolGroupKey(raw: string): string {
+  if (!raw.startsWith(MCP_PREFIX)) return raw
+  const server = raw.slice(MCP_PREFIX.length).split('__')[0] ?? ''
+  return server === '' ? raw : `${MCP_PREFIX}${server}`
+}
+
+/** A tool identifier in words: `mcp__agent-gateway` → `Agent gateway (MCP)`, `web_search` → `Web search`. */
+export function toolLabel(raw: string): string {
+  if (raw === OTHER_KEY) return raw
+  if (raw.startsWith(MCP_PREFIX)) {
+    const [server = '', ...tool] = raw.slice(MCP_PREFIX.length).split('__')
+    const name =
+      tool.length === 0
+        ? plainWords(server)
+        : `${plainWords(server)} · ${plainWords(tool.join(' '))}`
+    return `${name}${tool.length === 0 ? ' (MCP)' : ''}`
+  }
+  return plainWords(raw)
+}
+
+/**
+ * Re-key a grouped series: buckets whose keys map to the same group add up. Used to fold every tool
+ * of one MCP server into a single series before the top-N cut.
+ */
+export function regroup(
+  points: readonly TimePoint[],
+  groupKeys: readonly string[],
+  keyOf: (key: string) => string,
+): { points: TimePoint[]; groupKeys: string[] } {
+  const keys = [...new Set(groupKeys.map(keyOf))]
+  const merged = points.map((p): TimePoint => {
+    const groups: Record<string, number | null> = {}
+    for (const key of keys) groups[key] = 0
+    for (const key of groupKeys) {
+      const target = keyOf(key)
+      groups[target] = (groups[target] ?? 0) + (p.groups[key] ?? 0)
+    }
+    return { date: p.date, groups }
+  })
+  return { points: merged, groupKeys: keys }
 }
 
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────

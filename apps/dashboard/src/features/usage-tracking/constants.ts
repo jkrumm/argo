@@ -52,8 +52,8 @@ const FALLBACK_PALETTE = [
 ]
 
 /**
- * Rank-assigned hues for the named series of a stacked chart: six different hue families (sky, gold,
- * forest, red, orange, violet). Cerulean is deliberately absent: next to sky it differs only in shade.
+ * Rank-assigned hues for the named series of a stacked chart: eight different hue families (sky, gold,
+ * forest, red, orange, violet, turquoise, indigo). Cerulean is deliberately absent: next to sky it differs only in shade.
  */
 export const RANK_PALETTE = [
   USAGE_SOURCE.claudeCode,
@@ -62,6 +62,8 @@ export const RANK_PALETTE = [
   USAGE_SOURCE.hermesAgent,
   USAGE_SOURCE.opencode,
   USAGE_SOURCE.researchGateway,
+  USAGE_SOURCE.imageGen,
+  USAGE_SOURCE.emailGateway,
 ]
 
 function hashKey(key: string): number {
@@ -98,10 +100,11 @@ export function colorForGroup(
 export function groupBands(
   groupKeys: readonly string[],
   color: (key: string) => string,
+  label: (key: string) => string = (k) => k,
 ): StackedAreaBand<TimePoint>[] {
   return groupKeys.map((k) => ({
     key: k,
-    label: k,
+    label: label(k),
     color: color(k),
     getValue: (d) => d.groups[k] ?? 0,
   }))

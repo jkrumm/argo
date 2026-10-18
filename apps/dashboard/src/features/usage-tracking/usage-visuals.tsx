@@ -1,14 +1,9 @@
 import { BandStrip, Sparkline } from 'basalt-ui/charts'
 import type { BandSpan } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { CACHE_HIT_TARGET, errorDayState, fmtPct, shortDay } from './model'
-import classes from './usage.module.css'
+import { errorDayState, shortDay } from './model'
 
-/** The ring's progress arc: not a verdict, and `VX.line` is near-white in dark mode. */
-const MUTED_FILL = alpha(VX.muted, 0.35)
 const SPARK_HEIGHT = 36
-const RING_SIZE = 56
-const RING_STROKE = 6
 
 export type Daily = { date: Date; value: number | null }
 
@@ -17,12 +12,15 @@ export function Trend({
   days,
   loading,
   format,
+  reference,
 }: {
   label: string
   days: readonly Daily[]
   loading: boolean
   /** The readout's value with its unit (`$12.40`, `3.2M tokens`, `1.8 s`). */
   format: (value: number) => string
+  /** A dashed line at a target or a limit, in the series' own unit. */
+  reference?: number | undefined
 }) {
   const present = days.filter((d): d is Daily & { value: number } => d.value !== null)
   const data = present.map((d) => d.value)
@@ -34,6 +32,7 @@ export function Trend({
       labels={present.map((d) => shortDay.format(d.date))}
       height={SPARK_HEIGHT}
       emphasizeLast
+      reference={reference}
       state={loading ? { pending: true } : { empty: data.length < 2 }}
     />
   )
@@ -58,49 +57,5 @@ export function ErrorBand({ days }: { days: readonly Daily[] }) {
       tooltip={{ formatHeader: (x) => shortDay.format(x) }}
       height={28}
     />
-  )
-}
-
-/** Hand-drawn ring: basalt's `Meter shape="ring"` takes no target, and this one needs the 60 % tick. */
-export function CacheRing({ ratio }: { ratio: number }) {
-  const c = RING_SIZE / 2
-  const r = (RING_SIZE - RING_STROKE) / 2
-  const circumference = 2 * Math.PI * r
-  const angle = CACHE_HIT_TARGET * 2 * Math.PI
-  const at = (radius: number) => ({
-    x: c + radius * Math.sin(angle),
-    y: c - radius * Math.cos(angle),
-  })
-  const inner = at(r - RING_STROKE)
-  const outer = at(r + RING_STROKE)
-  return (
-    <svg
-      className={classes.ring}
-      width={RING_SIZE}
-      height={RING_SIZE}
-      viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-      role="img"
-      aria-label={`Cache hit ${fmtPct(ratio)} against a ${fmtPct(CACHE_HIT_TARGET, 0)} target`}
-    >
-      <circle
-        cx={c}
-        cy={c}
-        r={r}
-        fill="none"
-        stroke={alpha(VX.muted, 0.08)}
-        strokeWidth={RING_STROKE}
-      />
-      <circle
-        cx={c}
-        cy={c}
-        r={r}
-        fill="none"
-        stroke={ratio < CACHE_HIT_TARGET ? VX.warn : MUTED_FILL}
-        strokeWidth={RING_STROKE}
-        strokeDasharray={`${circumference * Math.min(1, ratio)} ${circumference}`}
-        transform={`rotate(-90 ${c} ${c})`}
-      />
-      <line x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke={VX.ink} strokeWidth={2} />
-    </svg>
   )
 }
