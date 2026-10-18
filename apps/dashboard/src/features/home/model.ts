@@ -160,7 +160,7 @@ export const countdownLabel = (ms: number): string =>
   untilLabel(Math.max(0, Math.round(ms / MIN_MS)))
 
 /** The day axis of the next-meeting cell: 08–19 h, widened when a meeting falls outside it. */
-export const DAY_AXIS: { from: number; to: number } = { from: 8, to: 19 }
+const DAY_AXIS: { from: number; to: number } = { from: 8, to: 19 }
 
 export function dayAxis(meetings: readonly Meeting[]): { from: number; to: number } {
   let { from, to } = DAY_AXIS
@@ -292,7 +292,7 @@ export function stripShortcodes(text: string): string {
 }
 
 /** Rows older than the start of yesterday are history, not "today's stream". */
-export const activityHorizon = (now: number) => addDays(startOfDayDate(now), -1).getTime()
+const activityHorizon = (now: number) => addDays(startOfDayDate(now), -1).getTime()
 
 type Bag = Record<string, unknown>
 const bag = (v: unknown): Bag | undefined =>
@@ -436,7 +436,7 @@ export const emptyStreamLabel = (now: number) =>
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────
 
 /** The `Live` pulse shows only while the newest push is younger than this. */
-export const LIVE_WITHIN_MS = 30 * MIN_MS
+const LIVE_WITHIN_MS = 30 * MIN_MS
 
 /** The loaded feeds older than {@link LIVE_WITHIN_MS}, each as `Name 45m old`; empty when every one is fresh. */
 export function staleFeeds(

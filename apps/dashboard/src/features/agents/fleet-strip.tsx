@@ -63,7 +63,7 @@ function peakFooter(history: HistoryPoint[] | undefined, hours: number, now: num
       ? `no data in ${hours} h`
       : peak.value === 0
         ? `none in ${hours} h`
-        : `peak ${peak.value} in ${hours} h`
+        : `peak ${peak.value} ${peak.value === 1 ? 'item' : 'items'} in ${hours} h`
   return peak !== null && peak.value > 0 ? `${trend} · ${ageAgo(now - peak.atMs)}` : trend
 }
 
@@ -135,7 +135,7 @@ function fleetCell(fleet: Props['fleet']): StatStripCell {
     caption: `Fleet · ${total} agents`,
     value: String(parts[0]?.value ?? 0),
     unit: `working of ${total}`,
-    footer: fleetFooter(parts) || 'every agent working',
+    footer: fleetFooter(parts),
     visual: (
       <Meter
         label="Agents by state"

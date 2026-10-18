@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Skeleton, Stack } from '@mantine/core'
+import { Skeleton, Stack, Text } from '@mantine/core'
+import { VX } from 'basalt-ui/tokens'
 import { PageBar } from 'basalt-ui'
 import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
@@ -14,8 +15,7 @@ import {
   countUnknownAgents,
   feedState,
   snapshotAgeMs,
-  ageAgo,
-  STALE_AFTER_MS,
+  feedAside,
   summaryParts,
 } from '../features/agents/model'
 import { FeedNotice } from '../features/agents/feed-notice'
@@ -65,13 +65,13 @@ function AgentsPage() {
     fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
     idleProjects: quiet.length,
   })
-  const feedAge = latest === null ? null : snapshotAgeMs(latest, now)
 
   const feed = feedState({
     hasData: latest !== null,
     isPending: latestQuery.isPending,
     isError: latestQuery.isError,
   })
+  const aside = feedAside(feed, latest === null ? null : snapshotAgeMs(latest, now))
 
   return (
     <>
@@ -101,9 +101,13 @@ function AgentsPage() {
                 sentence={summary.sentence}
                 facts={summary.facts}
                 aside={
-                  feedAge === null
-                    ? undefined
-                    : `${feedAge < STALE_AFTER_MS ? 'Live' : 'Stale'} · updated ${ageAgo(feedAge)}`
+                  aside === null ? undefined : aside.tone === 'warn' ? (
+                    <Text span inherit c={VX.status.warn}>
+                      {aside.text}
+                    </Text>
+                  ) : (
+                    aside.text
+                  )
                 }
               />
             )}
