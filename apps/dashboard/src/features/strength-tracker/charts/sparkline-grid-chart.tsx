@@ -53,6 +53,14 @@ function SparkCell({
   )
 }
 
+const MOMENTUM_COL = 'momentum'
+
+/** The page's one velocity wording: `+1.2 %/mo`, a dash when the lift has no fit. */
+function velocityFigure(vel: number | null): string {
+  const monthly = perMonth(vel)
+  return monthly === null ? '—' : `${signed(monthly)} %/mo`
+}
+
 const columnHelper = createColumnHelper<SparkRow>()
 
 function HelpHeader({ label, tip }: { label: string; tip: string }) {
@@ -64,8 +72,8 @@ function HelpHeader({ label, tip }: { label: string; tip: string }) {
 }
 
 // `meta.priority`: the HIGHEST number folds first when the card is too narrow. Fold order (the
-// list numbers are the order, not the priority values): 1. INOL, 2. Volume, 3. Velocity (its figure then moves
-// under the Status word), 4. Status. Exercise and 1RM stay.
+// list numbers are the order, not the priority values): 1. INOL, 2. Volume, 3. Velocity (its figure then
+// moves under the Status word), 4. Status. Exercise and 1RM stay.
 // Folded columns remain one tap away in the per-row disclosure.
 const columns = [
   columnHelper.accessor('exercise_name', {
@@ -117,7 +125,7 @@ const columns = [
     ),
   }),
   columnHelper.display({
-    id: 'momentum',
+    id: MOMENTUM_COL,
     header: () => (
       <HelpHeader label="Velocity, %/mo" tip="e1RM velocity over 28 days, as a monthly rate" />
     ),
@@ -125,14 +133,13 @@ const columns = [
     meta: { priority: 3 },
     cell: (ctx) => {
       const { dir, vel } = ctx.row.original
-      const monthly = perMonth(vel)
       return (
         <Text size="sm" c={directionColor(dir)}>
           <Text component="span" fw={700}>
             {directionArrow(dir)}
           </Text>
           <Text component="span" ml={4}>
-            {monthly === null ? '—' : `${signed(monthly)} %/mo`}
+            {velocityFigure(vel)}
           </Text>
         </Text>
       )
@@ -145,10 +152,9 @@ const columns = [
     meta: { priority: 2 },
     cell: (ctx) => {
       const { dir, vel } = ctx.row.original
-      // Velocity folds before Status; once it has, the figure moves in under the status word so
-      // the narrow scan keeps both (and the wide one prints it once, in its own column).
-      const velocityFolded = ctx.table.getColumn('momentum')?.getIsVisible() === false
-      const monthly = perMonth(vel)
+      // Velocity folds before Status; once it has (or is absent), its figure moves in under the
+      // status word, so the narrow scan keeps both and the wide one prints it once.
+      const velocityFolded = ctx.table.getColumn(MOMENTUM_COL)?.getIsVisible() !== true
       return (
         <Box>
           <Group gap={6} wrap="nowrap">
@@ -156,8 +162,8 @@ const columns = [
             <Text size="sm">{dir}</Text>
           </Group>
           {velocityFolded && (
-            <Text size="xs" c={directionColor(dir)} ml="md" style={{ whiteSpace: 'nowrap' }}>
-              {monthly === null ? '—' : `${signed(monthly)} %/mo`}
+            <Text size="xs" c={directionColor(dir)} ml="md" truncate="end">
+              {velocityFigure(vel)}
             </Text>
           )}
         </Box>

@@ -42,18 +42,34 @@ function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
 }
 
-/** A card's gap line: a pending read is a skeleton, never a sentence; a failure names the source. */
-export function GapLine({ gap, rows = 1 }: { gap: FeedGap; rows?: number }) {
-  if (gap.state === 'loading') {
-    return (
-      <Box role="status" aria-label="Loading" py="xs">
-        {Array.from({ length: rows }, (_, i) => (
-          <Skeleton key={i} height={14} width={i === 0 ? '60%' : '40%'} mt={i === 0 ? 0 : 6} />
-        ))}
-      </Box>
-    )
-  }
+/** Pending is a skeleton, never a sentence. The width is definite so the bars resolve in a flex row. */
+export function SkeletonLines({ rows = 1, label = 'Loading' }: { rows?: number; label?: string }) {
   return (
+    <Box role="status" aria-label={label} w="100%" py="xs">
+      {Array.from({ length: rows }, (_, i) => (
+        <Skeleton key={i} height={14} width={i === 0 ? '60%' : '40%'} mt={i === 0 ? 0 : 'xs'} />
+      ))}
+    </Box>
+  )
+}
+
+/** A card's gap line: a pending read is a skeleton; a failure names the source. */
+export function GapLine({
+  gap,
+  rows = 1,
+  inline = false,
+}: {
+  gap: FeedGap
+  rows?: number
+  /** A span in a flex row instead of a block `Text`. */
+  inline?: boolean
+}) {
+  if (gap.state === 'loading') return <SkeletonLines rows={rows} />
+  return inline ? (
+    <span className={classes.muted} role="status">
+      {gap.card}
+    </span>
+  ) : (
     <Text className={classes.muted} role="status">
       {gap.card}
     </Text>
@@ -305,11 +321,7 @@ export function TaskList({
       <Section title="Tasks due" {...(state === 'ready' ? { count: tasks.length } : {})}>
         <Text className={classes.muted}>Overdue or due within 7 days</Text>
         {state === 'loading' ? (
-          <Box role="status" aria-label="Loading tasks" py="xs">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} height={14} width={i === 0 ? '70%' : '50%'} mt={i === 0 ? 0 : 8} />
-            ))}
-          </Box>
+          <SkeletonLines rows={3} label="Loading tasks" />
         ) : state === 'error' ? (
           <Text className={classes.muted}>Tasks failed to load — reload to retry</Text>
         ) : tasks.length === 0 ? (
