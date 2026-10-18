@@ -70,6 +70,34 @@ export const STRESS_REST_BELOW = 25
 export const STRESS_MODERATE_FROM = 50
 export const STRESS_HIGH_FROM = 75
 
+export type StressZone = 'rest' | 'low' | 'moderate' | 'high'
+
+/** One vocabulary for the stress bands: legend labels, tooltip and `stressZone` all read it. */
+export const STRESS_ZONE_NAME = {
+  rest: 'Rest',
+  low: 'Low',
+  moderate: 'Moderate',
+  high: 'High',
+} as const satisfies Record<StressZone, string>
+
+/** Legend labels carry the inclusive integer range, so adjacent bands never share a bound. */
+export const STRESS_ZONE_LEGEND = {
+  rest: `${STRESS_ZONE_NAME.rest} (< ${STRESS_REST_BELOW})`,
+  low: `${STRESS_ZONE_NAME.low} (${STRESS_REST_BELOW}–${STRESS_MODERATE_FROM - 1})`,
+  moderate: `${STRESS_ZONE_NAME.moderate} (${STRESS_MODERATE_FROM}–${STRESS_HIGH_FROM - 1})`,
+  high: `${STRESS_ZONE_NAME.high} (≥ ${STRESS_HIGH_FROM})`,
+} as const satisfies Record<StressZone, string>
+
+export function stressZone(v: number): StressZone {
+  if (v >= STRESS_HIGH_FROM) return 'high'
+  if (v >= STRESS_MODERATE_FROM) return 'moderate'
+  if (v >= STRESS_REST_BELOW) return 'low'
+  return 'rest'
+}
+
+/** The load meter's empty line while the read is pending or a placeholder (no gap to name yet). */
+export const LOAD_LOADING_TEXT = 'Loading training load'
+
 /** Minus sign (U+2212) so a signed figure aligns with `+` in tabular numerals. */
 const MINUS = '−'
 

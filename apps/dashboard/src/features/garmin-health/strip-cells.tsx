@@ -36,6 +36,7 @@ import {
   recoveryGap,
   recoveryQualifier,
   loadGap,
+  LOAD_LOADING_TEXT,
   fitnessGap,
   gapLine,
   windowCopyDays,
@@ -206,6 +207,7 @@ function useLoadCell(params: SummaryParams): StatStripCell {
                 startCaption="0"
                 endCaption={ACWR_METER_MAX.toFixed(1)}
                 loading={query.isPending}
+                emptyText={LOAD_LOADING_TEXT}
               />
               {load.length > 0 || query.isPending ? (
                 <LoadRows load={load} loading={query.isPending} />
