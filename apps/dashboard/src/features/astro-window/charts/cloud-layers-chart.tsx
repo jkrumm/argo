@@ -1,5 +1,4 @@
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
-import { withUnit } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
 import {
@@ -96,7 +95,7 @@ export default function CloudLayersChart({
         xTicks={hourlyTicks(hourly)}
         formatX={hourlyTimeLabel(hourly)}
         series={series}
-        y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => withUnit(v, '%') }}
+        y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: fmtPercent }}
         tooltip={{ formatHeader: (_x, d) => d.localTime, onFollow: true }}
       />
     </ChartCard>

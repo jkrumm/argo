@@ -35,6 +35,7 @@ export {
   fmtShortDay,
   coreGateFailure,
   coreMeterReading,
+  headlineFirstDate,
   headlineNight,
   markedNightOf,
   pageSummary,

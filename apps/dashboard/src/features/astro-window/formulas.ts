@@ -185,22 +185,25 @@ export function coreGateDetail(night: Night): string {
     : 'clears the gate'
 }
 
-/** A failed Moon gate with no shooting window, from the hourly samples only: the moon's peak over the astronomical-dark hours, or why there is none to state. */
+/**
+ * A failed Moon gate with no shooting window, from the hourly samples only: the moon's peak over
+ * the astronomical-dark hours, or why there is none to state.
+ */
 function moonDarkDetail(hourly: readonly HourlyPoint[]): string {
   const dark = hourly.filter((h) => h.astroDark).map((h) => h.moonAltitude)
   if (dark.length === 0) return 'no dark sample'
   const peak = Math.max(...dark)
-  return peak > 0
-    ? `up to ${fmtDegrees(peak)} while it is dark`
-    : 'below the horizon while it is dark'
+  if (peak > 0) return `up to ${fmtDegrees(peak)} while it is dark`
+  return peak < 0 ? 'below the horizon while it is dark' : 'on the horizon while it is dark'
 }
 
 /**
  * The Moon gate row's one line, in words only (the illumination and the limit are drawn in the Moon
  * cell). A failed gate: the moon's peak altitude over the window, else over the dark hours (or a
- * stated absence of a dark sample), always from structured fields, never the API's prose. A pass: `under limit`, or, for a moon over the limit, why the engine
- * counted it down: `below horizon` (peak under 0°) or `behind skyline` (a window sample reports
- * `moonBehindTerrain`); `over limit` alone when neither field says.
+ * stated absence of a dark sample), always from structured fields, never the API's prose. A pass:
+ * `under limit`, or, for a moon over the limit, why the engine counted it down: `below horizon`
+ * (peak under 0°) or `behind skyline` (a window sample reports `moonBehindTerrain`); `over limit`
+ * alone when neither field says.
  */
 export function moonGateDetail(
   night: Night,
@@ -433,18 +436,29 @@ export function headlineNight(
 }
 
 /**
+ * The API's first night, for an all-out week with no degree gap to rank (so no marked night):
+ * null when a night is marked, when the API names none, or when that night is the selected one.
+ */
+export function headlineFirstDate(
+  data: WindowResponse,
+  { selectedDate }: { selectedDate: string },
+): string | null {
+  if (markedNightOf(data) !== null) return null
+  return data.bestDate === selectedDate ? null : data.bestDate
+}
+
+/**
  * The page's opening: the live usable count, then the night to look at (`marked`, from
  * `headlineNight`) and how many are ruled out. Its shooting window is added only when `withWindow`.
- * With no marked night at all (no degree gap to rank) it falls back to the API's first night,
- * unless that is the selected one.
+ * With no night to rank at all, `firstDate` (from `headlineFirstDate`) names the API's first night.
  */
 export function pageSummary(
   data: WindowResponse,
   {
     withWindow,
-    selectedDate,
     marked,
-  }: { withWindow: boolean; selectedDate: string; marked: Night | null },
+    firstDate,
+  }: { withWindow: boolean; marked: Night | null; firstDate: string | null },
 ): { sentence: string; facts: string[] } {
   const total = data.nights.length
   const usable = usableNightCount(data.nights)
@@ -460,13 +474,8 @@ export function pageSummary(
     facts.push(`best ${fmtShortDay(marked.date)}${range}`)
   } else if (usable === 0 && marked !== null) {
     facts.push(`closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`)
-  } else if (
-    usable === 0 &&
-    markedNightOf(data) === null &&
-    data.bestDate !== null &&
-    data.bestDate !== selectedDate
-  ) {
-    facts.push(`first ${fmtShortDay(data.bestDate)}`)
+  } else if (usable === 0 && firstDate !== null) {
+    facts.push(`first ${fmtShortDay(firstDate)}`)
   }
   if (usable > 0 && usable < total) facts.push(`${total - usable} ruled out`)
   return { sentence, facts }
@@ -495,15 +504,21 @@ export function windowFact(
   }
 }
 
-/** `mid {m} %` / `high {h} %` (label and value glued): the other two layers, the same statistic as the low value; a layer without data (null or absent) is left out. */
+/** The cloud layers besides low, in print order: the name and the key on both `Weather` and `HourlyPoint`. */
+const OTHER_LAYERS = [
+  ['mid', 'cloudMid'],
+  ['high', 'cloudHigh'],
+] as const
+
+/**
+ * `mid {m} %` / `high {h} %`, label and value glued: the other two layers, the same statistic as
+ * the low value. A layer without data (null or absent) is left out.
+ */
 function layerParts({ weather }: Night): string[] {
-  const layers: readonly (readonly [string, number | null | undefined])[] = [
-    ['mid', weather.cloudMid],
-    ['high', weather.cloudHigh],
-  ]
-  return layers.flatMap(([name, v]) =>
-    v === null || v === undefined ? [] : [`${name}${NBSP}${fmtPercent(v)}`],
-  )
+  return OTHER_LAYERS.flatMap(([name, key]) => {
+    const v = weather[key]
+    return v === null || v === undefined ? [] : [`${name}${NBSP}${fmtPercent(v)}`]
+  })
 }
 
 /** The low-cloud figure as printed: the floored scored mean with its unit; null without a reading. */
@@ -584,7 +599,8 @@ export function skyCellFooter({
       ? 'town glow —'
       : `town glow adds ${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8, 1 = clearest`
-  return `dark sky from ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')} · ${dome} · transparency ${clarity}`
+  const threshold = withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')
+  return `dark sky from ${threshold} · ${dome} · transparency ${clarity}`
 }
 
 /**
@@ -607,7 +623,7 @@ function lowCloudState(night: Night): 'ruinous' | 'limits the score' | null {
   return limitingFactor(night)?.id === 'cloud-low' ? 'limits the score' : null
 }
 
-/** Does the night have a scored low-cloud factor and a reading, so a cloud row can state the fact the verdict rests on? */
+/** Does the night have a scored low-cloud factor and a reading, for a cloud row to state? */
 function hasLowCloudFact(night: Night): boolean {
   const factor = night.factors.find((f) => f.id === 'cloud-low')
   return night.weather.cloudLow !== null && factor !== undefined && factor.value !== null
@@ -622,6 +638,21 @@ export function verdictFacts(night: Night, nights: readonly Night[]): string[] {
       ? null
       : `limited by ${limiting.label.toLowerCase()} ${limiting.pct} %`
   return [`score ${night.score}/100`, ...(named === null ? [] : [named])]
+}
+
+/** The hard gates, in the order `gateRows` lists them: the ids a verdict-card row exists for. */
+const GATE_IDS = ['darkness', 'core-altitude', 'moon'] as const
+
+/**
+ * The lines the score card shows for a gated night. When every killer is one of the gates the
+ * verdict card has a row for, one generic line (the rows name them). A killer this client does not
+ * know has no row, so every killer keeps its own label and reason here.
+ */
+export function withheldLines(night: Night): string[] {
+  const known = night.killers.every((k) => (GATE_IDS as readonly string[]).includes(k.id))
+  return known
+    ? ['Score withheld on a ruled-out night']
+    : ['Score withheld', ...night.killers.map((k) => `${k.label}: ${k.reason}`)]
 }
 
 export type GateRowModel = {
@@ -656,9 +687,9 @@ export function gateRows(
         }
       : { key: id, label, state: 'n/a', tone: 'neutral', detail: 'no astronomical night' }
   const rows = [
-    gate('darkness', 'Darkness', darknessDetail(night)),
-    gate('core-altitude', 'Core', coreGateDetail(night), dark),
-    gate('moon', 'Moon', moonGateDetail(night, moonLimit, hourly), dark),
+    gate(GATE_IDS[0], 'Darkness', darknessDetail(night)),
+    gate(GATE_IDS[1], 'Core', coreGateDetail(night), dark),
+    gate(GATE_IDS[2], 'Moon', moonGateDetail(night, moonLimit, hourly), dark),
   ]
   const cloudState = lowCloudState(night) ?? (hasLowCloudFact(night) ? 'not limiting' : null)
   if (cloudState !== null) {
@@ -705,13 +736,12 @@ export function nightBar(
   return gateBar(night, gateScale)
 }
 
-/** `mid {m} % all night`, `high {h} % all night`: the layers that hold one value for the whole night (a flat line reads as chart furniture). Null when none does. */
+/**
+ * `mid {m} % all night`, `high {h} % all night`: the layers that hold one value for the whole
+ * night (a flat line reads as chart furniture). Null when none does.
+ */
 export function flatLayersNote(hourly: readonly HourlyPoint[]): string | null {
-  const layers = [
-    ['mid', 'cloudMid'],
-    ['high', 'cloudHigh'],
-  ] as const
-  const parts = layers.flatMap(([name, key]) => {
+  const parts = OTHER_LAYERS.flatMap(([name, key]) => {
     const first = hourly[0]?.[key]
     if (first === null || first === undefined) return []
     return hourly.every((h) => h[key] === first)

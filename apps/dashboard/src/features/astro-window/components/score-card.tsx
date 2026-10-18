@@ -1,6 +1,6 @@
 import { Card, Group, Stack, Text } from '@mantine/core'
 import { BarList } from 'basalt-ui'
-import { fmtShortDay } from '../formulas'
+import { fmtShortDay, withheldLines } from '../formulas'
 import type { Night } from '../types'
 
 /**
@@ -28,9 +28,13 @@ export function ScoreCard({ night }: { night: Night }) {
           )}
         </Group>
         {out ? (
-          <Text size="sm" c="dimmed">
-            Score withheld on a ruled-out night
-          </Text>
+          <Stack gap={2}>
+            {withheldLines(night).map((line) => (
+              <Text key={line} size="sm" c="dimmed">
+                {line}
+              </Text>
+            ))}
+          </Stack>
         ) : (
           <>
             <BarList
