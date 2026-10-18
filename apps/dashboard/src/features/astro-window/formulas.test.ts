@@ -20,6 +20,8 @@ import {
   lowCloudRuinous,
   gateRows,
   moonGateDetail,
+  moonReadout,
+  darkSkyThresholdText,
   coreGaugeMax,
   drawsGateBar,
   darknessDetail,
@@ -643,10 +645,10 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: dome and transparency; the threshold lives on the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (low\u00a0=\u00a0clear)',
+      'town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (low\u00a0=\u00a0clear)',
+      'town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
     )
   })
 
@@ -679,7 +681,7 @@ describe('cloudHeadline', () => {
     expect(cloudHeadline(stat)).toEqual({
       value: '40\u00a0%',
       unit: 'low\u00a0cloud',
-      period: ['dark-hours\u00a0mean'],
+      period: '· dark-hours\u00a0mean',
     })
   })
 })
@@ -1012,5 +1014,46 @@ describe('withheldLines', () => {
       'Moon: moon is up',
       'Smoke: plume overhead',
     ])
+  })
+})
+
+describe('darkSkyThresholdText', () => {
+  test('one glued run: the number never parts from its unit', () => {
+    const text = darkSkyThresholdText(21.6)
+    expect(text).toBe('dark\u00a0sky\u00a0≥\u00a021.6\u00a0mag/arcsec²')
+    expect(text).not.toContain(' ')
+  })
+})
+
+describe('moonReadout', () => {
+  const at = (altitude: number, behindTerrain: boolean, illumination: number) =>
+    moonReadout({ altitude, behindTerrain, illumination, limit: 0.25 })
+  test('up and lit over the limit interferes', () => {
+    expect(at(30, false, 0.6)).toEqual({
+      state: 'up',
+      interferes: true,
+      text: 'Moon up · over the limit',
+    })
+  })
+  test('up but under the limit does not interfere', () => {
+    expect(at(30, false, 0.1)).toEqual({
+      state: 'up',
+      interferes: false,
+      text: 'Moon up · under the limit',
+    })
+  })
+  test('down never interferes, however lit', () => {
+    expect(at(-5, false, 0.9)).toEqual({
+      state: 'down',
+      interferes: false,
+      text: 'Moon down · no interference',
+    })
+  })
+  test('behind the skyline never interferes', () => {
+    expect(at(10, true, 0.9)).toEqual({
+      state: 'behind terrain',
+      interferes: false,
+      text: 'Moon behind terrain · no interference',
+    })
   })
 })

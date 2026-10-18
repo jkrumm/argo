@@ -433,6 +433,7 @@ function AstroWindowPage() {
                         detailDate={selectedDate}
                         hourly={data.detail.hourly}
                         night={selectedNight}
+                        moonLimit={data.moonMaxIllumination}
                       />
                     </Box>
                   </Suspense>
