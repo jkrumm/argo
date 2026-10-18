@@ -230,6 +230,25 @@ export function recoverySentence(input: {
   return capitalize([input.load, gap.headline].filter(Boolean).join('; '))
 }
 
+/** The newest recovery score in a window: its value and the date it was scored on. */
+export function lastScored(
+  points: readonly { date: string; recovery: number | null }[],
+): { value: number; date: string } | null {
+  const hit = points.findLast((p) => p.recovery !== null)
+  return hit === undefined || hit.recovery === null ? null : { value: hit.recovery, date: hit.date }
+}
+
+/**
+ * How far the 7 d load sits from the 28 d baseline, in plain words (`12% above`); `null` when the
+ * ratio is unknown. Within a whole percent of the baseline reads as level.
+ */
+export function loadVsBaseline(acwr: number | null): string | null {
+  if (acwr === null || !Number.isFinite(acwr)) return null
+  const pct = Math.round(Math.abs(acwr - 1) * 100)
+  if (pct === 0) return 'level with your 28 d baseline'
+  return `${pct}% ${acwr > 1 ? 'above' : 'below'} your 28 d baseline`
+}
+
 /** Whole calendar days from a `YYYY-MM-DD` key to `today`. */
 function daysOld(date: string, today: Date): number {
   const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
@@ -272,7 +291,7 @@ export function recoveryGap(
           ? `Today’s score appears once today’s readings sync (${cadence}).`
           : `The latest synced day is ${age} d old; Garmin syncs ${cadence}.`
   return {
-    headline: `no recovery score, since there is not enough HRV, sleep or resting HR data for ${when}`,
+    headline: `no recovery score for ${when}`,
     reason: `Not enough HRV, sleep or resting HR data for ${when}.`,
     fills,
   }

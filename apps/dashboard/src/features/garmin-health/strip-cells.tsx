@@ -33,6 +33,8 @@ import {
   RECOVERY_REST_BELOW,
   contributorItems,
   firstToLast,
+  lastScored,
+  loadVsBaseline,
   fmtNum,
   mean,
   signed,
@@ -92,7 +94,17 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     const values = applyVisibilityFilter(series.data?.points ?? [], (p) => p.date).map(
       (p) => p.recovery,
     )
-    return { mean: mean(values), days: values.filter((v) => v !== null).length }
+    return {
+      mean: mean(values),
+      days: values.filter((v) => v !== null).length,
+      values,
+      last: lastScored(
+        applyVisibilityFilter(series.data?.points ?? [], (p) => p.date).map((p) => ({
+          date: p.date,
+          recovery: p.recovery,
+        })),
+      ),
+    }
   }, [series.data])
 
   const data = summary.data
@@ -109,11 +121,28 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
+    ...(score === null &&
+      !summary.isPending && {
+        footer: window.last
+          ? `Last scored ${window.last.value.toFixed(0)}/100 on ${dayLabel(window.last.date)}`
+          : `No score in the last ${window.values.length} d`,
+      }),
     visual:
       score === null && !summary.isPending ? (
-        <Text size="xs" c="dimmed">
-          {gap.reason} {gap.fills}
-        </Text>
+        <>
+          <Text size="xs" c="dimmed">
+            {gap.reason} {gap.fills}
+          </Text>
+          {window.days > 1 && (
+            <Sparkline
+              data={window.values.map((v) => v ?? Number.NaN)}
+              height={28}
+              color={VX.line}
+              emphasizeLast
+              ariaLabel={`Recovery score over ${window.values.length} d`}
+            />
+          )}
+        </>
       ) : (
         <>
           <Meter
@@ -164,12 +193,14 @@ function useLoadCell(params: SummaryParams): StatStripCell {
   return {
     key: 'load',
     caption: 'Training load',
-    qualifier: 'acute ÷ chronic EWMA',
+    qualifier: '7 d load vs 28 d baseline',
     value: fmtNum(acwr, 2),
     unit: 'ACWR',
     loading: query.isPending,
     stale: isPlaceholderData,
-    footer: `under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} · danger > ${ACWR_CAUTION_TO}`,
+    ...(loadVsBaseline(acwr) !== null && {
+      footer: `Last 7 d load is ${loadVsBaseline(acwr)}`,
+    }),
     visual: (
       <>
         <Meter
