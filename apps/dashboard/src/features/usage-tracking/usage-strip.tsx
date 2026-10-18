@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { NBSP } from '../../lib/format'
-import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Metric } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
@@ -68,7 +67,7 @@ function useDaily(metric: Metric, now: number): Series {
     usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none' }),
   )
   const all: Daily[] =
-    (shotState() === 'empty' ? undefined : query.data)?.buckets.map((b) => ({
+    query.data?.buckets.map((b) => ({
       date: dayToDate(b.bucket),
       value: b.groups['value'] ?? null,
     })) ?? []
@@ -77,8 +76,11 @@ function useDaily(metric: Metric, now: number): Series {
 }
 
 /** The cell with its readings replaced by the one empty reason. */
-const emptied = (cell: StatStripCell): StatStripCell => ({
-  ...cell,
+const emptied = ({ key, caption, qualifier, info }: StatStripCell): StatStripCell => ({
+  key,
+  caption,
+  ...(qualifier === undefined ? {} : { qualifier }),
+  ...(info === undefined ? {} : { info }),
   state: { kind: 'empty', reason: NO_USAGE_CELL },
 })
 

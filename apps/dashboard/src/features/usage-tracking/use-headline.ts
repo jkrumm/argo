@@ -10,11 +10,11 @@ type Headline = NonNullable<ReturnType<typeof useHeadlineQuery>['data']>
  * substitutes a window with no ingested usage, so both empty with the charts, as production does
  * when nothing was pushed.
  */
-export function useUsageHeadline(): UseQueryResult<Headline> {
+export function useUsageHeadline(): Pick<UseQueryResult<Headline>, 'data' | 'isPending'> {
   const query = useHeadlineQuery()
   if (shotState() !== 'empty' || query.data === undefined) return query
   return {
-    ...query,
+    isPending: query.isPending,
     data: {
       ...query.data,
       costUsd30d: 0,

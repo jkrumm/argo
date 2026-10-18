@@ -38,7 +38,8 @@ function labeledCell(
       state: { kind: 'empty', reason: NOTHING_TO_LABEL },
     }
   }
-  const unlabeled = Math.max(total - labeled, 0)
+  const labeledCount = Math.min(labeled, total)
+  const unlabeled = Math.max(total - labeledCount, 0)
   return {
     key: 'labeled',
     caption: 'Labeled sources',
@@ -51,9 +52,9 @@ function labeledCell(
         label="Labeled sources of all chats and channels"
         max={Math.max(total, 1)}
         size="row"
-        format={(v) => labeledSegmentCaption(v, labeled, unlabeled)}
+        format={(v) => labeledSegmentCaption(v, labeledCount, unlabeled)}
         segments={[
-          { label: 'Labeled', value: Math.min(labeled, total), color: FILL_STRONG },
+          { label: 'Labeled', value: labeledCount, color: FILL_STRONG },
           { label: 'Unlabeled', value: unlabeled, color: FILL_FAINT },
         ]}
       />
