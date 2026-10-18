@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { relativeTime } from 'basalt-ui/format'
 import {
-  gapsBefore,
+  gapsBeforePosition,
   RATING_MAX,
   approxHours,
   booksPerMonth,
@@ -240,7 +240,7 @@ describe('ratingShape', () => {
   })
 
   test('gaps before a position: none at the first centre, one per centre passed, four at the last', () => {
-    expect([0.5, 1, 1.5, 2.5, 3.5, 4.5].map(gapsBefore)).toEqual([0, 0.5, 1, 2, 3, 4])
+    expect([0.5, 1, 1.5, 2.5, 3.5, 4.5].map(gapsBeforePosition)).toEqual([0, 0.5, 1, 2, 3, 4])
   })
 
   test('community mean covers the same rated books', () => {

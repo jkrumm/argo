@@ -255,13 +255,17 @@ const RATING_BINS = RATING_MAX
  * Column `N` is centred on star `N`, i.e. at `N − 0.5`, so a mean of `m` stars sits at `m − 0.5`
  * (clamped to the first and last centre). The columns have a gap: see {@link gapsBefore}.
  */
-const trackAt = (value: number): number => Math.min(RATING_MAX, Math.max(1, value)) - 0.5
+const FIRST_STAR = 1
+const HALF_STAR = 0.5
+const trackAt = (value: number): number =>
+  Math.min(RATING_MAX, Math.max(FIRST_STAR, value)) - HALF_STAR
 
 /**
- * How many column gaps lie left of a track position. Adjacent centres are one column plus one gap
- * apart, so the position is gap-aware by construction: `0` at the first centre, `4` at the last.
+ * How many column gaps lie left of a track position (`at` from {@link trackAt}), interpolated
+ * between column centres: adjacent centres are one column plus one gap apart, so a position
+ * between two columns carries a fractional gap. `0` at the first centre, `4` at the last.
  */
-export const gapsBefore = (at: number): number => Math.max(0, at - 0.5)
+export const gapsBeforePosition = (at: number): number => Math.max(0, at - HALF_STAR)
 
 /** `(0.5, 1]` → 0 … `(4.5, 5]` → 4; a rating outside 0.5–5 clamps to the end bin. */
 export function ratingBin(rating: number): number {

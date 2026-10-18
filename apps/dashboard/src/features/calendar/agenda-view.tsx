@@ -1,12 +1,12 @@
 import { formatMinutes } from '../../lib/format'
 import { useMemo } from 'react'
-import { Box, Card, Stack, Text } from '@mantine/core'
+import { Box, Card, Stack } from '@mantine/core'
 import { Section, StatGroup, PageSummary } from 'basalt-ui'
 import { format } from 'date-fns'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { EMPTY_WINDOW, summaryParts, todayCardState } from './summary'
-import { feedGap, type SignInStep } from './query-state'
-import { SignInStepView } from './sign-in-step'
+import { feedGap } from './query-state'
+import { SourceErrorLine, type SourceError } from './sign-in-step'
 import { RetryButton } from './retry-button'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
@@ -34,8 +34,6 @@ import {
 } from './derive'
 
 const NEXT_DAYS = 7
-
-export type SourceError = { label: string; reason: string; step?: SignInStep | undefined }
 
 const hhmm = (d: Date) => format(d, 'HH:mm')
 
@@ -105,10 +103,7 @@ export function AgendaView({
       <Box data-shot="calendar-headline" data-shot-states="loading error empty">
         <PageSummary {...parts} loading={loading} />
         {errors.map((error) => (
-          <Text key={error.label} className={classes.muted}>
-            {error.label} unavailable — {error.reason}
-            {error.step && <SignInStepView step={error.step} />}
-          </Text>
+          <SourceErrorLine key={error.label} error={error} />
         ))}
         {canRetryCalendar && (
           <RetryButton
