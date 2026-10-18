@@ -11,7 +11,7 @@ const {
   isUntitled,
   listTime,
   startedDate,
-  summarize,
+  lastReplyOf,
   listEndNote,
   clampAtWord,
   summaryHeadline,
@@ -181,33 +181,24 @@ describe('buildView', () => {
 })
 
 describe('summary', () => {
-  it('derives the sentence from the loaded list', () => {
-    const summary = summarize(
-      [
-        entry({ id: 'a', pinned: true, updatedAt: new Date(2026, 9, 17, 14, 5).getTime() }),
-        entry({ id: 'b', updatedAt: NOW - 3 * DAY }),
-      ],
-      NOW,
-    )
-    expect(summaryHeadline(summary)).toEqual({
-      sentence: '1 active today, 2 in the last 7 days',
-      facts: ['1 pinned', 'last reply 14:05'],
-    })
+  it('is the last reply only: no count a group heading or chip already prints', () => {
+    const entries = [
+      entry({ id: 'a', pinned: true, updatedAt: new Date(2026, 9, 17, 14, 5).getTime() }),
+      entry({ id: 'b', updatedAt: NOW - 3 * DAY }),
+    ]
+    expect(lastReplyOf(entries, NOW)).toBe('14:05')
+    expect(summaryHeadline(lastReplyOf(entries, NOW))).toEqual({ sentence: 'Last reply 14:05' })
   })
 
-  it('omits the last reply with no threads and pluralises', () => {
-    expect(summaryHeadline(summarize([], NOW))).toEqual({
-      sentence: '0 active today, 0 in the last 7 days',
-      facts: ['0 pinned'],
-    })
+  it('states an empty list instead of a zero', () => {
+    expect(summaryHeadline(lastReplyOf([], NOW))).toEqual({ sentence: 'No threads yet' })
     expect(
-      summaryHeadline(summarize([entry({ id: 'a', updatedAt: NOW - 8 * DAY })], NOW)).sentence,
-    ).toBe('0 active today, 0 in the last 7 days')
+      lastReplyOf([entry({ id: 'a', updatedAt: new Date(2026, 9, 9, 9, 0).getTime() })], NOW),
+    ).toBe('9 Oct')
   })
 
-  it('words the untitled fold', () => {
-    expect(untitledLabel(3, '2 months ago')).toBe('3 untitled chats · oldest 2 months ago')
-    expect(untitledLabel(1, 'yesterday')).toBe('1 untitled chat · oldest yesterday')
+  it('words the untitled fold without the chip count', () => {
+    expect(untitledLabel('2 months ago')).toBe('Untitled chats · oldest 2 months ago')
   })
 })
 
