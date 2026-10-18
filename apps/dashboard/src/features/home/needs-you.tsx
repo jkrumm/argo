@@ -46,9 +46,9 @@ function Card({ decision }: { decision: Decision }) {
       })}
       {...(view !== null &&
         (!narrow || view.layout === 'inline') && {
-          preview: <HistoryPreview lines={decision.history} />,
+          preview: <HistoryPreview view={view} />,
         })}
-      {...(view?.layout === 'inline' && { inlinePreview: true })}
+      {...(view?.layout === 'inline' && { previewPlacement: 'inline' as const })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(decision.detail !== null && {
         disclosure: {

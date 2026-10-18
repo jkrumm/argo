@@ -8,6 +8,7 @@ import {
   isInactive,
   isRenderable,
   leadOf,
+  titleQuestion,
   visibleFacts,
 } from './decision-card-model'
 
@@ -110,7 +111,7 @@ describe('cardCopy', () => {
   it('turns a long first sentence into a title question and keeps the whole ask behind it', () => {
     const long = `Should we ${'word '.repeat(QUESTION_MAX)}now?`
     const copy = cardCopy({ question: long, body: 'More follows.', title: '{title}.' })
-    expect(copy.question).toBe('Decide on {title}?')
+    expect(copy.question).toBe('Approve {title}?')
     expect(copy.fromTitle).toBe(true)
     expect(copy.evidenceLine?.endsWith('…')).toBe(true)
     expect(copy.detail).toBe(`${long} More follows.`)
@@ -121,11 +122,45 @@ describe('cardCopy', () => {
     const copy = cardCopy({ question: long, body: null, title: '{title}' })
     expect(long.length).toBeGreaterThan(QUESTION_MAX)
     expect(long.length).toBeLessThanOrEqual(EVIDENCE_LINE_MAX)
-    expect(copy).toMatchObject({ question: 'Decide on {title}?', evidenceLine: long, detail: null })
+    expect(copy).toMatchObject({ question: 'Approve {title}?', evidenceLine: long, detail: null })
   })
 
   it('leaves a long question alone when there is no title to stand in', () => {
     const long = `Should we ${'x'.repeat(QUESTION_MAX)} now?`
     expect(cardCopy({ question: long, body: null, title: ' ' }).question).toBe(long)
+  })
+})
+
+describe('question form', () => {
+  const long = `Should we ${'word '.repeat(QUESTION_MAX)}now?`
+
+  it('keeps a title that is already a question', () => {
+    expect(cardCopy({ question: long, body: null, title: 'Ship v2 now?' }).question).toBe(
+      'Ship v2 now?',
+    )
+  })
+
+  it('never builds `Approve Should we …?`', () => {
+    const q = cardCopy({ question: long, body: null, title: 'Should we ship v2?' }).question
+    expect(q).toBe('Should we ship v2?')
+  })
+
+  it('bounds a long title to the question limit, ellipsizing only the title', () => {
+    const q = cardCopy({ question: long, body: null, title: 'word '.repeat(60) }).question
+    expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
+    expect(q.startsWith('Approve word')).toBe(true)
+    expect(q.endsWith('…?')).toBe(true)
+  })
+
+  it('bounds a long question-shaped title too', () => {
+    const q = cardCopy({ question: long, body: null, title: `${'word '.repeat(60)}ok?` }).question
+    expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
+    expect(q.endsWith('?')).toBe(true)
+  })
+
+  it('titleQuestion bounds the verb form for a long identifier', () => {
+    const q = titleQuestion('Retry', 'x'.repeat(200))
+    expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
+    expect(q.startsWith('Retry x')).toBe(true)
   })
 })

@@ -6,13 +6,13 @@ import { ViewTabs } from 'basalt-ui/controls'
 import { relativeTime } from 'basalt-ui/format'
 import { IconBell, IconBrandGithub, IconBriefcase, IconUser, type Icon } from '@tabler/icons-react'
 import type { WardenBoardItem } from '../../lib/queries/warden'
+import { stripShortcodes } from '../../lib/text'
 import { isSafeHttpUrl, issueRefLabel } from './model'
 import classes from './board.module.css'
 import { boardStore } from './board-store'
 import {
   deferralOf,
   emptyColumnText,
-  stripShortcodes,
   openCount,
   originKind,
   splitBoardColumns,

@@ -172,7 +172,7 @@ function pollerCell({ poller }: StripModel): StatStripCell {
     value: formatNumber(poller.oldestMin),
     unit: 'min',
     ...toneCell(tone),
-    ...(pollerFooter(poller) === null ? {} : { footer: pollerFooter(poller) }),
+    footer: pollerFooter(poller),
     visual: (
       <Meter
         label={`Oldest poller age against ${limit} minutes`}

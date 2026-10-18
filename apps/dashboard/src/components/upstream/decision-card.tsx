@@ -5,12 +5,12 @@
  * optional, so a read-only or copy-only card is just a card without them.
  *
  * The interior shape (Keel's), top to bottom:
- *   1. question    — a short title (`QUESTION_MAX` chars); a longer ask becomes `Decide on <entity>?`
+ *   1. question    — a short title (`QUESTION_MAX` chars); a longer ask becomes `Approve <entity>?`
  *   2. facts       — the entity plus two or three `·`-separated facts (`capFacts`, `FACTS_MAX` = 3)
  *   3. evidenceLine — ONE line, the lead of the reason (+ an age/confidence where the source has one);
  *                    the whole ask sits behind `disclosure` only when the line had to shorten it
  *   4. actions     — one primary, one secondary, the rest in the menu
- *   5. preview     — context on the right. With a single line of history set `inlinePreview`: it
+ *   5. preview     — context on the right. With a single line of history set `previewPlacement="inline"`: it
  *                    then sits under the facts as plain text, with no well and no box
  * `cardCopy` (decision-card-model) derives 1 + 3 from an ask; callers pass its `question`,
  * `evidenceLine` and `detail` (as `disclosure.content`). `evidence` (the inset) is the older,
@@ -57,8 +57,8 @@ export type DecisionCardProps = {
   secondary?: DecisionCardAction | undefined
   /** Every other verb, behind one quiet icon button. */
   menu?: readonly DecisionCardAction[] | undefined
-  /** Render `preview` as plain text under the facts instead of a well on the right (one line of history). */
-  inlinePreview?: boolean
+  /** `well` (default) puts `preview` in the right-hand column; `inline` renders it as plain text under the facts (one line of history, no box). */
+  previewPlacement?: 'well' | 'inline'
   /** A collapsed section revealed on demand, e.g. the full evidence at 390. */
   disclosure?: { label: string; content: ReactNode }
   /** Trailing meta line under the actions. */
@@ -163,7 +163,7 @@ export function DecisionCard({
   evidence,
   evidenceLine,
   preview,
-  inlinePreview = false,
+  previewPlacement = 'well',
   primary,
   secondary,
   menu,
@@ -209,7 +209,9 @@ export function DecisionCard({
               {evidenceLine}
             </Text>
           )}
-          {inlinePreview && isRenderable(preview) && <Box className={classes.wrap}>{preview}</Box>}
+          {previewPlacement === 'inline' && isRenderable(preview) && (
+            <Box className={classes.wrap}>{preview}</Box>
+          )}
           {isRenderable(evidence) && <Box className={classes.inset}>{evidence}</Box>}
           {disclosure !== undefined && <Disclosure {...disclosure} />}
           <ActionRow question={question} primary={primary} secondary={secondary} menu={menu} />
@@ -219,7 +221,7 @@ export function DecisionCard({
             </Text>
           )}
         </Stack>
-        {!inlinePreview && isRenderable(preview) && (
+        {previewPlacement === 'well' && isRenderable(preview) && (
           <Box className={classes.preview}>{preview}</Box>
         )}
       </Group>

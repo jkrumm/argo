@@ -105,7 +105,7 @@ describe('deriveDecisions', () => {
       agents: null,
       now: NOW,
     })
-    expect(d?.headline).toBe('Decide on {title}?')
+    expect(d?.headline).toBe('Approve {title}?')
     expect(d?.entity).toBeNull()
     expect(d?.facts.length).toBeLessThanOrEqual(3)
     expect(d?.evidenceLine?.endsWith('…')).toBe(true)
@@ -125,6 +125,36 @@ describe('deriveDecisions', () => {
     expect(d?.entity).toBe('{title}')
     expect(d?.evidenceLine).toBe('Why: tests.')
     expect(d?.detail).toBeNull()
+  })
+
+  it('strips shortcodes from the repo in the facts line', () => {
+    const [d] = deriveDecisions({
+      warden: warden({ awaiting_owner: [awaiting({ repo: ':warning: service' })] }),
+      agents: null,
+      now: NOW,
+    })
+    expect(d?.facts[0]).toBe('warden · service')
+  })
+
+  it('does not repeat the title above a failed item whose question names it', () => {
+    const [d] = deriveDecisions({
+      warden: warden({ awaiting_owner: [awaiting({ state: 'failed' })] }),
+      agents: null,
+      now: NOW,
+    })
+    expect(d?.headline).toBe('Retry {title}?')
+    expect(d?.entity).toBeNull()
+  })
+
+  it('bounds an agent question by its title', () => {
+    const title = 'word '.repeat(60)
+    const [d] = deriveDecisions({
+      warden: null,
+      agents: agents({ agents: [agent({ title })] }),
+      now: NOW,
+    })
+    expect(d?.headline.length).toBeLessThanOrEqual(80)
+    expect(d?.headline.startsWith('Approve word')).toBe(true)
   })
 
   it('leads an agent decision with its blocker as the evidence line', () => {
