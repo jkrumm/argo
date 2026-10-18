@@ -92,8 +92,6 @@ export default function HealthCard({
   const hasCalls = rates.buckets.some((b) => b.groups['value'] != null)
   const emptyWindow = noUsageWindow(billing !== undefined || workspace !== undefined)
   const unit = grain === 'day' ? 'day' : 'week'
-  const latencyEmpty = hasCalls ? `A line needs latency on two ${unit}s` : emptyWindow
-  const errorsEmpty = hasCalls ? 'No errors in this window' : emptyWindow
   const last = p95.at(-1)
   const lastQty = secondsQuantity(last?.v)
   const folded = foldTopN(
@@ -113,6 +111,9 @@ export default function HealthCard({
     <ChartCard
       title={`Latency and errors · per ${unit} · ${periodNoun(range)}`}
       info={healthInfo(unit)}
+      // No calls in the window: neither half has a reading, so the card says so once instead of
+      // printing a zero count beside a dash.
+      state={{ empty: !hasCalls && emptyWindow }}
     >
       <Box className={classes.healthBox}>
         <Box className={classes.health}>
@@ -144,7 +145,7 @@ export default function HealthCard({
                 },
               ]}
               tooltip={{ formatHeader: (x) => shortDay(x) }}
-              state={{ empty: p95.length < 2 && latencyEmpty }}
+              state={{ empty: p95.length < 2 && `A line needs latency on two ${unit}s` }}
             />
           </div>
           <div className={classes.healthRight}>
@@ -169,7 +170,7 @@ export default function HealthCard({
               y={{ format: fmtTokens, ticks: 2 }}
               bars={VERDICT_BARS}
               tooltip={{ formatHeader: (x) => shortDay(x) }}
-              state={{ empty: folded.total === 0 && errorsEmpty }}
+              state={{ empty: folded.total === 0 && 'No errors in this window' }}
             />
           </div>
         </Box>

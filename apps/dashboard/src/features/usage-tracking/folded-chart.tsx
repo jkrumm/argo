@@ -105,8 +105,9 @@ export function FoldedChart({
 
   return (
     <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-      <Grid.Col span={{ base: 12, lg: 8 }} data-shot={`${metric}-chart`}>
+      <Grid.Col span={{ base: 12, lg: 8 }} data-shot={`${metric}-chart`} data-shot-states="empty">
         <ChartCard
+          className={classes.fill}
           title={`${unitNoun} per ${perBucket} · by ${groupNoun} · ${periodNoun(range)}`}
           info={info}
           actions={
@@ -131,15 +132,15 @@ export function FoldedChart({
           />
         </ChartCard>
       </Grid.Col>
-      <Grid.Col span={{ base: 12, lg: 4 }} data-shot={`${metric}-list`}>
+      <Grid.Col span={{ base: 12, lg: 4 }} data-shot={`${metric}-list`} data-shot-states="empty">
         <ChartCard
           className={classes.fill}
           title={`${listTitle} · ${periodNoun(range)}${totalNote}`}
+          state={{ empty: folded.totals.length === 0 && emptyText }}
         >
           <BarList
             label={`${unitNoun} by ${groupNoun}, ${periodNoun(range)}`}
             format={listFormat}
-            emptyText={emptyText}
             items={rows.map((t) => ({
               key: t.key,
               label: labelOf(t.key),
