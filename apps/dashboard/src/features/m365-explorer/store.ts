@@ -1,10 +1,10 @@
 import { createLocalStore, field } from 'basalt-ui/state'
 
-export const VIEW_KEYS = ['chats', 'teams', 'feed'] as const
+const VIEW_KEYS = ['chats', 'teams', 'feed'] as const
 export type ViewKey = (typeof VIEW_KEYS)[number]
 
 /** Phone only: which pane the single column shows. Wide layouts show the list and the detail side by side. */
-export const PANE_KEYS = ['sources', 'labeled', 'detail'] as const
+const PANE_KEYS = ['sources', 'labeled', 'detail'] as const
 export type PaneKey = (typeof PANE_KEYS)[number]
 
 /**

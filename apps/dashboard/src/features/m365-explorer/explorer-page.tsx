@@ -10,7 +10,7 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from '@tanstack/react-query'
-import { useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { m365Mutations, m365Queries } from '../../lib/queries/m365'
 import { PageSummary } from '../../components/upstream/page-summary'
 import { FeedPane } from './feed-pane'
@@ -49,16 +49,13 @@ const SCOPE_BY_VIEW: Record<ViewKey, ChipScope> = {
   teams: 'channels',
   feed: 'sources',
 }
-const PANE_TITLE: Record<PaneKey, string> = {
-  sources: 'Sources',
-  labeled: 'Labeled sources',
-  detail: 'Detail',
+/** Per phone pane: the Section title, the tab label and the shot anchor. `labeled` has none here, `LabeledPane` carries its own. */
+const PANE_META: Record<PaneKey, { title: string; tab: string; shot: string | null }> = {
+  sources: { title: 'Sources', tab: 'Sources', shot: 'source-list' },
+  labeled: { title: 'Labeled sources', tab: 'Labeled', shot: null },
+  detail: { title: 'Detail', tab: 'Detail', shot: 'detail-pane' },
 }
-const PANE_SHOT: Record<PaneKey, string> = {
-  sources: 'source-list',
-  labeled: 'labeled-pane',
-  detail: 'detail-pane',
-}
+const PANE_ORDER: readonly PaneKey[] = ['sources', 'labeled', 'detail']
 const CHATS_TOP = 50
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
 const CHANNEL_WINDOW = 4
@@ -71,6 +68,7 @@ export function M365ExplorerPage(): ReactElement {
   const [storedTag, setTag] = explorerStore.field.tag.use()
   const [query] = explorerStore.field.q.use()
   const [pane, setPane] = explorerStore.field.pane.use()
+  const phoneRef = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<SourceRef | null>(null)
   const [tagsOpened, tagsModal] = useDisclosure(false)
 
@@ -209,9 +207,16 @@ export function M365ExplorerPage(): ReactElement {
     upsertLabel.reset()
     deleteLabel.reset()
     setSelected(ref)
-    // A phone shows one pane: a pick opens the detail, closing it returns to the list.
-    if (compact) setPane(ref ? 'detail' : 'sources')
+    // Set on every layout, not only a phone's: the pane a resize back to a phone lands on must match the selection.
+    setPane(ref ? 'detail' : 'sources')
   }
+
+  // A phone swaps the list for the detail on a pick: move focus to the record's heading so the swap is announced.
+  useEffect(() => {
+    if (compact && pane === 'detail' && selectedId !== null) {
+      phoneRef.current?.querySelector<HTMLElement>('h2')?.focus()
+    }
+  }, [compact, pane, selectedId])
 
   const record = selected ? (
     <RecordPane
@@ -278,17 +283,9 @@ export function M365ExplorerPage(): ReactElement {
   )
   // The detail side: the feed in the feed view, the open record, else the labeled sources on a wide
   // screen (a phone has its own Labeled pane) or a hint on a phone.
+  const emptyDetail = <p className={classes.empty}>Pick a chat or channel in Sources to open it</p>
   const detailPane =
-    view === 'feed' ? (
-      <FeedPane tag={tag} />
-    ) : (
-      (record ??
-      (compact ? (
-        <p className={classes.empty}>Pick a chat or channel in Sources to open it</p>
-      ) : (
-        labeledPane
-      )))
-    )
+    view === 'feed' ? <FeedPane tag={tag} /> : (record ?? (compact ? emptyDetail : labeledPane))
 
   const retryFailed = (): void => {
     channelStates.forEach((c) => {
@@ -359,22 +356,26 @@ export function M365ExplorerPage(): ReactElement {
 
         {compact ? (
           <Section
-            title={PANE_TITLE[pane]}
+            title={PANE_META[pane].title}
             tabs={
               <ViewTabs
                 field={explorerStore.field.pane}
                 label="Pane"
-                options={
-                  [
-                    { value: 'sources', label: 'Sources' },
-                    { value: 'labeled', label: `Labeled ${labels.length}` },
-                    { value: 'detail', label: 'Detail' },
-                  ] satisfies Array<{ value: PaneKey; label: string }>
-                }
+                options={PANE_ORDER.map((value) => ({
+                  value,
+                  label:
+                    value === 'labeled'
+                      ? `${PANE_META[value].tab} ${labels.length}`
+                      : PANE_META[value].tab,
+                }))}
               />
             }
           >
-            <div className={classes.phonePane} data-shot={PANE_SHOT[pane]}>
+            <div
+              ref={phoneRef}
+              className={classes.phonePane}
+              {...(PANE_META[pane].shot === null ? {} : { 'data-shot': PANE_META[pane].shot })}
+            >
               {pane === 'sources' ? sourcesPane : pane === 'labeled' ? labeledPane : detailPane}
             </div>
           </Section>
@@ -384,7 +385,7 @@ export function M365ExplorerPage(): ReactElement {
               <Card.Section className={classes.paneBody}>{sourcesPane}</Card.Section>
             </Card>
             <Card className={classes.pane} data-shot="detail-pane">
-              <Card.Section className={classes.paneBody}>{record ?? detailPane}</Card.Section>
+              <Card.Section className={classes.paneBody}>{detailPane}</Card.Section>
             </Card>
           </div>
         )}

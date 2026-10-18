@@ -61,7 +61,7 @@ export type RecencyGroup = 'Today' | 'Last 7 days' | 'Earlier'
 const GROUP_ORDER: readonly RecencyGroup[] = ['Today', 'Last 7 days', 'Earlier']
 
 /** Epoch ms of an ISO string; unparseable or missing sorts last. */
-export function timeOf(iso: string | null | undefined): number {
+function timeOf(iso: string | null | undefined): number {
   const t = iso ? Date.parse(iso) : Number.NaN
   return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t
 }

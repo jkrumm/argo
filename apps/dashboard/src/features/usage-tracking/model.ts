@@ -12,7 +12,9 @@ export const CACHE_HIT_TARGET = 0.6
 export const ERROR_WARN_FROM = 0.01
 export const ERROR_BAD_ABOVE = 0.03
 /** A feed with no record for this long is stale. */
+/** A feed is stale past this many minutes without an event; the headline switches from minutes to hours at `STALE_IN_HOURS_FROM_MIN`. */
 export const STALE_AFTER_MIN = 30
+const STALE_IN_HOURS_FROM_MIN = 120
 /** Series kept in a stacked chart before the rest fold into "Other". */
 export const FOLD_TOP_N = 6
 export const ERROR_FOLD_TOP_N = 3
@@ -166,16 +168,11 @@ export function meanOf(values: readonly (number | null)[]): number | null {
 }
 
 /**
- * The last `n` readings against the whole window, both as plain means of the daily ratios: the cache
- * cell's comparison, because the headline carries no prior-30 d cache ratio. `delta` is in points.
+ * The mean of the last `n` daily readings: the cache cell's recent figure, because the headline
+ * carries no prior-30 d cache ratio. Compare it with the printed 30 d ratio via `pointsDelta`.
  */
-export function recentVsWindow(
-  values: readonly (number | null)[],
-  n = 7,
-): { recent: number | null; window: number | null; delta: number | null } {
-  const window = meanOf(values)
-  const recent = meanOf(values.slice(-n))
-  return { recent, window, delta: pointsDelta(recent, window) }
+export function recentMean(values: readonly (number | null)[], n = 7): number | null {
+  return meanOf(values.slice(-n))
 }
 
 // ── Billing split ────────────────────────────────────────────────────────────────────────────
@@ -271,15 +268,10 @@ export function badDayCount(rates: readonly (number | null)[]): number {
 
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────
 
-export function ageMinutes(iso: string | null | undefined, now: number): number | null {
+function ageMinutes(iso: string | null | undefined, now: number): number | null {
   if (iso === null || iso === undefined) return null
   const ts = new Date(iso).getTime()
   return Number.isNaN(ts) ? null : Math.max(0, (now - ts) / 60_000)
-}
-
-export function isStale(iso: string | null | undefined, now: number): boolean {
-  const age = ageMinutes(iso, now)
-  return age !== null && age > STALE_AFTER_MIN
 }
 
 // ── Copy ─────────────────────────────────────────────────────────────────────────────────────
@@ -315,7 +307,7 @@ export function freshnessWord(iso: string | null | undefined, now: number): stri
   const age = ageMinutes(iso, now)
   if (age === null) return 'no events'
   if (age <= STALE_AFTER_MIN) return 'fresh'
-  if (age < 120) return `stale ${Math.round(age)} min`
+  if (age < STALE_IN_HOURS_FROM_MIN) return `stale ${Math.round(age)} min`
   return `stale ${Math.round(age / 60)} h`
 }
 
