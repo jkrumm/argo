@@ -18,11 +18,9 @@ const fmtKg = (v: number): string => withKg(v, 2)
 export default function WeightChart({
   params,
   goal,
-  ageDays,
 }: {
   params: WeightLogWindowParams
   goal: number | null
-  ageDays: number | null
 }) {
   const query = useQuery(weightLogQueries.series(params))
   const apiPoints = query.data?.points
@@ -30,22 +28,15 @@ export default function WeightChart({
   const span = windowDays(params)
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
   // The strip and headline carry the current weight and its age; the header adds what they do not.
-  const headerFact = useMemo(
-    () => weightHeaderFact(apiPoints ?? [], undefined, ageDays),
-    [apiPoints, ageDays],
-  )
+  const headerFact = useMemo(() => weightHeaderFact(apiPoints ?? []), [apiPoints])
   const dotR = markerRadiusFor(chartData.length)
 
-  // Lines exposes no width hook and draws end labels on the wide class only, so the legend is the one
-  // naming mechanism at every width. `role: 'reference'` is the only switch that keeps a line out of
-  // the end labels; it changes nothing else on a line.
   const series: ChartSeries<WeightChartPoint>[] = [
     {
       key: 'weight',
       label: 'Weight',
       color: VX.line,
       strokeWidth: 2.25,
-      role: 'reference',
       getValue: (d) => d.weightKg,
       formatValue: fmtKg,
       getMarker: () => ({ color: VX.line, r: dotR }),
@@ -56,7 +47,7 @@ export default function WeightChart({
       color: VX.line,
       dash: 'dashed',
       strokeWidth: 1.5,
-      role: 'reference',
+      role: 'overlay',
       parent: 'weight',
       getValue: (d) => d.ma,
       formatValue: fmtKg,

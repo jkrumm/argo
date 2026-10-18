@@ -493,14 +493,27 @@ describe('emptyWindowHint', () => {
       'The last walk falls inside the last 30 days.',
     )
     expect(emptyWindowHint({ last: far, wider: '30d', nowMs: now })).toBe(
-      'The last walk is older than the last 30 days.',
+      'The last walk is outside the last 30 days.',
+    )
+  })
+
+  it('6m and 1y cut at the calendar day the store uses, not at 183 / 365 days', () => {
+    const noon = Date.parse('2026-07-20T12:00:00')
+    // 6 months back from 20 Jul is 20 Jan: a walk on 20 Jan is in, 19 Jan is out.
+    const inside = { state: 'last', endedAt: '2026-01-20T08:00:00' } as const
+    const outside = { state: 'last', endedAt: '2026-01-19T08:00:00' } as const
+    expect(emptyWindowHint({ last: inside, wider: '6m', nowMs: noon })).toBe(
+      'The last walk falls inside the last 6 months.',
+    )
+    expect(emptyWindowHint({ last: outside, wider: '6m', nowMs: noon })).toBe(
+      'The last walk is outside the last 6 months.',
     )
   })
 
   it('names the wider window with the page-wide phrase and says nothing for all time', () => {
     const far = { state: 'last', endedAt: '2024-01-01T08:00:00Z' } as const
     expect(emptyWindowHint({ last: far, wider: '1y', nowMs: now })).toBe(
-      'The last walk is older than the last year.',
+      'The last walk is outside the last year.',
     )
     expect(emptyWindowHint({ last: far, wider: 'all', nowMs: now })).toBeUndefined()
   })

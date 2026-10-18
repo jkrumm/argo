@@ -9,6 +9,7 @@ import {
   deltaFromMean,
   entryAgeDays,
   goalProgress,
+  entrySpanDays,
   intensityTier,
   rateFooter,
   isStale,
@@ -126,10 +127,11 @@ describe('summaryParts', () => {
         goal: 75,
         ageDays: 1,
         entries: 12,
+        entrySpanDays: 40,
       }),
     ).toEqual({
       sentence: 'Weight falling over 28 d, 5.0 kg from the 75.0 kg goal',
-      facts: ['12 weigh-ins', 'last weigh-in 1 day ago'],
+      facts: ['12 weigh-ins in 40 d', 'last weigh-in 1 day ago'],
     })
   })
   test('an old last weigh-in dates the rate window', () => {
@@ -142,10 +144,11 @@ describe('summaryParts', () => {
         ageDays: 20,
         latestKey: '2026-06-03',
         entries: 5,
+        entrySpanDays: 30,
       }),
     ).toEqual({
       sentence: 'Weight rising over the 28 d to 3 Jun',
-      facts: ['5 weigh-ins', 'last weigh-in 20 days ago · stale'],
+      facts: ['5 weigh-ins in 30 d', 'last weigh-in 20 days ago · stale'],
     })
   })
   test('inside the maintenance band the weight is holding steady', () => {
@@ -157,13 +160,21 @@ describe('summaryParts', () => {
         goal: null,
         ageDays: 0,
         entries: 5,
+        entrySpanDays: 30,
       }).sentence,
     ).toBe('Weight holding steady over 7 d')
   })
   test('at the goal is within the module tolerance, not exact equality', () => {
     expect(
-      summaryParts({ current: 75.02, kgPerWeek: 0, rateDays: 28, goal: 75, ageDays: 0, entries: 5 })
-        .sentence,
+      summaryParts({
+        current: 75.02,
+        kgPerWeek: 0,
+        rateDays: 28,
+        goal: 75,
+        ageDays: 0,
+        entries: 5,
+        entrySpanDays: 30,
+      }).sentence,
     ).toContain('0.0 kg at the 75.0 kg goal')
   })
   test('unknown rate says there is no trend yet, never 0', () => {
@@ -175,8 +186,9 @@ describe('summaryParts', () => {
         goal: null,
         ageDays: null,
         entries: 5,
+        entrySpanDays: 30,
       }),
-    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins'] })
+    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins in 30 d'] })
   })
   test('empty window', () => {
     expect(
@@ -201,22 +213,12 @@ describe('weightHeaderFact', () => {
           { date: '2026-06-10', weightKg: 79 },
           { date: '2026-06-01', weightKg: 81 },
         ],
-        now,
+        { now },
       ),
     ).toEqual({ value: '−2.0', period: 'net change, 1 Jun to 10 Jun' })
   })
-  test('a stale last weigh-in is stated in words beside the span', () => {
-    const pts = [
-      { date: '2026-06-10', weightKg: 79 },
-      { date: '2026-06-01', weightKg: 81 },
-    ]
-    expect(weightHeaderFact(pts, now, 20)?.period).toBe(
-      'net change, 1 Jun to 10 Jun · last weigh-in 20 days ago',
-    )
-    expect(weightHeaderFact(pts, now, 3)?.period).toBe('net change, 1 Jun to 10 Jun')
-  })
   test('a single entry shows that weight and its day', () => {
-    expect(weightHeaderFact([{ date: '2026-06-01', weightKg: 81 }], now)).toEqual({
+    expect(weightHeaderFact([{ date: '2026-06-01', weightKg: 81 }], { now })).toEqual({
       value: '81.0',
       period: 'single entry on 1 Jun',
     })
@@ -293,7 +295,6 @@ describe('intensityTier', () => {
     expect(intensityTier(0.7)).toEqual({ tier: 'aggressive', band: '≥ 0.6 kg/wk' })
     expect(intensityTier(-0.3)).toEqual({ tier: 'lean', band: '0.1–0.4 kg/wk' })
     expect(intensityTier(-0.9)).toEqual({ tier: 'aggressive', band: '≥ 0.8 kg/wk' })
-    expect(intensityTier(null)).toBeNull()
   })
   test('boundaries belong to the next tier up', () => {
     expect(intensityTier(0.0999)?.tier).toBe('maintenance')
@@ -303,6 +304,46 @@ describe('intensityTier', () => {
     expect(intensityTier(-0.4)?.tier).toBe('standard')
     expect(intensityTier(0.6)?.tier).toBe('aggressive')
     expect(intensityTier(-0.8)?.tier).toBe('aggressive')
+  })
+})
+
+describe('intensityTier is pinned to the API classification', () => {
+  // The API's `classifyWeightPhase` labels: |rate| < 0.1 maintenance; cut 0.4/0.8; bulk 0.3/0.6.
+  const API_LABEL = {
+    maintenance: 'Maintenance',
+    lean: { cut: 'Lean cut', bulk: 'Lean bulk' },
+    standard: { cut: 'Standard cut', bulk: 'Standard bulk' },
+    aggressive: { cut: 'Aggressive cut', bulk: 'Aggressive bulk' },
+  } as const
+  const labelOf = (rate: number): string => {
+    const { tier } = intensityTier(rate)
+    return tier === 'maintenance'
+      ? API_LABEL.maintenance
+      : API_LABEL[tier][rate < 0 ? 'cut' : 'bulk']
+  }
+  test.each([
+    [0.099, 'Maintenance'],
+    [-0.099, 'Maintenance'],
+    [0.1, 'Lean bulk'],
+    [0.299, 'Lean bulk'],
+    [0.3, 'Standard bulk'],
+    [0.599, 'Standard bulk'],
+    [0.6, 'Aggressive bulk'],
+    [-0.1, 'Lean cut'],
+    [-0.399, 'Lean cut'],
+    [-0.4, 'Standard cut'],
+    [-0.799, 'Standard cut'],
+    [-0.8, 'Aggressive cut'],
+  ])('%p kg/wk is %s', (rate, label) => {
+    expect(labelOf(rate)).toBe(label)
+  })
+})
+
+describe('entrySpanDays', () => {
+  test('counts calendar days from the oldest to the newest entry, inclusive', () => {
+    expect(entrySpanDays([{ date: '2026-06-10' }, { date: '2026-06-01' }])).toBe(10)
+    expect(entrySpanDays([{ date: '2026-06-01' }])).toBe(1)
+    expect(entrySpanDays([])).toBe(0)
   })
 })
 

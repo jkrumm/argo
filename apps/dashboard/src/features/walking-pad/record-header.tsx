@@ -3,7 +3,7 @@ import { Box, Card, Group, Skeleton, Text } from '@mantine/core'
 import { useDocumentVisibility } from '@mantine/hooks'
 import { durationClock, relativeTime } from 'basalt-ui/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
-import { fmtDuration, withKcal, withKm, withKmh, withSteps } from './model'
+import { toLastWalk, fmtDuration, withKcal, withKm, withKmh, withSteps } from './model'
 import classes from './record-header.module.css'
 
 function Row({
@@ -62,14 +62,24 @@ export function RecordHeader() {
     )
   }
   if (last.isPending) return <Skeleton height={48} radius="md" />
+  // A failed live read cannot assert the pad is idle.
+  const status = live.isError ? 'Status unknown' : 'Not walking'
   const walk = last.data?.data[0]
+  const lookup = toLastWalk({
+    isPending: false,
+    isError: last.isError,
+    endedAt: walk?.ended_at,
+  })
+  if (lookup.state === 'failed') {
+    return <Row dot="idle" status={status} facts="last walk not available" stats="" />
+  }
   if (walk === undefined) {
-    return <Row dot="idle" status="Not walking" facts="no walk recorded yet" stats="" />
+    return <Row dot="idle" status={status} facts="no walk recorded yet" stats="" />
   }
   return (
     <Row
       dot="idle"
-      status="Not walking"
+      status={status}
       facts={`last walk ${relativeTime(walk.ended_at)} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
       stats={`${withSteps(walk.steps)} · ${withKcal(walk.kcal)}, last walk`}
     />

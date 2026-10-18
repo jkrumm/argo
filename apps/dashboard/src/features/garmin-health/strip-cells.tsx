@@ -34,6 +34,7 @@ import {
   contributorItems,
   firstToLast,
   lastScored,
+  loadFooter,
   windowDayCount,
   fmtNum,
   mean,
@@ -102,15 +103,22 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
       last: lastScored(visible),
     }
   }, [series.data])
-  // The footer states a fact about the window, so it waits for the window's own settled data.
-  const seriesSettled = series.isSuccess && !series.isPlaceholderData
-  const windowDays = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
 
   const data = summary.data
   const score = data?.recovery ?? null
   // The score's own date: today reads "today", a sync gap reads its date.
   const when = dayLabel(data?.date)
   const gap = recoveryGap(data?.date, summary.status)
+  // A fact about the window, so it waits for both reads to settle on the window itself.
+  const settled =
+    summary.isSuccess && !summary.isPlaceholderData && series.isSuccess && !series.isPlaceholderData
+  const windowDays = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
+  const footer =
+    score !== null || !settled
+      ? null
+      : trend.last
+        ? `Last scored ${fmtNum(trend.last.value)}/100 on ${dayLabel(trend.last.date)}`
+        : `No score in this ${windowDays} d window`
   return {
     key: 'recovery',
     caption: 'Recovery',
@@ -119,13 +127,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
-    ...(score === null &&
-      !summary.isPending &&
-      seriesSettled && {
-        footer: trend.last
-          ? `Last scored ${fmtNum(trend.last.value)}/100 on ${dayLabel(trend.last.date)}`
-          : `No score in the last ${windowDays} d`,
-      }),
+    ...(footer !== null && { footer }),
     visual:
       score === null && !summary.isPending ? (
         <>
@@ -197,10 +199,7 @@ function useLoadCell(params: SummaryParams): StatStripCell {
     unit: 'ACWR',
     loading: query.isPending,
     stale: isPlaceholderData,
-    footer:
-      acwr === null
-        ? 'No day in this window has a load ratio yet'
-        : `Both loads are exponentially weighted. Optimal is ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}; above ${ACWR_CAUTION_TO} is the danger zone.`,
+    footer: loadFooter({ acwr, status: query.status, placeholder: isPlaceholderData }),
     visual: (
       <>
         <Meter

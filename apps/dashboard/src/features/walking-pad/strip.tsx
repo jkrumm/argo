@@ -166,7 +166,7 @@ function useStreakCell(params: WalkingPadWindowParams): StatStripCell {
     footer:
       heroes.isPending || days.isPending
         ? null
-        : `${ticks.filter((t) => t.state === 'walked').length} walked this week · UTC days`,
+        : `${streak?.currentDays === 0 ? 'No walk today or yesterday · ' : ''}${ticks.filter((t) => t.state === 'walked').length} walked this week · UTC days`,
   }
 }
 
@@ -232,7 +232,7 @@ function EmptyStrip() {
       qualifier: 'consecutive days',
       value: null,
       unit: 'days',
-      footer: 'Not counted: no walks in this window',
+      footer: 'Not loaded for an empty window · counts back from today or yesterday',
     },
     {
       key: 'totals',

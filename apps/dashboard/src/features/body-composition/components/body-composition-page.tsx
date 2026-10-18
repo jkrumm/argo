@@ -12,6 +12,7 @@ import WeightChart from '../charts/weight-chart'
 import {
   dayKey,
   entryAgeDays,
+  entrySpanDays,
   latestDate,
   rateDays,
   siteRows,
@@ -29,7 +30,7 @@ type Params = WeightLogWindowParams & SkinfoldWindowParams
 
 export function BodyCompositionPage({ params }: { params: Params }) {
   const now = useNow()
-  const { data: weight } = useSuspenseQuery(weightLogQueries.summary(params))
+  const { data: weight, status: weightStatus } = useSuspenseQuery(weightLogQueries.summary(params))
   const { data: weightSeries } = useSuspenseQuery(weightLogQueries.series(params))
   const { data: skinfold } = useSuspenseQuery(skinfoldLogQueries.summary(params))
   const { data: skinfoldSeries } = useSuspenseQuery(skinfoldLogQueries.series(params))
@@ -54,6 +55,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
     ageDays,
     latestKey: latestDate(weightPoints),
     entries: weightPoints.length,
+    entrySpanDays: entrySpanDays(weightPoints),
   })
   const cells: StatStripCell[] = [
     weightCell({
@@ -69,6 +71,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
       rateDays: rateDays(windowDays(params)),
       latestDate: latestDate(weightPoints),
       entries: weightPoints.length,
+      status: weightStatus,
     }),
     ...(sessions.length > 0
       ? [skinfoldCell({ summary: skinfoldSummary, rows, latestDate: latestDate(sessions) })]
@@ -86,7 +89,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
         cells={cells}
       />
 
-      <WeightChart params={params} goal={goal} ageDays={ageDays} />
+      <WeightChart params={params} goal={goal} />
 
       {sessions.length >= 2 ? (
         <SkinfoldChart params={params} />
