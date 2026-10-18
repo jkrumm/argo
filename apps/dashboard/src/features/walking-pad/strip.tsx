@@ -77,13 +77,13 @@ function useWeekCell(): StatStripCell {
     // `StatStripCell` has no caption-line action slot, so the target control rides the footer.
     footer: (
       <Group gap="xs" wrap="nowrap" justify="space-between">
-        <Box>
-          {query.isPending
-            ? null
-            : week === null
+        {query.isPending ? null : (
+          <Box>
+            {week === null
               ? 'this week not reported'
               : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)} % of target`}
-        </Box>
+          </Box>
+        )}
         <TargetPopover />
       </Group>
     ),
