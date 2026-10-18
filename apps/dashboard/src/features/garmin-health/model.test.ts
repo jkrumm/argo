@@ -145,7 +145,7 @@ describe('recoveryGap', () => {
     expect(
       recoveryGap({ ...settled, date: '2026-01-02', last: null, missing: ['RHR'] }).line?.full,
     ).toBe(
-      'No score in this 30\u00a0d window\u00a0· 2\u00a0Jan: RHR not scored — Garmin syncs every 6\u00a0h',
+      'No recovery score in this 30\u00a0d window\u00a0· 2\u00a0Jan: RHR not scored — Garmin syncs every 6\u00a0h',
     )
   })
 
@@ -170,10 +170,10 @@ describe('recoveryGap', () => {
   })
   test('no scored day states the window, or none when its length is unknown', () => {
     expect(recoveryGap({ ...settled, last: null }).line?.full).toBe(
-      'No score in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
+      'No recovery score in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
     expect(recoveryGap({ ...settled, last: null, windowDays: 0 }).line?.full).toBe(
-      'No score in this window — Garmin syncs every 6\u00a0h',
+      'No recovery score in this window — Garmin syncs every 6\u00a0h',
     )
   })
 })
@@ -517,7 +517,7 @@ describe('chartEmpty', () => {
     expect(load.short).toBe('No training load in this 30\u00a0d window')
     const rec = { settled: true, windowDays: 30, date: '2026-01-02', missing: ['RHR' as const] }
     const noScore = recoveryGap(rec).line!
-    expect(noScore.short).toBe('No score in this 30\u00a0d window')
+    expect(noScore.short).toBe('No recovery score in this 30\u00a0d window')
     expect(noScore.full?.startsWith(noScore.short)).toBe(true)
     // The recovery chart's short form is the strip cell's clause, built from one noun.
     expect(chartEmpty(RECOVERY_GAP_METRIC, 30).short).toBe(noScore.short)

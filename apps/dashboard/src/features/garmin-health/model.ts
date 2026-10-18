@@ -353,7 +353,7 @@ export const chartEmpty = (metric: string, windowDays: number): Gap =>
   dataGap(`No ${metric} in ${thisWindow(windowDays)}`)
 
 /** The recovery gap's noun: the strip cell and the recovery chart both build their clause from it. */
-export const RECOVERY_GAP_METRIC = 'score'
+export const RECOVERY_GAP_METRIC = 'recovery score'
 
 /**
  * What the load cell says when it has no ratio, once (the meter's empty line; the cell has no
