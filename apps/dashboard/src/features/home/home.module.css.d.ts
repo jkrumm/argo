@@ -18,7 +18,6 @@ declare const classes: {
   readonly feedHeading: string
   readonly feedRow: string
   readonly feedSentence: string
-  readonly feedSubject: string
   readonly feedOutcome: string
   readonly feedDetail: string
   readonly feedActor: string

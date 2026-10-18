@@ -223,3 +223,28 @@ describe('evidence urls', () => {
     expect(copy.evidenceLine).toBe('Checks failed ()')
   })
 })
+
+describe('round 2 rules', () => {
+  it('closes a square bracket the URL removal left open', () => {
+    const copy = cardCopy({ authored: 'Merge?', body: 'Checks failed [at https://example.com/x' })
+    expect(copy.evidenceLine).toBe('Checks failed []')
+  })
+  it('removes a square-bracketed URL whole', () => {
+    const copy = cardCopy({
+      authored: 'Merge?',
+      body: 'Checks failed [see https://example.com/x].',
+    })
+    expect(copy.evidenceLine).toBe('Checks failed.')
+  })
+  it('always ends a plain question in `?`', () => {
+    expect(cardCopy({ plain: 'Merge the PR' }).question).toBe('Merge the PR?')
+    expect(cardCopy({ plain: 'Merge the PR???' }).question).toBe('Merge the PR?')
+  })
+  it('keeps question-only evidence when asked to', () => {
+    const body = 'Which branch should I use?'
+    expect(cardCopy({ authored: 'Pick?', body }).evidenceLine).toBeNull()
+    expect(cardCopy({ authored: 'Pick?', body, keepQuestionEvidence: true }).evidenceLine).toBe(
+      body,
+    )
+  })
+})

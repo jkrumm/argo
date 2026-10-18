@@ -6,7 +6,7 @@ import type {
   OverviewSummary,
   HistoryPoint,
 } from '../../lib/queries/agents'
-import { cardCopy, plainQuestion } from '../../lib/question-copy'
+import { cardCopy, plainQuestion, type CardCopy } from '../../lib/question-copy'
 import { authoredQuestion, firstSentence, flatten, restAfterFirstSentence } from '../../lib/text'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
@@ -399,9 +399,9 @@ export function headlineOf(text: string): string {
 // ── Page summary ─────────────────────────────────────────────────────────────────────────────
 
 export type AgentsSummaryInput = {
-  /** Everything the Needs-you section lists: `needsYouCount`. */
-  items: number
-  /** Asks in the human queue; the rest of `items` are agents in `needs_you`. */
+  /** Agents in `needs_you`, counted from the cards the section lists. */
+  agentWaits: number
+  /** Asks in the human queue, counted from the same cards. */
   asks: number
 }
 
@@ -419,9 +419,8 @@ function waitingSentence(agentWaits: number, asks: number): string {
  * wait and the fleet, so the headline names no figure the strip already shows.
  */
 export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string; facts: string[] } {
-  if (s.items === 0) return { sentence: 'Nothing needs you.', facts: [] }
-  const asks = Math.min(s.asks, s.items)
-  const agentWaits = s.items - asks
+  const { agentWaits, asks } = s
+  if (agentWaits === 0 && asks === 0) return { sentence: 'Nothing needs you.', facts: [] }
   const facts = [
     agentWaits > 0 ? `${agentWaits} ${nounFor(agentWaits, 'agent', 'agents')} blocked` : null,
     asks > 0 ? `${asks} queued ${nounFor(asks, 'ask', 'asks')}` : null,
@@ -579,6 +578,39 @@ export type CardContext = {
   snapshotAgeMs?: number | null
 }
 
+/** The producer host of a queue ask, when it carries one. */
+const hostOf = (item: QueueItem): string | null =>
+  typeof item['host'] === 'string' ? item['host'] : null
+
+/**
+ * The card copy of one human-queue ask, shared by this page and Home: the ask goes through
+ * `authoredQuestion` (shortcodes stripped, blank or non-string reads as absent), its first sentence
+ * is the question when it is one, the rest is evidence.
+ */
+export function humanQueueCopy(item: QueueItem): { copy: CardCopy; askText: string } {
+  const askText = authoredQuestion(item.question) ?? ''
+  const title = typeof item['title'] === 'string' ? item['title'] : null
+  const host = hostOf(item)
+  const copy = cardCopy({
+    ask: firstSentence(askText),
+    body: restAfterFirstSentence(askText),
+    title,
+    plain: plainQuestion('Answer', host ? `${host} request` : 'this request'),
+  })
+  return { copy, askText }
+}
+
+/** The card copy of one `needs_you` agent, shared by this page and Home; `body` is its evidence. */
+export function agentCopy(a: AgentRow, body: string | null): CardCopy {
+  return cardCopy({
+    authored: authoredQuestion(a['question']),
+    body,
+    title: a.title ?? a.lastPrompt ?? a.id,
+    plain: plainQuestion('Unblock', a.project === '—' ? 'this agent' : `${a.project} agent`),
+    keepQuestionEvidence: true,
+  })
+}
+
 /** Human-queue asks and `needs_you` agents as one list, longest wait first. */
 export function needsYouCards(
   humanQueue: readonly QueueItem[],
@@ -590,19 +622,12 @@ export function needsYouCards(
   const asks: NeedsYouCard[] = humanQueue.map((item) => {
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
-    const host = typeof item['host'] === 'string' ? item['host'] : null
-    const title = typeof item['title'] === 'string' ? item['title'] : null
+    const host = hostOf(item)
     const facts = ['human queue', host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(
       isText,
     )
     const command = item.cmd?.trim() || null
-    const askText = typeof item.question === 'string' ? item.question : ''
-    const copy = cardCopy({
-      ask: firstSentence(askText),
-      body: restAfterFirstSentence(askText),
-      title,
-      plain: plainQuestion('Answer', host ? `${host} request` : 'this request'),
-    })
+    const { copy, askText } = humanQueueCopy(item)
     return {
       key: `hq-${item.id}`,
       kind: 'human-queue',
@@ -613,7 +638,7 @@ export function needsYouCards(
       preview: null,
       actions: copyActions([
         command ? { label: 'Copy command', value: command } : null,
-        { label: 'Copy ask', value: flatten(askText) || copy.question },
+        { label: 'Copy ask', value: askText || copy.question },
       ]),
       disclosure: disclosureOf('ask', copy.detail, command),
       abandoned: false,
@@ -635,12 +660,7 @@ export function needsYouCards(
         ctx.snapshotAgeMs == null
           ? null
           : `No blocker reported; the snapshot is ${ageAgo(ctx.snapshotAgeMs)}.`
-      const copy = cardCopy({
-        authored: authoredQuestion(a['question']),
-        body: source ?? fallback,
-        title,
-        plain: plainQuestion('Unblock', a.project === '—' ? 'this agent' : `${a.project} agent`),
-      })
+      const copy = agentCopy(a, source ?? fallback)
       return {
         key: `agent-${a.id}`,
         kind: 'agent',
@@ -666,7 +686,7 @@ type CopyAction = { label: string; value: string }
 
 /** The first two copy actions that exist: a primary and, where a second exists, a secondary. */
 const copyActions = (candidates: readonly (CopyAction | null)[]): CopyAction[] =>
-  candidates.filter((c): c is CopyAction => c !== null && c.value !== '').slice(0, 2)
+  candidates.filter((c): c is CopyAction => c !== null && c.value.trim() !== '').slice(0, 2)
 
 /** The disclosure of a card: the whole text when the line shortened it, and the command the ask carries. */
 function disclosureOf(
@@ -682,19 +702,6 @@ function disclosureOf(
         ? 'Command'
         : `Full ${noun}`
   return { label, text, command }
-}
-
-/**
- * How many items the Needs-you section renders: every human-queue ask plus every `needs_you`
- * agent, i.e. `needsYouCards(...).length`. The snapshot's own `summary.needsYou` counts agents
- * only, so it reads 0 while the section lists asks.
- */
-export function needsYouCount(
-  humanQueue: readonly QueueItem[],
-  agents: readonly AgentRow[],
-  now: number,
-): number {
-  return needsYouCards(humanQueue, agents, now).length
 }
 
 /** Age of the oldest human-queue ask that carries a timestamp; `null` when none does. */

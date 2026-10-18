@@ -113,6 +113,17 @@ export function formatAgeDays(ageDays: number | null): string {
   return `${ageDays.toFixed(1)} d`
 }
 
+/**
+ * Everything that cannot finish without the owner, in one list: decisions, entries in states this
+ * page does not know, then failed items. The summary, the board and Home all count from this, so
+ * they cannot disagree.
+ */
+export const waitingOnOwner = (view: AwaitingOwnerView): AwaitingOwnerRow[] => [
+  ...view.needsDecision,
+  ...view.other,
+  ...view.failed,
+]
+
 const EMPTY_AWAITING_OWNER: AwaitingOwnerView = { needsDecision: [], failed: [], other: [] }
 
 /**

@@ -3,20 +3,14 @@ import { Section } from 'basalt-ui'
 import { DecisionCard } from '../../components/upstream/decision-card'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
 import decisionClasses from '../../components/upstream/decision-card.module.css'
-import type { HumanQueueItem } from '../../lib/queries/agents'
-import { useNow } from '../../lib/use-now'
-import { needsYouCards, type AgentRow, type NeedsYouCard } from './model'
+import type { NeedsYouCard } from './model'
 import { StatusChip } from './status-chip'
 import classes from './needs-you-section.module.css'
 
 type Props = {
-  humanQueue: HumanQueueItem[]
-  agents: AgentRow[]
+  cards: readonly NeedsYouCard[]
   /** No snapshot is loaded: what needs the human is unknown, not empty. */
   unknown?: boolean
-  /** Producer host and snapshot age, for the card facts and the evidence fallback. */
-  machine?: string | null
-  snapshotAgeMs?: number | null
 }
 
 function Card({ card }: { card: NeedsYouCard }) {
@@ -66,14 +60,7 @@ function Card({ card }: { card: NeedsYouCard }) {
  * `needs_you`, longest wait first. Read-only — the payload has no write endpoint, so the one action
  * is a client-side copy of a field the payload carries. Hidden when nothing waits.
  */
-export function NeedsYouSection({
-  humanQueue,
-  agents,
-  unknown = false,
-  machine = null,
-  snapshotAgeMs = null,
-}: Props) {
-  const cards = needsYouCards(humanQueue, agents, useNow(), { machine, snapshotAgeMs })
+export function NeedsYouSection({ cards, unknown = false }: Props) {
   if (unknown) {
     return (
       <Section title="Needs you" value="—">

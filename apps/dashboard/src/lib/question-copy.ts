@@ -11,18 +11,18 @@ export const EVIDENCE_LINE_MAX = 140
 /** A title longer than this does not sit on the entity line; it moves, whole, into the disclosure. */
 export const ENTITY_MAX = 120
 
-/** A producer-authored question, as the loose wire types carry it. */
-export type WithQuestion = { question?: string | null }
-
 const NEUTRAL_QUESTION = 'Decide on this item?'
 
 /** `text` cut at the last word boundary within `max` characters, with an ellipsis; whole if it fits. */
 export function leadOf(text: string, max: number): string {
   const flat = flatten(text)
   if (flat.length <= max) return flat
-  const cut = flat.slice(0, max)
-  const space = cut.lastIndexOf(' ')
-  return `${(space > max / 2 ? cut.slice(0, space) : cut.slice(0, max - 1)).replace(/[\s,;:.\-–—]+$/, '')}…`
+  const head = flat.slice(0, max)
+  const lastSpace = head.lastIndexOf(' ')
+  const atWord = lastSpace > max / 2
+  const kept = atWord ? head.slice(0, lastSpace) : head.slice(0, max - 1)
+  const withoutTail = kept.replace(/[\s,;:.\-–—]+$/, '')
+  return `${withoutTail}…`
 }
 
 /** A title without its trailing punctuation: the form a question is compared against. */
@@ -32,12 +32,18 @@ const bareTitle = (title: string): string => flatten(title).replace(/[.!?…:;,]
 const BRACKETED_URL = /\s*[([]\s*(?:(?:see|at|in|via|on)\s+)?https?:\/\/[^\s)\]]*[)\]]/gi
 const BARE_URL = /\s*(?:\b(?:see|at|in|via|on)\s+)?\bhttps?:\/\/[^\s)\]]*/gi
 
+/** Appends the closers a removal left unmatched, so no `(` or `[` dangles. */
+function closeBrackets(text: string): string {
+  const count = (re: RegExp) => (text.match(re) ?? []).length
+  const missingParens = Math.max(0, count(/\(/g) - count(/\)/g))
+  const missingSquares = Math.max(0, count(/\[/g) - count(/\]/g))
+  if (missingParens === 0 && missingSquares === 0) return text
+  return `${text.replace(/[\s,;:]+$/, '')}${']'.repeat(missingSquares)}${')'.repeat(missingParens)}`
+}
+
 /** Removes raw URLs; a bracket left open by the removal is closed, never dangling. */
 function withoutUrls(sentence: string): string {
-  const stripped = flatten(sentence.replace(BRACKETED_URL, '').replace(BARE_URL, ''))
-  const open = (stripped.match(/\(/g) ?? []).length
-  const close = (stripped.match(/\)/g) ?? []).length
-  return open > close ? `${stripped.replace(/[\s,;:]+$/, '')}${')'.repeat(open - close)}` : stripped
+  return closeBrackets(flatten(sentence.replace(BRACKETED_URL, '').replace(BARE_URL, '')))
 }
 
 /** The sentences of a text, each with its closing punctuation. */
@@ -50,29 +56,27 @@ const sentencesOf = (text: string): string[] =>
  * One line of evidence from a reason: statements only (a second question never repeats the title's),
  * raw URLs removed (the whole reason keeps them), cut at a word boundary when long.
  */
-function evidenceLeadOf(text: string): string | null {
-  const statements = sentencesOf(text)
-    .filter((sentence) => !sentence.endsWith('?'))
+function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
+  const cleaned = sentencesOf(text)
     .map(withoutUrls)
-    .filter((sentence) => sentence !== '' && !/^[\s.,;:\-–—()]+$/.test(sentence))
-  if (statements.length === 0) return null
-  return leadOf(statements.join(' '), EVIDENCE_LINE_MAX)
+    .filter((sentence) => sentence !== '' && !/^[\s.,;:\-–—()[\]]+$/.test(sentence))
+  const statements = cleaned.filter((sentence) => !sentence.endsWith('?'))
+  // Evidence that is itself a question (an agent's blocker) is still the evidence when it is all there is.
+  const lines = statements.length > 0 || !keepQuestions ? statements : cleaned
+  if (lines.length === 0) return null
+  return leadOf(lines.join(' '), EVIDENCE_LINE_MAX)
 }
 
 /** `<verb> <object>?`, never longer than {@link QUESTION_MAX} and never losing its `?`. */
 export function plainQuestion(verb: string, object: string): string {
-  const flat = flatten(`${verb} ${object}`).replace(/[?\s]+$/, '')
-  if (flat === '') return NEUTRAL_QUESTION
-  const room = QUESTION_MAX - 1
-  return `${flat.length > room ? leadOf(flat, room) : flat}?`
+  return boundedQuestion(`${verb} ${object}`)
 }
 
-/** A caller-built plain question, bounded and never empty. */
+/** A caller-built plain question: bounded, never empty, always ending in `?`. */
 function boundedQuestion(question: string): string {
-  const flat = flatten(question)
-  if (flat === '') return NEUTRAL_QUESTION
-  if (flat.length <= QUESTION_MAX) return flat
-  return `${leadOf(flat.replace(/\?+$/, ''), QUESTION_MAX - 1)}?`
+  const stem = flatten(question).replace(/[?\s]+$/, '')
+  if (stem === '') return NEUTRAL_QUESTION
+  return `${stem.length > QUESTION_MAX - 1 ? leadOf(stem, QUESTION_MAX - 1) : stem}?`
 }
 
 export type CardCopySource = 'authored' | 'ask' | 'title' | 'plain'
@@ -107,12 +111,15 @@ export function cardCopy({
   body = null,
   title,
   plain = NEUTRAL_QUESTION,
+  keepQuestionEvidence = false,
 }: {
   authored?: string | null | undefined
   ask?: string
   body?: string | null
   title?: string | null | undefined
   plain?: string
+  /** Show the body as the evidence line even when it is only questions (an agent's blocker). */
+  keepQuestionEvidence?: boolean
 }): CardCopy {
   const written = flatten(authored ?? '')
   const sentence = flatten(ask)
@@ -144,7 +151,7 @@ export function cardCopy({
   const showsTitle =
     source === 'title' || bareTitle(question).toLowerCase() === bareTitle(item).toLowerCase()
   const entityFits = item !== '' && !showsTitle && item.length <= ENTITY_MAX
-  const evidenceLine = text === '' ? null : evidenceLeadOf(text)
+  const evidenceLine = text === '' ? null : evidenceLeadOf(text, keepQuestionEvidence)
   const whole = [item !== '' && !showsTitle && !entityFits ? item : '', text]
     .filter((part) => part !== '')
     .join(' ')

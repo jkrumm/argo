@@ -75,9 +75,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                         }
                       >
                         <span className={classes.feedHead}>
-                          <span className={classes.feedSubject}>
-                            <span className={classes.feedActor}>{e.actor}</span> {e.title}
-                          </span>
+                          <span className={classes.feedActor}>{e.actor}</span> {e.title}
                         </span>
                         {e.outcome ? (
                           <span className={classes.feedOutcome}>{e.outcome}</span>

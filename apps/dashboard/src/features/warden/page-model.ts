@@ -416,7 +416,9 @@ export function cardCategory(
 ): string | null {
   const raw = kind === 'failed' ? failureClass : tag
   const trimmed = raw?.trim() ?? ''
-  return trimmed === '' || PLACEHOLDER_CATEGORY.test(trimmed) ? null : trimmed
+  if (trimmed === '') return null
+  // Only a lifted decision tag can be a placeholder; a failure class such as `unknown` is a real value.
+  return kind === 'decision' && PLACEHOLDER_CATEGORY.test(trimmed) ? null : trimmed
 }
 
 /** The first complete sentence of warden's decision text is the question; whatever follows is the
@@ -452,11 +454,20 @@ export type AskSource = {
 
 export type WardenAsk = {
   plan: ActionPlan
+  /** The repo with shortcodes stripped; `''` when none. */
+  repo: string
   /** The lifted `[tag]` of the reason. */
   tag: string | null
   copy: CardCopy
   /** The repo is already named by the question, so a facts line must not repeat it. */
   repoNamed: boolean
+}
+
+/** The question says the repo as a whole word (`api` is not named by `rapid`), whichever rung wrote it. */
+function namesRepo(question: string, repo: string): boolean {
+  if (repo === '') return false
+  const escaped = repo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, 'i').test(question)
 }
 
 /**
@@ -481,35 +492,35 @@ export function wardenAsk(source: AskSource, kind: QueueKind): WardenAsk {
     title,
     plain,
   })
-  const where = stripShortcodes(source.repo ?? '')
-  return {
-    plan,
-    tag: split?.tag ?? null,
-    copy,
-    repoNamed: copy.source === 'plain' && where !== '' && copy.question.includes(where),
-  }
+  const repo = stripShortcodes(source.repo ?? '')
+  return { plan, repo, tag: split?.tag ?? null, copy, repoNamed: namesRepo(copy.question, repo) }
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
 const WAIT_WARN_DAYS = 2
 
-/** The repo plus two facts: `waiting <n> d` and, when there is a history worth a word, how often the item was retried or revised. */
-export function cardFacts(row: AwaitingOwnerRow, repoNamed = false): DecisionCardFact[] {
+/** How often the item was retried and revised, as one fact; `''` when neither happened. */
+function historyFact(row: AwaitingOwnerRow): string {
+  return [
+    row.redrives > 0 ? `retried ${pluralize(row.redrives, 'time')}` : '',
+    row.revisionCount > 0 ? `revised ${pluralize(row.revisionCount, 'time')}` : '',
+  ]
+    .filter((part) => part !== '')
+    .join(', ')
+}
+
+/** The repo (`''` when the question already names it) plus `waiting <n> d` and the item's history. */
+export function cardFacts(
+  row: AwaitingOwnerRow,
+  repo = stripShortcodes(row.repo ?? ''),
+): DecisionCardFact[] {
   const waiting =
     row.ageDays === null
       ? ''
       : row.ageDays > WAIT_WARN_DAYS
         ? { text: `waiting ${formatAgeDays(row.ageDays)}`, tone: 'warn' as const }
         : `waiting ${formatAgeDays(row.ageDays)}`
-  const history =
-    row.redrives > 0
-      ? `retried ${pluralize(row.redrives, 'time')}`
-      : row.revisionCount > 0
-        ? `revised ${pluralize(row.revisionCount, 'time')}`
-        : ''
-  return [repoNamed ? '' : stripShortcodes(row.repo ?? ''), waiting, history].filter(
-    (part) => part !== '',
-  )
+  return [repo, waiting, historyFact(row)].filter((part) => part !== '')
 }
 
 /** Cards in one list: needs-decision first, then any awaiting entry in a state this page does not
@@ -772,17 +783,21 @@ export function pollerAgeText(poller: { name: string; ageMin: number }): string 
 
 export type BoardView = {
   columns: BoardColumn[]
-  /** Items on the board: the one figure behind both the count and the empty sentence. */
+  /** Items on the board: the section count. */
   open: number
-  /** What an empty board says; names the items waiting on the owner instead of "No open items". */
+  /** What an empty board says; names the board items that left for the cards above it. */
   emptyText: string
 }
 
-/** The board's columns with the figures that depend on them, so no caller counts twice. */
+/**
+ * The board's columns with the figures that depend on them. `emptyText` counts only the board
+ * items a card actually claimed (not every awaiting entry, some of which may be past the board's cap).
+ */
 export function deriveBoard(
   board: WardenBoard | undefined,
   claimed: ReadonlySet<number>,
 ): BoardView {
   const columns = deriveBoardColumns(board, claimed)
-  return { columns, open: openCount(columns), emptyText: emptyBoardText(claimed.size) }
+  const leftForCards = (board?.items ?? []).filter((item) => claimed.has(item.event_id)).length
+  return { columns, open: openCount(columns), emptyText: emptyBoardText(leftForCards) }
 }

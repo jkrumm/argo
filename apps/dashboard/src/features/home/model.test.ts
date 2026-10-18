@@ -210,11 +210,16 @@ describe('homeSummaryParts', () => {
     expect(
       homeSummaryParts({
         ...base,
-        decisions: [decision(2 * 60 * MIN), decision(30 * MIN), agentDecision()],
+        decisions: [
+          decision(2 * 60 * MIN),
+          decision(30 * MIN),
+          agentDecision(),
+          { ...agentDecision(), source: 'queue' },
+        ],
       }),
     ).toEqual({
-      sentence: '3 items need you, oldest 2h 0m.',
-      facts: ['2 in Warden', '1 with agents'],
+      sentence: '4 items need you, oldest 2h 0m.',
+      facts: ['2 in Warden', '1 with agents', '1 in the human queue'],
     })
   })
 

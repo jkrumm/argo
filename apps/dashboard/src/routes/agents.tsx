@@ -9,7 +9,7 @@ import {
   oldestAskMs,
   flattenAgents,
   groupProjects,
-  needsYouCount,
+  needsYouCards,
   oldestNeedsYouWait,
   countUnknownAgents,
   feedState,
@@ -57,7 +57,11 @@ function AgentsPage() {
   const oldestAgent = oldestNeedsYouWait(agents, now)
   const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'the human queue' })
   const { active, quiet } = groupProjects(snapshot, agents)
-  const needsYouItems = needsYouCount(humanQueue, agents, now)
+  const cards = needsYouCards(humanQueue, agents, now, {
+    machine: latest?.machine ?? null,
+    snapshotAgeMs: latest === null ? null : snapshotAgeMs(latest, now),
+  })
+  const needsYouItems = cards.length
   const longestRun = longestRunMs(
     agents.filter((a) => a.state === 'working'),
     now,
@@ -65,7 +69,10 @@ function AgentsPage() {
   const needsYouCoverage = hoursWithNeedsYou(historyQuery.data?.data, HISTORY_HOURS, now)
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
-  const summary = agentsSummaryParts({ items: needsYouItems, asks: humanQueue.length })
+  const summary = agentsSummaryParts({
+    agentWaits: cards.filter((card) => card.kind === 'agent').length,
+    asks: cards.filter((card) => card.kind === 'human-queue').length,
+  })
 
   const feed = feedState({
     hasData: latest !== null,
@@ -111,13 +118,7 @@ function AgentsPage() {
                 longestRunMs={longestRun}
               />
             )}
-            <NeedsYouSection
-              humanQueue={humanQueue}
-              agents={agents}
-              unknown={latest === null}
-              machine={latest?.machine ?? null}
-              snapshotAgeMs={latest === null ? null : snapshotAgeMs(latest, now)}
-            />
+            <NeedsYouSection cards={cards} unknown={latest === null} />
             {feed === 'failed' ? null : <ProjectCards active={active} quiet={quiet} now={now} />}
             {feed === 'failed' ? null : (
               <ActivityStrip history={historyQuery.data?.data} hours={HISTORY_HOURS} now={now} />

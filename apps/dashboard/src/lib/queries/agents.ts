@@ -1,7 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api } from '../eden'
 import { unwrap } from 'basalt-ui'
-import type { WithQuestion } from '../question-copy'
 
 // Agent observation — the agent-gateway overview snapshot Argo stores (see
 // apps/api/src/routes/agents.ts). The feed is a push from the mini, so the
@@ -25,8 +24,7 @@ export type OverviewRecord = NonNullable<Awaited<ReturnType<typeof fetchLatest>>
 export type OverviewSnapshot = OverviewRecord['snapshot']
 export type OverviewSummary = NonNullable<OverviewSnapshot['summary']>
 export type OverviewProject = NonNullable<OverviewSnapshot['projects']>[number]
-/** `question` on an agent is the question the producer may author for its `needs_you` state. */
-export type OverviewAgent = OverviewProject['agents'][number] & WithQuestion
+export type OverviewAgent = OverviewProject['agents'][number]
 export type HumanQueueItem = NonNullable<OverviewSnapshot['humanQueue']>[number]
 export type HistoryPoint = Awaited<ReturnType<typeof fetchHistory>>['data'][number]
 export type Narrative = Awaited<ReturnType<typeof fetchNarratives>>['data'][number]

@@ -2,7 +2,6 @@ import { queryOptions } from '@tanstack/react-query'
 import { EdenFetchError } from '@elysiajs/eden'
 import { api } from '../eden'
 import { unwrap } from 'basalt-ui'
-import type { WithQuestion } from '../question-copy'
 
 // Warden control-plane board — the snapshot Warden (the mini's deterministic loop over its own
 // SQLite ledger) pushes after every tick (see apps/api/src/routes/warden.ts). The feed is a push
@@ -28,15 +27,13 @@ export type WardenHealth = NonNullable<WardenRaw['health']>
 export type WardenMetrics = NonNullable<WardenRaw['metrics']>
 export type WardenFunnelMetric = NonNullable<WardenMetrics['verdicts_recorded_disposition']>
 export type WardenBoard = NonNullable<WardenRaw['board']>
-/** `question` is the owner-facing question the producer may author; absent until warden sends it. */
-export type WardenBoardItem = NonNullable<WardenBoard['items']>[number] & WithQuestion
+export type WardenBoardItem = NonNullable<WardenBoard['items']>[number]
 export type WardenBudget = NonNullable<WardenRaw['budget']>
 export type WardenItems = NonNullable<WardenRaw['items']>
 export type WardenItemTimeline = WardenItems[string]
 /** One "cannot finish without a human" row — a `needs_decision` or `failed` board item. Oldest
  * first (see `deriveAwaitingOwner` in `features/warden/model.ts`). */
-export type WardenAwaitingOwnerEntry = NonNullable<WardenBoard['awaiting_owner']>[number] &
-  WithQuestion
+export type WardenAwaitingOwnerEntry = NonNullable<WardenBoard['awaiting_owner']>[number]
 /**
  * What the owner can click for a board item — mirrors warden's own closed verb allowlist
  * (`apply_argo_actions()`) and the API's `WARDEN_ACTION_VERBS`. Hand-declared, NOT derived from

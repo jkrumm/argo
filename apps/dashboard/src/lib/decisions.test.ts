@@ -65,7 +65,7 @@ describe('deriveDecisions', () => {
     expect(a?.facts).toEqual(['agent · {project}', 'waiting 2h 0m'])
   })
 
-  it('lists a failed item once even when it is both awaiting and on the board', () => {
+  it('lists a failed item once, from awaiting_owner only', () => {
     const list = deriveDecisions({
       warden: warden({
         awaiting_owner: [awaiting({ event_id: 3, state: 'failed', availableActions: ['retry'] })],
@@ -84,9 +84,10 @@ describe('deriveDecisions', () => {
       agents: null,
       now: NOW,
     })
-    expect(list.map((d) => d.id).toSorted()).toEqual(['warden-3', 'warden-4'])
-    expect(list.find((d) => d.id === 'warden-3')?.headline).toBe('Retry failed {repo} run?')
-    expect(list.find((d) => d.id === 'warden-4')?.ageMs).toBe(DAY)
+    // Home counts the same awaiting_owner list as the Warden page: a failed board item that
+    // awaiting_owner does not list (event 4) is not a second source of failures.
+    expect(list.map((d) => d.id)).toEqual(['warden-3'])
+    expect(list[0]?.headline).toBe('Retry failed {repo} run?')
   })
 
   it('takes the first sentence of a decision as the headline', () => {
@@ -178,6 +179,21 @@ describe('deriveDecisions', () => {
       expect(list).toHaveLength(2)
       for (const d of list) expect(d.headline.endsWith('?')).toBe(true)
     }
+  })
+
+  it('strips shortcodes from a human-queue ask and reads a blank one as absent', () => {
+    const [d] = deriveDecisions({
+      warden: null,
+      agents: agents({ humanQueue: [{ id: 'q', question: ':rocket: Deploy now? Why not.' }] }),
+      now: NOW,
+    })
+    expect(d?.headline).toBe('Deploy now?')
+    const [blank] = deriveDecisions({
+      warden: null,
+      agents: agents({ humanQueue: [{ id: 'q', question: '  \n ' }] }),
+      now: NOW,
+    })
+    expect(blank?.headline).toBe('Answer this request?')
   })
 
   it('does not throw on a human-queue ask whose question is not a string', () => {
@@ -284,7 +300,7 @@ describe('deriveDecisions: one clock and one threshold', () => {
 })
 
 describe('deriveDecisions: one entry per item', () => {
-  it('keeps the count, the cards and Show n more in step with an item in both awaiting_owner and failed', () => {
+  it('lists exactly the awaiting_owner entries, once each, plus the agents', () => {
     const list = deriveDecisions({
       warden: warden({
         awaiting_owner: [
@@ -300,7 +316,7 @@ describe('deriveDecisions: one entry per item', () => {
       agents: agents({ agents: [agent()] }),
       now: NOW,
     })
-    expect(list).toHaveLength(5)
+    expect(list).toHaveLength(4)
     const cards = 3
     const rest = list.slice(cards)
     expect(cards + rest.length).toBe(list.length)

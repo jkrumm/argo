@@ -1,5 +1,6 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
 import {
+  clockOf,
   clockTime,
   dayLabel,
   formatWaitDuration,
@@ -31,7 +32,6 @@ const parseMs = (iso: string | null | undefined): number | null => {
 }
 
 /** `09:30` for an epoch ms: the one clock format of the Today page. */
-export const clockOf = (ms: number): string => clockTime(new Date(ms).toISOString())
 
 /** How often the Garmin sidecar syncs, in hours (the recovery cell's "when it fills"). */
 export const GARMIN_SYNC_HOURS = 6
@@ -504,12 +504,13 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
     : n === 0
       ? `Nothing needs you${gap}.`
       : `${n} ${n === 1 ? 'item needs' : 'items need'} you${gap}${oldest === null ? '' : `, oldest ${formatWaitDuration(oldest)}`}.`
-  const inWarden = s.decisions.filter((d) => d.source === 'warden').length
-  const withAgents = n - inWarden
+  const count = (source: Decision['source']) =>
+    s.decisions.filter((d) => d.source === source).length
   const where = [
-    inWarden > 0 ? `${inWarden} in Warden` : null,
-    withAgents > 0 ? `${withAgents} with agents` : null,
-  ].filter((part): part is string => part !== null)
+    [count('warden'), 'in Warden'],
+    [count('agent'), 'with agents'],
+    [count('queue'), 'in the human queue'],
+  ].flatMap(([n, label]) => (n === 0 ? [] : [`${n} ${label}`]))
   return { sentence, facts: cantTell ? [] : where }
 }
 

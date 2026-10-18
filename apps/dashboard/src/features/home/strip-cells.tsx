@@ -5,7 +5,7 @@ import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { hourlyWorking } from '../agents/model'
+import { clockOf, hourlyWorking } from '../agents/model'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
@@ -19,7 +19,6 @@ import {
   localKey,
   meetingState,
   classLabels,
-  clockOf,
   GARMIN_SYNC_HOURS,
   type Agenda,
   type LaterMeeting,

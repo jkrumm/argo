@@ -92,6 +92,16 @@ const BoardItemSchema = z.looseObject({
   max_tier: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
+  // Owner-facing question, authored by the producer as plain text (no markdown). Optional and
+  // nullable; typed open so a malformed value never 422s the whole snapshot — the dashboard reads
+  // it defensively and falls back to its own plain question. `reason`/`note` stay the evidence.
+  question: z
+    .unknown()
+    .optional()
+    .describe(
+      'Producer-authored question for the owner: plain text, optional, nullable. `reason` is the evidence behind it.',
+    ),
+
   pr_url: z.string().nullable().optional(),
   dispatch_job: z.string().nullable().optional(),
   implement_job: z.string().nullable().optional(),
@@ -135,7 +145,16 @@ const AwaitingOwnerEntrySchema = z.looseObject({
   state: z.string().nullable(),
   pr_url: z.string().nullable(),
   age_days: z.number().nullable(),
-  reason: z.string().nullable(),
+  reason: z.string().nullable().describe('The evidence behind the question (or the failure note).'),
+  // Owner-facing question, authored by the producer as plain text (no markdown). Optional and
+  // nullable; typed open so a malformed value never 422s the whole snapshot — the dashboard reads
+  // it defensively and falls back to its own plain question. `reason`/`note` stay the evidence.
+  question: z
+    .unknown()
+    .optional()
+    .describe(
+      'Producer-authored question for the owner: plain text, optional, nullable. `reason` is the evidence behind it.',
+    ),
   revision_count: z.number(),
   failure_class: FailureClassSchema,
   redrives: z.number().int().min(0).optional(),

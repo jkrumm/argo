@@ -6,12 +6,11 @@ import { PageBar } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { PageSummary } from '../components/upstream/page-summary'
 import { wardenQueries } from '../lib/queries/warden'
-import { deriveAwaitingOwner } from '../features/warden/model'
+import { deriveAwaitingOwner, waitingOnOwner } from '../features/warden/model'
 import {
   deriveBoard,
   derivePollers,
   deriveSummary,
-  needsCards,
   oldestAgeDays,
 } from '../features/warden/page-model'
 import { StaleBanner } from '../features/warden/stale-banner'
@@ -59,15 +58,15 @@ function WardenPage() {
   }
   const raw = snapshot?.raw
   const awaitingOwner = deriveAwaitingOwner(raw?.board)
-  const needs = needsCards(awaitingOwner)
-  const claimed = new Set([...needs, ...awaitingOwner.failed].map((row) => row.eventId))
+  const waiting = waitingOnOwner(awaitingOwner)
+  const claimed = new Set(waiting.map((row) => row.eventId))
   const board = deriveBoard(raw?.board, claimed)
   const pollers = derivePollers(raw?.metrics, raw?.health)
   const { pending, handleAction } = useWardenActions(snapshot?.machine, raw?.board?.items)
 
   const summary = deriveSummary({
-    needsCount: needs.length,
-    oldestAgeDays: oldestAgeDays(needs),
+    needsCount: waiting.length,
+    oldestAgeDays: oldestAgeDays(waiting),
     receivedAt: snapshot?.receivedAt ?? null,
     stalePoller: pollers.find((poller) => poller.stale) ?? null,
     healthOk: raw?.health?.ok,

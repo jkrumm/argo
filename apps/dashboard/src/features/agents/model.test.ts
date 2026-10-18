@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  needsYouCount,
   ABANDONED_AFTER_MS,
   formatWaitDuration,
   isAbandonedWait,
@@ -282,28 +281,30 @@ describe('headlineOf', () => {
 
 describe('agentsSummaryParts', () => {
   it('names who waits without repeating the count, the oldest wait or the fleet', () => {
-    expect(agentsSummaryParts({ items: 3, asks: 1 })).toEqual({
+    expect(agentsSummaryParts({ agentWaits: 2, asks: 1 })).toEqual({
       sentence: 'Agents and the human queue are waiting on you.',
       facts: ['2 agents blocked', '1 queued ask'],
     })
   })
 
   it('reads agents alone and asks alone, singular and plural', () => {
-    expect(agentsSummaryParts({ items: 1, asks: 0 })).toEqual({
+    expect(agentsSummaryParts({ agentWaits: 1, asks: 0 })).toEqual({
       sentence: 'An agent is waiting on you.',
       facts: ['1 agent blocked'],
     })
-    expect(agentsSummaryParts({ items: 3, asks: 0 }).sentence).toBe('Agents are waiting on you.')
-    expect(agentsSummaryParts({ items: 1, asks: 1 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0 }).sentence).toBe(
+      'Agents are waiting on you.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 1 }).sentence).toBe(
       'A request is waiting for your answer.',
     )
-    expect(agentsSummaryParts({ items: 2, asks: 2 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 2 }).sentence).toBe(
       'Requests are waiting for your answer.',
     )
   })
 
   it('says nothing waits, with no fact', () => {
-    expect(agentsSummaryParts({ items: 0, asks: 0 })).toEqual({
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 0 })).toEqual({
       sentence: 'Nothing needs you.',
       facts: [],
     })
@@ -522,6 +523,42 @@ describe('needsYouCards', () => {
     expect(cards[2]?.facts).toEqual(['human queue'])
   })
 
+  it('strips shortcodes from a queue ask and reads blank or non-string asks as absent', () => {
+    const cards = needsYouCards(
+      [
+        { id: 'a', question: ':rocket: Deploy now? Why not.' },
+        { id: 'b', question: '   ' },
+        { id: 'c', question: 7 as never },
+      ],
+      [],
+      now,
+    )
+    expect(cards.map((c) => c.question)).toEqual([
+      'Deploy now?',
+      'Answer this request?',
+      'Answer this request?',
+    ])
+    for (const card of cards) expect(card.actions.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows a blocker that is itself a question as the evidence line', () => {
+    const [card] = needsYouCards(
+      [],
+      [agent({ id: 'z', state: 'needs_you', title: 'Pick', blocker: 'Which branch?' })],
+      now,
+    )
+    expect(card?.evidenceLine).toBe('Which branch?')
+  })
+
+  it('names no project for the placeholder project', () => {
+    const [card] = needsYouCards(
+      [],
+      [agent({ id: 'z', state: 'needs_you', title: 'Pick', project: '—' })],
+      now,
+    )
+    expect(card?.question).toBe('Unblock this agent?')
+  })
+
   it('never has a card without an action', () => {
     const cards = needsYouCards(
       [{ id: 'q', question: 'Plain ask.' }],
@@ -601,21 +638,6 @@ describe('needsYouCards', () => {
     const [card] = needsYouCards([{ id: 'l', question: long, cmd: 'make go' }], [], now)
     expect(card?.disclosure?.label).toBe('Command and full ask')
     expect(card?.disclosure?.command).toBe('make go')
-  })
-})
-
-describe('needsYouCount', () => {
-  it('is the length of the list the Needs-you section renders', () => {
-    const queue = [{ id: 'q1', question: 'Ship it?' }]
-    const agents = [
-      agent({ state: 'needs_you' }),
-      agent({ id: 'agent-2', state: 'needs_you' }),
-      agent({ id: 'agent-3', state: 'idle' }),
-    ]
-    const now = Date.now()
-    expect(needsYouCount(queue, agents, now)).toBe(3)
-    expect(needsYouCount(queue, agents, now)).toBe(needsYouCards(queue, agents, now).length)
-    expect(needsYouCount([], [], now)).toBe(0)
   })
 })
 
