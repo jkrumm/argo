@@ -1,5 +1,4 @@
 import type { MeterZone } from 'basalt-ui'
-import { VX } from 'basalt-ui/tokens'
 import { ZONE_COLORS } from './constants'
 
 /**
@@ -26,27 +25,24 @@ export const ACWR_ZONE_SHORT = {
 
 export type AcwrMeterBounds = { floor: number; optimalTo: number; cautionTo: number; max: number }
 
-/** The four ACWR meter zones: the one vocabulary (`ACWR_ZONE_NAME` / `ACWR_ZONE_SHORT`) on Home, Garmin and Strength. */
-export function acwrMeterZones(
-  { floor, optimalTo, cautionTo, max }: AcwrMeterBounds,
-  colors: Record<AcwrZone, string> = {
-    undertrained: VX.warn,
-    optimal: VX.good,
-    caution: VX.warn,
-    danger: VX.bad,
-  },
-): MeterZone[] {
+/** The four ACWR meter zones in the one vocabulary (`ACWR_ZONE_NAME`, the `Caut.` abbreviation) and the `acwrZoneColor` tones, on Home, Garmin and Strength. */
+export function acwrMeterZones({ floor, optimalTo, cautionTo, max }: AcwrMeterBounds): MeterZone[] {
   return [
-    { from: 0, to: floor, label: ACWR_ZONE_NAME.undertrained, color: colors.undertrained },
-    { from: floor, to: optimalTo, label: ACWR_ZONE_NAME.optimal, color: colors.optimal },
+    {
+      from: 0,
+      to: floor,
+      label: ACWR_ZONE_NAME.undertrained,
+      color: acwrZoneColor('undertrained'),
+    },
+    { from: floor, to: optimalTo, label: ACWR_ZONE_NAME.optimal, color: acwrZoneColor('optimal') },
     {
       from: optimalTo,
       to: cautionTo,
       label: ACWR_ZONE_NAME.caution,
       short: ACWR_ZONE_SHORT.caution,
-      color: colors.caution,
+      color: acwrZoneColor('caution'),
     },
-    { from: cautionTo, to: max, label: ACWR_ZONE_NAME.danger, color: colors.danger },
+    { from: cautionTo, to: max, label: ACWR_ZONE_NAME.danger, color: acwrZoneColor('danger') },
   ]
 }
 
