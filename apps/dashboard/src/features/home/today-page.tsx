@@ -242,7 +242,7 @@ export function TodayPage() {
               failed: recoverySeries.isError,
               windowDays: windowDayCount(activitiesRange(garminParams), VISIBLE_DATE_MIN),
             }),
-            acwrCell(acwr, now),
+            acwrCell(acwr, now, loadQuery.isPending ? 'loading' : 'error'),
           ]}
         />
 

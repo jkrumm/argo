@@ -1,5 +1,6 @@
 import { formatMinutes } from '../../lib/format'
 /** The Agenda's summary sentence — pure, so its wording is tested on synthetic events. */
+import type { FeedGap } from './query-state'
 import { addDays, displayTitle, keyToDate, type AgendaSummary } from './derive'
 
 const weekdayShort = (key: string) =>
@@ -27,14 +28,17 @@ export function countdown(summary: AgendaSummary): string | null {
  * headline answers "what is today", the facts carry the countdown and the week. The free time
  * left is the free-block cell's, not repeated here.
  */
-export function summaryParts(summary: AgendaSummary): { sentence: string; facts: string[] } {
-  // A calendar that has not answered makes every figure unknown: dashes, never "No events".
+export function summaryParts(
+  summary: AgendaSummary,
+  gap: FeedGap | null = null,
+): { sentence: string; facts: string[] } {
+  // A calendar that has not answered makes every figure unknown: it says why, never "No events".
   if (
     summary.todayCount === null ||
     summary.todayBookedMin === null ||
     summary.weekBookedMin === null
   ) {
-    return { sentence: '— meetings today', facts: ['next —', '— booked this week'] }
+    return { sentence: gap?.text ?? 'Loading calendar', facts: [] }
   }
   const sentence =
     summary.todayCount > 0

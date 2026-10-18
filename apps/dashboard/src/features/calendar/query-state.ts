@@ -45,7 +45,7 @@ export function feedGap(
   return {
     state: 'error',
     text: `${names.join(' and ')} failed to load — reload to retry`,
-    short: 'not loaded',
+    short: 'failed to load',
   }
 }
 
@@ -60,8 +60,10 @@ export const sourceGapWord = (
  * never an empty list — a pending or failed read must not print `0`.
  */
 export function taskFeedState(
-  queries: readonly { isPending: boolean; isError: boolean }[],
+  queries: readonly { isPending: boolean; isError: boolean; data: unknown }[],
 ): 'loading' | 'error' | 'ready' {
-  if (queries.some((q) => q.isError)) return 'error'
-  return queries.some((q) => q.isPending) ? 'loading' : 'ready'
+  // Loading while any read is pending; a failure only counts once all have settled, and a failed
+  // background refetch that still holds cached data is not one.
+  if (queries.some((q) => q.isPending)) return 'loading'
+  return queries.some((q) => q.isError && q.data === undefined) ? 'error' : 'ready'
 }

@@ -40,7 +40,7 @@ describe('agents cell without a fleet', () => {
       .emptyText
 
   it('names the cause and the next step, one wording per feed state', () => {
-    expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10 min')
+    expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10\u00a0min')
     expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
     expect(emptyText(null)).toBe('No fleet counts in this snapshot')
   })
@@ -112,7 +112,11 @@ describe('strip cells with no reading', () => {
       'the recovery score failed to load',
     )
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
-    expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
+    expect(acwrCell(null, NOW, 'loading')).toMatchObject({ footer: 'loading training load' })
+    expect(acwrCell(null, NOW)).toMatchObject({
+      value: null,
+      footer: 'training load failed to load; reload to retry',
+    })
   })
 
   it('labels a recovery that is not today’s with its own day and says when today fills', () => {

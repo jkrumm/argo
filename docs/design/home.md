@@ -130,8 +130,8 @@ No basalt gaps this round.
 - **Activity actors:** a repo name over 18 characters is shortened in the row after a separator (`shortName`), a long project chip likewise; the whole sentence rides in the row's tooltip (`ActivityEvent.full`).
 - **Recovery cell:** not changed beyond its footers. The stretch comes from the strip row height set by the meeting cell's two-line footer, which `StatGroup` does not let a cell opt out of; filed below.
 
-| Export            | Needed prop / default                                                                 | argo case                                                                  | What argo does instead                                              |
-| ----------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
 | `StatGroup` strip | per-cell `align="start"` (a cell keeps its content height instead of filling the row) | the recovery cell is stretched by a taller neighbour and shows ≥40 % empty | argo leaves the stretch and keeps every state's footer a short fact |
 
 ### Wave 25 round (`w25-r1`, live after #96–#101)

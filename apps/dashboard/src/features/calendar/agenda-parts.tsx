@@ -136,11 +136,7 @@ export function DayGroups({
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               <span className={classes.muted}>
-                {gap
-                  ? gap.state === 'loading'
-                    ? gap.short
-                    : 'partial'
-                  : dayHeadLabel(day, formatMinutes, chips.length)}
+                {gap ? gap.short : dayHeadLabel(day, formatMinutes, chips.length)}
               </span>
             </Box>
             {chips.length > 0 && (
