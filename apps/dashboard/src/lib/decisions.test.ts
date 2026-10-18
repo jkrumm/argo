@@ -563,3 +563,47 @@ describe('deriveDecisions: untitled and sourceless items', () => {
     expect(JSON.stringify(list)).not.toContain('NaN')
   })
 })
+
+describe('deriveDecisions: the warden wait is resolveWaitMs over the timeline', () => {
+  const run = (ageDays: number, transitionAgoMs: number | null, pushAgoMs = 0) => {
+    const items =
+      transitionAgoMs === null
+        ? {}
+        : {
+            '1': {
+              transitions: [
+                {
+                  from_state: 'working',
+                  to_state: 'needs_decision',
+                  at: new Date(NOW - transitionAgoMs).toISOString(),
+                },
+              ],
+            },
+          }
+    const raw = {
+      board: { awaiting_owner: [awaiting({ age_days: ageDays })] },
+      items,
+    } as unknown as WardenRaw
+    return deriveDecisions({
+      warden: raw,
+      agents: null,
+      wardenReceivedAt: new Date(NOW - pushAgoMs).toISOString(),
+      now: NOW,
+    })[0]!
+  }
+
+  it('history agreeing with age_days within its resolution is the wait', () => {
+    const d = run(1, DAY - 70 * 60_000)
+    expect(d.ageMs).toBe(DAY - 70 * 60_000)
+    expect(d.facts[1]).toBe('waiting 22\u00a0h\u00a050\u00a0min')
+  })
+
+  it('a disagreement beyond the resolution keeps the longer', () => {
+    expect(run(1, DAY - 3 * HOUR).ageMs).toBe(DAY)
+    expect(run(1, 2 * DAY).ageMs).toBe(2 * DAY)
+  })
+
+  it('no history keeps age_days plus the time since the push', () => {
+    expect(run(1, null, 2 * HOUR).ageMs).toBe(DAY + 2 * HOUR)
+  })
+})

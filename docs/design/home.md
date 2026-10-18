@@ -215,3 +215,7 @@ Follow-up (w30-r1):
 
 - **Reviewer (`w37-r1`):** **pass.** Fixed (confirmed, #160): a wrapped repo / project chip no longer opens its line with `·` (the pill separates itself; the activity rows' facts are unchanged). Closed by decision: needs-you cards with nothing to copy keep one action (`Open in …`) — a second action would be filler; card 2 keeps its `Copy PR link`. Counts reconcile (needs-you headline vs cards + the two `more` links; activity shown + `Show {k} more` = updates). Checked: the training-load cell's as-of date shows only for a stale reading (it read today at the shot). Carried (argo, P3, accepted in w36): activity rows run two or three lines. Carried (basalt): `Caut.`, the sparkline readout without unit, the strip-cell `—` above a worded reason, decision-card and show-more hover identical to rest. No lost fact.
 - **Against Keel:** close — Keel caps activity rows at two lines and gives each decision card quiet secondaries; ours keep every fact and one honest action.
+
+### Wave 38 round
+
+- **Home decision wait (`w38-home-decision-wait`):** Home's warden cards now print the wait through Warden's `resolveWaitMs(ageDays, sincePush, latestHistoryAgeMs)` over the item's timeline, so a card never reads `waiting 1 d` beside `22 h 53 min ago`. The resolved `ageMs` drives the sort, the `stale at {n} d` threshold and the `waiting <1 min` form, so Home and Warden cannot disagree on one item. (Carried from the w37 round, P3.)
