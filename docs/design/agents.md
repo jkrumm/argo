@@ -131,7 +131,7 @@ Next to the crew card: the project cards carry the same anatomy (identity + stat
 ### Pass criteria
 
 1. Holds. Needs you has value + unit + sparkline; oldest wait has a meter with the 24 h tick; fleet has segments.
-2. Holds (the sentence carries the count and an oldest wait; the wait is the agent's when one waits, else the oldest ask).
+2. Holds (the sentence carries the count and an oldest wait; the wait is the older of the oldest agent wait and the oldest ask).
 3. Holds.
 4. Holds: no table; every project is a card or a quiet-list row.
 5. Holds: captions are the non-zero parts and sum to the total; `dispatch` is not a segment.
@@ -224,6 +224,6 @@ No basalt gaps this round.
 ### Wave 30 fixes
 
 - **Compound durations whole** — fixed: `formatDuration` joins its parts with a no-break space, so the project card's running footer (`{h} h {m} min`) and the fleet cells never split between the parts; `ago` stays breakable.
-- **Headline** — fixed: the with-a-command sub-count is gone (each card's primary button already says `Copy command` or `Copy ask`); the sentence now ends with the oldest wait in the cards' spelling (`Oldest wait {d} d {h} h.`), omitted when no clock is reported. It is the strip's own figure (`oldestWait` in the model): an agent wait wins even when an ask is older, and then the cell names that agent's project — the headline never carries a second, different oldest.
+- **Headline** — fixed: the with-a-command sub-count is gone: each card's primary button names it (`Copy command` vs `Copy ask`), so the count is the cards themselves and found nowhere new in a sentence; the sentence now ends with the oldest wait in the cards' spelling (`Oldest wait {d} d {h} h.`), omitted when no clock is reported. It is the strip's own figure (`oldestWait` in the model): the larger of the oldest agent wait and the oldest ask, named by its project or `the human queue`, so the headline and the cell cannot disagree.
 - **`Answer: {subject}?` over a Copy primary** — fixed: the verb is the primary button's — `Copy command: {subject}?` when the ask carries a command, else `Copy ask: {subject}?`; an alert keeps its kind (`Copy ask on alert: {subject}?`); no subject reads `Copy ask for {host} request?`. Home keeps `Decide on …`. Updated rows in `__fixtures__/question-rung.ts`.
 - **Title noise** — fixed for any ask or agent title: backticks unwrapped, a monitor's `[{monitor}]` prefix dropped.

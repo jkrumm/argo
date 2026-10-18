@@ -585,10 +585,10 @@ export const askHosts = (humanQueue: readonly QueueItem[]): number =>
     .size
 
 /**
- * The oldest wait across the `needs_you` agents and the human queue: the oldest agent wait (named by
- * its project) when one exists, else the oldest ask (`the human queue`); `null` when nothing waits
- * or no clock is reported. An agent wait wins even when an ask is older — the strip's cell says
- * which project it is in — so the headline carries this same figure, never a second one.
+ * The oldest wait across the `needs_you` agents and the human queue: the larger of the oldest agent
+ * wait (named by its project) and the oldest ask (`the human queue`); an exact tie names the agent.
+ * `null` when nothing waits or no clock is reported. The headline and the strip's cell both read
+ * this, so they cannot disagree.
  */
 export function oldestWait(
   humanQueue: readonly QueueItem[],
@@ -596,9 +596,10 @@ export function oldestWait(
   now: number,
 ): OldestWait | null {
   const agent = oldestNeedsYouWait(agents, now)
-  if (agent !== null) return agent
   const ask = oldestAskMs(humanQueue, now)
-  return ask === null ? null : { ms: ask, project: 'the human queue' }
+  if (ask !== null && (agent === null || ask > agent.ms))
+    return { ms: ask, project: 'the human queue' }
+  return agent
 }
 
 /** Agent waits past the abandoned mark, counted from the cards the section lists. */

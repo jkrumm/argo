@@ -264,7 +264,7 @@ describe('oldestWait', () => {
     const rows = [waiting('a', 'project-a', 2), waiting('b', 'project-b', 5)]
     expect(oldestWait([], rows, now)).toEqual({ ms: 5 * 3_600_000, project: 'project-b' })
   })
-  it('falls back to the oldest ask when no agent waits, and is none for an empty queue', () => {
+  it('is the oldest ask when no agent waits, and none for an empty queue or no clock', () => {
     const asks = [
       { id: 'q1', askedAt: hoursAgo(1) },
       { id: 'q2', askedAt: hoursAgo(3) },
@@ -273,10 +273,15 @@ describe('oldestWait', () => {
     expect(oldestWait([], [], now)).toBeNull()
     expect(oldestWait([{ id: 'q3' }], [], now)).toBeNull()
   })
-  it('keeps the strip’s rule: an agent wait wins even when an ask is older', () => {
+  it('is the older of the two: an older ask beats a younger agent, an older agent beats an ask', () => {
     const rows = [waiting('a', 'project-a', 2)]
-    const asks = [{ id: 'q1', askedAt: hoursAgo(9) }]
-    expect(oldestWait(asks, rows, now)?.project).toBe('project-a')
+    expect(oldestWait([{ id: 'q1', askedAt: hoursAgo(9) }], rows, now)).toEqual({
+      ms: 9 * 3_600_000,
+      project: 'the human queue',
+    })
+    expect(oldestWait([{ id: 'q1', askedAt: hoursAgo(1) }], rows, now)?.project).toBe('project-a')
+    // An exact tie names the agent.
+    expect(oldestWait([{ id: 'q1', askedAt: hoursAgo(2) }], rows, now)?.project).toBe('project-a')
   })
 })
 

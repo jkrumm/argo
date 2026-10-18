@@ -194,6 +194,17 @@ describe('evidence line', () => {
       body: 'CI has not run on the head commit. — Re-run it? https://example.com/pr/4',
     })
     expect(asked.evidenceLine).toBe('CI has not run on the head commit.')
+    // `?!` / `?.` still ask; a run of closing marks goes before the `;`.
+    const emphatic = cardCopy({
+      authored: 'Merge?',
+      body: 'Checks are red!! — PR left open: https://example.com/pr/5',
+    })
+    expect(emphatic.evidenceLine).toBe('Checks are red; PR left open')
+    const loud = cardCopy({
+      authored: 'Merge?',
+      body: 'Checks are red. — Re-run them?! https://example.com/pr/6',
+    })
+    expect(loud.evidenceLine).toBe('Checks are red.')
     const bare = cardCopy({
       authored: 'Merge?',
       body: 'Already fixed on master; nothing to change. — PR: https://example.com/pr/2',
