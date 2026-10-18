@@ -93,9 +93,20 @@ describe('deload recency', () => {
   })
   test('the line says what the signal is, never "active" for a stale one', () => {
     // A stale signal is told once, by the facts line's last session, not by a second deload line.
-    expect(deloadLine({ verdict: 'stale', activeSignals: [] })).toBeNull()
-    expect(deloadLine(active)).toBe('Deload signal: monitor — fatigue')
-    expect(deloadLine({ verdict: 'progress', activeSignals: [] })).toBe(
+    const shown = { lastSessionShown: true, lastDate: '2026-09-02' }
+    expect(deloadLine({ verdict: 'stale', activeSignals: [] }, shown)).toBeNull()
+    // With no last session on the facts line (no leader / e1RM), the stale line explains itself.
+    expect(
+      deloadLine({ verdict: 'stale', activeSignals: [] }, { ...shown, lastSessionShown: false }),
+    ).toBe(`Deload signal: no recent sessions, last was ${shortDate('2026-09-02')}`)
+    expect(
+      deloadLine(
+        { verdict: 'stale', activeSignals: [] },
+        { lastSessionShown: false, lastDate: null },
+      ),
+    ).toBe('Deload signal: no recent sessions')
+    expect(deloadLine(active, shown)).toBe('Deload signal: monitor — fatigue')
+    expect(deloadLine({ verdict: 'progress', activeSignals: [] }, shown)).toBe(
       'Deload signal: none active',
     )
   })
@@ -127,7 +138,7 @@ describe('summaryParts', () => {
       summaryParts({
         leader: 'deadlift',
         e1rm: 110,
-        delta: { delta: 10, phrase: '+10.0 kg in 28 d', stale: false },
+        delta: { delta: 10, phrase: '+10.0 kg in 28 d', stale: false, days: 28 },
         acwr: 1.2,
         call,
         score: 50,
@@ -189,15 +200,20 @@ describe('fmtMonthly', () => {
 describe('liftDelta', () => {
   const pts = [pt('2026-09-01', 100), pt('2026-09-15', 104), pt('2026-10-10', 110)]
   test('compares to the last session at or before the cutoff', () => {
-    expect(liftDelta(pts, NOW)).toEqual({ delta: 6, phrase: '+6.0 kg in 28 d', stale: false })
+    expect(liftDelta(pts, NOW)).toEqual({
+      delta: 6,
+      phrase: '+6.0 kg in 28 d',
+      stale: false,
+      days: 28,
+    })
   })
   test('says so when the last session is older than the window', () => {
     const r = liftDelta([pt('2026-08-01', 100), pt('2026-09-02', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: 'last session 2 Sep', stale: true })
+    expect(r).toEqual({ delta: null, phrase: 'last scored session 2 Sep', stale: true, days: 28 })
   })
   test('a first session inside the window is not "no session"', () => {
     const r = liftDelta([pt('2026-10-10', 100), pt('2026-10-14', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: 'first session 10 Oct', stale: false })
+    expect(r).toEqual({ delta: null, phrase: 'first session 10 Oct', stale: false, days: 28 })
   })
   test('empty is a dash', () => {
     expect(liftDelta([], NOW).phrase).toBe('no sessions yet')
@@ -336,7 +352,7 @@ describe('balance', () => {
   })
   test('one verdict, the band named once, the tolerance only where it applies', () => {
     expect(ratioDetail('balanced', -0.2, [1, 2])).toBe(
-      '0.20 under the 1.0–2.0 band, within the 15 % tolerance',
+      '0.20 under the 1.0–2.0 band, within 15 % of its nearest edge',
     )
     expect(ratioDetail('balanced', 0, [1, 2])).toBe('inside the 1.0–2.0 band')
     expect(ratioDetail('critical', 0.4, [1, 2])).toBe('0.40 over the 1.0–2.0 band')
@@ -366,27 +382,35 @@ describe('records and periods', () => {
 
 describe('liftFooter', () => {
   test('a lift with a 28 d move shows only its PR', () => {
-    const delta = { delta: 2.5, phrase: '+2.5 kg in 28 d', stale: false }
+    const delta = { delta: 2.5, phrase: '+2.5 kg in 28 d', stale: false, days: 28 }
     expect(liftFooter({ delta, prKg: 100, prDate: '2026-08-13' })).toBe('PR 100.0 kg · 13 Aug')
   })
   test('without a move the reason leads, then the PR', () => {
-    const delta = { delta: null, phrase: 'first session 13 Aug', stale: false }
+    const delta = { delta: null, phrase: 'first session 13 Aug', stale: false, days: 28 }
     expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe(
       'first session 13 Aug · PR 100.0 kg',
     )
   })
   test('a stale lift carries its record alone; the strip says why once', () => {
-    const delta = { delta: null, phrase: 'last session 2 Sep', stale: true }
+    const delta = { delta: null, phrase: 'last scored session 2 Sep', stale: true, days: 28 }
     expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('PR 100.0 kg')
   })
   test('an empty phrase and no PR is a dash, not an empty string', () => {
     expect(
-      liftFooter({ delta: { delta: null, phrase: '', stale: false }, prKg: null, prDate: null }),
+      liftFooter({
+        delta: { delta: null, phrase: '', stale: false, days: 28 },
+        prKg: null,
+        prDate: null,
+      }),
     ).toBe('—')
   })
   test('nothing known is a dash, never a zero', () => {
     expect(
-      liftFooter({ delta: { delta: 1, phrase: '', stale: false }, prKg: null, prDate: null }),
+      liftFooter({
+        delta: { delta: 1, phrase: '', stale: false, days: 28 },
+        prKg: null,
+        prDate: null,
+      }),
     ).toBe('—')
   })
 })
@@ -405,8 +429,8 @@ describe('callFacts', () => {
 })
 
 describe('staleNote', () => {
-  const fresh = { delta: 1, phrase: '', stale: false }
-  const stale = { delta: null, phrase: '', stale: true }
+  const fresh = { delta: 1, phrase: '', stale: false, days: 28 }
+  const stale = { delta: null, phrase: '', stale: true, days: 28 }
   test('none stale is no note', () => {
     expect(staleNote([{ id: 'squat', delta: fresh }])).toBeNull()
   })
@@ -417,10 +441,10 @@ describe('staleNote', () => {
         { id: 'deadlift', delta: fresh },
         { id: 'bench_press', delta: stale },
       ]),
-    ).toBe('No session in 28 d: Squat, Bench Press')
+    ).toBe('No scored e1RM in 28 d: Squat, Bench Press')
   })
   test('every lift stale is one sentence', () => {
-    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('Every lift: no session in 28 d')
+    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('Every lift: no scored e1RM in 28 d')
   })
 })
 
@@ -431,6 +455,6 @@ describe('summaryParts with a stale leader', () => {
     expect(
       summaryParts({ leader: 'deadlift', e1rm: 100, delta, acwr: null, call, score: null })
         .sentence,
-    ).toBe('Deadlift e1RM 100.0 kg, last session 1 Aug')
+    ).toBe('Deadlift e1RM 100.0 kg, last scored session 1 Aug')
   })
 })

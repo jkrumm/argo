@@ -213,7 +213,7 @@ export default function StrengthCompositeChart({
             value: 0,
             color: alpha(VX.axis, 0.6),
             dashed: true,
-            legend: { label: 'Your 90-day average' },
+            legend: { label: 'Your baseline average' },
           },
         ]}
         tooltip={{ rows: tooltipRows }}

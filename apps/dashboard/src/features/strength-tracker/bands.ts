@@ -11,6 +11,9 @@ import {
 
 export { ACWR_CAUTION_TO, ACWR_FLOOR, ACWR_METER_MAX, ACWR_OPTIMAL_TO }
 
+/** Acute equals chronic: the ACWR line the zones are read against. */
+export const ACWR_PARITY = 1
+
 export const READINESS_REST_BELOW = 40
 export const READINESS_PUSH_FROM = 70
 /** Productive INOL per session and lift (`sessionInol`, `apps/api/src/lib/strength-formulas.ts`). */

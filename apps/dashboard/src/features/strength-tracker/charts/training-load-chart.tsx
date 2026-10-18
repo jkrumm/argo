@@ -11,7 +11,7 @@ import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
 import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
 import { ACWR_METHOD, acwrZoneWord, acwrReading, shortDate } from '../model'
-import { ACWR_FLOOR, ACWR_OPTIMAL_TO } from '../bands'
+import { ACWR_FLOOR, ACWR_OPTIMAL_TO, ACWR_PARITY } from '../bands'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
 
 const HEIGHT = 280
@@ -125,7 +125,12 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
           { from: 1.5, to: Infinity, fill: VX.bad },
         ]}
         refLines={[
-          { value: 1.0, color: VX.grid, dashed: true, legend: { label: 'Acute = chronic (1.0)' } },
+          {
+            value: ACWR_PARITY,
+            color: VX.axis,
+            dashed: true,
+            legend: { label: `Acute = chronic (${ACWR_PARITY.toFixed(1)})` },
+          },
           { value: 0.8, color: VX.goodRef, dashed: true },
           { value: 1.3, color: VX.warnRef, dashed: true },
           { value: 1.5, color: VX.badRef, dashed: true },

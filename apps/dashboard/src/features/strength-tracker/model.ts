@@ -10,7 +10,7 @@ import {
   READINESS_PUSH_FROM,
   READINESS_REST_BELOW,
 } from './bands'
-import { exerciseLabel } from './formulas'
+import { exerciseLabel, type RatioStatus } from './formulas'
 
 export const EM_DASH = '—'
 export const DELTA_DAYS = 28
@@ -125,13 +125,21 @@ export function readinessReading(
   return { score: last.readiness, verdict, driver: last.driver, date: last.date ?? null }
 }
 
-/** The deload signal as a card line; null when stale, as the facts line already names the last session. */
-export function deloadLine(deload: DeloadReading | undefined): string | null {
+/**
+ * The deload signal as a card line. A stale signal is explained by the facts line's last session
+ * when that line shows one (`lastSessionShown`); without it the line keeps its own explanation.
+ */
+export function deloadLine(
+  deload: DeloadReading | undefined,
+  { lastSessionShown, lastDate }: { lastSessionShown: boolean; lastDate: string | null },
+): string | null {
   if (deload === undefined) return `Deload signal: ${EM_DASH}`
   const signals = deload.activeSignals.join('; ')
   switch (deload.verdict) {
     case 'stale':
-      return null
+      return lastSessionShown
+        ? null
+        : `Deload signal: no recent sessions${lastDate === null ? '' : `, last was ${shortDate(lastDate)}`}`
     case 'deload':
       return `Deload signal: deload — ${signals}`
     case 'monitor':
@@ -218,19 +226,25 @@ export function latestE1rm(points: readonly Point[]): number | null {
  * `stale`: no session inside the window. The reason is the strip's one note (`staleNote`); the
  * phrase then carries the date of the last session, which the headline keeps as its qualifier.
  */
-export type LiftDelta = { delta: number | null; phrase: string; stale: boolean }
+export type LiftDelta = {
+  delta: number | null
+  phrase: string
+  stale: boolean
+  /** The window the move is measured over, in days. */
+  days: number
+}
 
 /** e1RM now minus e1RM as of 28 d ago, or the reason there is no figure. */
 export function liftDelta(points: readonly Point[], now: number, days = DELTA_DAYS): LiftDelta {
   const sessions = points.filter((p) => isNum(p.e1rm))
   const last = sessions.at(-1)
   if (last === undefined || !isNum(last.e1rm)) {
-    return { delta: null, phrase: 'no sessions yet', stale: false }
+    return { delta: null, phrase: 'no sessions yet', stale: false, days }
   }
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
   if (Date.parse(last.date) <= cutoff) {
-    return { delta: null, phrase: `last session ${shortDate(last.date)}`, stale: true }
+    return { delta: null, phrase: `last scored session ${shortDate(last.date)}`, stale: true, days }
   }
   const base = sessions.findLast((p) => Date.parse(p.date) <= cutoff)
   if (base === undefined || !isNum(base.e1rm)) {
@@ -239,10 +253,11 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
       delta: null,
       phrase: `first session ${shortDate(first?.date ?? last.date)}`,
       stale: false,
+      days,
     }
   }
   const delta = Math.round((last.e1rm - base.e1rm) * 10) / 10
-  return { delta, phrase: `${signed(delta)} kg in ${days} d`, stale: false }
+  return { delta, phrase: `${signed(delta)} kg in ${days} d`, stale: false, days }
 }
 
 /**
@@ -260,7 +275,9 @@ export function liftFooter(input: {
     prKg === null
       ? null
       : `PR ${prKg.toFixed(1)} kg${prDate === null ? '' : ` · ${shortDate(prDate)}`}`
-  const parts = (delta.delta === null && !delta.stale ? [delta.phrase, record] : [record]).filter(
+  // A move that cannot be computed is explained on the cell, except a stale lift: the strip's note does that.
+  const reasonOnCell = delta.delta === null && !delta.stale
+  const parts = (reasonOnCell ? [delta.phrase, record] : [record]).filter(
     (v): v is string => v !== null && v !== '',
   )
   return parts.length === 0 ? EM_DASH : parts.join(' · ')
@@ -276,9 +293,10 @@ export type CallFactsInput = {
 export function staleNote(lifts: readonly { id: string; delta: LiftDelta }[]): string | null {
   const stale = lifts.filter((l) => l.delta.stale)
   if (stale.length === 0) return null
-  const reason = `no session in ${DELTA_DAYS} d`
-  if (stale.length === lifts.length) return `Every lift: ${reason}`
-  return `${reason.charAt(0).toUpperCase()}${reason.slice(1)}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
+  // Only sessions with a scored e1RM move the figure; a session without one does not count.
+  const days = stale[0]?.delta.days ?? DELTA_DAYS
+  if (stale.length === lifts.length) return `Every lift: no scored e1RM in ${days} d`
+  return `No scored e1RM in ${days} d: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
 }
 
 /** The call card's facts line, split around the INOL figure (which carries its own definition). */
@@ -395,30 +413,29 @@ export function ratioName(label: string): string {
  */
 export const RATIO_TOLERANCE = 0.15
 
-export type StatusWord = 'balanced' | 'borderline' | 'imbalanced' | 'critical' | typeof EM_DASH
+export type StatusWord = RatioStatus | 'borderline' | typeof EM_DASH
 
 /** The API says `balanced` within the tolerance; outside the band itself that is only borderline. */
-export function isBorderline(status: string | null, offset: number | null): boolean {
+export function isBorderline(status: RatioStatus | null, offset: number | null): boolean {
   return status === 'balanced' && offset !== null && offset !== 0
 }
 
 /** Inside the band is `balanced` whatever the API says; a tolerance-only `balanced` is borderline. */
-export function statusWord(status: string | null, offset: number | null): StatusWord {
+export function statusWord(status: RatioStatus | null, offset: number | null): StatusWord {
   if (status === null || offset === null) return EM_DASH
   if (offset === 0) return 'balanced'
-  if (isBorderline(status, offset)) return 'borderline'
-  return status === 'imbalanced' || status === 'critical' ? status : EM_DASH
+  return status === 'balanced' ? 'borderline' : status
 }
 
 /** The words after the verdict: how far from the band, and for a borderline ratio the tolerance. */
 export function ratioDetail(
-  status: string | null,
+  status: RatioStatus | null,
   offset: number | null,
   range: readonly [number, number],
 ): string {
   const detail = offText(offset, range)
   return isBorderline(status, offset)
-    ? `${detail}, within the ${Math.round(RATIO_TOLERANCE * 100)} % tolerance`
+    ? `${detail}, within ${Math.round(RATIO_TOLERANCE * 100)} % of its nearest edge`
     : detail
 }
 

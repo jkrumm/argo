@@ -92,7 +92,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
             value: 0,
             color: alpha(VX.axis, 0.6),
             dashed: true,
-            legend: { label: 'First session in range' },
+            legend: { label: 'First session in window' },
           },
         ]}
       />

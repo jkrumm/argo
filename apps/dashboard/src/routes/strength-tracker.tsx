@@ -289,7 +289,7 @@ function ChartsPanel({
 
       <Box data-shot="sec-alignment">
         <Section
-          title={`Where training and recovery disagree, ${period}`}
+          title="Where training and recovery disagree, last 90 days"
           collapsible
           defaultOpen={false}
         >
