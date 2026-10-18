@@ -273,6 +273,9 @@ function AstroWindowPage() {
   // Where the selected night's miss is stated, once: Tonight's verdict card, or the Forecast timeline
   // (which has no card). The headline names the marked night per `headlineNight`.
   const timelineNamesMiss = search.tab === 'forecast'
+  // A site id the list does not hold has no night to present: the Forecast tab states that gap once
+  // (UnknownSiteCard) instead of a full night beside it. Production and the `empty` shot take this same branch.
+  const unknownSite = search.tab === 'forecast' && !selectedSite
   const summary = pageSummary(data, {
     withWindow: search.tab === 'forecast',
     firstDate: headlineFirstDate(data, { selectedDate }),
@@ -343,7 +346,7 @@ function AstroWindowPage() {
         </Suspense>
       ) : (
         <Stack gap="sm">
-          <PageSummary sentence={summary.sentence} facts={summary.facts} />
+          {!unknownSite && <PageSummary sentence={summary.sentence} facts={summary.facts} />}
           {search.tab === 'tonight' && selectedNight && (
             <TonightTop
               verdict={
@@ -366,14 +369,16 @@ function AstroWindowPage() {
             />
           )}
 
-          <NightStrip
-            nights={data.nights}
-            selectedDate={selectedDate}
-            markedDate={markedNight?.date ?? null}
-            onSelect={handleSelectDate}
-          />
+          {!unknownSite && (
+            <NightStrip
+              nights={data.nights}
+              selectedDate={selectedDate}
+              markedDate={markedNight?.date ?? null}
+              onSelect={handleSelectDate}
+            />
+          )}
 
-          {selectedNight === null && (
+          {!unknownSite && selectedNight === null && (
             <Text size="sm" c="dimmed">
               No forecast for {selectedDate}
             </Text>
@@ -408,7 +413,13 @@ function AstroWindowPage() {
             </>
           )}
 
-          {search.tab === 'forecast' && selectedNight && (
+          {unknownSite && (
+            <Box data-shot="unknown-site">
+              <UnknownSiteCard siteId={deferredParams.site} />
+            </Box>
+          )}
+
+          {search.tab === 'forecast' && selectedSite && selectedNight && (
             <>
               <Box data-shot="night-timeline">
                 <NightTimelineChart
@@ -420,47 +431,37 @@ function AstroWindowPage() {
               <Box data-shot="cloud-layers">
                 <CloudLayersChart hourly={data.detail.hourly} night={selectedNight} />
               </Box>
-              {selectedSite ? (
-                <>
-                  {/*
-                      Each chart owns its own Suspense. Both charts are Wave 9 stubs that fetch
-                      nothing today. Their upstreams legitimately 502 (the DEM bucket, the Lorenz
-                      atlas), and the 1.x per-chart error boundary is gone (`BasaltErrorBoundary`
-                      was deleted), so the port must render the failure through
-                      `ChartCard state={{ error }}` or one chart's 502 reaches the route's error
-                      component.
-                    */}
-                  <Suspense
-                    fallback={
-                      <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
-                    }
-                  >
-                    <Box data-shot="sky-panorama" data-shot-states="empty" data-shot-absent="empty">
-                      <SkyPanorama
-                        key={`${selectedSite.id}-${selectedDate}`}
-                        site={selectedSite}
-                        detailDate={selectedDate}
-                        hourly={data.detail.hourly}
-                        night={selectedNight}
-                        moonLimit={data.moonMaxIllumination}
-                      />
-                    </Box>
-                  </Suspense>
-                  <Suspense
-                    fallback={
-                      <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
-                    }
-                  >
-                    <Box data-shot="annual-budget" data-shot-absent="empty">
-                      <MonthlyBudgetChart site={selectedSite} />
-                    </Box>
-                  </Suspense>
-                </>
-              ) : (
-                <Box data-shot="unknown-site">
-                  <UnknownSiteCard siteId={deferredParams.site} />
+              {/*
+                  Each chart owns its own Suspense. Both charts are Wave 9 stubs that fetch
+                  nothing today. Their upstreams legitimately 502 (the DEM bucket, the Lorenz
+                  atlas), and the 1.x per-chart error boundary is gone (`BasaltErrorBoundary`
+                  was deleted), so the port must render the failure through
+                  `ChartCard state={{ error }}` or one chart's 502 reaches the route's error
+                  component.
+                */}
+              <Suspense
+                fallback={
+                  <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
+                }
+              >
+                <Box data-shot="sky-panorama" data-shot-states="empty" data-shot-absent="empty">
+                  <SkyPanorama
+                    key={`${selectedSite.id}-${selectedDate}`}
+                    site={selectedSite}
+                    detailDate={selectedDate}
+                    hourly={data.detail.hourly}
+                    night={selectedNight}
+                    moonLimit={data.moonMaxIllumination}
+                  />
                 </Box>
-              )}
+              </Suspense>
+              <Suspense
+                fallback={<ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />}
+              >
+                <Box data-shot="annual-budget" data-shot-absent="empty">
+                  <MonthlyBudgetChart site={selectedSite} />
+                </Box>
+              </Suspense>
             </>
           )}
         </Stack>
