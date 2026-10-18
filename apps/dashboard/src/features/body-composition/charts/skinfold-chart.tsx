@@ -103,6 +103,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
           height={CHART_HEIGHT}
           x={(d) => d.date}
           formatX={axisDateFormat(chartData.map((d) => d.date))}
+          tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
           series={series}
           y={{ domain: skinfoldDomain, ticks: 5, nice: true, format: (v) => `${v} mm` }}
         />
