@@ -233,7 +233,8 @@ export function progressPercent(book: ShelfItem): number | null {
 
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
 
-export type BinLabel = { visible: string; aria: string }
+/** `short` is the bin's lower edge alone, for axes too narrow for the span. */
+export type BinLabel = { visible: string; short: string; aria: string }
 
 /** One bin's span, two views: the axis text (`3–3.5 ★`) and the screen-reader text (`3 to 3.5 stars`). */
 function binLabel(lo: number, hi: number): BinLabel {
@@ -241,6 +242,7 @@ function binLabel(lo: number, hi: number): BinLabel {
   const span = lo === hi ? `${lo}` : `${lo}–${hi}`
   return {
     visible: withUnit(span, '★'),
+    short: withUnit(lo, '★'),
     aria: lo === hi ? `${lo} ${stars(lo)}` : `${lo} to ${hi} ${stars(hi)}`,
   }
 }

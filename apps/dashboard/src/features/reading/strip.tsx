@@ -1,4 +1,4 @@
-import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
+import { Meter, StatGroup, useSizeClass, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
@@ -37,7 +37,7 @@ function shelfCell(counts: ShelfCounts, footer: string | null): StatStripCell {
   }
 }
 
-function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
+function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCell {
   const shape = ratingShape(shelf)
   if (shape.mean === null) {
     return { key: 'ratings', caption: 'Ratings · 0 rated', value: null, footer: 'no rated books' }
@@ -70,7 +70,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
         <div className={classes.axis}>
           {shape.labels.map((label, i) => (
             <span key={i} className={classes.axisLabel}>
-              <span>{label.visible}</span>
+              <span title={label.aria}>{narrow ? label.short : label.visible}</span>
               <span>{shape.buckets[i]}</span>
             </span>
           ))}
@@ -105,12 +105,13 @@ export function ReadingStrip({
   pace: Pace
   footer: string | null
 }) {
+  const narrow = useSizeClass() === 'compact'
   return (
     <StatGroup
       variant="strip"
       label="Reading summary"
       cols={3}
-      cells={[shelfCell(counts, footer), ratingsCell(shelf), paceCell(pace)]}
+      cells={[shelfCell(counts, footer), ratingsCell(shelf, narrow), paceCell(pace)]}
     />
   )
 }
