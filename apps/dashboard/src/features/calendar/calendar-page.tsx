@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { shotState } from '../../lib/shot-state'
 import { useNavigate } from '@tanstack/react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Box, Stack, Text, useMantineColorScheme } from '@mantine/core'
@@ -17,6 +16,7 @@ import type { SourceClass } from '../../lib/queries/calendar'
 import { PageBar, useSizeClass } from 'basalt-ui'
 import type { BarAction } from 'basalt-ui/controls'
 import { ViewTabs } from 'basalt-ui/controls'
+import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { calendarStore } from '../../lib/window-stores'
 import { AgendaView, type SourceError } from './agenda-view'
@@ -131,21 +131,21 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   }, [view, meetings, projects, ...taskData])
 
   const errors: SourceError[] = []
-  if (googleQuery.error) {
+  if (googleQuery.error && !shotEmpty) {
     errors.push({
       label: 'Google',
       reason: failureReason(googleQuery.error, 'Google'),
       reauthUrl: isAuthError(googleQuery.error) ? '/api/oauth/google/init' : undefined,
     })
   }
-  if (m365Query.error) {
+  if (m365Query.error && !shotEmpty) {
     errors.push({ label: 'Microsoft 365', reason: failureReason(m365Query.error, 'Microsoft 365') })
   }
 
   // A source that has not answered (still loading, or failed with nothing of this window cached)
   // makes every figure that depends on it unknown — a dash, never a zero or "free".
-  const personalUnknown = unanswered(googleQuery)
-  const workUnknown = unanswered(m365Query)
+  const personalUnknown = !shotEmpty && unanswered(googleQuery)
+  const workUnknown = !shotEmpty && unanswered(m365Query)
   const unknown = useMemo(() => {
     const set = new Set<SourceClass>()
     if (personalUnknown) set.add('personal')

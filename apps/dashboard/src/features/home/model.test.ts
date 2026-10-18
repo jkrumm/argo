@@ -13,6 +13,7 @@ import {
   wardenEvents,
   nextMeeting,
   recoveryReading,
+  restLabel,
   staleFeeds,
   homeSummaryParts,
   taskCounts,
@@ -292,6 +293,19 @@ describe('wardenEvents', () => {
       items: { '7': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0]
     expect(wardenEvents(monitored)[0]?.detail).toBe('{monitor} Down {reason}')
+  })
+
+  it("drops a commit-style label from the item title (the cards' subject rule)", () => {
+    const commit = {
+      board: { items: [{ event_id: 7, repo: '{repo}', title: 'fix({scope}): {change}' }] },
+      items: { '7': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
+    } as unknown as Parameters<typeof wardenEvents>[0]
+    expect(wardenEvents(commit)[0]?.detail).toBe('{change}')
+  })
+
+  it('words the show-more buttons as the remainder, per page', () => {
+    expect(restLabel('/warden', 3)).toBe('3 more in Warden')
+    expect(restLabel('/agents', 1)).toBe('1 more on Agents')
   })
 
   it('starts a new row after a gap and times each row at its last step', () => {

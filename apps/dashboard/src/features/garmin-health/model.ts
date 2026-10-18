@@ -5,6 +5,7 @@
  */
 
 import { NBSP, withUnit } from '../../lib/format'
+import { applyVisibilityFilter } from './visibility'
 import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
 
 const EM_DASH = '—'
@@ -250,6 +251,13 @@ export function recoverySentence(input: {
   }
   const { headline } = recoveryGap({ date: input.recoveryDate, status: input.recoveryStatus })
   return capitalize([input.load, headline].filter(Boolean).join('; '))
+}
+
+/** {@link lastScored} over a series read as the Garmin page shows it (today hidden before the cutoff): Today and Garmin Health name the same day. */
+export function lastScoredVisible(
+  points: readonly { date: string; recovery: number | null }[],
+): { value: number; date: string } | null {
+  return lastScored(applyVisibilityFilter(points, (p) => p.date))
 }
 
 /** The newest finite recovery score in a window (points ascending by date) and the date it was scored on. */

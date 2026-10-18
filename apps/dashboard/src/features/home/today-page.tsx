@@ -4,7 +4,7 @@ import { Stack } from '@mantine/core'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
-import { RECOVERY_DAYS, lastScored } from '../garmin-health/model'
+import { RECOVERY_DAYS, lastScoredVisible } from '../garmin-health/model'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
@@ -114,8 +114,9 @@ export function TodayPage() {
   const poller = derivePollers(wardenRaw?.metrics, wardenRaw?.health)[0]
 
   // ── Calendar ───────────────────────────────────────────────────────────────────────────────
-  const google = unanswered(googleQuery) ? null : asEvents(shotEmpty ? [] : googleQuery.data)
-  const m365 = unanswered(m365Query) ? null : asEvents(shotEmpty ? [] : m365Query.data)
+  // Under the shot's `empty` the sources answered with nothing: the real empty agenda, not the unknown one.
+  const google = shotEmpty ? [] : unanswered(googleQuery) ? null : asEvents(googleQuery.data)
+  const m365 = shotEmpty ? [] : unanswered(m365Query) ? null : asEvents(m365Query.data)
   const feeds = [
     ...(google === null ? [] : [{ sourceClass: 'personal' as const, events: google }]),
     ...(m365 === null ? [] : [{ sourceClass: 'work' as const, events: m365 }]),
@@ -148,7 +149,7 @@ export function TodayPage() {
         recoveryNow.data,
         (recoverySeries.data?.points ?? []).slice(-RECOVERY_DAYS),
         now,
-        lastScored(applyVisibilityFilter(recoverySeries.data?.points ?? [], (p) => p.date)),
+        lastScoredVisible(recoverySeries.data?.points ?? []),
       )
     : null
   const loadPoints = loadQuery.data?.points
@@ -211,7 +212,10 @@ export function TodayPage() {
             agentsCell(snapshot?.summary, fleet),
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
-            recoveryCell(recovery, recoveryNow.isPending),
+            recoveryCell(recovery, recoveryNow.isPending, {
+              settled: recoverySeries.isSuccess && !recoverySeries.isPlaceholderData,
+              failed: recoverySeries.isError,
+            }),
             acwrCell(acwr, now),
           ]}
         />
