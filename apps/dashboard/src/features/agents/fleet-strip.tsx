@@ -93,20 +93,29 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
             />
           ),
         },
-        fleetCell(fleet, longestRunMs),
+        fleetCell(fleet, longestRunMs, needsYou !== null),
       ]}
     />
   )
 }
 
-function fleetCell(fleet: Props['fleet'], longestRunMs: number | null): StatStripCell {
+function fleetCell(
+  fleet: Props['fleet'],
+  longestRunMs: number | null,
+  /** A snapshot exists: a missing fleet then means it carried no counts, not that none has arrived. */
+  hasSnapshot: boolean,
+): StatStripCell {
   if (fleet === null) {
     return {
       key: 'fleet',
       caption: 'Fleet',
       value: null,
       visual: (
-        <Meter label="Agents by state" value={null} emptyText="No fleet data in this snapshot" />
+        <Meter
+          label="Agents by state"
+          value={null}
+          emptyText={hasSnapshot ? 'No fleet counts in this snapshot' : WAITING_FOR_SNAPSHOT}
+        />
       ),
     }
   }
