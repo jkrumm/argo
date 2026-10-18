@@ -69,9 +69,14 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                         component="span"
                         size="sm"
                         className={classes.feedSentence}
-                        title={`${e.actor} ${e.title}${e.chip ? ` ${e.chip}` : ''}`}
+                        title={`${e.actor} ${e.title}${e.outcome ? ` ${e.outcome}` : ''}${e.chip ? ` ${e.chip}` : ''}`}
                       >
-                        <span className={classes.feedActor}>{e.actor}</span> {e.title}
+                        <span className={classes.feedSubject}>
+                          <span className={classes.feedActor}>{e.actor}</span> {e.title}
+                        </span>
+                        {e.outcome ? (
+                          <span className={classes.feedOutcome}> · {e.outcome}</span>
+                        ) : null}
                         {e.chip ? (
                           <>
                             {' '}

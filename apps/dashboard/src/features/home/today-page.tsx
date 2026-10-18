@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { PageBar, StatGroup } from 'basalt-ui'
+import { PageSummary } from '../../components/upstream/page-summary'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
@@ -25,7 +26,7 @@ import {
   laterMeeting,
   nextMeeting,
   recoveryReading,
-  summarySentence,
+  summaryParts,
   taskCounts,
   todayAgenda,
   wardenEvents,
@@ -171,7 +172,7 @@ export function TodayPage() {
     now,
   )
 
-  const summary = summarySentence({
+  const summary = summaryParts({
     decisions,
     unavailable,
     fleet: fleet === null ? null : { working: snapshot?.summary?.working ?? 0, total: fleet.total },
@@ -201,12 +202,11 @@ export function TodayPage() {
         }}
       />
       <Stack gap="md" className={classes.root}>
-        <div className={classes.headline} data-shot="summary">
-          <Title order={3} fw={500}>
-            {summary}
-          </Title>
-          <span className={classes.date}>{dateFormat.format(now)}</span>
-        </div>
+        <PageSummary
+          sentence={summary.sentence}
+          facts={summary.facts}
+          aside={dateFormat.format(now)}
+        />
 
         <StatGroup
           variant="strip"
