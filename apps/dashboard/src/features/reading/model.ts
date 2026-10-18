@@ -1,4 +1,4 @@
-import { withUnit } from '../../lib/format'
+import { NBSP, withUnit } from '../../lib/format'
 
 export type ShelfItem = {
   hardcoverBookId: number
@@ -410,3 +410,8 @@ export function paceRange(paces: readonly number[]): string | null {
 }
 
 // ── Ratings: bin labels ──────────────────────────────────────────────────────────────────────
+
+/** Glues a leading number to its unit (`3 months ago` → `3{NBSP}months ago`); `ago` stays breakable. */
+export function gluedRelative(text: string): string {
+  return text.replace(/^(\d+(?:[.,]\d+)?) /, `$1${NBSP}`)
+}

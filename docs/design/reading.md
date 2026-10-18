@@ -168,3 +168,7 @@ No new basalt rows.
 
 - Rating bucket label: fixed — the label keeps its range at every width: `{a}–{b} ★` wide, `{a}–{b}` at compact (no glyph, no space) so the 390 labels do not collide; the ratings cell caption carries the unit (`Ratings (★)`).
 - Not fixed (basalt / no API field): pace cell half blank, no days-to-finish on finished rows.
+
+Follow-up (w30-r1):
+
+- **`last read {n} months ago` split the number from its unit** — fixed: `gluedRelative` (`reading/model.ts`) binds a leading number to its unit with a no-break space; `ago` stays breakable.

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   approxHours,
+  gluedRelative,
   booksPerMonth,
   finishedFooter,
   finishCohort,
@@ -470,5 +471,16 @@ describe('ratingsFooter', () => {
   test('says nothing about binning, and nothing without a community rating', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBeUndefined()
     expect(ratingsFooter(ratingShape([book({ rating: 4 })]))).toBeUndefined()
+  })
+})
+
+describe('gluedRelative', () => {
+  test('glues the number to its unit, `ago` stays breakable', () => {
+    expect(gluedRelative('3 months ago')).toBe('3\u00a0months ago')
+    expect(gluedRelative('1 day ago')).toBe('1\u00a0day ago')
+  })
+  test('text without a leading number is untouched', () => {
+    expect(gluedRelative('yesterday')).toBe('yesterday')
+    expect(gluedRelative('last week')).toBe('last week')
   })
 })
