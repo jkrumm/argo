@@ -186,7 +186,7 @@ export function dayLoad(
   return keys.map((key) => ({
     key,
     bookedMin: incomplete ? null : bookedMinOnDay(events, key),
-    count: incomplete ? null : eventsOnDay(events, key).length,
+    count: incomplete ? null : agendaDay(events, key).count,
   }))
 }
 
@@ -362,8 +362,11 @@ export type AgendaDay = {
   key: DayKey
   /** Every timed meeting of the day, cancelled ones included (rendered muted). */
   rows: AgendaRow[]
-  /** Meetings that still happen; `bookedMin` covers the same set. */
+  /** Live all-day items covering the day (never tasks, never cancelled). */
+  allDay: CalendarItem[]
+  /** THE event count: every live event of the day, timed and all-day alike. Tasks are not events. */
   count: number
+  /** Timed live meetings only: all-day items book no time. */
   bookedMin: number
 }
 
@@ -371,10 +374,12 @@ export type AgendaDay = {
 export function agendaDay(events: readonly CalendarItem[], key: DayKey): AgendaDay {
   const listed = rowsOnDay(events.filter(isTimed), key)
   const live = listed.filter((e) => !isCancelled(e))
+  const allDay = allDayEvents(events, key)
   return {
     key,
     rows: listed.map(agendaRow),
-    count: live.length,
+    allDay,
+    count: live.length + allDay.length,
     bookedMin: bookedMinOf(live, key),
   }
 }
@@ -389,20 +394,14 @@ export const NO_EVENTS = 'No events'
 const noun = (n: number) => `${n} ${n === 1 ? 'event' : 'events'}`
 
 /**
- * `2 events · 3h` / `No events` / `1 event · all day` (live all-day items only) / `all cancelled` —
- * the day heading's right-hand side. A day with timed events counts those alone: its all-day items
- * are the chips beside the heading, not part of the booked figure.
+ * `2 events · 3h` / `No events` / `1 event · all day` / `all cancelled` — the day heading's
+ * right-hand side. The count is the day's one event count (timed and all-day alike); the figure
+ * beside it is the booked time, or `all day` where nothing timed is booked.
  */
-export function dayHeadLabel(
-  day: AgendaDay,
-  format: (min: number) => string,
-  liveAllDay = 0,
-): string {
-  if (day.count > 0) return `${noun(day.count)} · ${format(day.bookedMin)}`
-  // A live all-day item means the day is neither empty nor wholly cancelled: it has no booked
-  // figure to state, so the count stands with `all day` where the duration would be.
-  if (liveAllDay > 0) return `${noun(liveAllDay)} · all day`
-  return day.rows.length > 0 ? 'all cancelled' : NO_EVENTS
+export function dayHeadLabel(day: AgendaDay, format: (min: number) => string): string {
+  if (day.count === 0) return day.rows.length > 0 ? 'all cancelled' : NO_EVENTS
+  const timedLive = day.count - day.allDay.length
+  return `${noun(day.count)} · ${timedLive > 0 ? format(day.bookedMin) : 'all day'}`
 }
 
 /** Live all-day events (never tasks, never cancelled) covering `key`, titles intact. */
@@ -455,7 +454,7 @@ export function agendaSummary(
     todayKey,
     weekKeys: keys,
     incomplete,
-    todayCount: incomplete ? null : eventsOnDay(events, todayKey).length,
+    todayCount: incomplete ? null : agendaDay(events, todayKey).count,
     todayBookedMin: incomplete ? null : bookedMinOnDay(events, todayKey),
     weekBookedMin: weekBookedMin(events, keys, incomplete),
     // The next meeting may sit in the calendar that has not answered.

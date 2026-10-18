@@ -45,7 +45,7 @@ describe('summaryParts', () => {
   test('a busy day: the headline carries the count and booked time, the facts the countdown and week', () => {
     const summary = agendaSummary(events, now)
     const { sentence, facts } = summaryParts(summary)
-    expect(sentence).toBe('3 meetings today, 2\u00a0h\u00a040\u00a0min booked')
+    expect(sentence).toBe('3 events today, 2\u00a0h\u00a040\u00a0min booked')
     expect(facts).toEqual(['next in 20\u00a0min', '2\u00a0h\u00a040\u00a0min booked this week'])
   })
   test("an empty day says so; the free time is the free-block cell's, not repeated", () => {
@@ -57,7 +57,7 @@ describe('summaryParts', () => {
   })
   test('a lone meeting reads singular', () => {
     const summary = agendaSummary([events[1] as CalendarItem], now)
-    expect(summaryParts(summary).sentence).toStartWith('1 meeting today, 40\u00a0min booked')
+    expect(summaryParts(summary).sentence).toStartWith('1 event today, 40\u00a0min booked')
   })
   test('says why, never "No events", while a calendar has not answered', () => {
     const summary = agendaSummary([], now, new Set(['work']))

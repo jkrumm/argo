@@ -130,12 +130,47 @@ describe('booked hours', () => {
   })
   test('a day holding only live all-day items counts them as `all day`; empty days say No events', () => {
     const fmt = (m: number) => `${m}m`
-    const only = agendaDay([], D)
-    expect(dayHeadLabel(only, fmt, 2)).toBe('2 events · all day')
-    const cancelledRow = agendaDay([cancelled('x', 'Canceled:', at(D, '09:00'), at(D, '10:00'))], D)
-    expect(dayHeadLabel(cancelledRow, fmt, 1)).toBe('1 event · all day')
-    expect(dayHeadLabel(only, fmt, 0)).toBe('No events')
-    expect(dayHeadLabel(cancelledRow, fmt, 0)).toBe('all cancelled')
+    const two = [ev('a1', D, D, { isAllDay: true }), ev('a2', D, D, { isAllDay: true })]
+    expect(dayHeadLabel(agendaDay(two, D), fmt)).toBe('2 events · all day')
+    const cancelledRow = cancelled('x', 'Canceled:', at(D, '09:00'), at(D, '10:00'))
+    expect(dayHeadLabel(agendaDay([cancelledRow, two[0] as CalendarItem], D), fmt)).toBe(
+      '1 event · all day',
+    )
+    expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('No events')
+    expect(dayHeadLabel(agendaDay([cancelledRow], D), fmt)).toBe('all cancelled')
+  })
+  test('a timed day counts its all-day items too; booked time stays timed-only', () => {
+    const fmt = (m: number) => `${m}m`
+    const day = agendaDay(
+      [ev('t', at(D, '09:00'), at(D, '10:00')), ev('a', D, D, { isAllDay: true })],
+      D,
+    )
+    expect(day.count).toBe(2)
+    expect(day.bookedMin).toBe(60)
+    expect(dayHeadLabel(day, fmt)).toBe('2 events · 60m')
+  })
+  test('one event count: day headers sum to the badge, the strip and the summary agree', () => {
+    const items = [
+      ev('t1', at(D, '09:00'), at(D, '10:00')),
+      ev('t2', at('2026-10-15', '09:00'), at('2026-10-15', '10:00')),
+      cancelled('c', 'Canceled:', at('2026-10-15', '11:00'), at('2026-10-15', '12:00')),
+      ev('a1', '2026-10-15', '2026-10-17', { isAllDay: true }),
+      ev('a2', '2026-10-16', '2026-10-16', { isAllDay: true }),
+      ev('task', '2026-10-15', '2026-10-15', { source: 'ticktick' }),
+    ]
+    const nextKeys = Array.from({ length: 7 }, (_, i) => addDays(D, i + 1))
+    const days = nextKeys.map((k) => agendaDay(items, k))
+    const badge = days.reduce((sum, d) => sum + d.count, 0)
+    const headers = days.map((d) => dayHeadLabel(d, (m) => `${m}m`))
+    const headerSum = headers.reduce(
+      (sum, h) => sum + (Number(/^(\d+) event/.exec(h)?.[1]) || 0),
+      0,
+    )
+    expect(headerSum).toBe(badge)
+    expect(badge).toBe(4)
+    const load = dayLoad(items, nextKeys)
+    expect(load.reduce((sum, d) => sum + (d.count ?? 0), 0)).toBe(badge)
+    expect(agendaSummary(items, new Date(2026, 9, 14, 8, 0, 0)).todayCount).toBe(1)
   })
   test('an empty load is not nothing booked', () => {
     expect(nothingBooked([])).toBe(false)
@@ -428,7 +463,6 @@ describe('cancelled meetings', () => {
     const fmt = (m: number) => `${m}m`
     const only = agendaDay([cancelled('b', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`)], D)
     expect(dayHeadLabel(only, fmt)).toBe('all cancelled')
-    expect(dayHeadLabel(only, fmt, 1)).toBe('1 event · all day')
     expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('No events')
     expect(dayHeadLabel(agendaDay([ev('a', `${D} 09:00:00`, `${D} 10:00:00`)], D), fmt)).toBe(
       '1 event · 60m',
