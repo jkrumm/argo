@@ -159,3 +159,8 @@ No new basalt rows.
 
 - **Reviewer:** fail (no new defect). Fixed: durations read `{h} h {m} min` (one spelling with Home and Agents). Carried: next-days at four sizes and its half-blank crop (basalt / harness); the `·`-led wrap at 390 (basalt); long titles ellipsize in next-days at 390 (basalt `ScheduleRow`). Unscored: the `<>` mono ligature (basalt); mobile next-days crops include the bottom nav (harness).
 - **Against Keel:** close — the headline states a fact but carries no figure.
+
+### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail (no argo change, no new defect). Carried (all basalt / harness): `ScheduleRow` at four sizes and its titles ellipsized at 390; the half-blank next-days crop; the `·`-led wrap; the mono `<>` ligature.
+- **Against Keel:** close — the headline states a fact but carries no figure.

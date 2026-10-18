@@ -328,3 +328,21 @@ argo moved to basalt-ui 2.21.0 in its own commit (`7390e3c`). No local strip-cel
 `w28-r1` re-confirmed open rows: `Lines` end labels vs legend (and a clipped end label), `Sparkline` reference label, `ScheduleRow` wrap,
 four type sizes in `ScheduleRow`/section shells, the `·`-led `PageSummary` wrap, the mono `<>` ligature, info tooltips over the card
 above at 390, sticky bars over crops, tall-anchor focus timeouts.
+
+### Wave 29 — round 8 fixes (#117–#121) and the `w29-r1` live re-score
+
+Still on basalt-ui 2.21.0 (no release announced during the wave). No local workaround added; what the round needed and the shipped API lacks:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `Meter` zones | `label` optional for a muted, non-verdict zone (today it is required, so an unnamed zone passes `''`) | strength balance meter, the under/over zones | `label: ''` |
+| `Meter` zone names | one rule across widths: a zone whose `short` fits must show it at every width (the caution zone is named at 390 and hidden at 1440 on Home, the reverse on Garmin) | home + garmin training-load caution zone | `short: 'Caut.'`, as rendered |
+| `Lines` | `endLabels?: boolean` — every non-reference series gets an end label with no off switch, repeating the legend and clipping at the top-right | astro cloud layers; body-composition weight | as rendered |
+| `Bars` | a non-hue series cue (pattern/hatch fill or direct labels) | astro annual budget `flat` vs `terrain` | shade-only greys |
+| `Bars` / axis | the `0` y-tick label sits under the first bar; needs a label offset or an x inset | usage error chart | as rendered |
+| `SegmentBar` `size="row"` | per-part captions or swatches survive the row size (the row drops caption rows, so parts are told apart by shade only) | m365 `Chats by kind` | the footer names the parts in bar order |
+
+`w29-r1` re-confirmed open rows: `StatGroup` strip short-cell void (home next-meeting 0.47, agents needs-you 0.53, garmin recovery 0.62,
+warden unattended 0.49, reading pace 0.51), `Meter` detached ticks, `Sparkline` reference label, `ScheduleRow` wrap and four sizes,
+`BandStrip` hue-only states and ticks, chip / row hover, the phone-select inset, `ViewTabs` 390, narrow tooltips, info tooltips over the
+card above at 390, the `·`-led `PageSummary` wrap, the mono `<>` ligature, sticky bars over crops and tall-anchor focus timeouts.

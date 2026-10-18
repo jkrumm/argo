@@ -177,3 +177,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: zone names centred under their zones (2.21.0); `Bulk` whole at 390; `{n} weigh-ins in {d} d` names its window; the rate range whole at 390; tooltip precision and `d MMM` ticks consistent. Carried: the weight line through the `7 d mean` end label; end labels and legend name the same series (basalt `Lines`). **New:** lost fact — the maintenance band's width (`±{x} kg/wk`) is stated nowhere on the surface now (it moved off the zone label and the start caption was dropped); the maintain zone has no name at 390 even with `short` set (basalt row). Unscored: `{n} days ago` and the `{n} days` chart title beside `{n} d`; the `·`-led wrap (basalt).
 - **Against Keel:** close — the meter names its zones again, but its boundaries went with them.
+
+### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail (argo items clean). Fixed: the maintenance band's width back once (`maintain ±{x} kg/wk` in the rate qualifier, zone `Maintenance`); one `{n} d` day spelling across headline, facts and chart titles. Carried (all basalt): the maintain zone unnamed at 390 even with `short`; the weight line through the `7 d mean` end label; end labels and legend name the same series; the `·`-led wrap at 390. **New:** none. Unscored: the chart info tooltip covers the net-change figure on focus (basalt).
+- **Against Keel:** close — the meter has its names and its band width again; only shared-component overlaps remain.

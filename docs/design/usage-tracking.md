@@ -172,3 +172,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the errors footer keeps `(> 3%)` with its phrase. Carried: warn/bad days hue-only (basalt `BandStrip`); the p95 `slowest day` date still splits at 390; band ticks `DD.MM` vs `{day} {Mon}` (basalt `BandStrip` has no tick formatter). **New:** the error chart's `0` tick under the first bar (thin `BarList`/axis on 2.21.0). Unscored: the headline's 7 d spend window matches no cell; `{n} B` vs `{n}M` in one cell; the errors tooltip covers the hero and gives no rate, the cache tooltip hides its value (basalt); the latency line through the top tick label; a 10.67 px phone-select inset (basalt).
 - **Against Keel:** close — still the best KPI band of the set; the headline window disagrees with it.
+
+### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the headline `{n} calls in the last 30 d` (spend only in the Cost cell, the window matches); one seconds format; the p95 date no longer splits. Carried: warn/bad days hue-only, band ticks `DD.MM`, the error chart's `0` tick under the first bar, the 10.67 px phone-select inset (all basalt); the p95 line still through the top tick label (the `autoPad` headroom does not show); `{n} B` vs `{n} M` in the Tokens cell. **New:** the Tokens footer orphans `days`. Unscored: the tokens tooltip lists zero-value series and mixes `k` with `M`; the Errors footer `vs {r} prior 30 d` repeats the delta's baseline.
+- **Against Keel:** close — still the best KPI band of the set, and the headline now agrees with it.

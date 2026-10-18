@@ -143,3 +143,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the `Untitled {n}` chip has its count, the chips add up to `All {n}`; the fold no longer orphans `ago`; row titles at 390 end at a word. Carried: chips have no hover (basalt `Button`); the complete-list footer `First thread {date}` still sits beside the fold's `oldest {age}` (reworded, not removed). Unscored: the headline `Nothing running` carries no figure or scope.
 - **Against Keel:** does not yet — three rows and a fold over a void above the composer.
+
+### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the headline carries the running count and the thread total; `First thread {date}` stays and the fold's `oldest {age}` is gone. Carried: chips without hover (basalt). **New:** the fold row is the bare word `Untitled` (its count lives only in the chip).
+- **Against Keel:** does not yet — three rows and a fold over a void above the composer.

@@ -158,3 +158,8 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: bucket labels carry `★`; Finished spans the full row at 1440; month heads read `{n} books`; the shelf cell no longer stretches at 390 (2.21.0). Carried: the pace cell half blank (`emptyRatio` 0.51 on 2.21.0 — basalt row); range bucket labels at 390 no longer wrap but run into each other; no days-to-finish on finished rows (only when the API sends a start date). Unscored: `≈ {h} h to read` names no pace; backlog focus crops under the sticky bar (harness).
 - **Against Keel:** does not yet — the pace cell is half blank beside the histogram.
+
+### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the backlog names its pace (`≈ {h} h to read at {p} pages/h`); 390 range bucket labels no longer run into each other. Carried: the pace cell half blank (`emptyRatio` 0.51 — basalt row); no days-to-finish on finished rows (the API sends no start date for them). **New:** none. Unscored: one bucket reads `{a}–{b} ★` at 1440 but `{a} ★` at 390, which reads as a whole-star bucket; the backlog focus crop under the bottom nav (harness).
+- **Against Keel:** does not yet — the pace cell is still half blank beside the histogram.

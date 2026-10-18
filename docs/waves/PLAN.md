@@ -1427,7 +1427,7 @@ rule stays **subtract before you add**, with its counterpart made explicit: a re
   how far a derived question can go.
 - **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
 
-## Wave 29 — Re-score round 8: subjects back in titles, glue that wraps, one figure each <!-- status: active -->
+## Wave 29 — Re-score round 8: subjects back in titles, glue that wraps, one figure each <!-- status: done -->
 
 Same shape as Wave 28 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
 `rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w28 shots + a Keel side-by-side). The
@@ -1435,12 +1435,84 @@ rule stays **subtract before you add**, and a removal that leaves a reader witho
 `docs/design/<page>.md` § "Wave 28 round". WalkingPad passed twice: leave it. Stretched short cells are basalt's (`UPSTREAM.md`
 § "Wave 28"): no local workaround.
 
-- [ ] The question rung: a title never drops its subject for an ordinal — when the whole handle does not fit, cut the handle at a word
+- [x] The question rung: a title never drops its subject for an ordinal — when the whole handle does not fit, cut the handle at a word
       (no ellipsis before `?`) and keep the ordinal only as a last tie-break; Agents never falls back to `Answer this request?`; titles
       never restate their evidence line; Home's verb matches its only button (`Open in Warden`). Home, Warden and Agents.
-- [ ] Fix the argo items per page, fanned out: new first (glue that wraps at phrase boundaries rather than mid-word; the maintenance
+- [x] Fix the argo items per page, fanned out: new first (glue that wraps at phrase boundaries rather than mid-word; the maintenance
       band width back once; a `short` for every zone the 2.21.0 Meter hides; astro's mid value once), then carried, then unscored.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 30 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 30 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 30 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **basalt-ui stayed on 2.21.0** — no release was announced during the wave, so no bump commit.
+- **Landed (master, deployed, `/api/health` = `9437bcc`, check + deploy workflows green):** five fan-out PRs, each with two independent
+  agent-gateway review rounds, scope frozen after round 2, the last fix diff read by the lead, CI `check` green on the PR head before
+  `rd merge`, `make check` green after every rebase and again on the merged master: #117 garmin + body composition, #118 strength + reading,
+  #119 usage + m365 + hermes, #120 astro, #121 the question rung + home + warden + agents. WalkingPad untouched.
+- **The question rung is one deterministic, table-tested function** (`questionTitles` / `surfaceCopies` in `lib/question-copy.ts`): the verb
+  from the primary button (Home `Decide on {kind}: {subject}?` over its only `Open in Warden`), the subject kept and cut at a word with no
+  ellipsis before `?`, conventional-commit `type(scope):` stripped, siblings told apart by more of their subject, an ordinal only for
+  word-identical normalised subjects (code-unit order), no generic `Answer this request?` when an ask exists, the evidence line never
+  restating the title. The table is `apps/dashboard/src/lib/__fixtures__/question-rung.ts`: every live title pattern from the production
+  warden snapshot and agents overview of 2026-10-18, anonymised (same length, shape and punctuation; the lead grepped the diff against the
+  live identifiers — zero hits), with the expected title per row, plus the three regressions as named cases. A fix that moves any row fails a test.
+- **Code review caught:** ordinals decided on truncated text (twice — a word-prefix pair still got `(1)`/`(2)`); a shortcode-wrapped
+  verification failure still offering `Merge`; an unterminated evidence remainder dropped; real identifiers left in the first fixture;
+  a commit-prefix strip that would eat `warning:`; the maintenance band width printed twice, then again in the in-band footer; a `0.0 t`
+  week; a lost diagnostics period; a cross-year m365 span without years; hermes losing its only created-at fact; a dead kind-bar caption;
+  the astro moon gate falling back to API prose; a selected best night losing its window; a flat cloud layer losing its value; a score card
+  that could hide an unknown killer.
+- **Gate flake:** `apps/api/src/lib/hermes-streams.test.ts` (and two astro visibility tests) time out under load — the mini ran at a load
+  average of ~62 with other waves; each passes 3/3 in isolation and every merge went green on a retry. Not an argo regression; worth a
+  longer per-test timeout if it recurs.
+- **Round `w29-r1`** (live, `basalt-ui shot --base https://argo.jkrumm.com`, `argo-auth` seeded from `secrets-run read
+  op://common/api/SECRET` via env, 1440 + 390, both schemes, plus the two m365 pane presets; 1426 shots, 10 focus timeouts). Groups b/c and
+  the presets were shot once their PRs were live, group a after #121 deployed. Boards: `.design-shots/w29-r1-{a,b,c,m365-labeled,m365-detail}`
+  (gitignored), copied to the MacBook, `~/Downloads/argo-design-review/w29/`. Three fresh `basalt-design-reviewer`s, each given the w28 shots
+  to classify every defect, plus a Keel side-by-side; per-page verdicts in `docs/design/<page>.md` § "Wave 29 round".
+- **Reviewer verdict, stated plainly:** **walking pad passes a third time; twelve fail.** Counted from the reviewers' lists: **≈41 fixed**,
+  **≈35 carried** (most of them basalt rows), **17 new**, **≈15 unscored**. **No regression and no lost fact on any page** — the first
+  round with neither. Body composition, reading and calendar have no new defect; body composition's remaining items are all basalt's.
+- **What the new defects say:** (1) **the question rung is now stable but has hit its ceiling** — titles keep their subjects, never number
+  distinct items and match their buttons, yet the reviewer reads `{stem}: {raw subject}?` as an instruction with a `?`, not a question
+  (Home, Warden, Agents). A derived title cannot become an authored question; the producer `question` field from warden and agent-gateway
+  (queued for the owner since Wave 26) is the fix, not another rung change. (2) **compound durations** — gluing only number↔unit lets a
+  two-part age break between its parts (`{h} h` / `{m} min ago`); a duration's own parts must stay together while `ago` stays breakable.
+  (3) **small consistency slips** — warden's headline wait in decimal days, a raw backtick and `[monitor]` prefix in titles, Garmin's ACWR
+  legend missing caution, strength's ACWR tooltip in kg beside a chart in t, the m365 remove control now visible at rest (against the
+  Wave 22 ruling), astro's Sky footer stretching the anatomy row.
+- **Against Keel:** close — Garmin, Body composition, Calendar, Strength, WalkingPad, Astro, Usage, M365 (up from does not yet), Home and
+  Warden (both up); does not yet — Agents, Reading, Hermes.
+- **Not verified:** garmin fitness, strength bench press, m365 source-list and labeled-phone focus (timeouts); the 390 m365 detail pane with a
+  source open; warden board focus; Garmin's recovery meter (no score on the shot day); the astro night-strip hover (the harness hovers the
+  selected cell).
+- **Basalt-owned rows:** `UPSTREAM.md` § "Wave 29" (an optional `Meter` zone label, one zone-name rule across widths, a `Lines` end-label
+  switch, a `Bars` non-hue cue, the `0` tick under the first bar, `SegmentBar` row captions) plus the re-confirmed Wave 28 rows.
+- **Producer change still queued for the owner:** an authored `question` from warden and agent-gateway — Wave 29 shows the derived rung is
+  as good as derivation gets.
+- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running; the live data used for the fixture was
+  kept outside the repo (`/tmp`) and never committed.
+
+## Wave 30 — Re-score round 9: compound durations, one vocabulary per surface, the rung frozen <!-- status: active -->
+
+Same shape as Wave 29 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
+`rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w29 shots + a Keel side-by-side). The
+rule stays **subtract before you add**, and a removal that leaves a reader without a fact is a defect. Each page's detail is in
+`docs/design/<page>.md` § "Wave 29 round". WalkingPad passed three times: leave it. Basalt rows (`UPSTREAM.md` § "Wave 28" and § "Wave 29"):
+no local workaround. **The question rung is frozen:** its table (`lib/__fixtures__/question-rung.ts`) is the contract; a title change
+needs a new table row first, and the authored producer `question` stays the owner's call.
+
+- [ ] Compound durations and leftover title noise (Home, Warden, Agents): a duration's own parts stay together (`{h} h {m} min` never splits,
+      `ago` stays breakable); warden's headline wait in the cards' spelling; raw backticks and the monitor's `[…]` prefix out of titles (new
+      table rows); the Agents headline carries the needs-you count or the oldest wait; `Answer:` vs a `Copy …` primary; the CI-failed card's
+      `Merge` secondary; the failed card's garbled `— PR left open` evidence.
+- [ ] Fix the argo items per page, fanned out: new first (Garmin ACWR legend names caution; strength ACWR tooltip in t; m365 remove control
+      back to hover/focus with the muted token; astro Sky footer that stretches the anatomy row and the run-together cloud headline; usage
+      `days` orphan; hermes fold label; m365 390 date/year split), then carried, then unscored.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 31 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

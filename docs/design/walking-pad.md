@@ -162,3 +162,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** **pass**, second round running. Fixed: both w27 polish items — `last walk` once, and the last walk's date beside its age. No carried, new or unscored defect.
 - **Against Keel:** close — honest empty state, but ~60 % of the page blank below it at 1440.
+
+### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
+
+- **Reviewer:** pass, the third round running. No regression against w28.
+- **Against Keel:** close — the empty state is honest; most of the page at 1440 is blank below it.

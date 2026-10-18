@@ -174,3 +174,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the recovery cell names why there is no score (`{day}: {inputs} not scored`); one fitness wording (`slope · {n} d`) on the caption and the rows; the sparkline focus readout carries its unit and date. Carried: the recovery cell part-empty (`emptyRatio` 0.62 at 1440 on 2.21.0 — basalt row); `Meter` tick labels detached under the track (basalt); two columns at 390 with recovery part-empty. **New:** the load meter's caution zone has no name (2.21.0 hides a zone name wider than its span — pass `short`). Unscored: the recovery cell does not say when the score fills. Not verified: fitness focus (timeouts).
 - **Against Keel:** close — recovery is a dash and a sentence where Keel draws a gauge against a target.
+
+### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the load meter's caution zone named (`Caut.`) at 1440. Carried: the caution zone unnamed at 390 (basalt `Meter`, the reverse of Home); the recovery cell part-empty (`emptyRatio` 0.62 — basalt row) and two columns at 390; `Meter` tick labels detached (basalt); the recovery cell says why there is no score but not when it fills (no API field states it — not invented); the fitness focus shot timed out (harness). **New:** the ACWR chart legend names optimal and danger but not caution while the meter says `Caut.`. Unscored: the recovery meter change unverifiable (no score on the shot day); the heading font's slashed zero (basalt).
+- **Against Keel:** close — load and fitness read like Keel's metric cards; recovery is still a dash and a sentence.
