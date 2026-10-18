@@ -19,6 +19,8 @@ import {
   CHAT_TYPE_LABEL,
   channelSourceId,
   CHATS_TOP,
+  NO_CHATS,
+  NO_TEAMS,
   chatKindCounts,
   chatsCapped as isCapped,
   chatSourceId,
@@ -313,8 +315,15 @@ export function M365ExplorerPage(): ReactElement {
   // screen (a phone has its own Labeled pane) or a hint on a phone.
   // Teams that loaded with no channel in any of them leave nothing to pick either.
   const sourcesEmpty = view === 'chats' ? noChats : noTeams || channelsTotal === 0
-  const emptyDetail = sourcesEmpty ? null : (
-    <p className={classes.empty}>Pick a chat or channel in Sources to open it</p>
+  const emptySourcesCause = (
+    view === 'chats' ? NO_CHATS : noTeams ? NO_TEAMS : 'No channels came back'
+  ).replace(/^N/, 'n')
+  const emptyDetail = (
+    <p className={classes.empty}>
+      {sourcesEmpty
+        ? `Nothing to open — ${emptySourcesCause}`
+        : 'Pick a chat or channel in Sources to open it'}
+    </p>
   )
   const detailPane =
     view === 'feed' ? <FeedPane tag={tag} /> : (record ?? (compact ? emptyDetail : labeledPane))
