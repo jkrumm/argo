@@ -406,15 +406,15 @@ export type SummaryInput = {
   period: string
 }
 
-/** "{km} km this week in {n} walks; streak {d} d; pace {p} km/h, {delta} vs the prior 30 d." */
-export function summarySentence(s: SummaryInput): string {
-  const week =
+/** Headline: the week's distance and walks. Facts: streak and pace, the pace against its prior window. */
+export function summaryParts(s: SummaryInput): { sentence: string; facts: string[] } {
+  const sentence =
     s.weekDistanceM === null || s.weekSessions === null
-      ? 'this week —'
+      ? 'This week —'
       : `${withKm(s.weekDistanceM)} this week in ${s.weekSessions} ${plural(s.weekSessions, 'walk')}`
   const pace =
     s.paceKmh === null
       ? 'pace —'
-      : `pace ${withKmh(s.paceKmh)}${s.paceDeltaKmh === null ? ` over ${s.period}, no prior window to compare` : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
-  return `${week}; streak ${s.streakDays} d; ${pace}.`
+      : `pace ${withKmh(s.paceKmh)}${s.paceDeltaKmh === null ? ` over ${s.period}` : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
+  return { sentence, facts: [`streak ${s.streakDays} d`, pace] }
 }

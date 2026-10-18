@@ -175,13 +175,23 @@ export type SummaryInput = {
   hrvDelta: number | null
 }
 
-/** The one-line page summary: three live numbers, each with its unit and scale. */
-export function summarySentence({ recovery, acwr, rhrDelta, hrvDelta }: SummaryInput): string {
-  const load = acwr === null ? EM_DASH : `${acwr.toFixed(2)} ACWR, ${acwrRelation(acwr)}`
-  return (
-    `Recovery ${fmtNum(recovery)}/100 · load ${load} · ` +
-    `RHR ${signed(rhrDelta)} bpm and HRV ${signed(hrvDelta)} ms over ${FITNESS_DAYS} d`
-  )
+/**
+ * The page's opening: the headline answers "how recovered and how loaded", the facts carry the
+ * ACWR figure and the 14 d fitness deltas, each with unit.
+ */
+export function summaryParts({ recovery, acwr, rhrDelta, hrvDelta }: SummaryInput): {
+  sentence: string
+  facts: string[]
+} {
+  const load = acwr === null ? '' : `, load ${acwrRelation(acwr)}`
+  return {
+    sentence: `Recovery ${fmtNum(recovery)}/100${load}`,
+    facts: [
+      acwr === null ? null : `ACWR ${acwr.toFixed(2)}`,
+      `RHR ${signed(rhrDelta)} bpm over ${FITNESS_DAYS} d`,
+      `HRV ${signed(hrvDelta)} ms over ${FITNESS_DAYS} d`,
+    ].filter((f) => f !== null),
+  }
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────

@@ -24,7 +24,7 @@ import {
   signed,
   sleepFact,
   stressFact,
-  summarySentence,
+  summaryParts,
 } from './model'
 
 describe('number formatting', () => {
@@ -67,17 +67,19 @@ describe('aggregates', () => {
   })
 })
 
-describe('summarySentence', () => {
-  test('carries three live numbers with units', () => {
-    expect(summarySentence({ recovery: 62.4, acwr: 0.62, rhrDelta: -2, hrvDelta: 3 })).toBe(
-      'Recovery 62/100 · load 0.62 ACWR, under the 0.8 floor · RHR −2 bpm and HRV +3 ms over 14 d',
-    )
+describe('summaryParts', () => {
+  test('the sentence carries recovery and the load verdict, the facts the figures with units', () => {
+    expect(summaryParts({ recovery: 62.4, acwr: 0.62, rhrDelta: -2, hrvDelta: 3 })).toEqual({
+      sentence: 'Recovery 62/100, load under the 0.8 floor',
+      facts: ['ACWR 0.62', 'RHR −2 bpm over 14 d', 'HRV +3 ms over 14 d'],
+    })
   })
 
-  test('a missing reading is an em dash in place', () => {
-    expect(summarySentence({ recovery: null, acwr: null, rhrDelta: null, hrvDelta: null })).toBe(
-      'Recovery —/100 · load — · RHR — bpm and HRV — ms over 14 d',
-    )
+  test('a missing reading is an em dash in place, and a missing ACWR drops its clause', () => {
+    expect(summaryParts({ recovery: null, acwr: null, rhrDelta: null, hrvDelta: null })).toEqual({
+      sentence: 'Recovery —/100',
+      facts: ['RHR — bpm over 14 d', 'HRV — ms over 14 d'],
+    })
   })
 
   test('acwrRelation follows the API cut-offs', () => {
@@ -268,7 +270,7 @@ describe('shared fitness window and hero', () => {
   })
 
   test('the summary names the fitness window by the constant', () => {
-    expect(summarySentence({ recovery: 1, acwr: 1, rhrDelta: 0, hrvDelta: 0 })).toContain(
+    expect(summaryParts({ recovery: 1, acwr: 1, rhrDelta: 0, hrvDelta: 0 }).facts[1]).toContain(
       `over ${FITNESS_DAYS} d`,
     )
   })

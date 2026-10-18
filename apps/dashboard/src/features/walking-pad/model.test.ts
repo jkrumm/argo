@@ -15,7 +15,7 @@ import {
   paceValues,
   priorLabel,
   shiftCellsToLocal,
-  summarySentence,
+  summaryParts,
   trimLeadingEmpty,
   weekSummary,
   weekTicks,
@@ -341,7 +341,7 @@ describe('formats and summary', () => {
 
   it('repeats exactly the figures the cells show', () => {
     expect(
-      summarySentence({
+      summaryParts({
         weekDistanceM: 12_400,
         weekSessions: 4,
         streakDays: 3,
@@ -350,14 +350,15 @@ describe('formats and summary', () => {
         prior: 'prior 30 d',
         period: '30 d',
       }),
-    ).toBe(
-      '12.4\u00a0km this week in 4 walks; streak 3 d; pace 4.5\u00a0km/h, +0.3\u00a0km/h vs the prior 30 d.',
-    )
+    ).toEqual({
+      sentence: '12.4\u00a0km this week in 4 walks',
+      facts: ['streak 3 d', 'pace 4.5\u00a0km/h, +0.3\u00a0km/h vs the prior 30 d'],
+    })
   })
 
   it('writes an unknown pace and a single walk plainly', () => {
     expect(
-      summarySentence({
+      summaryParts({
         weekDistanceM: 3000,
         weekSessions: 1,
         streakDays: 0,
@@ -366,12 +367,12 @@ describe('formats and summary', () => {
         prior: 'prior 30 d',
         period: '30 d',
       }),
-    ).toBe('3.0\u00a0km this week in 1 walk; streak 0 d; pace —.')
+    ).toEqual({ sentence: '3.0\u00a0km this week in 1 walk', facts: ['streak 0 d', 'pace —'] })
   })
 
   it('says when pace has no prior window to compare', () => {
     expect(
-      summarySentence({
+      summaryParts({
         weekDistanceM: 0,
         weekSessions: 0,
         streakDays: 0,
@@ -380,8 +381,9 @@ describe('formats and summary', () => {
         prior: 'prior window',
         period: 'all time',
       }),
-    ).toBe(
-      '0.0\u00a0km this week in 0 walks; streak 0 d; pace 3.4\u00a0km/h over all time, no prior window to compare.',
-    )
+    ).toEqual({
+      sentence: '0.0\u00a0km this week in 0 walks',
+      facts: ['streak 0 d', 'pace 3.4\u00a0km/h over all time'],
+    })
   })
 })

@@ -1,4 +1,5 @@
 import { Box, Button, Paper, Stack } from '@mantine/core'
+import { PageSummary } from '../../../components/upstream/page-summary'
 import { StatGroup, type StatStripCell } from 'basalt-ui'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { overlays } from 'basalt-ui/commands'
@@ -14,7 +15,7 @@ import {
   latestDate,
   rateDays,
   siteRows,
-  summarySentence,
+  summaryParts,
   weightWindowStats,
   windowDays,
 } from '../model'
@@ -67,15 +68,15 @@ export function BodyCompositionPage({ params }: { params: Params }) {
 
   return (
     <Stack gap="md">
-      <Box component="p" className={classes.summary}>
-        {summarySentence({
+      <PageSummary
+        {...summaryParts({
           current: summary.current,
           kgPerWeek: summary.kgPerWeek,
           rateDays: rateDays(windowDays(params)),
           goal,
           ageDays,
         })}
-      </Box>
+      />
 
       <StatGroup
         variant="strip"
