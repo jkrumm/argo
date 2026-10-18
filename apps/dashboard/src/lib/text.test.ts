@@ -3,6 +3,7 @@ import {
   authoredQuestion,
   asText,
   firstClause,
+  lastWhitespace,
   leadClauses,
   oldestWaitSentence,
   firstSentence,
@@ -113,5 +114,13 @@ describe('oldestWaitSentence', () => {
     expect(oldestWaitSentence(3, '5.1\u00a0d')).toBe('Oldest wait on you 5.1\u00a0d')
     expect(oldestWaitSentence(1, null)).toBe('An item is waiting on you')
     expect(oldestWaitSentence(2, null)).toBe('Items are waiting on you')
+  })
+})
+
+describe('lastWhitespace', () => {
+  it('finds the last whitespace of any kind', () => {
+    expect(lastWhitespace('one two')).toBe(3)
+    expect(lastWhitespace('one\ttwo\nthree')).toBe(7)
+    expect(lastWhitespace('single')).toBe(-1)
   })
 })

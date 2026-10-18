@@ -310,8 +310,8 @@ export type SummaryStatus = 'ok' | 'degraded' | 'stalled'
 
 /**
  * The headline sentence: how long the queue has waited and the loop's verdict. The health strip
- * under it prints the poller age, the fixes and the budget, the cards' sections print the counts, so
- * no figure here repeats them.
+ * under it prints the poller age, the fixes and the budget, the Needs you and Failed sections print their
+ * own counts, so no figure here repeats them.
  */
 export function deriveSummary(input: WardenSummaryInput): {
   text: string
@@ -509,7 +509,8 @@ export function wardenAsk(
     body: split === null ? reason : split.rest,
     title,
     plain,
-    handle: handle !== null && named !== '' ? { source: named, ...handle } : null,
+    // An untitled item is told apart by the same short form its entity line uses.
+    handle: handle === null ? null : { source: title, ...handle },
   })
   return { plan, repo, tag: split?.tag ?? null, copy, repoNamed: namesRepo(copy.question, repo) }
 }

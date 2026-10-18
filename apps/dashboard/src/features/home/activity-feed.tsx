@@ -70,7 +70,13 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                         {e.chip ? (
                           <>
                             {' '}
-                            <Badge variant="light" color="gray" size="sm" tt="none">
+                            <Badge
+                              variant="light"
+                              color="gray"
+                              size="sm"
+                              tt="none"
+                              classNames={{ root: classes.chip, label: classes.chipLabel }}
+                            >
                               {e.chip}
                             </Badge>
                           </>

@@ -46,7 +46,6 @@ const decision = (ageMs: number | null): Decision => ({
   source: 'warden',
   id: `d-${ageMs}`,
   headline: '{q}',
-  copySource: 'plain',
   entity: null,
   facts: [],
   evidenceLine: null,

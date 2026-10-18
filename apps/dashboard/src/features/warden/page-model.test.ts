@@ -1052,6 +1052,15 @@ describe('wardenAsk across one surface', () => {
     expect(ask!.copy.question).toBe('Implement {repo} change?')
   })
 
+  it('numbers untitled items by their id, so the ordinal rung always applies', () => {
+    const asks = resolve([entry(1, null), entry(2, ':fire:'), entry(3, '')])
+    expect(asks.map((a) => a.copy.question)).toEqual([
+      'Implement {repo} change: Item #1?',
+      'Implement {repo} change: Item #2?',
+      'Implement {repo} change: Item #3?',
+    ])
+  })
+
   it('reads non-string wire values as absent, never throwing', () => {
     for (const junk of [42, {}, ['x'], true]) {
       const [ask] = resolve([entry(1, junk, { repo: junk as never, reason: junk as never })])

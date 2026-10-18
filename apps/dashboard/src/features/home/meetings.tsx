@@ -5,14 +5,7 @@ import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { isSafeHttpUrl } from '../warden/model'
-import {
-  classLabels,
-  meetingState,
-  noMeetingsLabel,
-  type Agenda,
-  type LaterMeeting,
-  type Meeting,
-} from './model'
+import { classLabels, meetingState, noMeetingsLabel, type Agenda, type Meeting } from './model'
 
 const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
 
@@ -63,13 +56,12 @@ function MeetingRow({ meeting, now }: { meeting: Meeting; now: number }) {
 type Props = {
   /** `null` when a calendar feed has not answered and nothing else is known: the agenda is unknown, not empty. */
   agenda: Agenda | null
-  later: LaterMeeting | null
   tasks: { overdue: number; dueSoon: number } | null
   now: number
 }
 
 /** Today as an agenda, ended meetings dimmed: only hours that hold a meeting are drawn, then the tasks line. */
-export function Meetings({ agenda, later, tasks, now }: Props) {
+export function Meetings({ agenda, tasks, now }: Props) {
   return (
     <Card>
       <Section title="Today" {...(agenda === null && { value: '—' })}>
@@ -91,9 +83,7 @@ export function Meetings({ agenda, later, tasks, now }: Props) {
               ) : null}
               {agenda.meetings.length === 0 ? (
                 <Text size="sm" c="dimmed">
-                  {agenda.unavailable.length === 0 && later !== null
-                    ? 'No meetings today.'
-                    : `${noMeetingsLabel(agenda)}.`}
+                  {noMeetingsLabel(agenda)}.
                 </Text>
               ) : (
                 <div role="list">

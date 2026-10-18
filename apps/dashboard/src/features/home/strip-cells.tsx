@@ -41,24 +41,31 @@ export function agentsCell(
   fleet: { parts: FleetPart[]; total: number } | null,
 ): StatStripCell {
   const working = summary?.working
-  const total = fleet?.total ?? null
+  if (fleet === null) {
+    return {
+      key: 'agents',
+      caption: 'Agents working · now',
+      value: null,
+      visual: (
+        <Meter label="Agents by state" value={null} emptyText="No fleet data in this snapshot" />
+      ),
+    }
+  }
   return {
     key: 'agents',
     caption: 'Agents working · now',
     value: typeof working === 'number' ? String(working) : null,
-    ...(typeof working === 'number' && total !== null && { unit: `of ${total} agents` }),
-    ...(fleet !== null && {
-      visual: (
-        <Meter
-          label="Agents by state"
-          max={fleet.total || 1}
-          segments={fleet.parts
-            .filter((p) => p.value > 0)
-            .map((p) => ({ value: p.value, label: p.label, color: FLEET_COLOR[p.key] }))}
-          startCaption={null}
-        />
-      ),
-    }),
+    ...(typeof working === 'number' && { unit: `of ${fleet.total} agents` }),
+    visual: (
+      <Meter
+        label="Agents by state"
+        max={fleet.total || 1}
+        segments={fleet.parts
+          .filter((p) => p.value > 0)
+          .map((p) => ({ value: p.value, label: p.label, color: FLEET_COLOR[p.key] }))}
+        startCaption={null}
+      />
+    ),
   }
 }
 

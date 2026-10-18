@@ -16,6 +16,7 @@ import {
 import {
   agentCopy,
   blockerEvidence,
+  clockMs,
   evidenceSource,
   flattenAgents,
   formatWaitDuration,
@@ -23,12 +24,7 @@ import {
   isAbandonedWait,
   type AgentRow,
 } from '../features/agents/model'
-import {
-  resolveCopies,
-  type CardCopy,
-  type CardCopySource,
-  type Disambiguation,
-} from './question-copy'
+import { resolveCopies, type CardCopy, type Disambiguation } from './question-copy'
 import { withUnit } from './format'
 import { asText } from './text'
 import type { HumanQueueItem, OverviewSnapshot } from './queries/agents'
@@ -49,8 +45,6 @@ export type Decision = {
   id: string
   /** The question the owner answers: short (a long ask becomes `Approve <title>?`). */
   headline: string
-  /** Which rung of the question rule wrote the headline; only a `plain` one can be told apart by a handle. */
-  copySource: CardCopySource
   /** The item the question is about, when the headline does not already name it. */
   entity: string | null
   /** `warden · <repo>` / `queue · <host>` / `agent · <project>` first, then the age: at most 3. */
@@ -79,8 +73,8 @@ export type DecisionInput = {
   now: number
 }
 
-const parseMs = (iso: string | null | undefined): number | null => {
-  if (!iso) return null
+const parseMs = (iso: unknown): number | null => {
+  if (typeof iso !== 'string' || iso === '') return null
   const ms = Date.parse(iso)
   return Number.isFinite(ms) ? ms : null
 }
@@ -96,12 +90,16 @@ type Derived = {
   repoNamed?: boolean
 }
 
-const idOf = (entry: Entry): string =>
-  entry.source === 'warden'
-    ? `warden-${entry.row.eventId}`
-    : entry.source === 'queue'
-      ? `queue-${asText(entry.item.id)}`
-      : `agent-${asText(entry.agent.id)}`
+function idOf(entry: Entry): string {
+  switch (entry.source) {
+    case 'warden':
+      return `warden-${entry.row.eventId}`
+    case 'queue':
+      return `queue-${asText(entry.item.id)}`
+    case 'agent':
+      return `agent-${asText(entry.agent.id)}`
+  }
+}
 
 function entriesOf(
   raw: WardenRaw | null | undefined,
@@ -141,7 +139,6 @@ function toDecision(
   const base = {
     id: idOf(entry),
     headline: copy.question,
-    copySource: copy.source,
     entity: copy.entity,
     evidenceLine: copy.evidenceLine,
     detail: copy.detail,
@@ -190,7 +187,8 @@ function toDecision(
     }
   }
   const { agent: a } = entry
-  const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
+  const activeAt = clockMs(a.lastActivityAt)
+  const ageMs = activeAt === null ? null : Math.max(0, now - activeAt)
   return {
     ...base,
     source: 'agent',

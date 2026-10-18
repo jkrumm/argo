@@ -363,6 +363,58 @@ describe('plain rung: handles that tell items apart', () => {
   })
 })
 
+describe('ordinals are distinct on the whole surface', () => {
+  const plain = 'Implement project-a change'
+  const resolve = (titles: readonly string[], keys?: readonly string[]) =>
+    resolveCopies(
+      titles.map((title, i) => ({ title, key: keys?.[i] ?? `k${i}` })),
+      {
+        key: (item) => item.key,
+        derive: ({ title }, { handle }) => ({
+          copy: cardCopy({
+            title,
+            plain,
+            handle: handle === null ? null : { source: title, ...handle },
+          }),
+        }),
+      },
+    ).map((r) => r.copy.question)
+
+  it('skips an ordinal another card already reads', () => {
+    const questions = resolve(['Disk full', 'Disk full', 'Disk full (1)'])
+    expect(new Set(questions).size).toBe(3)
+    expect(questions).toContain('Implement project-a change: Disk full (1)?')
+  })
+
+  it('keeps three or more identical items stable whatever order they arrive in', () => {
+    const keys = ['c', 'a', 'b']
+    const forward = resolve(['Same', 'Same', 'Same'], keys)
+    const reversed = resolve(['Same', 'Same', 'Same'], [...keys].reverse()).toReversed()
+    expect(forward).toEqual(reversed)
+    expect(new Set(forward).size).toBe(3)
+    // Ordinals follow the key, not the position.
+    expect(forward[1]).toBe('Implement project-a change: Same (1)?')
+  })
+
+  it('keeps the ordinal when the stem fills the question', () => {
+    const stem = `Implement ${'x'.repeat(QUESTION_MAX - 24)} change`
+    const questions = resolveCopies(['Same', 'Same'], {
+      key: (t, i = 0) => `${t}${i}`,
+      derive: (t, { handle }) => ({
+        copy: cardCopy({
+          title: t,
+          plain: stem,
+          handle: handle === null ? null : { source: t, ...handle },
+        }),
+      }),
+    }).map((r) => r.copy.question)
+    for (const q of questions) {
+      expect(q.length).toBeLessThanOrEqual(QUESTION_MAX)
+      expect(q).toMatch(/\(\d\)\?$/)
+    }
+  })
+})
+
 describe('alerts are asked about, never framed as a change', () => {
   const ask = (primary: Parameters<typeof wardenPlainQuestion>[0]['primary']) =>
     wardenPlainQuestion({ failed: false, repo: 'project-a', primary, alert: true })
@@ -414,6 +466,8 @@ describe('isAlert', () => {
     expect(isAlert({ title: 'Alert: disk full' })).toBe(true)
     expect(isAlert({ title: ':fire: Outage — api down' })).toBe(true)
     expect(isAlert({ title: 'Add incident-response runbook' })).toBe(false)
+    expect(isAlert({ title: 'Incident-response runbook' })).toBe(false)
+    expect(isAlert({ title: 'Incident - api down' })).toBe(true)
     expect(isAlert({ title: 'Reduce alert noise' })).toBe(false)
     expect(isAlert({ kinds: [42, {}], title: 7 })).toBe(false)
   })

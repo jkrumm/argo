@@ -21,7 +21,7 @@ export function DayAxis({
       <div
         className={classes.axis}
         role="img"
-        aria-label={`Meetings on a ${axis.from}–${axis.to} h day axis: ${label}`}
+        aria-label={`Meeting starts and the current time on a ${axis.from}–${axis.to} h day axis: ${label}`}
       >
         <div className={classes.axisTrack} />
         {meetings.map((m) => {
