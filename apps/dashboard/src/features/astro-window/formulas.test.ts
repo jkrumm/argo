@@ -487,10 +487,10 @@ describe('windowFact', () => {
     })
   })
 
-  test('on Tonight the verdict card owns the miss, so the timeline does not repeat it', () => {
+  test('with no window, both tabs word the miss through gateMissText', () => {
     expect(windowFact(outNight('2026-06-13', 8, 4.1), { withMiss: false })).toEqual({
       value: 'No window',
-      period: 'no stretch passes every gate',
+      period: 'core 3.9° under its gate',
     })
   })
 
@@ -1074,7 +1074,7 @@ describe('darkSkyTickText and moonInterferes', () => {
 describe('unknownSiteCopy', () => {
   test('names the site and the next step', () => {
     expect(unknownSiteCopy('example-site')).toBe(
-      'example-site is not in the site list — pick another in Site, or reload if the list is empty',
+      'No site "example-site" in the list — pick another from the site filter, or reload if the list is empty',
     )
   })
 })
