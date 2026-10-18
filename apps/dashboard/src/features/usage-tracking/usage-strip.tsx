@@ -9,6 +9,7 @@ import { Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { usageQueries, type Metric } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
+import { withUnit } from '../../lib/format'
 import { useNow } from '../../lib/use-now'
 import { dayToDate } from './constants'
 import {
@@ -36,6 +37,8 @@ import {
   priorNote,
   recentMean,
   cacheUnderLine,
+  D30,
+  PRIOR_30D,
   slowerDaysLine,
   dropPartialDay,
   secondsDelta,
@@ -92,7 +95,7 @@ function peakLine(days: readonly Daily[], format: (v: number) => string): string
   const peak = peakOf(days)
   return peak === null || peak.value === null
     ? null
-    : `peak day ${format(peak.value)}, ${shortDay.format(peak.date)}`
+    : `peak day ${format(peak.value)}, ${shortDay(peak.date)}`
 }
 
 /**
@@ -118,7 +121,7 @@ function compare({
   return {
     delta:
       value === null ? undefined : (
-        <DeltaBadge value={value} format={format} polarity={polarity} period="prior 30 d" />
+        <DeltaBadge value={value} format={format} polarity={polarity} period={PRIOR_30D} />
       ),
     note: h === undefined ? EM_DASH : priorNote(current, prior, delta),
   }
@@ -137,8 +140,8 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
   return {
     key: 'cost',
     caption: 'Cost',
-    qualifier: '30 d',
-    info: 'Spend in US dollars over the last 30 days against the 30 days before. The total includes today; the trend, mean and peak day cover full days only.',
+    qualifier: D30,
+    info: 'Spend in US dollars over the last 30 days against the 30 days before.',
     value: fmtUsdWhole(h?.costUsd30d),
     delta: vs.delta,
     loading,
@@ -172,8 +175,8 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
   return {
     key: 'tokens',
     caption: 'Tokens',
-    qualifier: '30 d',
-    info: 'Tokens the models read and wrote over the last 30 days; tokens re-read from the cache are not counted. The total includes today; the trend, mean and peak day cover full days only.',
+    qualifier: D30,
+    info: 'Tokens the models read and wrote over the last 30 days; tokens re-read from the cache are not counted.',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
     delta: vs.delta,
@@ -206,17 +209,12 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
   return {
     key: 'errors',
     caption: 'Errors',
-    qualifier: '30 d',
+    qualifier: D30,
     value: errorRateReading(h?.errorRate30d, h?.calls30d),
     ...(h?.calls30d === 0 ? {} : { unit: 'of calls' }),
     delta:
       vs.value === null ? undefined : (
-        <DeltaBadge
-          value={vs.value}
-          format={fmtPointsBadge}
-          polarity="up-bad"
-          period="prior 30 d"
-        />
+        <DeltaBadge value={vs.value} format={fmtPointsBadge} polarity="up-bad" period={PRIOR_30D} />
       ),
     loading,
     visual:
@@ -254,8 +252,8 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
   return {
     key: 'p95',
     caption: 'p95 latency',
-    qualifier: '30 d',
-    info: '95 % of calls finish faster than this; only calls that report a duration count. The big figure covers every call in the 30 days, today included. The trend plots each full day’s own p95 against it, the dashed line.',
+    qualifier: D30,
+    info: '95 % of calls finish faster than this; only calls that report a duration count.',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
     delta: vs.delta,
@@ -276,7 +274,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
       ),
       worst === null || worst.value === null
         ? null
-        : `slowest day ${secondsQuantity(worst.value).value} s, ${shortDay.format(worst.date)}`,
+        : `slowest day ${secondsQuantity(worst.value).value} s, ${shortDay(worst.date)}`,
       vs.note,
     ]),
   }
@@ -292,8 +290,8 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
   return {
     key: 'cache',
     caption: 'Cache hit',
-    qualifier: '30 d',
-    info: 'The share of input tokens served from the prompt cache instead of read fresh; higher is cheaper. The dashed line is the target.',
+    qualifier: D30,
+    info: 'The share of input tokens served from the prompt cache instead of read fresh; higher is cheaper.',
     value: fmtPct(ratio),
     delta:
       ratio === null || delta === null ? undefined : (
@@ -301,7 +299,7 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
           value={delta}
           format={fmtPointsBadge}
           polarity="up-good"
-          period="last 7 d vs 30 d"
+          period={`last ${withUnit(7, 'd')} vs ${D30}`}
           periodPrefix=""
         />
       ),
@@ -340,13 +338,13 @@ function billingFooter({ h, loading }: Ctx) {
     content: (
       <Stack gap="xs">
         <Text size="xs" c="dimmed">
-          Billing split · 30 d
+          Billing split · {D30}
         </Text>
         {loading ? (
           <Skeleton height={28} radius="sm" />
         ) : h === undefined || parts.every((p) => p.value <= 0) ? (
           <Text size="sm" c="dimmed">
-            No cost recorded in the last 30 d
+            No cost recorded in the last {D30}
           </Text>
         ) : (
           <Meter
@@ -356,7 +354,6 @@ function billingFooter({ h, loading }: Ctx) {
             segments={parts
               .filter((p) => p.value > 0)
               .map((p) => ({ label: p.label, value: p.value, color: BILLING_COLOR[p.key] }))}
-            startCaption={`${fmtUsdWhole(h.costUsd30d)} total spend, last 30 d`}
           />
         )}
       </Stack>

@@ -10,16 +10,16 @@ import { BarList, useSizeClass } from 'basalt-ui'
 import { ViewTabs } from 'basalt-ui/controls'
 import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
+import { format as formatDate } from 'date-fns'
 import { useState } from 'react'
 import { usageQueries, type Grain, type Metric, type Range } from '../../lib/queries/usage'
 import { USAGE_SOURCE } from '../../lib/series'
+import { useNow } from '../../lib/use-now'
 import { usageStore } from '../../lib/window-stores'
 import type { BillingValue, CostGroupBy, TokensGroupBy, WorkspaceValue } from './types'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
-import { EM_DASH, fmtShare, OTHER_KEY, periodNoun, prepareFolded } from './model'
+import { dropPartialBucket, EM_DASH, fmtShare, OTHER_KEY, periodNoun, prepareFolded } from './model'
 import classes from './usage.module.css'
-
-const dayFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
 
 /** Rows the list shows at phone width before "Show all". */
 const COMPACT_ROWS = 5
@@ -38,8 +38,6 @@ type Props = {
   info: string
   listTitle: string
   height?: number
-  /** The strip's figure for this window, used as the header total when the page is unfiltered 30 d. */
-  headlineTotal?: number | null | undefined
 }
 
 export function FoldedChart({
@@ -56,11 +54,11 @@ export function FoldedChart({
   info,
   listTitle,
   height = 280,
-  headlineTotal,
 }: Props) {
   const { data } = useSuspenseQuery(
     usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace }),
   )
+  const now = useNow()
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
 
@@ -80,17 +78,19 @@ export function FoldedChart({
   const series = groupBands(folded.keys, colorOf, labelOf)
   const rows = compact && !showAll ? folded.totals.slice(0, COMPACT_ROWS) : folded.totals
   const hidden = folded.totals.length - rows.length
-  // Unfiltered 30 d is the strip's own window: print its figure so the page never shows two totals
-  // for one quantity (the buckets are cut a few minutes later than the headline's rolling window).
+  // Unfiltered 30 d is the strip's own window and its figure is printed there: the total appears
+  // here only for a window the strip does not show. The chart stops at the last complete bucket (the
+  // running one would draw as a drop); the list keeps the whole window, today included.
   const unfiltered = range === '30d' && billing === undefined && workspace === undefined
-  const total = unfiltered && headlineTotal != null ? headlineTotal : folded.total
+  const totalNote = unfiltered ? '' : ` · ${format(folded.total)}`
   const perBucket = grain === 'day' ? 'day' : 'week'
+  const drawn = dropPartialBucket(folded.points, now, grain)
 
   return (
     <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
       <Grid.Col span={{ base: 12, lg: 8 }} data-shot={`${metric}-chart`}>
         <ChartCard
-          title={`${unitNoun} per ${perBucket} · by ${groupNoun} · ${format(total)} in ${periodNoun(range)}`}
+          title={`${unitNoun} per ${perBucket} · by ${groupNoun} · ${periodNoun(range)}`}
           info={info}
           actions={
             metric === 'cost' ? (
@@ -103,19 +103,19 @@ export function FoldedChart({
         >
           <StackedArea
             ariaLabel={`${unitNoun} per ${perBucket}, stacked by ${groupNoun}`}
-            data={folded.points}
+            data={drawn}
             height={height}
             x={(d) => d.date}
             cursorResolution="leading"
             series={series}
             legend={false}
-            formatX={(d) => dayFormat.format(d)}
+            formatX={(d) => formatDate(d, 'd MMM')}
             y={{ format }}
           />
         </ChartCard>
       </Grid.Col>
       <Grid.Col span={{ base: 12, lg: 4 }} data-shot={`${metric}-list`}>
-        <ChartCard title={`${listTitle} · ${periodNoun(range)} · ${format(total)}`}>
+        <ChartCard title={`${listTitle} · ${periodNoun(range)}${totalNote}`}>
           <BarList
             label={`${unitNoun} by ${groupNoun}, ${periodNoun(range)}`}
             format={format}

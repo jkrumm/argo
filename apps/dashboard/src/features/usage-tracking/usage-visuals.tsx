@@ -29,7 +29,7 @@ export function Trend({
       ariaLabel={label}
       data={data}
       format={format}
-      labels={present.map((d) => shortDay.format(d.date))}
+      labels={present.map((d) => shortDay(d.date))}
       height={SPARK_HEIGHT}
       emphasizeLast
       reference={reference}
@@ -54,7 +54,7 @@ export function ErrorBand({ days }: { days: readonly Daily[] }) {
       states={BAND_STATES}
       getBand={(d): BandSpan => ({ state: errorDayState(d.value) })}
       legend={false}
-      tooltip={{ formatHeader: (x) => shortDay.format(x) }}
+      tooltip={{ formatHeader: (x) => shortDay(x) }}
       height={28}
     />
   )

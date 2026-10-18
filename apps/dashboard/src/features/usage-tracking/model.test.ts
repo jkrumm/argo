@@ -22,6 +22,7 @@ import {
   fmtUsdWhole,
   foldTopN,
   countAgainst,
+  dropPartialBucket,
   dropPartialDay,
   prepareFolded,
   FOLD_MAX_N,
@@ -151,20 +152,12 @@ describe('error days', () => {
 describe('freshness and copy', () => {
   const now = Date.parse('2026-10-17T12:00:00Z')
   it('the headline sentence carries the spend, the facts carry the rest', () => {
-    expect(summarySentence({ cost30d: 1234, cost7d: 300 })).toBe(
-      '$1,234 spent in 30 days, $300 in the last 7 days',
-    )
-    expect(
-      summaryFacts({
-        tokens30d: 2_340_000_000,
-        errorRate30d: 0.004,
-        sources: 7,
-        lastEvent: '3 minutes ago',
-      }),
-    ).toEqual(['2.3B tokens', '0.4% errors', '7 sources active', 'last event 3 minutes ago'])
-    expect(
-      summaryFacts({ tokens30d: null, errorRate30d: null, sources: null, lastEvent: null }),
-    ).toEqual(['— tokens', '— errors', 'no events recorded'])
+    expect(summarySentence({ cost7d: 300 })).toBe('$300 spent in the last 7\u00a0days')
+    expect(summaryFacts({ sources: 7, lastEvent: '3 minutes ago' })).toEqual([
+      '7 sources active',
+      'last event 3 minutes ago',
+    ])
+    expect(summaryFacts({ sources: null, lastEvent: null })).toEqual(['no events recorded'])
   })
   it('names the freshness in words and tones it', () => {
     expect(freshness('2026-10-17T11:45:00Z', now)).toEqual({ word: 'fresh', tone: 'ok' })
@@ -212,19 +205,19 @@ describe('recentMean', () => {
 describe('prior comparisons', () => {
   it('separates an absent field from an absent window and shows no note when the badge reads', () => {
     expect(priorNote(120, undefined, pctDelta)).toBe('prior unavailable')
-    expect(priorNote(120, null, pctDelta)).toBe('no comparable prior 30 d')
+    expect(priorNote(120, null, pctDelta)).toBe('no comparable prior 30\u00a0d')
     expect(priorNote(120, 100, pctDelta)).toBeNull()
-    expect(priorNote(120, 0, pctDelta)).toBe('prior 30 d had no base to compare')
+    expect(priorNote(120, 0, pctDelta)).toBe('prior 30\u00a0d had no base to compare')
     const calls = 100
     expect(errorComparison({ current: 0.02, prior: undefined, calls }).note).toBe(
       'prior unavailable',
     )
     expect(errorComparison({ current: 0.02, prior: null, calls }).note).toBe(
-      'no comparable prior 30 d',
+      'no comparable prior 30\u00a0d',
     )
     expect(errorComparison({ current: 0.02, prior: 0.012, calls })).toEqual({
       value: expect.closeTo(0.8),
-      note: 'vs 1.2% prior 30 d',
+      note: 'vs 1.2% prior 30\u00a0d',
     })
     expect(errorComparison({ current: 0, prior: 0.012, calls: 0 })).toEqual({
       value: null,
@@ -310,7 +303,7 @@ describe('error days, peak and source note', () => {
   it('words the health and fold info from the constants', () => {
     expect(healthInfo('week')).toContain('a week under 1%')
     expect(foldInfo('billing lane')).toBe(
-      'The largest billing lanes in the window are named (at least 6, more while the rest would outweigh the smallest), the rest are grouped as Other.',
+      'The largest billing lanes in the window are named (at least 6, more while the rest would outweigh the smallest), the rest are grouped as Other. The chart ends at the last full day; the list includes today.',
     )
   })
   it('states what the source percentage is of', () => {
@@ -365,7 +358,7 @@ describe('fold palette', () => {
 
 describe('day-count sentences', () => {
   it('counts days slower than the window p95, null without a window or a day', () => {
-    expect(slowerDaysLine([1, 5, null, 9], 4)).toBe('2 of 3 days slower than the 30 d p95')
+    expect(slowerDaysLine([1, 5, null, 9], 4)).toBe('2 of 3 days slower than the 30\u00a0d p95')
     expect(slowerDaysLine([1, 5], null)).toBeNull()
     expect(slowerDaysLine([null], 4)).toBeNull()
   })
@@ -396,11 +389,30 @@ describe('prepareFolded', () => {
       'Chrome devtools · Take screenshot',
     )
     expect(labelOf('web_search')).toBe('Web search')
+    expect(labelOf('Skill:review/deep')).toBe('Skill review deep')
     expect(labelOf(OTHER_KEY)).toBe(OTHER_KEY)
   })
   it('leaves every other dimension as sent', () => {
     const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'project' })
     expect(folded.keys).toEqual(['mcp__s__a', 'mcp__s__b', 'Bash', 'Read'])
     expect(labelOf('Bash')).toBe('Bash')
+  })
+})
+
+describe('dropPartialBucket', () => {
+  const days = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+  const weeks = [4, 11, 18].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+
+  it('ends a day chart at the last complete UTC day', () => {
+    expect(dropPartialBucket(days, Date.UTC(2026, 0, 3, 0, 30), 'day').map((d) => d.value)).toEqual(
+      [1, 2],
+    )
+    expect(dropPartialBucket(days, Date.UTC(2026, 0, 4, 0, 0), 'day')).toHaveLength(3)
+  })
+  it('ends a week chart at the last complete week', () => {
+    expect(dropPartialBucket(weeks, Date.UTC(2026, 0, 20), 'week').map((d) => d.value)).toEqual([
+      4, 11,
+    ])
+    expect(dropPartialBucket(weeks, Date.UTC(2026, 0, 25), 'week')).toHaveLength(3)
   })
 })

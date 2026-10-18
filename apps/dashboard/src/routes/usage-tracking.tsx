@@ -59,15 +59,11 @@ function UsageTrackingPage() {
         <UsageStrip />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <CostChart {...tsBase} groupBy={search.costGroupBy} headlineTotal={headline.costUsd30d} />
+          <CostChart {...tsBase} groupBy={search.costGroupBy} />
         </Suspense>
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <TokensChart
-            {...tsBase}
-            groupBy={search.tokensGroupBy}
-            headlineTotal={headline.tokens30d}
-          />
+          <TokensChart {...tsBase} groupBy={search.tokensGroupBy} />
         </Suspense>
 
         <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
