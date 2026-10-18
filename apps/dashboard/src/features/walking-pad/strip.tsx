@@ -137,7 +137,7 @@ function useStreakCell(params: WalkingPadWindowParams): StatStripCell {
   return {
     key: 'streak',
     caption: 'Streak',
-    ...(streak !== undefined && { qualifier: `best ${streak.bestDays} d` }),
+    ...(streak !== undefined && { qualifier: `consecutive days · best ${streak.bestDays} d` }),
     value: streak === undefined ? null : String(streak.currentDays),
     unit: streak?.currentDays === 1 ? 'day' : 'days',
     loading: heroes.isPending || days.isPending,
@@ -226,7 +226,14 @@ function EmptyStrip() {
   const cells: StatStripCell[] = [
     { key: 'week', caption: 'This week', qualifier: 'Mon–Sun, UTC', value: null, unit: 'km' },
     { key: 'pace', caption: 'Pace', qualifier: `avg ${windowQualifier(preset)}`, value: null },
-    { key: 'streak', caption: 'Streak', value: null, unit: 'days' },
+    {
+      key: 'streak',
+      caption: 'Streak',
+      qualifier: 'consecutive days',
+      value: null,
+      unit: 'days',
+      footer: 'Not counted: no walks in this window',
+    },
     {
       key: 'totals',
       caption: 'Totals',

@@ -1,6 +1,7 @@
 // Pure derivations for the WalkingPad page. Every figure a sentence repeats is computed here once,
 // so the summary line, the strip cells and the chart headers cannot disagree.
 
+import { relativeTime } from 'basalt-ui/format'
 import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
@@ -426,11 +427,9 @@ export function summaryParts(s: SummaryInput): { sentence: string; facts: string
       : `${withKm(s.weekDistanceM)} this week in ${s.weekSessions} ${plural(s.weekSessions, 'walk')}`
   return {
     sentence,
-    facts: [`streak ${s.streakDays === null ? '—' : `${s.streakDays} d`}`, paceFact(s)],
+    facts: [s.streakDays === null ? 'streak unavailable' : `streak ${s.streakDays} d`, paceFact(s)],
   }
 }
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** The newest walk, as the empty window needs it: still loading, lookup failed, none ever, or its end. */
 export type LastWalk =
@@ -453,8 +452,8 @@ export function toLastWalk(query: {
 
 /**
  * The headline of a window with no walks. It never names the window (the empty state's title does):
- * it says how long ago the last walk was, with whole UTC days between the two printed day keys so the
- * count and the date cannot disagree. A future-dated walk (clock skew) reads as today.
+ * it says how long ago the last walk was, in the same relative wording as the live header. A
+ * future-dated walk (clock skew) reads as just ended.
  */
 export function emptyWindowParts(input: { last: LastWalk; nowMs: number }): {
   sentence: string
@@ -464,11 +463,12 @@ export function emptyWindowParts(input: { last: LastWalk; nowMs: number }): {
   if (last.state === 'never') return { sentence: 'No walks recorded yet', facts: [] }
   const endedMs = last.state === 'last' ? Math.min(Date.parse(last.endedAt), nowMs) : Number.NaN
   if (!Number.isFinite(endedMs)) return { sentence: 'Last walk not available', facts: [] }
-  const key = dayKey(endedMs)
-  const days = Math.round((keyMs(dayKey(nowMs)) - keyMs(key)) / MS_PER_DAY)
-  const date = `${MONTHS[Number(key.slice(5, 7)) - 1]} ${Number(key.slice(8, 10))}`
+  const ago = relativeTime(endedMs, { now: nowMs })
   return {
-    sentence: `The last walk was ${days === 0 ? 'today' : `${days} d ago`}, on ${date}`,
+    sentence:
+      ago === relativeTime(nowMs, { now: nowMs })
+        ? 'The last walk just ended'
+        : `The last walk was ${ago}`,
     facts: [],
   }
 }
@@ -476,9 +476,9 @@ export function emptyWindowParts(input: { last: LastWalk; nowMs: number }): {
 const PRESET_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '6m': 183, '1y': 365 }
 
 /**
- * The empty state's description: what fills the strip, and a widen clause that is only true — the
- * wider window must actually contain the last walk, else it says to look further back. `undefined`
- * while the lookup is loading.
+ * The empty state's description: whether the next wider window reaches the last walk. `undefined`
+ * while the lookup is loading, when no walk was ever recorded (the headline says so) and when no
+ * wider window exists.
  */
 export function emptyWindowHint(input: {
   last: LastWalk
@@ -486,14 +486,12 @@ export function emptyWindowHint(input: {
   nowMs: number
 }): string | undefined {
   const { last, wider, nowMs } = input
-  if (last.state === 'loading') return undefined
-  if (last.state === 'never') return 'The strip fills after the first walk is recorded.'
-  const fills = 'The strip fills once a walk is recorded in this window'
-  if (wider === null) return `${fills}.`
+  if (last.state === 'loading' || last.state === 'never' || wider === null) return undefined
   if (last.state === 'failed') {
-    return `${fills}. The last walk could not be loaded; widen the window to look further back.`
+    return 'The last walk could not be loaded; widen the window to look further back.'
   }
   const days = PRESET_DAYS[wider]
+  const span = wider === 'all' ? 'all time' : `the last ${WIDEN_LABEL[wider] ?? 'range'}`
   const contained = days === undefined || Date.parse(last.endedAt) >= nowMs - days * MS_PER_DAY
-  return `${fills}; widen it ${contained ? 'to reach the last walk' : 'to look further back'}.`
+  return contained ? `The last walk falls inside ${span}.` : `The last walk is older than ${span}.`
 }

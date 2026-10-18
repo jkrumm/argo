@@ -64,12 +64,12 @@ export function RecordHeader() {
   if (last.isPending) return <Skeleton height={48} radius="md" />
   const walk = last.data?.data[0]
   if (walk === undefined) {
-    return <Row dot="idle" status="Idle" facts="no walk recorded yet" stats="" />
+    return <Row dot="idle" status="Not walking" facts="no walk recorded yet" stats="" />
   }
   return (
     <Row
       dot="idle"
-      status="Idle"
+      status="Not walking"
       facts={`last walk ${relativeTime(walk.ended_at)} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
       stats={`${withSteps(walk.steps)} · ${withKcal(walk.kcal)}, last walk`}
     />
