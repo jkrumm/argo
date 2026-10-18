@@ -13,6 +13,7 @@ const {
   startedDate,
   summarize,
   listEndNote,
+  clampAtWord,
   summaryHeadline,
   untitledLabel,
 } = await import('./thread-list-model')
@@ -189,17 +190,19 @@ describe('summary', () => {
       NOW,
     )
     expect(summaryHeadline(summary)).toEqual({
-      sentence: '2 threads, 1 today',
+      sentence: '1 active today, 2 in the last 7 days',
       facts: ['1 pinned', 'last reply 14:05'],
     })
   })
 
   it('omits the last reply with no threads and pluralises', () => {
     expect(summaryHeadline(summarize([], NOW))).toEqual({
-      sentence: '0 threads, 0 today',
+      sentence: '0 active today, 0 in the last 7 days',
       facts: ['0 pinned'],
     })
-    expect(summaryHeadline(summarize([entry({ id: 'a' })], NOW)).sentence).toMatch(/^1 thread,/)
+    expect(
+      summaryHeadline(summarize([entry({ id: 'a', updatedAt: NOW - 8 * DAY })], NOW)).sentence,
+    ).toBe('0 active today, 0 in the last 7 days')
   })
 
   it('words the untitled fold', () => {
@@ -242,8 +245,8 @@ describe('listEndNote', () => {
   })
   it('claims completeness only when the server total is covered', () => {
     const note = listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)
-    expect(note).toMatch(/^That is every thread: 2 threads since .+, plus 2 archived$/)
-    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/1 thread since [^,]+$/)
+    expect(note).toMatch(/^Oldest thread started [^,]+, 2 archived$/)
+    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/^Oldest thread started [^,]+$/)
   })
   it('says how far back a capped list reaches', () => {
     expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, 9)).toMatch(
@@ -252,6 +255,22 @@ describe('listEndNote', () => {
     expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, null, 2)).toMatch(
       /^The newest 2 threads, back to /,
     )
-    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toMatch(/^That is every thread/)
+    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toMatch(/^Oldest thread started/)
+  })
+})
+
+describe('clampAtWord', () => {
+  it('passes short text through, collapsing whitespace', () => {
+    expect(clampAtWord('one  two\nthree', 40)).toBe('one two three')
+  })
+  it('cuts at a word boundary and never mid-word', () => {
+    expect(clampAtWord('alpha beta gamma delta', 13)).toBe('alpha beta…')
+    expect(clampAtWord('alpha beta gamma delta', 10)).toBe('alpha beta…')
+  })
+  it('drops trailing punctuation before the ellipsis', () => {
+    expect(clampAtWord('alpha, beta gamma', 7)).toBe('alpha…')
+  })
+  it('hard-cuts a single token longer than the limit', () => {
+    expect(clampAtWord('abcdefghijkl', 5)).toBe('abcde…')
   })
 })

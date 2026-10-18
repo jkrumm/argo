@@ -112,13 +112,17 @@ function startOfDay(ms: number): number {
   return d.getTime()
 }
 
+/** Midnight six days before today: the start of the 7-day window that includes today. */
+function startOfWeek(now: number): number {
+  const d = new Date(startOfDay(now))
+  d.setDate(d.getDate() - 6)
+  return d.getTime()
+}
+
 function groupOf(entry: ThreadEntry, now: number): GroupKey {
   if (entry.pinned) return 'pinned'
-  const today = startOfDay(now)
-  if (entry.updatedAt >= today) return 'today'
-  const weekStart = new Date(today)
-  weekStart.setDate(weekStart.getDate() - 6)
-  if (entry.updatedAt >= weekStart.getTime()) return 'week'
+  if (entry.updatedAt >= startOfDay(now)) return 'today'
+  if (entry.updatedAt >= startOfWeek(now)) return 'week'
   return 'earlier'
 }
 
@@ -254,10 +258,11 @@ export function factsParts({
 }
 
 type ThreadSummary = {
-  threads: number
   untitled: number
   pinned: number
   today: number
+  /** Active in the last 7 days, today included. */
+  week: number
   /** `null` with no threads. */
   lastReply: string | null
 }
@@ -269,19 +274,21 @@ export function summarize(entries: readonly ThreadEntry[], now: number): ThreadS
     null,
   )
   return {
-    threads: entries.length,
     untitled: entries.filter((entry) => isUntitled(entry, now)).length,
     pinned: entries.filter((entry) => entry.pinned).length,
     today: entries.filter((entry) => entry.updatedAt >= today).length,
+    week: entries.filter((entry) => entry.updatedAt >= startOfWeek(now)).length,
     lastReply: newest === null ? null : listTime(newest, now),
   }
 }
 
-/** The headline: `{n} threads, {m} today`, with untitled, pinned and the last reply as facts. */
+/**
+ * The headline: activity (`{n} active today, {m} in the last 7 days`), with untitled, pinned and the
+ * last reply as facts. The thread total is the `All` chip's figure and is not printed here.
+ */
 export function summaryHeadline(summary: ThreadSummary): { sentence: string; facts: string[] } {
-  const noun = summary.threads === 1 ? 'thread' : 'threads'
   return {
-    sentence: `${summary.threads} ${noun}, ${summary.today} today`,
+    sentence: `${summary.today} active today, ${summary.week} in the last 7 days`,
     facts: [
       ...(summary.untitled > 0 ? [`${summary.untitled} untitled`] : []),
       `${summary.pinned} pinned`,
@@ -304,9 +311,9 @@ export function oldestUpdatedAt(entries: readonly ThreadEntry[]): number {
 }
 
 /**
- * The line under the last row of an unfiltered list. The list request is capped, so completeness is
- * only claimed when the server's `total` (or, without it, a list shorter than the cap) allows it;
- * otherwise it says how far back the loaded part reaches.
+ * The line under the last row of an unfiltered list. The list request is capped, so how far back
+ * the loaded part reaches is stated only when the server's `total` (or, without it, a list at the
+ * cap) says more exist; a complete list states its oldest start instead of repeating the count.
  */
 export function listEndNote(
   entries: readonly ThreadEntry[],
@@ -324,7 +331,18 @@ export function listEndNote(
       ? `The newest ${loaded} threads, back to ${back}`
       : `${loaded} of ${serverTotal} threads, back to ${back}`
   }
-  const noun = entries.length === 1 ? 'thread' : 'threads'
-  const archive = archivedCount > 0 ? `, plus ${archivedCount} archived` : ''
-  return `That is every thread: ${entries.length} ${noun} since ${startedDate(oldestOf(entries, 'createdAt'), now)}${archive}`
+  const archive = archivedCount > 0 ? `, ${archivedCount} archived` : ''
+  return `Oldest thread started ${startedDate(oldestOf(entries, 'createdAt'), now)}${archive}`
+}
+
+const SUMMARY_MAX_CHARS = 110
+
+/** A summary cut at a word boundary with an ellipsis, never mid-word; short text passes through. */
+export function clampAtWord(text: string, max: number = SUMMARY_MAX_CHARS): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  if (flat.length <= max) return flat
+  const cut = flat.slice(0, max + 1)
+  const space = cut.lastIndexOf(' ')
+  const head = (space > 0 ? cut.slice(0, space) : flat.slice(0, max)).replace(/[\s,;:.\-–—]+$/, '')
+  return `${head}…`
 }

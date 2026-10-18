@@ -16,3 +16,8 @@
   max-width: 22rem;
   min-width: 0;
 }
+
+/* The outline chip's own hover is a barely-there step in the light scheme: an ink wash reads in both. */
+.chip:hover:not([aria-pressed='true']) {
+  background: color-mix(in srgb, var(--vx-ink) 8%, transparent);
+}
