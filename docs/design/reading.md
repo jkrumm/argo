@@ -166,5 +166,5 @@ No new basalt rows.
 
 ### Wave 30 fixes
 
-- Rating bucket label: fixed — one label at every width, `{a}–{b} ★`; the narrow-only lower-edge variant (`short`) is gone. Risk: the full range at 390 was the w28 "run into each other" case; re-check on the next shot.
+- Rating bucket label: fixed — the label keeps its range at every width: `{a}–{b} ★` wide, `{a}–{b}` at compact (no glyph, no space) so the 390 labels do not collide; the ratings cell caption carries the unit (`Ratings (★)`).
 - Not fixed (basalt / no API field): pace cell half blank, no days-to-finish on finished rows.

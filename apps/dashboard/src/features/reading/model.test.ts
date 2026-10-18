@@ -205,7 +205,7 @@ describe('ratingShape', () => {
     expect(labels.map((l) => l.visible)).toEqual(
       ['0.5–1', '2–2.5', '3', '4', '5'].map((v) => `${v}\u00a0★`),
     )
-    expect('short' in labels[0]!).toBe(false)
+    expect(labels.map((l) => l.compact)).toEqual(['0.5–1', '2–2.5', '3', '4', '5'])
   })
 
   test('community mean covers the same rated books', () => {
@@ -458,6 +458,7 @@ describe('ratingsFooter', () => {
     expect(labels.map((l) => l.visible)).toEqual(
       ['1', '2', '3–3.5', '4', '5'].map((v) => `${v}\u00a0★`),
     )
+    expect(labels.map((l) => l.compact)).toEqual(['1', '2', '3–3.5', '4', '5'])
     expect(labels.map((l) => l.aria)).toEqual([
       '1 star',
       '2 stars',
