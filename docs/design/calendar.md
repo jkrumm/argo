@@ -46,9 +46,9 @@ Route `/calendar` (`?view=week|month&date=`) — `apps/dashboard/src/routes/cale
 
 Placeholders; the format is the contract.
 
-- Page summary: `{n} meetings today, {booked} booked · next in {n} min · {hours} this week`
+- Page summary: `{n} events today, {booked} booked · next in {n} min · {hours} this week` (`, {booked} booked` is dropped when nothing timed is booked)
 - Empty day: `No events today · 10h free`
-- Section headings: `Today · {n}`, `Next 7 days · {n}`, `Tasks due · {n}`, `All day · {n}`
+- Section headings: `Today · {n}`, `Next 7 days · {n}`, `Tasks due · {n}`; the all-day chip row is labelled `All day` (the day's count lives in its header)
 - Strip card title: `Booked hours, week {week}`; row `{weekday} {day}   {bar}   {booked}   · {n}`
 - Cell caption: `LONGEST FREE BLOCK · today`; value `{duration}`; muted `{start}–{end}`
 - Source bar captions: `Work {hours}`, `Personal {hours}`
@@ -83,7 +83,7 @@ Placeholders; the format is the contract.
 - **Tasks.** Overdue or due within 7 days of today, from the same TickTick queries; the Week and Month grids carry meetings only.
 - **Work / Personal hues** are registered series `calendarWork` (sky) and `calendarPersonal` (violet — no status or metric on the page uses it; gold would read as a warning).
 - **One step per failure, on the failed surface (Wave 37).** A calendar failure is worded once: the headline carries `{sources} failed to load` (a still-loading source named beside a failed one), every card the same short form or `Loading`; the next step is one `Retry` action under the headline (accessible name `Retry calendar sources`), shown while a failed source a refetch can fix exists, and it refetches every such query. A sign-in failure (`Re-authorize`) is not a retry target; when every failed source is one, no `Retry` renders. Tasks keep their own sentence, `Tasks failed to load`, with `Retry` (`Retry tasks`) inside the card, refetching the reads `taskFeedState` counts as failed. There is no `— reload to retry` wording.
-- **A day holding only live all-day items** states its count where the duration would be: `1 event · all day` / `2 events · all day`. A day with timed events keeps `{n} events · {booked}` counting timed events only; its all-day items are the chips beside the heading.
+- **A day holding only live all-day items** states its count where the duration would be: `1 event · all day` / `2 events · all day`. **One event count (Wave 37):** every live, non-cancelled event, all-day included, tasks excluded, on every surface — day headers, the `Next 7 days` badge (the sum of its headers), the Today count, the summary sentence and the week strip's events cell. A day with timed events reads `{n} events · {booked}`; booked time stays timed-only. The chip row's label carries no count.
 - Source errors read `{source} unavailable — {reason}` plus a `Re-authorize` link, and the failed source reads `unavailable` in the split; with the work feed down, personal hours are marked `(partial)` (personal is booked minus work, so it is a ceiling).
 
 ## Wave 20 rounds
@@ -103,7 +103,7 @@ Open after r4, basalt-side: the free-block cell's 1 px gap and `Section`'s mono 
 
 ## Wave 20 review fixes
 
-- **Unknown is a dash.** `agendaSummary`, `dayLoad` and `summarySentence` take the set of sources that have not answered (failed with nothing of the window cached, or still loading). Every figure that depends on one is `null` and renders `—`: the summary (`— meetings today · next — · — this week`), the free-block cell, each strip row and every day in Next 7 days (`—`, never `free`). A calendar's own split figure stays exact (`Work —` beside `Personal 3h`); the split bar is drawn only when both classes answered.
+- **Unknown is a dash.** `agendaSummary`, `dayLoad` and `summarySentence` take the set of sources that have not answered (failed with nothing of the window cached, or still loading). Every figure that depends on one is `null` and renders `—`: the summary (`— events today · next — · — this week`), the free-block cell, each strip row and every day in Next 7 days (`—`, never `free`). A calendar's own split figure stays exact (`Work —` beside `Personal 3h`); the split bar is drawn only when both classes answered.
 - **Phone Week window.** The queries start at the Monday of `date − 1` (`queryFromKey`), so the 3-day window keeps the Sunday before a Monday; the route's prefetch uses the same helper.
 - **Split.** Work + Personal equals the booked total: a minute both calendars hold counts once, as Work.
 - **One countdown wording.** `untilLabel` (`in 20m`, `in 1h 30m`) serves the pill and the summary; the pill shows under 12 h.
@@ -127,7 +127,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - API: `isCancelled: boolean` on both event responses — Graph's `isCancelled` for M365 (added to the `get-calendar-view` `$select`; `false` when Graph omits it), `status === 'cancelled'` for Google. Tests: `clients/m365-calendar.test.ts` (`normalizeEvent`) and the OpenAPI check in `routes/calendar.test.ts`.
 - Dashboard: `payload.isCancelled` (threaded in `mapCalendarEvent`) replaces the title-prefix stopgap in `derive.ts`; a `Canceled:` / `Cancelled:` / `Abgesagt:` prefix is still stripped from the displayed title, but a prefix alone no longer cancels a meeting, and a live meeting keeps its title as written. While the API image predates the field, the dashboard falls back to the prefix (`CANCELLED_TITLE` in `lib/queries/calendar.ts`).
-- Headline: the summary in `agenda-view.tsx` is `PageSummary` — sentence `{n} meetings today, {booked} booked`, facts `next in {m}` and `{booked} booked this week` (`summaryParts`, tested); unknown sources read `— meetings today` with dashed facts.
+- Headline: the summary in `agenda-view.tsx` is `PageSummary` — sentence `{n} events today, {booked} booked`, facts `next in {m}` and `{booked} booked this week` (`summaryParts`, tested); unknown sources read `Loading calendar` or the shared gap wording with dashed facts.
 
 No new basalt rows.
 
@@ -204,3 +204,4 @@ No new basalt rows.
 - **Re-score `w36-r2` (after #157):** fail. Confirmed: one-line task rows, one `No events` casing, skeletons under `loading`, an unknown Today never shows an event list. **New (argo, P1):** the Today skeleton was one bar in a full-height card (emptyRatio ~0.6).
 - **Re-score `w36-r3` (after #159):** fail on the measurer only. Confirmed visually: Today, Next 7 days and Tasks each show skeleton rows shaped like their loaded rows (5 / 6 / 3, the phone 3-day list its own count), no card looks ≥ 40 % empty — but `emptyRatio` counts skeleton bars as empty space and reads 0.862 (basalt, UPSTREAM § "Wave 36"). Remaining (argo, P3): an all-day-only day header shows no `{n} events` fact; only the tasks card carries a step on failure. Carried (basalt): the `Meter` null `—` under week-strip tracks. No lost fact versus `w36-r2` or `w35-r2`.
 - **Against Keel:** close — same dense agenda-row anatomy; Keel puts the retry on the failed surface itself.
+- **Re-score `w37-r1` fixes (`w37-r2`):** one event count (above); the all-day chip label lost its `· {n}`; the headline block (`PageSummary`, source error lines, `Retry`) is the `calendar-headline` shot anchor declaring `loading error empty` — exactly the states production renders there.
