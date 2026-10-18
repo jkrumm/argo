@@ -74,7 +74,6 @@
   cursor: pointer;
 }
 
-/* panel-hover is lighter than panel in the light scheme: an ink wash reads in both. */
 .chip:hover:not(.chipActive) {
   background: color-mix(in srgb, var(--vx-ink) 12%, var(--vx-surface-subtle));
 }
@@ -119,13 +118,12 @@
   color: var(--vx-ink);
 }
 
-/* panel-hover is lighter than panel in the light scheme, so that step is invisible there: an ink wash reads in both. */
 .row:hover:not(.rowSelected) {
-  background: color-mix(in srgb, var(--vx-ink) 6%, transparent);
+  background: var(--vx-surface-row-hover);
 }
 
 .rowSelected {
-  background: color-mix(in srgb, var(--vx-ink) 9%, transparent);
+  background: var(--vx-surface-row-selected);
   box-shadow: inset 2px 0 0 var(--vx-accent-fill);
 }
 
@@ -224,7 +222,7 @@
 
 /* The wash covers the whole shell so the remove control sits on the hovered row, not beside it. */
 .rowShell:hover:not(:has(.rowSelected)) {
-  background: color-mix(in srgb, var(--vx-ink) 6%, transparent);
+  background: var(--vx-surface-row-hover);
 }
 
 .rowShell > .row:hover:not(.rowSelected) {
