@@ -1,4 +1,4 @@
-import { ARROW, NBSP, formatAgo, formatDuration, withUnit } from '../../lib/format'
+import { ARROW, NBSP, formatAgoWhole, formatDuration, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -22,6 +22,7 @@ import {
   isDeferredItem,
   isStale,
   TERMINAL_STATES,
+  VERIFICATION_FAILED,
   pluralize,
   waitingOnOwner,
   type AwaitingOwnerRow,
@@ -383,8 +384,8 @@ export type ActionPlan = {
   menu: WardenActionVerb[]
 }
 
-/** Warden's own wording for a PR whose CI failed: `CI failed on {sha}: …`. */
-const CI_FAILED = /^\s*(?:\[[^\]]*\]\s*)*CI failed\b/i
+/** A reason that says CI failed, wherever it sits (`GitHub Actions: CI failed …`, `Verification failed — CI failed …`). */
+const CI_FAILED = /\bCI failed\b/i
 
 /** One primary, at most one secondary, everything else in the menu — by fixed priority, over the
  * verbs warden offers and this dashboard knows (`isKnownActionVerb`). */
@@ -392,14 +393,16 @@ export function planActions(
   available: readonly string[],
   kind: QueueKind,
   failedFrom: string | null = null,
-  reason: string | null = null,
+  reason: unknown = null,
 ): ActionPlan {
   const offered = new Set(available.filter(isKnownVerb))
   // A verification that failed ran after the merge: there is no PR left to merge. A PR whose CI
-  // failed is not one to merge either — the failure is the fact the card is about.
+  // failed is not one to merge either — the failure is the fact the card is about. Neither has a
+  // structured field on the wire (`failure_class` is warden's open vocabulary), so the reason says it.
+  const said = stripShortcodes(asText(reason))
   if (
     kind === 'failed' &&
-    (failedFrom === 'verifying' || CI_FAILED.test(stripShortcodes(reason ?? '')))
+    (failedFrom === 'verifying' || VERIFICATION_FAILED.test(said) || CI_FAILED.test(said))
   )
     offered.delete('merge')
   const order = PRIMARY_ORDER[kind]
@@ -506,11 +509,11 @@ export function wardenAskInput(
   surface: 'warden' | 'home' = 'warden',
 ): WardenAskInput {
   const failed = kind === 'failed'
-  const plan = planActions(source.availableActions, kind, source.failedFrom ?? null, source.reason)
   // The wire is loose: only a string is a title, reason or repo.
   const named = stripShortcodes(asText(source.title))
   const rawReason = asText(source.reason)
   const reason = rawReason === '' ? null : stripShortcodes(rawReason)
+  const plan = planActions(source.availableActions, kind, source.failedFrom ?? null, reason)
   const repo = stripShortcodes(asText(source.repo))
   const alert = isAlert({ kinds: [source.origin], title: named })
   const split = failed ? null : splitReason(reason)
@@ -712,19 +715,21 @@ export function transitionText({ from, to }: TransitionLine): string {
   return `${sentenceCase(from) ?? from}${ARROW}${target}`
 }
 
+/** `{n} min ago` as one unbreakable unit (`ago` glued to its duration); `—` for an unreadable time. */
+export const historyAge = (at: string, now: number): string =>
+  formatAgoWhole(Math.max(0, now - Date.parse(at)))
+
 /**
- * A history row with its age: `{line} · {age} ago`. The dot is glued to the word before it so it
- * never opens a line, and the whole age (`ago` included) is one unit, so a list row never leaves
- * `ago` alone on a line. `—` / `just now` ages read as they are; no time at all is the line.
+ * A history row with its age: `{line} · {age}`. The dot is glued to the word before it so it never
+ * opens a line, and {@link historyAge} keeps `ago` with its duration, so a list row never leaves
+ * `ago` alone on a line. No time at all is the line.
  */
 export function historyLineWithAge(
   text: string,
   at: string | null | undefined,
   now: number,
 ): string {
-  if (!at) return text
-  const ago = formatAgo(Math.max(0, now - Date.parse(at))).replace(/ ago$/, `${NBSP}ago`)
-  return `${text}${NBSP}· ${ago}`
+  return at ? `${text}${NBSP}· ${historyAge(at, now)}` : text
 }
 
 export type HistoryView = {

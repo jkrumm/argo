@@ -6,11 +6,10 @@ import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
 import {
   fleetParts,
-  oldestAskMs,
   flattenAgents,
   groupProjects,
   needsYouCards,
-  oldestNeedsYouWait,
+  oldestWait,
   countUnknownAgents,
   feedState,
   snapshotAgeMs,
@@ -56,9 +55,7 @@ function AgentsPage() {
   const agents = flattenAgents(snapshot)
   const now = useNow()
   const humanQueue = snapshot?.humanQueue ?? []
-  const askMs = oldestAskMs(humanQueue, now)
-  const oldestAgent = oldestNeedsYouWait(agents, now)
-  const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'the human queue' })
+  const oldest = oldestWait(humanQueue, agents, now)
   const { active, quiet } = groupProjects(snapshot, agents)
   const cards = needsYouCards(humanQueue, agents, now, { machine: latest?.machine ?? null })
   const needsYouItems = cards.length

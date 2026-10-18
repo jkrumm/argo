@@ -1,12 +1,9 @@
 import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import classes from '../../components/upstream/decision-card.module.css'
-import { NBSP, formatAgo } from '../../lib/format'
+import { NBSP } from '../../lib/format'
 import { useNow } from '../../lib/use-now'
-import { historyLineWithAge, type HistoryView } from './page-model'
-
-/** `3 min ago` in the app's one duration spelling (each number glued to its unit only); `—` for an unreadable time. */
-const when = (at: string, now: number) => formatAgo(Math.max(0, now - Date.parse(at)))
+import { historyAge, historyLineWithAge, type HistoryView } from './page-model'
 
 /**
  * The decision card's change history. One transition is a single inline sentence
@@ -23,7 +20,7 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
         <Text span inherit c={VX.ink}>
           {only?.text}
         </Text>
-        {only?.at ? `${NBSP}· ${when(only.at, now)}` : null}
+        {only?.at ? `${NBSP}· ${historyAge(only.at, now)}` : null}
       </Text>
     )
   }

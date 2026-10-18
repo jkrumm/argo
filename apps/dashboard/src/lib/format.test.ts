@@ -3,6 +3,7 @@ import { defineFormat, relativeTime } from 'basalt-ui/format'
 import {
   APP_LOCALE,
   formatAgo,
+  formatAgoWhole,
   formatDuration,
   formatMinutes,
   formatRelative,
@@ -51,6 +52,16 @@ describe('formatDuration', () => {
     expect(formatAgo(30_000)).toBe('just now')
     expect(formatAgo(3 * min)).toBe('3\u00a0min ago')
     expect(formatAgo(-1)).toBe('—')
+  })
+})
+
+describe('formatAgoWhole', () => {
+  test('glues ago to the duration; the rest reads as formatAgo', () => {
+    expect(formatAgoWhole(5 * 60 * min + 12 * min)).toBe('5\u00a0h\u00a012\u00a0min\u00a0ago')
+    expect(formatAgoWhole(3 * min)).toBe('3\u00a0min\u00a0ago')
+    expect(formatAgoWhole(30_000)).toBe('just now')
+    expect(formatAgoWhole(-1)).toBe('—')
+    expect(formatAgoWhole(Number.NaN)).toBe('—')
   })
 })
 

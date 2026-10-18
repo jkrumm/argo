@@ -23,6 +23,8 @@ export type AskRow = {
   id: string
   question: string
   cmd?: string
+  /** The wire kind: an `alert` is asked about as an alert. */
+  kind?: string
   /** The title on the Agents page and on Home. */
   expected: { agents: string; home: string }
 }
@@ -500,6 +502,35 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       home: 'Decide: failed to bepiz the nopi lipi on a rotob?',
     },
   },
+  // A kind in front of a monitor's status line: both prefixes go, the monitor is read once.
+  {
+    id: 34,
+    state: 'needs_decision',
+    repo: 'repo-e',
+    origin: 'alert',
+    title: 'Alert: [Kefa - HTTP] [:pug_rugafu: Down] timeout of 90000ms exceeded',
+    reason:
+      '[blocker] Du-run the host checks with shell access, or close this as a transient blip if the monitors recovered?',
+    actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
+    expected: {
+      warden: 'Implement fix for alert: Kefa - HTTP Down timeout of 90000ms exceeded?',
+      home: 'Decide on alert: Kefa - HTTP Down timeout of 90000ms exceeded?',
+    },
+  },
+  {
+    id: 35,
+    state: 'needs_decision',
+    repo: 'repo-e',
+    origin: 'alert',
+    title: '[alert] [Lefa - HTTP] [:pug_rugafu: Down] timeout of 90000ms exceeded',
+    reason:
+      '[blocker] Du-run the host checks with shell access, or close this as a one-deg blip if the monitors recovered?',
+    actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
+    expected: {
+      warden: 'Implement fix for alert: Lefa - HTTP Down timeout of 90000ms exceeded?',
+      home: 'Decide on alert: Lefa - HTTP Down timeout of 90000ms exceeded?',
+    },
+  },
 ]
 
 /** Every human-queue ask of the snapshot. */
@@ -531,6 +562,16 @@ export const ASK_ROWS: readonly AskRow[] = [
     expected: {
       agents: 'Copy command: TadufunUza X09 lukak exit on your mAkaku?',
       home: 'Decide on request: TadufunUza X09 lukak exit on your mAkaku?',
+    },
+  },
+  // An alert ask keeps its kind beside the verb of its button.
+  {
+    id: 'q4',
+    kind: 'alert',
+    question: 'Monitor pezo is flapping since 08:00; pick a fix.',
+    expected: {
+      agents: 'Copy ask on alert: Monitor pezo is flapping since 08:00; pick a fix?',
+      home: 'Decide on alert: Monitor pezo is flapping since 08:00; pick a fix?',
     },
   },
 ]

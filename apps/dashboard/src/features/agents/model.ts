@@ -84,7 +84,10 @@ export type OldestWait = { ms: number; project: string }
  * `needs_you` agent carries a timestamp, so the "Oldest wait" tile can render "—" instead of a
  * false zero.
  */
-export function oldestNeedsYouWait(agents: AgentRow[], now = Date.now()): OldestWait | null {
+export function oldestNeedsYouWait(
+  agents: readonly AgentRow[],
+  now = Date.now(),
+): OldestWait | null {
   let oldest: OldestWait | null = null
   for (const agent of agents) {
     const activeAt = clockMs(agent.lastActivityAt)
@@ -581,6 +584,23 @@ export const askHosts = (humanQueue: readonly QueueItem[]): number =>
   new Set(humanQueue.map(hostOf).filter((host): host is string => host !== null && host !== ''))
     .size
 
+/**
+ * The oldest wait across the `needs_you` agents and the human queue: the oldest agent wait (named by
+ * its project) when one exists, else the oldest ask (`the human queue`); `null` when nothing waits
+ * or no clock is reported. An agent wait wins even when an ask is older — the strip's cell says
+ * which project it is in — so the headline carries this same figure, never a second one.
+ */
+export function oldestWait(
+  humanQueue: readonly QueueItem[],
+  agents: readonly AgentRow[],
+  now: number,
+): OldestWait | null {
+  const agent = oldestNeedsYouWait(agents, now)
+  if (agent !== null) return agent
+  const ask = oldestAskMs(humanQueue, now)
+  return ask === null ? null : { ms: ask, project: 'the human queue' }
+}
+
 /** Agent waits past the abandoned mark, counted from the cards the section lists. */
 export const abandonedWaits = (cards: readonly NeedsYouCard[]): number =>
   cards.filter((card) => card.kind === 'agent' && card.abandoned).length
@@ -605,12 +625,17 @@ export function humanQueueInput(
   const alert = isAlert({ kinds: [item['kind'], item['type']], title })
   const noun = alert ? 'alert' : 'request'
   // The verb is the primary button's: a human-queue card only copies (`Copy command` when the ask
-  // carries one, else `Copy ask`), so it never asks to `Answer` or `Handle` what it cannot do.
+  // carries one, else `Copy ask`), so it never asks to `Answer` or `Handle` what it cannot do; an
+  // alert keeps its kind (`Copy ask on alert: …`).
   const copy = asText(item.cmd).trim() ? 'Copy command' : 'Copy ask'
   const forms =
     surface === 'home'
       ? questionForms('Decide on', noun, host)
-      : { ...questionForms(`${copy} for`, noun, host), stem: copy, terse: copy }
+      : {
+          ...questionForms(`${copy} for`, noun, host),
+          stem: alert ? `${copy} on alert` : copy,
+          terse: copy,
+        }
   const ask = firstSentence(askText)
   return {
     input: {
