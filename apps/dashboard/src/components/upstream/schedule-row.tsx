@@ -45,7 +45,11 @@ export function ScheduleRow({
           <div className={classes.title} title={title}>
             {title}
           </div>
-          {meta !== undefined && meta !== null && <div className={classes.meta}>{meta}</div>}
+          {meta !== undefined && meta !== null && (
+            <div className={classes.meta} {...(typeof meta === 'string' ? { title: meta } : {})}>
+              {meta}
+            </div>
+          )}
         </div>
         {(pill !== undefined || action !== undefined) && (
           <div className={classes.trailing}>
