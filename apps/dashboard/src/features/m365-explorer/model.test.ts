@@ -11,6 +11,7 @@ import {
   labeledBasis,
   largestTeam,
   labeledPaneTitle,
+  channelsFooter,
   sourceListName,
   sourcesTitle,
   validTag,
@@ -255,5 +256,23 @@ describe('labeled count, outside note and sources title', () => {
     expect(sourcesTitle({ ...base, view: 'teams' })).toBe('7 channels in 2 teams')
     expect(sourcesTitle({ ...base, view: 'teams', channels: null })).toBe('2 teams')
     expect(sourcesTitle({ ...base, view: 'feed' })).toBe('1 labeled source')
+  })
+})
+
+describe('channelsFooter', () => {
+  const largest = { name: 'Team A', channels: 3 }
+  test('a failure outranks everything and counts the teams', () => {
+    expect(channelsFooter({ channels: null, largest: null, failed: 1 })).toBe(
+      '1 team failed to load',
+    )
+    expect(channelsFooter({ channels: 5, largest, failed: 2 })).toBe('2 teams failed to load')
+  })
+  test('loading, empty and populated read differently', () => {
+    expect(channelsFooter({ channels: null, largest: null, failed: 0 })).toBe('still loading')
+    expect(channelsFooter({ channels: 0, largest: null, failed: 0 })).toBe('no channels')
+    expect(channelsFooter({ channels: 5, largest, failed: 0 })).toBe('most in Team A, 3 channels')
+    expect(channelsFooter({ channels: 1, largest: { name: 'T', channels: 1 }, failed: 0 })).toBe(
+      'most in T, 1 channel',
+    )
   })
 })

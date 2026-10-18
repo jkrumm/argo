@@ -314,3 +314,16 @@ export function visibleChipCounts(counts: ChipCounts, active: string): ChipCount
 export function validTag(tag: string, tags: readonly string[]): string {
   return tag === '' || tag === LABELED_FILTER || tags.includes(tag) ? tag : ''
 }
+
+/** The channels cell's footer: failed, loading, empty and populated are different facts. */
+export function channelsFooter(input: {
+  channels: number | null
+  largest: { name: string; channels: number } | null
+  failed: number
+}): string {
+  const { channels, largest, failed } = input
+  if (failed > 0) return `${plural(failed, 'team')} failed to load`
+  if (channels === null) return 'still loading'
+  if (largest === null) return 'no channels'
+  return `most in ${largest.name}, ${plural(largest.channels, 'channel')}`
+}

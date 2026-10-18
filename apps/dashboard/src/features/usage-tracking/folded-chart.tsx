@@ -11,16 +11,10 @@ import { ViewTabs } from 'basalt-ui/controls'
 import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { useState } from 'react'
-import {
-  usageQueries,
-  type Grain,
-  type Metric,
-  type Range,
-  type TimeseriesGroupBy,
-} from '../../lib/queries/usage'
+import { usageQueries, type Grain, type Metric, type Range } from '../../lib/queries/usage'
 import { USAGE_SOURCE } from '../../lib/series'
 import { usageStore } from '../../lib/window-stores'
-import type { BillingValue, WorkspaceValue } from './types'
+import type { BillingValue, CostGroupBy, TokensGroupBy, WorkspaceValue } from './types'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
 import { EM_DASH, fmtShare, OTHER_KEY, periodNoun, prepareFolded } from './model'
 import classes from './usage.module.css'
@@ -32,7 +26,7 @@ const COMPACT_ROWS = 5
 
 type Props = {
   metric: Extract<Metric, 'cost' | 'tokens'>
-  groupBy: TimeseriesGroupBy
+  groupBy: CostGroupBy | TokensGroupBy
   groupNoun: string
   unitNoun: string
   range: Range
