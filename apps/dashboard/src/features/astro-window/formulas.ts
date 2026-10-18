@@ -95,8 +95,7 @@ export function limitingFactor(night: Night): { id: string; label: string; pct: 
  * an all-out week still ranks; any other out night names its first killer; a usable night its window. */
 export function nightNote(night: Night): string {
   if (night.verdict !== 'out' && night.window !== null) return fmtMinutes(night.window.minutes)
-  const gap = coreGateFailure(night) ? gapToGate(night) : null
-  return gap !== null && gap > 0 ? `${gap.toFixed(1)}° short` : killerLabel(night)
+  return coreGateMissClause(night) ?? killerLabel(night)
 }
 
 /** Compact reason label for a ruled-out night's strip cell — the operator's actual question on a
@@ -326,11 +325,17 @@ function headlineKiller(night: Night): Killer | undefined {
   return core ?? night.killers[0]
 }
 
-/** Which gate a ruled-out night misses and by how much: `core 3.9° under its gate`, else the API's first killer. */
-export function gateMissText(night: Night): string {
+/** The one wording of a missed core gate, shared by the verdict, the strip cell and both timelines: `core 3.9° under its gate`. Null when the core gate is not the miss. */
+function coreGateMissClause(night: Night): string | null {
   const raw = rawGapToGate(night)
   const gap = gapToGate(night)
-  if (raw !== null && raw > 0 && gap !== null) return `core ${fmtDegrees(gap)} under its gate`
+  return raw !== null && raw > 0 && gap !== null ? `core ${fmtDegrees(gap)} under its gate` : null
+}
+
+/** Which gate a ruled-out night misses and by how much: `core 3.9° under its gate`, else the API's first killer. */
+export function gateMissText(night: Night): string {
+  const clause = coreGateMissClause(night)
+  if (clause !== null) return clause
   const headline = headlineKiller(night)
   return headline === undefined ? 'ruled out' : headline.label.toLowerCase()
 }
@@ -654,7 +659,7 @@ export function skyCellFooter({
  * included): the cause, then the one next step the page offers.
  */
 export function unknownSiteCopy(siteId: string): string {
-  return `No site "${siteId}" in the list — pick another from the site filter, or reload if the list is empty`
+  return `No site "${siteId}" in the list — pick another from Site, or reload if the list is empty`
 }
 
 /** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */
