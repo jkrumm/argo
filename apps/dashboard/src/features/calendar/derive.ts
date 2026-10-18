@@ -183,11 +183,11 @@ export function dayLoad(
   keys: readonly DayKey[],
   incomplete = false,
 ): DayLoad[] {
-  return keys.map((key) => ({
-    key,
-    bookedMin: incomplete ? null : bookedMinOnDay(events, key),
-    count: incomplete ? null : agendaDay(events, key).count,
-  }))
+  return keys.map((key) => {
+    if (incomplete) return { key, bookedMin: null, count: null }
+    const { bookedMin, count } = agendaDay(events, key)
+    return { key, bookedMin, count }
+  })
 }
 
 /** True when every day of a known week books no time (all-day and cancelled items book none). */
@@ -205,9 +205,10 @@ export function isEmptyWindow(
   nextKeys: readonly DayKey[],
 ): boolean {
   if (summary.incomplete) return false
-  return [...summary.weekKeys, ...nextKeys].every(
-    (key) => agendaDay(events, key).rows.length === 0 && allDayEvents(events, key).length === 0,
-  )
+  return [...summary.weekKeys, ...nextKeys].every((key) => {
+    const day = agendaDay(events, key)
+    return day.rows.length === 0 && day.allDay.length === 0
+  })
 }
 
 export type SourceSplit = Record<SourceClass, number>
@@ -452,12 +453,13 @@ export function agendaSummary(
   const todayKey = dayKey(now)
   const keys = weekKeys(todayKey)
   const incomplete = unknown.size > 0
+  const today = agendaDay(events, todayKey)
   return {
     todayKey,
     weekKeys: keys,
     incomplete,
-    todayCount: incomplete ? null : agendaDay(events, todayKey).count,
-    todayBookedMin: incomplete ? null : bookedMinOnDay(events, todayKey),
+    todayCount: incomplete ? null : today.count,
+    todayBookedMin: incomplete ? null : today.bookedMin,
     weekBookedMin: weekBookedMin(events, keys, incomplete),
     // The next meeting may sit in the calendar that has not answered.
     next: incomplete ? null : nextEvent(events, now),
