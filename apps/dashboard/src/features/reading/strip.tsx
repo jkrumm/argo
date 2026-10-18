@@ -34,9 +34,9 @@ function shelfCell(counts: ShelfCounts): StatStripCell {
         segments={parts.map((p, i) => ({ label: p.label, value: p.value, color: fillAt(i) }))}
       />
     ),
-    ...(shares !== null && {
-      footer: `${shares.read}% of the shelf is read · ${shares.backlog}% is backlog`,
-    }),
+    ...(shares === null
+      ? {}
+      : { footer: `${shares.read}% of the shelf is read · ${shares.backlog}% is backlog` }),
   }
 }
 

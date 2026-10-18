@@ -401,6 +401,7 @@ interface CalendarListEntry {
 interface CalendarEvent {
   id: string
   summary?: string
+  status?: string
   start: { dateTime?: string; date?: string }
   end: { dateTime?: string; date?: string }
   location?: string
@@ -478,7 +479,8 @@ export async function listCalendarEvents(
           start: ev.start.dateTime ?? ev.start.date ?? '',
           end: ev.end.dateTime ?? ev.end.date ?? '',
           isAllDay,
-          isCancelled: false,
+          // `showDeleted` is off, so a cancelled event only appears here as a cancelled instance.
+          isCancelled: ev.status === 'cancelled',
           ...(ev.location !== undefined ? { location: ev.location } : {}),
           ...(ev.organizer?.email
             ? { organizer: { name: ev.organizer.displayName ?? '', email: ev.organizer.email } }

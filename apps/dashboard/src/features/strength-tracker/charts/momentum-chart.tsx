@@ -25,7 +25,7 @@ const local = createLocalStore({
 const HEIGHT = 320
 /** Top pane share of the inner plot: the lower pane keeps room for a −, 0 and + tick. */
 const TOP_FRACTION = 0.7
-/** Zero-noise floor so a flat velocity plateau doesn't amplify the bottom pane to full height. */
+/** Zero-noise floor, in %/mo, so a flat velocity plateau doesn't amplify the bottom pane to full height. */
 const BOTTOM_MAX_ABS_FLOOR = 3
 
 type MomentumPoint = {
@@ -35,13 +35,10 @@ type MomentumPoint = {
   velocity: number | null
 }
 
-const DAYS_PER_MONTH = 30
-
 const fmtE1rm = (v: number) => `${v.toFixed(1)} kg`
 const fmtTop = (v: number) => `${Math.round(v)} kg`
 /** The bars read in the page's one velocity unit, `%/mo`, like the header beside them. */
-const fmtVelocity = (v: number) => (v === 0 ? '0%' : `${signed(v, 1)}%`)
-const fmtVelocityBar = (v: number) => `${signed(v, 1)} %/mo`
+const fmtVelocity = (v: number, unit: string) => (v === 0 ? `0${unit}` : `${signed(v, 1)}${unit}`)
 
 export default function MomentumChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.seriesDetailed(params))
@@ -129,7 +126,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
       placeholderHeight={HEIGHT}
     >
       <DualPanel
-        ariaLabel="Estimated 1RM trend with its trailing regression, over a velocity histogram of percent change per day"
+        ariaLabel="Estimated 1RM trend with its trailing regression, over a velocity histogram of percent change per month"
         data={chartData}
         height={HEIGHT}
         x={(d) => d.day}
@@ -138,11 +135,11 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
         top={{ format: fmtTop }}
         bar={{
           label: 'Velocity',
-          getValue: (d) => (d.velocity === null ? null : d.velocity * DAYS_PER_MONTH),
+          getValue: (d) => perMonth(d.velocity),
           positive: VX.goodSolid,
           negative: VX.badSolid,
-          format: fmtVelocity,
-          tooltipFormat: fmtVelocityBar,
+          format: (v) => fmtVelocity(v, '%'),
+          tooltipFormat: (v) => fmtVelocity(v, ' %/mo'),
           maxAbsFloor: BOTTOM_MAX_ABS_FLOOR,
         }}
       />

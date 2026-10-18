@@ -72,7 +72,7 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
 
   return (
     <ChartCard
-      title="Training × Recovery Alignment"
+      title="Training × Recovery Alignment · last 90 d"
       info={METRIC_TOOLTIPS.trainingRecoveryAlignment}
       actions={headerExtra}
       state={{ empty: totalCount === 0 && 'No sessions to chart' }}

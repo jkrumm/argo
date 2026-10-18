@@ -345,6 +345,10 @@ describe('cancelled meetings', () => {
     expect(isCancelled(flagged)).toBe(true)
     expect(displayTitle(flagged)).toBe('{title f}')
   })
+  test('a live meeting keeps a Canceled: prefix in its title', () => {
+    const live = { ...ev('l', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Canceled: planning' }
+    expect(displayTitle(live)).toBe('Canceled: planning')
+  })
   test('the display title strips the en and de prefixes', () => {
     for (const prefix of ['Abgesagt:', 'Canceled:', 'Cancelled:', 'abgesagt :'])
       expect(displayTitle(cancelled('p', prefix, `${D} 09:00:00`, `${D} 10:00:00`))).toBe(
@@ -372,7 +376,10 @@ describe('cancelled meetings', () => {
     )
   })
   test('a bare prefix title keeps a placeholder', () => {
-    const bare: CalendarItem = { ...ev('p', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Cancelled:' }
+    const bare: CalendarItem = {
+      ...ev('p', `${D} 09:00:00`, `${D} 10:00:00`, { isCancelled: true }),
+      title: 'Cancelled:',
+    }
     expect(displayTitle(bare)).toBe('Untitled meeting')
   })
   test('a day of only cancelled meetings reads "all cancelled"', () => {
@@ -393,7 +400,7 @@ describe('cancelled meetings', () => {
         source: 'm365',
         sourceClass: 'work',
         isAllDay: true,
-        isCancelled: title.startsWith('Abgesagt'),
+        isCancelled: title !== 'x',
       },
     })
     expect(allDayEvents([allDay('Abgesagt: x'), allDay('x')], D)).toHaveLength(1)

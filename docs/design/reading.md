@@ -119,7 +119,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 24 fixes
 
 - Headline: the `Title` sentence is now `PageSummary` — sentence `{n} books in progress, median {pace} pages/h`, facts `{n} finished in {year}` and `backlog {n} books ≈ {h} h` (`summaryParts`, tested).
-- Shelf cell: a footer fact, `{n}% of the shelf is read · {n}% is backlog` (`shelfShares`, tested), so the stretched cell is no longer half empty.
+- Shelf cell: a footer fact, `{n}% of the shelf is read · {n}% is backlog` (`shelfShares`, clamped to 1–99 % for a non-zero part, tested), so the stretched cell is no longer half empty.
 - Title links: the two-line clamp sits on a wrapper `Text`; the inline `Anchor` inside draws a focus ring that hugs the title text and leaves the author line alone.
 - Time read: `BarList variant="thin"` puts each title on its own line above a thin bar, with the value on that line, so no label crosses a bar end.
 

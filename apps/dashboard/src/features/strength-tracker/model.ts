@@ -285,7 +285,9 @@ export function summaryParts(input: {
             : `capped to ${call.verdict} by a monitor signal`
         }`
   // The headline is the leader lift's e1RM and its move; without one, the call leads.
-  if (leader === null || e1rm === null) return { sentence: ready, facts: [load] }
+  if (leader === null || e1rm === null) {
+    return { sentence: ready.charAt(0).toUpperCase() + ready.slice(1), facts: [load] }
+  }
   return {
     sentence: `${exerciseLabel(leader)} e1RM ${e1rm.toFixed(1)} kg, ${delta.phrase}`,
     facts: [load, ready],

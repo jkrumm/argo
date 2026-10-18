@@ -252,6 +252,12 @@ describe('shelfShares', () => {
     ])
     expect(shelfShares(counts)).toEqual({ read: 25, backlog: 75 })
     expect(shelfShares(shelfCounts([]))).toBeNull()
+    // A non-zero part never rounds to 0 % or 100 %.
+    const lopsided = shelfCounts([
+      book({ statusId: 3 }),
+      ...Array.from({ length: 300 }, () => book({ statusId: 1 })),
+    ])
+    expect(shelfShares(lopsided)).toEqual({ read: 1, backlog: 99 })
   })
 })
 

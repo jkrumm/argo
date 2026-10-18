@@ -149,7 +149,7 @@ describe('readiness reads one value everywhere', () => {
       score: reading?.score ?? null,
     })
     expect(header).toEqual({ text: '88/100', verdict: 'Push', date: '17 Oct' })
-    expect(sentence).toContain(`readiness ${header?.text} ${header?.verdict}`)
+    expect(sentence).toContain(`Readiness ${header?.text} ${header?.verdict}`)
     expect(call.title).toBe(`Today: ${header?.verdict}`)
   })
   test('a capped call names both the reading and the call', () => {
@@ -162,7 +162,7 @@ describe('readiness reads one value everywhere', () => {
       call,
       score: reading?.score ?? null,
     })
-    expect(sentence).toContain('readiness 88/100 (Push), capped to Normal by a monitor signal')
+    expect(sentence).toContain('Readiness 88/100 (Push), capped to Normal by a monitor signal')
   })
   test('no reading is null', () => {
     expect(readinessHeader(null)).toBeNull()
@@ -237,7 +237,7 @@ describe('card, summary sentence and chart header agree', () => {
     const call = todaysCall(null, undefined, NOW)
     const delta = liftDelta([], NOW)
     expect(summaryText({ leader: null, e1rm: null, delta, acwr: null, call, score: null })).toBe(
-      'readiness — — · ACWR —',
+      'Readiness — — · ACWR —',
     )
   })
 })

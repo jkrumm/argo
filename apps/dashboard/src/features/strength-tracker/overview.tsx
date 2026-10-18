@@ -111,7 +111,7 @@ export function TodaysCall(props: Params) {
   const session = lastSession(series.byExercise)
 
   const facts = [
-    call.title,
+    ...(call.asOf === null ? [] : [`latest ${call.asOf}`]),
     ...(readiness?.driver ? [`driver ${readiness.driver}`] : []),
     ...(session === null
       ? []
@@ -131,7 +131,7 @@ export function TodaysCall(props: Params) {
   return (
     <Box data-shot="strength-call">
       <DecisionCard
-        question="Readiness"
+        question={`Readiness: ${call.verdict}`}
         facts={facts}
         evidence={
           <Stack gap="md">

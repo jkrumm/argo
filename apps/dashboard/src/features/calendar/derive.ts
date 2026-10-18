@@ -103,8 +103,9 @@ export function isCancelled(event: CalendarItem): boolean {
   return event.payload?.isCancelled === true
 }
 
-/** The title without the `Canceled:` / `Abgesagt:` prefix Outlook adds: a cancelled row says "Cancelled" once, in its meta. */
+/** The title without the `Canceled:` / `Abgesagt:` prefix Outlook adds, for a cancelled meeting only: its row says "Cancelled" once, in its meta. A live meeting keeps its title as written. */
 export function displayTitle(event: CalendarItem): string {
+  if (!isCancelled(event)) return event.title
   return event.title.replace(CANCELLED_PREFIX, '').trim() || 'Untitled meeting'
 }
 
