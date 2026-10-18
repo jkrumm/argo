@@ -1,4 +1,4 @@
-import { glue } from '../../lib/format'
+import { FEED_LABEL } from './labels'
 
 /**
  * Unknown while a source is pending, failed with nothing of this window cached, or is still
@@ -21,9 +21,6 @@ type FeedQuery = Parameters<typeof unanswered>[0]
 export const failed = (query: FeedQuery & { isError: boolean }) =>
   unanswered(query) && query.isError && !query.isFetching
 
-/** Product names as the copy prints them: multi-word ones glued, so a line never breaks inside one. */
-export const SOURCE_LABEL = { personal: 'Google', work: glue('Microsoft 365') } as const
-
 export type FeedGap = {
   state: 'loading' | 'error'
   /** The headline sentence: loading says loading; a failure names the source (the Retry action beside it is the step). */
@@ -36,7 +33,7 @@ export type FeedGap = {
 }
 
 /** Both calendars, as a reason line names them: `Google or Microsoft 365`. */
-export const SOURCES_LABEL = `${SOURCE_LABEL.personal} or ${SOURCE_LABEL.work}`
+export const SOURCES_LABEL = `${FEED_LABEL.personal} or ${FEED_LABEL.work}`
 
 /**
  * Why calendar figures are unknown, worded once for every place that says so. `null` when every
@@ -44,14 +41,14 @@ export const SOURCES_LABEL = `${SOURCE_LABEL.personal} or ${SOURCE_LABEL.work}`
  * states the same gap without it, and names a source that is still loading beside one that failed.
  */
 export function feedGap(
-  unknown: ReadonlySet<keyof typeof SOURCE_LABEL>,
-  failedSources: ReadonlySet<keyof typeof SOURCE_LABEL>,
+  unknown: ReadonlySet<keyof typeof FEED_LABEL>,
+  failedSources: ReadonlySet<keyof typeof FEED_LABEL>,
 ): FeedGap | null {
   if (unknown.size === 0) return null
-  const named = (pick: (key: keyof typeof SOURCE_LABEL) => boolean) =>
+  const named = (pick: (key: keyof typeof FEED_LABEL) => boolean) =>
     (['personal', 'work'] as const)
       .filter((key) => unknown.has(key) && pick(key))
-      .map((key) => SOURCE_LABEL[key])
+      .map((key) => FEED_LABEL[key])
       .join(' and ')
   const failedNames = named((key) => failedSources.has(key))
   if (failedNames === '') return { state: 'loading', text: 'Loading calendar', card: 'Loading' }
