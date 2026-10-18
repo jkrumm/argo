@@ -242,6 +242,14 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${noun(n, one, many)}`
 }
 
+/** The one wording for a source list the API returned empty: what is missing, why, what to do. */
+export const noSourcesYet = (noun: 'chats' | 'teams'): string =>
+  `No ${noun} yet — Microsoft 365 returned none; refresh to retry`
+
+/** The labeled cell when there is nothing to label: said once, with the cause. */
+export const NOTHING_TO_LABEL =
+  'Nothing to label — no chats or channels came back; refresh to retry'
+
 /** How many chats the list request asks for. */
 export const CHATS_TOP = 50
 
@@ -391,10 +399,11 @@ export function channelsFooter(input: {
   channels: number | null
   largest: { name: string; channels: number } | null
   failed: number
-}): string {
+}): string | null {
   const { channels, largest, failed } = input
   if (failed > 0) return `${plural(failed, 'team')} failed to load`
   if (channels === null) return 'still loading'
-  if (largest === null) return 'no channels'
+  // The hero already reads `0 channels`; a second `no channels` would only repeat it.
+  if (largest === null) return null
   return `most in ${largest.name}, ${plural(largest.channels, 'channel')}`
 }

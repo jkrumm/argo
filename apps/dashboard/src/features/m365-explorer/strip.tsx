@@ -1,7 +1,14 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Skeleton, UnstyledButton } from '@mantine/core'
-import { channelsFooter, chatKindParts, chatsStat, labeledBasis, type Coverage } from './model'
+import {
+  channelsFooter,
+  chatKindParts,
+  chatsStat,
+  labeledBasis,
+  NOTHING_TO_LABEL,
+  type Coverage,
+} from './model'
 import classes from './m365.module.css'
 
 /** A split is not a verdict: neutral fills, never a status colour. */
@@ -22,6 +29,17 @@ function labeledCell(
   const { labeled, total, loading, failed } = coverage
   const pending = loading > 0
   const atLeast = failed > 0 ? '≥' : ''
+  if (!pending && total === 0) {
+    return {
+      key: 'labeled',
+      caption: 'Labeled sources',
+      state: { kind: 'empty', reason: NOTHING_TO_LABEL },
+    }
+  }
+  // The hero already prints the labeled count, so its caption names the segment only; on a tie
+  // neither segment is the hero's twin and both keep their count.
+  const unlabeled = Math.max(total - labeled, 0)
+  const labeledIsHero = labeled !== unlabeled
   return {
     key: 'labeled',
     caption: 'Labeled sources',
@@ -34,9 +52,10 @@ function labeledCell(
         label="Labeled sources of all chats and channels"
         max={Math.max(total, 1)}
         size="row"
+        format={(v) => (labeledIsHero && v === labeled ? '' : String(v))}
         segments={[
           { label: 'Labeled', value: Math.min(labeled, total), color: FILL_STRONG },
-          { label: 'Unlabeled', value: Math.max(total - labeled, 0), color: FILL_FAINT },
+          { label: 'Unlabeled', value: unlabeled, color: FILL_FAINT },
         ]}
       />
     ),
@@ -94,6 +113,8 @@ function chatsCell(chats: Chats): StatStripCell {
   }
 }
 
+const footerOf = (footer: string | null) => (footer === null ? {} : { footer })
+
 /** Channels across the teams; the team count is the tab's, so the footer names the biggest team. */
 function channelsCell(
   channels: number | null,
@@ -105,7 +126,7 @@ function channelsCell(
     caption: 'Team channels',
     value: channels === null ? null : String(channels),
     ...(channels === null ? {} : { unit: channels === 1 ? 'channel' : 'channels' }),
-    footer: channelsFooter({ channels, largest, failed }),
+    ...footerOf(channelsFooter({ channels, largest, failed })),
   }
 }
 

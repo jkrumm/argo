@@ -136,6 +136,10 @@
   box-shadow: inset 2px 0 0 var(--vx-accent-fill);
 }
 
+.row:focus-visible {
+  outline-offset: -2px;
+}
+
 .rowChild {
   padding-inline-start: calc(var(--vx-space-card-inset-x) + var(--vx-space-stack-lg));
 }
