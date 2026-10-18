@@ -222,7 +222,7 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
   const sessions = points.filter((p) => isNum(p.e1rm))
   const last = sessions.at(-1)
   if (last === undefined || !isNum(last.e1rm)) {
-    return { delta: null, phrase: `${EM_DASH} kg in ${days} d`, stale: false }
+    return { delta: null, phrase: 'no sessions yet', stale: false }
   }
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
