@@ -23,7 +23,12 @@ type Props = {
 
 const SIX_HOURS = 6
 
-/** The legend names the scale in data terms: the lightest and the strongest cell, by agents working. */
+/**
+ * The legend names the scale in data terms: the lightest and the strongest cell, by agents working.
+ * Keep every entry: basalt-ui renders a legend only with more than one entry (`CartesianChart`,
+ * `entryCount > 1`), so trimming states absent from the shown hours hid the whole key and left the
+ * shade range hover-only. The entries name the encoding, not the data present.
+ */
 const statesFor = (peak: number) =>
   [
     // At a peak of zero nothing was ever working: no cell carries that colour, so no entry names it.
@@ -50,7 +55,7 @@ const statesFor = (peak: number) =>
 /**
  * Agents working per hour over the window: one cell per hour, intensity = the hour's peak working
  * count, a distinct flat cell where no snapshot landed (a feed stall shows as a hole, not a zero).
- * The legend names the three kinds of cell; an hour still in progress with no snapshot is not drawn.
+ * The legend names the working range when anything worked, plus the quiet and gap cells; an hour still in progress with no snapshot is not drawn.
  */
 export function ActivityStrip({ history, hours, now }: Props) {
   const { buckets, peakHour, fact } = useMemo(() => {
