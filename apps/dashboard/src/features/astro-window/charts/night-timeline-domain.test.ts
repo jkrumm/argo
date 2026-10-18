@@ -18,6 +18,9 @@ describe('timelineDomain', () => {
   it('keeps an exact multiple of 10 as is', () => {
     expect(timelineDomain([point(10, 30)])).toEqual([-20, 30])
   })
+  it('ignores the sun, which stays clipped at the top', () => {
+    expect(timelineDomain([point(12, 10, 35)])).toEqual([-20, 20])
+  })
   it('ignores null samples', () => {
     expect(timelineDomain([point(null, null), point(null, 25)])).toEqual([-20, 30])
     expect(timelineDomain([])).toEqual([-20, 20])
