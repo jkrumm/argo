@@ -379,6 +379,7 @@ function AstroWindowPage() {
               selectedDate={selectedDate}
               markedDate={markedNight?.date ?? null}
               onSelect={handleSelectDate}
+              absentWhenEmpty={search.tab === 'forecast'}
             />
           )}
 
@@ -425,14 +426,14 @@ function AstroWindowPage() {
 
           {forecast === 'night' && selectedSite && selectedNight && (
             <>
-              <Box data-shot="night-timeline">
+              <Box data-shot="night-timeline" data-shot-absent="empty">
                 <NightTimelineChart
                   hourly={data.detail.hourly}
                   night={selectedNight}
                   withMiss={timelineNamesMiss}
                 />
               </Box>
-              <Box data-shot="cloud-layers">
+              <Box data-shot="cloud-layers" data-shot-absent="empty">
                 <CloudLayersChart hourly={data.detail.hourly} night={selectedNight} />
               </Box>
               {/*
