@@ -31,17 +31,18 @@ function SkyScale({ mpsas }: { mpsas: number | null }) {
       `color-mix(in srgb, ${s.token} ${Math.round(s.alpha * 100)}%, transparent) ${((s.stop - LP_RAMP_MIN) / span) * 100}%`,
   ).join(', ')
   const rampStyle: CSSProperties = { background: `linear-gradient(to right, ${stops})` }
+  const tickAt = pct(SKY_DARK_THRESHOLD, SKY_METER_MIN, SKY_METER_MAX)
   return (
     <Box
       className={classes.track}
       role="img"
-      aria-label="Sky brightness on the 18 to 22 mag/arcsec² scale"
+      aria-label={`Sky brightness on the 18 to 22 mag/arcsec² scale; dark sky from ${SKY_DARK_THRESHOLD}`}
     >
       <Box className={classes.ramp} style={rampStyle} />
-      <Box
-        className={classes.tick}
-        style={{ insetInlineStart: pct(SKY_DARK_THRESHOLD, SKY_METER_MIN, SKY_METER_MAX) }}
-      />
+      <Box className={classes.tick} style={{ insetInlineStart: tickAt }} />
+      <Box className={classes.tickLabel} style={{ insetInlineStart: tickAt }}>
+        {SKY_DARK_THRESHOLD}
+      </Box>
       {mpsas !== null && (
         <Box
           className={classes.marker}

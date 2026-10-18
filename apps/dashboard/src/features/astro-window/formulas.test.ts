@@ -641,12 +641,12 @@ describe('nextUsableText looks only at later nights', () => {
 })
 
 describe('sky cell footer', () => {
-  test('sky: the threshold, dome and transparency', () => {
+  test('sky: dome and transparency; the threshold lives on the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'dark ≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
+      'town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'dark ≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
+      'town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
     )
   })
 
