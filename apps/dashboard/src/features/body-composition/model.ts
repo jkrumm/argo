@@ -142,8 +142,8 @@ export function summaryParts({
     sentence,
     facts: [
       `${signed(kgPerWeek, 2)} kg/wk over ${rateDays} d`,
-      ageDays === null ? null : `last weigh-in ${ageLabel(ageDays)}`,
-    ].filter((f): f is string => f !== null),
+      ...(ageDays === null ? [] : [`last weigh-in ${ageLabel(ageDays)}`]),
+    ],
   }
 }
 

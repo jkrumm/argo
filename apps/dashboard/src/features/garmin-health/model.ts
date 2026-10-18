@@ -189,7 +189,7 @@ export function summaryParts({ recovery, acwr, rhrDelta, hrvDelta }: SummaryInpu
         ? `Recovery ${fmtNum(recovery)}/100`
         : `Recovery ${fmtNum(recovery)}/100, load ${acwrRelation(acwr)}`,
     facts: [
-      `ACWR ${acwr === null ? EM_DASH : acwr.toFixed(2)}`,
+      `ACWR ${fmtNum(acwr, 2)}`,
       `RHR ${signed(rhrDelta)} bpm over ${FITNESS_DAYS} d`,
       `HRV ${signed(hrvDelta)} ms over ${FITNESS_DAYS} d`,
     ],

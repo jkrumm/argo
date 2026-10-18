@@ -75,6 +75,12 @@ describe('summaryParts', () => {
     })
   })
 
+  test('a non-finite ACWR renders as a dash', () => {
+    expect(
+      summaryParts({ recovery: 80, acwr: Number.NaN, rhrDelta: 0, hrvDelta: 0 }).facts[0],
+    ).toBe('ACWR —')
+  })
+
   test('a present recovery with no ACWR keeps the sentence short and the fact a dash', () => {
     expect(summaryParts({ recovery: 80, acwr: null, rhrDelta: 1, hrvDelta: -4 })).toEqual({
       sentence: 'Recovery 80/100',
@@ -277,9 +283,9 @@ describe('shared fitness window and hero', () => {
   })
 
   test('the summary names the fitness window by the constant', () => {
-    expect(summaryParts({ recovery: 1, acwr: 1, rhrDelta: 0, hrvDelta: 0 }).facts[1]).toContain(
-      `over ${FITNESS_DAYS} d`,
-    )
+    expect(
+      summaryParts({ recovery: 1, acwr: 1, rhrDelta: 0, hrvDelta: 0 }).facts.join(' · '),
+    ).toContain(`over ${FITNESS_DAYS} d`)
   })
 
   test("the VO2max hero takes the trace's last value, else the regression figure, else null", () => {
