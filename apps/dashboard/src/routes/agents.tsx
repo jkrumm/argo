@@ -57,6 +57,10 @@ function AgentsPage() {
   const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'the human queue' })
   const { active, quiet } = groupProjects(snapshot, agents)
   const needsYouItems = needsYouCount(humanQueue, agents, now)
+  const longestRun = longestRunMs(
+    agents.filter((a) => a.state === 'working'),
+    now,
+  )
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   const summary = summaryParts({
@@ -108,10 +112,7 @@ function AgentsPage() {
                 history={historyQuery.data?.data}
                 hours={HISTORY_HOURS}
                 oldest={oldest}
-                longestRunMs={longestRunMs(
-                  agents.filter((a) => a.state === 'working'),
-                  now,
-                )}
+                longestRunMs={longestRun}
                 now={now}
               />
             )}

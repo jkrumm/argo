@@ -186,10 +186,10 @@ No basalt gaps this round.
 - Card facts: `{project} · waiting {duration} · {machine}` for agents, `human queue · {host} · asked {age}` for asks.
 - One evidence line per agent card (`evidenceLine`: first blocker/waiting-for line, else `no blocker reported · snapshot {age}`); asks keep the command.
 - Context preview on the right only when the agent's last reply adds to the evidence line (`previewOf`).
-- Needs-you sparkline dropped; the footer is a fact with a unit and window (`waiting in {k} of 24 h`, `hoursWithNeedsYou`).
-- Fleet footer is now the one fact the meter lacks, `longest run {duration}` (`fleetFact`); no footer when nothing works.
-- Activity-strip footer is `busiest hour {hh:mm} · agents working in {k} of 24 h` (`activityFact`), no longer restating the header peak. The "shade is share" caption lives in `features/home/strip-cells.tsx` (not this page's file); left to the home owner.
+- Needs-you sparkline dropped; the footer is a fact with a unit and window (`waiting in {k} of 24 h`, or `of {observed} h observed` when snapshots are missing; `hoursWithNeedsYou`).
+- Fleet footer is now the one fact the meter lacks, `longest run {duration}`, or `no agent working` (`fleetFact`).
+- Activity-strip footer is `busiest hour {hh:mm} · agents working in {k} of 24 h` (`activityFact`; unmeasured hours leave the denominator and are named), no longer restating the header peak. The "shade is share" caption lives in `features/home/strip-cells.tsx` (not this page's file); left to the home owner.
 - Quiet-project rows: wider age column, `auto` columns at narrow widths, so ages never clip.
-- Project tiles: Git cell omitted when the project has no git data, an odd last cell spans both columns, tighter cell padding.
+- Project tiles: tighter cell padding; a project without git data keeps its Git cell as `—` (unknown, not zero); an odd trailing cell spans both columns.
 
 No basalt gaps this round.
