@@ -69,12 +69,10 @@ export function Finished({
 
 /** Finished books by device reading time. In-progress books are on their cards, once. */
 export function TimeRead({ rows }: { rows: readonly TimeRow[] }) {
-  if (rows.length === 0) return null
   const total = rows.reduce((sum, r) => sum + r.seconds, 0)
   return (
     <Section
       title="Time read, finished books"
-      count={rows.length}
       summary={<Text className={classes.facts}>{formatReadTime(total)} in total</Text>}
     >
       <ul className={classes.list}>

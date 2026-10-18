@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
   approxHours,
-  binLabel,
   booksPerMonth,
   finishedFooter,
   finishCohort,
@@ -430,17 +429,26 @@ describe('ratingsFooter', () => {
       book({ rating: 3, communityRating: 4 }),
       book({ rating: 5 }),
     ]
-    expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8\u00a0★, same 2 books')
+    expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8\u00a0★, on 2 of them')
   })
-  test('a single community rating reads 1 book', () => {
+  test('a single community rating', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 4, communityRating: 3.8 })]))).toBe(
-      'community mean 3.8\u00a0★, same 1 book',
+      'community mean 3.8\u00a0★, on 1 of them',
+    )
+  })
+  test('a half star in the first bin pluralises on the upper bound', () => {
+    expect(ratingShape([book({ rating: 0.5 }), book({ rating: 1 })]).labels[0].aria).toBe(
+      '0.5 to 1 star',
     )
   })
   test('a bin that holds a half star says so in its label', () => {
-    const { spans } = ratingShape([book({ rating: 3 }), book({ rating: 3.5 }), book({ rating: 4 })])
-    expect(spans.map((s) => binLabel(s).visible)).toEqual(['1', '2', '3–3.5', '4', '5'])
-    expect(spans.map((s) => binLabel(s).aria)).toEqual([
+    const { labels } = ratingShape([
+      book({ rating: 3 }),
+      book({ rating: 3.5 }),
+      book({ rating: 4 }),
+    ])
+    expect(labels.map((l) => l.visible)).toEqual(['1', '2', '3–3.5', '4', '5'])
+    expect(labels.map((l) => l.aria)).toEqual([
       '1 star',
       '2 stars',
       '3 to 3.5 stars',

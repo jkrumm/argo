@@ -78,11 +78,12 @@ function useOverview({ params, exercises }: Params) {
   const deloadNow = recentDeload(deload, lastDate, now)
   const call = todaysCall(readiness, deloadNow, now)
   const { acwr, week: acwrWeek } = acwrReading(load.byExercise, now)
-  const summaryLine = summaryParts(
-    exercises.map((id) => ({
-      delta: liftDelta(series.byExercise.find((l) => l.exercise_id === id)?.points ?? [], now),
-    })),
-  )
+  // Each selected lift's move is derived once; the headline, the cells and the stale note read it.
+  const lifts = exercises.map((id) => {
+    const points = series.byExercise.find((l) => l.exercise_id === id)?.points ?? []
+    return { id, points, delta: liftDelta(points, now) }
+  })
+  const summaryLine = summaryParts(lifts)
   return {
     readiness,
     deload: deloadNow,
@@ -93,7 +94,7 @@ function useOverview({ params, exercises }: Params) {
     acwr,
     acwrWeek,
     summaryLine,
-    now,
+    lifts,
   }
 }
 
@@ -308,13 +309,8 @@ function liftCell({
 const liftCols = (n: number) => Math.min(Math.max(n, 2), 6) as 2 | 3 | 4 | 5 | 6
 
 function LiftStrip(props: Params) {
-  const { series, summary, now } = useOverview(props)
+  const { summary, lifts } = useOverview(props)
   const prs = new Map(summary.byExercise.map((s) => [s.exercise_id, s]))
-  // Each lift's move is derived once; the cells and the stale note both read it.
-  const lifts = props.exercises.map((id) => {
-    const points = series.byExercise.find((l) => l.exercise_id === id)?.points ?? []
-    return { id, points, delta: liftDelta(points, now) }
-  })
   const cells = lifts.map(({ id, points, delta }) =>
     liftCell({ id, points, move: delta, pr: prs.get(id) }),
   )

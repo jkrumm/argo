@@ -26,6 +26,8 @@ import {
   staleNote,
   statusWord,
   summaryParts,
+  diagnosticsTitle,
+  borderlineNote,
   todaysCall,
 } from './model'
 
@@ -120,21 +122,36 @@ describe('deload recency', () => {
 })
 
 const move = (delta: number | null) => ({
-  delta: { delta, phrase: '', stale: delta === null, days: 28 },
+  delta: { delta, phrase: null, stale: delta === null, days: 28 },
 })
 
 describe('summaryParts', () => {
-  test('counts the lifts up over the window, out of those with a scored move', () => {
+  test('counts the selected lifts that moved up, unscored ones stay in the denominator', () => {
     expect(summaryParts([move(10), move(-2.5), move(0), move(null)])?.sentence).toBe(
-      '1 of 3 lifts up in 28\u00a0d',
+      '1 of 4 lifts up in 28\u00a0d',
     )
   })
-  test('a single scored lift is singular', () => {
-    expect(summaryParts([move(2.5), move(null)])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
+  test('a single lift is singular', () => {
+    expect(summaryParts([move(2.5)])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
   })
-  test('no scored move carries no lift-count clause', () => {
+  test('nothing up carries no lift clause: zero, negative, unscored, none selected', () => {
+    expect(summaryParts([move(0), move(null)])).toBeNull()
+    expect(summaryParts([move(-1.5), move(-0.1)])).toBeNull()
     expect(summaryParts([move(null)])).toBeNull()
     expect(summaryParts([])).toBeNull()
+  })
+})
+
+describe('diagnosticsTitle', () => {
+  test('names the period only when the window is a real one', () => {
+    expect(diagnosticsTitle('all', 'all time')).toBe('Against your 90-day norm')
+    expect(diagnosticsTitle('30d', '30 days')).toBe('Against your 90-day norm, 30 days')
+  })
+})
+
+describe('borderlineNote', () => {
+  test('states the tolerance once, with its unit kept whole', () => {
+    expect(borderlineNote()).toBe('Borderline: balanced only through the 15\u00a0% tolerance')
   })
 })
 
@@ -178,7 +195,7 @@ describe('liftDelta', () => {
   })
   test('says so when the last session is older than the window', () => {
     const r = liftDelta([pt('2026-08-01', 100), pt('2026-09-02', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: '', stale: true, days: 28 })
+    expect(r).toEqual({ delta: null, phrase: null, stale: true, days: 28 })
   })
   test('a first session inside the window is not "no session"', () => {
     const r = liftDelta([pt('2026-10-10', 100), pt('2026-10-14', 110)], NOW)
@@ -340,13 +357,13 @@ describe('liftFooter', () => {
     )
   })
   test('a stale lift carries its record alone; the strip says why once', () => {
-    const delta = { delta: null, phrase: '', stale: true, days: 28 }
+    const delta = { delta: null, phrase: null, stale: true, days: 28 }
     expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('PR 100.0 kg')
   })
   test('an empty phrase and no PR is a dash, not an empty string', () => {
     expect(
       liftFooter({
-        delta: { delta: null, phrase: '', stale: false, days: 28 },
+        delta: { delta: null, phrase: null, stale: false, days: 28 },
         prKg: null,
         prDate: null,
       }),
@@ -355,7 +372,7 @@ describe('liftFooter', () => {
   test('nothing known is a dash, never a zero', () => {
     expect(
       liftFooter({
-        delta: { delta: 1, phrase: '', stale: false, days: 28 },
+        delta: { delta: 1, phrase: null, stale: false, days: 28 },
         prKg: null,
         prDate: null,
       }),
@@ -377,8 +394,8 @@ describe('callFacts', () => {
 })
 
 describe('staleNote', () => {
-  const fresh = { delta: 1, phrase: '', stale: false, days: 28 }
-  const stale = { delta: null, phrase: '', stale: true, days: 28 }
+  const fresh = { delta: 1, phrase: null, stale: false, days: 28 }
+  const stale = { delta: null, phrase: null, stale: true, days: 28 }
   test('none stale is no note', () => {
     expect(staleNote([{ id: 'squat', delta: fresh }])).toBeNull()
   })

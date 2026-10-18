@@ -53,7 +53,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   const chartData = useMemo<MomentumPoint[]>(() => {
     if (!activeExercise) return []
     const base = activeExercise.points.map((p) => ({ day: localDay(p.date), e1rm: p.e1rm }))
-    const velocity = rollingVelocityPctPerDay(base, 28)
+    const velocity = rollingVelocityPctPerDay(base, DELTA_DAYS)
     return activeExercise.points.map((p, i) => ({
       day: base[i]!.day,
       e1rm: p.e1rm,

@@ -210,11 +210,11 @@ export function latestE1rm(points: readonly Point[]): number | null {
 
 /**
  * `stale`: no session inside the window. The reason is the strip's one note (`staleNote`); the
- * phrase is empty.
+ * phrase is null.
  */
 export type LiftDelta = {
   delta: number | null
-  phrase: string
+  phrase: string | null
   stale: boolean
   /** The window the move is measured over, in days. */
   days: number
@@ -230,7 +230,7 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
   if (Date.parse(last.date) <= cutoff) {
-    return { delta: null, phrase: '', stale: true, days }
+    return { delta: null, phrase: null, stale: true, days }
   }
   const base = sessions.findLast((p) => Date.parse(p.date) <= cutoff)
   if (base === undefined || !isNum(base.e1rm)) {
@@ -349,12 +349,11 @@ export function lastSession(
  * headline repeats none of them.
  */
 export function summaryParts(lifts: readonly { delta: LiftDelta }[]): { sentence: string } | null {
-  const moves = lifts.flatMap((l) => (l.delta.delta === null ? [] : [l.delta]))
-  const days = moves[0]?.days
-  if (days === undefined) return null
-  const up = moves.filter((m) => (m.delta ?? 0) > 0).length
+  const moves = lifts.map((l) => l.delta.delta)
+  const up = moves.filter((m) => m !== null && m > 0).length
+  if (up === 0) return null
   return {
-    sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${withUnit(days, 'd')}`,
+    sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${withUnit(DELTA_DAYS, 'd')}`,
   }
 }
 
@@ -451,6 +450,16 @@ export function shortDate(date: string): string {
 }
 
 /** Section period from the page window: `90 days`, `all time`, or the custom range. */
+/** The diagnostics section's title: the period is named only when the window is a real one. */
+export function diagnosticsTitle(window: string, period: string): string {
+  return window === 'all' ? 'Against your 90-day norm' : `Against your 90-day norm, ${period}`
+}
+
+/** The balance card's one statement of the tolerance behind `borderline`. */
+export function borderlineNote(): string {
+  return `Borderline: balanced only through the ${withUnit(Math.round(RATIO_TOLERANCE * 100), '%')} tolerance`
+}
+
 export function periodLabel(window: string, from?: string, to?: string): string {
   if (window === 'all') return 'all time'
   if (window === 'custom')
