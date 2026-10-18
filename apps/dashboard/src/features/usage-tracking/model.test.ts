@@ -123,6 +123,13 @@ const day = (d: number, groups: Record<string, number>): TimePoint => ({
 })
 
 describe('foldTopN ties', () => {
+  it('canonically-equivalent keys rank the same in both input orders', () => {
+    const composed = '\u00e9'
+    const decomposed = 'e\u0301'
+    const points = [{ date: '2026-01-01', groups: { [composed]: 5, [decomposed]: 5 } }]
+    const forward = foldTopN(points, [composed, decomposed], 2)
+    expect(foldTopN(points, [decomposed, composed], 2).keys).toEqual(forward.keys)
+  })
   it('equal totals rank by key, whatever order the keys arrive in', () => {
     const points = [{ date: '2026-01-01', groups: { b: 5, a: 5, c: 5 } }]
     const forward = foldTopN(points, ['a', 'b', 'c'], 3)
@@ -449,16 +456,23 @@ describe('fold palette', () => {
 })
 
 describe('day-count sentences', () => {
-  it('counts days slower than the window p95, null without a window or a day', () => {
-    expect(slowerDaysLine([1, 5, null, 9], 4)).toBe(
-      '2 of 3 full days slower than the 30\u00a0d p95',
-    )
-    expect(slowerDaysLine([1, 5], null)).toBeNull()
-    expect(slowerDaysLine([null], 4)).toBeNull()
+  const NOW = Date.UTC(2026, 0, 10, 12)
+  const day = (n: number, value: number | null) => ({ date: new Date(Date.UTC(2026, 0, n)), value })
+  it('counts full days slower than the window p95, null without a window or a day', () => {
+    const days = [day(1, 1), day(2, 5), day(3, null), day(4, 9)]
+    expect(slowerDaysLine(days, 4, NOW)).toBe('2 of 3 full days slower than the 30\u00a0d p95')
+    expect(slowerDaysLine(days, null, NOW)).toBeNull()
+    expect(slowerDaysLine([day(1, null)], 4, NOW)).toBeNull()
   })
-  it('counts days under the cache target, null without a day', () => {
-    expect(cacheUnderLine([0.5, 0.7, 0.59, null])).toBe('2 of 3 full days under it')
-    expect(cacheUnderLine([])).toBeNull()
+  it('counts full days under the cache target, null without a day', () => {
+    const days = [day(1, 0.5), day(2, 0.7), day(3, 0.59), day(4, null)]
+    expect(cacheUnderLine(days, NOW)).toBe('2 of 3 full days under it')
+    expect(cacheUnderLine([], NOW)).toBeNull()
+  })
+  it('leaves the running day out of the count and the base', () => {
+    const days = [day(8, 9), day(9, 1), day(10, 9)]
+    expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')
+    expect(cacheUnderLine([day(9, 0.9), day(10, 0.1)], NOW)).toBe('0 of 1 full days under it')
   })
 })
 

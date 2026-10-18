@@ -601,6 +601,20 @@ export type WaitClock = {
 }
 
 /**
+ * How long a decision has waited, in ms. `age_days` (frozen at the push, carried to now by
+ * `elapsedMs`) is rounded to a tenth of a day: when the latest history line agrees with it within
+ * that resolution it is the same clock read more finely, so the history's age is the wait. With no
+ * history line (`historyAgeMs` 0) or a disagreement beyond the resolution, the wait is the longer of
+ * the two, never shorter than the history line beside it.
+ */
+export function resolveWaitMs(ageDays: number, elapsedMs: number, historyAgeMs: number): number {
+  const estimateMs = ageDays * DAY_MS + elapsedMs
+  const sameClock =
+    historyAgeMs > 0 && Math.abs(estimateMs - historyAgeMs) <= AGE_DAYS_RESOLUTION_MS
+  return sameClock ? historyAgeMs : Math.max(estimateMs, historyAgeMs)
+}
+
+/**
  * The repo (first, so `capFacts` never drops it) plus `waiting {d} d {h} h` (the app's one duration spelling) and the item's history.
  * The snapshot row carries no state-entry timestamp, only `age_days` (frozen at the push), so the
  * wait is `age_days` carried to now and floored at the age of the history line beside it: the two
@@ -613,12 +627,7 @@ export function cardFacts(
 ): DecisionCardFact[] {
   let waiting: DecisionCardFact = ''
   if (row.ageDays !== null) {
-    const estimateMs = row.ageDays * DAY_MS + clock.elapsedMs
-    // `age_days` is rounded to a tenth of a day: when the history line agrees within that, it is the
-    // same clock read more finely, so both print the history's duration (22 h 53 min, not 1 d).
-    const sameClock =
-      clock.historyAgeMs > 0 && Math.abs(estimateMs - clock.historyAgeMs) <= AGE_DAYS_RESOLUTION_MS
-    const waitMs = sameClock ? clock.historyAgeMs : Math.max(estimateMs, clock.historyAgeMs)
+    const waitMs = resolveWaitMs(row.ageDays, clock.elapsedMs, clock.historyAgeMs)
     const text = waitMs < MINUTE_MS ? WAITING_UNDER_A_MINUTE : `waiting ${formatDuration(waitMs)}`
     waiting = waitMs > WAIT_WARN_DAYS * DAY_MS ? { text, tone: 'warn' } : text
   }

@@ -85,7 +85,7 @@ const emptied = ({ key, caption, qualifier, info }: StatStripCell): StatStripCel
 })
 
 /** What every cell builder reads: the headline (undefined until it loads) and the loading flag. */
-type Ctx = { h: Headline | undefined; loading: boolean }
+type Ctx = { h: Headline | undefined; loading: boolean; now: number }
 
 /** Footer lines, one per row, as the strip's single footer node; a `null` line is skipped. */
 const footerOf = (lines: readonly (string | null)[]) => (
@@ -251,7 +251,7 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
   }
 }
 
-function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
+function p95Cell({ h, loading, now }: Ctx, p95: Series): StatStripCell {
   const qty = secondsQuantity(h?.p95Ms30d)
   const worst = peakOf(p95.days)
   const p95Window = h?.p95Ms30d ?? null
@@ -282,10 +282,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
       />
     ),
     footer: footerOf([
-      slowerDaysLine(
-        p95.days.map((d) => d.value),
-        p95Window,
-      ),
+      slowerDaysLine(p95.days, p95Window, now),
       worst === null || worst.value === null
         ? null
         : `slowest day ${fmtSeconds(worst.value)}, ${shortDay(worst.date)}`,
@@ -294,13 +291,11 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
   }
 }
 
-function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
+function cacheCell({ h, loading, now }: Ctx, cache: Series): StatStripCell {
   const ratio = h?.cacheHitRatio30d ?? null
   const recent = recentMean(cache.days.map((d) => d.value))
   const delta = pointsDelta(recent, ratio)
-  const underLine = cache.failed
-    ? 'daily trend failed to load'
-    : cacheUnderLine(cache.days.map((d) => d.value))
+  const underLine = cache.failed ? 'daily trend failed to load' : cacheUnderLine(cache.days, now)
   return {
     key: 'cache',
     caption: 'Cache hit',
@@ -386,7 +381,7 @@ export function UsageStrip() {
   const p95 = useDaily('latency_p95', now)
   const errors = useDaily('error_rate', now)
   const cache = useDaily('cache_ratio', now)
-  const ctx: Ctx = { h: headline.data, loading: headline.isPending }
+  const ctx: Ctx = { h: headline.data, loading: headline.isPending, now }
   const cells = [
     costCell(ctx, cost),
     tokensCell(ctx, tokens),
