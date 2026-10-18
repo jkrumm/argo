@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import {
   badDayCount,
+  errorDaysLine,
+  peakOf,
+  topSourceNote,
   billingParts,
   errorRateReading,
   meanOf,
@@ -274,5 +277,26 @@ describe('readout formatters', () => {
 
   it('badge magnitudes keep one decimal so a small change is not a red 0%', () => {
     expect(fmtPctBadge(-0.4)).toBe('0.4%')
+  })
+})
+
+describe('error days, peak and source note', () => {
+  it('words warn and bad days with counts', () => {
+    expect(errorDaysLine([0, 0.02, 0.05, null, 0.011])).toBe(
+      '2 warn days (1%–3%), 1 bad day (> 3%)',
+    )
+    expect(errorDaysLine([0, null])).toBe('0 warn days (1%–3%), 0 bad days (> 3%)')
+  })
+  it('finds the peak day', () => {
+    const days = [
+      { date: 'a', value: 1 },
+      { date: 'b', value: 4 },
+      { date: 'c', value: null },
+    ]
+    expect(peakOf(days)?.date).toBe('b')
+    expect(peakOf([{ date: 'x', value: null }])).toBeNull()
+  })
+  it('states what the source percentage is of', () => {
+    expect(topSourceNote('api', 30, 100)).toBe('30% from api')
   })
 })

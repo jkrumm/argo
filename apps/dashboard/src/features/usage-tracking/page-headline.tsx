@@ -37,9 +37,11 @@ export function UsageHeadline() {
         lastEvent: age(data.maxTs, now),
       })}
       aside={
-        <Text component="span" inherit c={FRESHNESS_INK[fresh.tone]}>
-          {fresh.word}
-        </Text>
+        fresh.tone === 'warn' || fresh.tone === 'bad' ? (
+          <Text component="span" inherit c={FRESHNESS_INK[fresh.tone]}>
+            feed stale
+          </Text>
+        ) : undefined
       }
     />
   )
