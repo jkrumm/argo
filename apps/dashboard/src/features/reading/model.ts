@@ -151,7 +151,7 @@ export function scopeLabel(groups: readonly FinishedGroup[]): string {
 }
 
 /** The one source of "finished in {year}": the headline count and its median cohort both read it. */
-export function finishedBooksInYear(shelf: readonly ShelfItem[], year: number): ShelfItem[] {
+function finishedBooksInYear(shelf: readonly ShelfItem[], year: number): ShelfItem[] {
   return shelf.filter(
     (b) => b.statusId === STATUS.read && b.readDate !== null && b.readDate.startsWith(`${year}-`),
   )
@@ -233,13 +233,22 @@ export function progressPercent(book: ShelfItem): number | null {
 
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
 
+export type BinSpan = readonly [lo: number, hi: number]
+
+/** One bin span, two views: the axis text (`3–3.5`) and the screen-reader text (`3 to 3.5 stars`). */
+export function binLabel([lo, hi]: BinSpan): { visible: string; aria: string } {
+  return lo === hi
+    ? { visible: `${lo}`, aria: `${lo} ${lo === 1 ? 'star' : 'stars'}` }
+    : { visible: `${lo}–${hi}`, aria: `${lo} to ${hi} stars` }
+}
+
 export type RatingShape = {
   /** Books per 1–5 ★ bucket: whole stars, rounded down (`2.5` → the 2 ★ bucket, `0.5` → 1 ★). */
   buckets: [number, number, number, number, number]
   n: number
   mean: number | null
-  /** The axis label per bucket: `3`, or the real span (`3–3.5`) when a half star landed in it. */
-  labels: [string, string, string, string, string]
+  /** The real span per bucket: `[3, 3]`, or `[3, 3.5]` when a half star landed in it. */
+  spans: [BinSpan, BinSpan, BinSpan, BinSpan, BinSpan]
   /** Mean community rating over the same rated books that have one, with how many that is. */
   community: { mean: number; n: number } | null
 }
@@ -256,11 +265,10 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   const community = rated.flatMap((r) => (r.community === null ? [] : [r.community]))
   return {
     buckets: tuple5((i) => bins[i]?.length ?? 0),
-    labels: tuple5((i) => {
-      const lo = Math.min(i + 1, ...(bins[i] ?? []))
-      const hi = Math.max(i + 1, ...(bins[i] ?? []))
-      return lo === hi ? `${lo}` : `${lo}–${hi}`
-    }),
+    spans: tuple5((i): BinSpan => [
+      Math.min(i + 1, ...(bins[i] ?? [])),
+      Math.max(i + 1, ...(bins[i] ?? [])),
+    ]),
     n: rated.length,
     mean: rated.length === 0 ? null : rated.reduce((sum, r) => sum + r.rating, 0) / rated.length,
     community:
@@ -277,7 +285,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
 export function ratingsFooter(shape: RatingShape): string | undefined {
   return shape.community === null
     ? undefined
-    : `community mean ${withUnit(shape.community.mean.toFixed(1), '★')}, same ${shape.community.n} books`
+    : `community mean ${withUnit(shape.community.mean.toFixed(1), '★')}, same ${shape.community.n} ${shape.community.n === 1 ? 'book' : 'books'}`
 }
 
 // ── Shelf counts: the one source of every repeated figure ───────────────────────────────────

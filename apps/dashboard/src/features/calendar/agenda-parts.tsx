@@ -63,7 +63,7 @@ export function EventRows({
   next: NextEvent | null
 }) {
   return (
-    <div role="list" className={classes.eventRows}>
+    <div role="list">
       {rows.map(({ event, cancelled, start, durationMin, title, meta }) => {
         const videoLink = event.payload?.videoLink
         return (

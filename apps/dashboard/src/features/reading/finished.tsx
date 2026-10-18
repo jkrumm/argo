@@ -35,7 +35,6 @@ export function Finished({
   return (
     <Section
       title={scope === '' ? 'Finished' : `Finished · ${scope}`}
-      {...(undated > 0 && { count: total })}
       {...(note !== null && { summary: <Text className={classes.facts}>{note}</Text> })}
     >
       {total === 0 ? (
@@ -70,6 +69,7 @@ export function Finished({
 
 /** Finished books by device reading time. In-progress books are on their cards, once. */
 export function TimeRead({ rows }: { rows: readonly TimeRow[] }) {
+  if (rows.length === 0) return null
   const total = rows.reduce((sum, r) => sum + r.seconds, 0)
   return (
     <Section

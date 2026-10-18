@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   approxHours,
+  binLabel,
   booksPerMonth,
   finishedFooter,
   finishCohort,
@@ -431,13 +432,21 @@ describe('ratingsFooter', () => {
     ]
     expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8\u00a0★, same 2 books')
   })
+  test('a single community rating reads 1 book', () => {
+    expect(ratingsFooter(ratingShape([book({ rating: 4, communityRating: 3.8 })]))).toBe(
+      'community mean 3.8\u00a0★, same 1 book',
+    )
+  })
   test('a bin that holds a half star says so in its label', () => {
-    const { labels } = ratingShape([
-      book({ rating: 3 }),
-      book({ rating: 3.5 }),
-      book({ rating: 4 }),
+    const { spans } = ratingShape([book({ rating: 3 }), book({ rating: 3.5 }), book({ rating: 4 })])
+    expect(spans.map((s) => binLabel(s).visible)).toEqual(['1', '2', '3–3.5', '4', '5'])
+    expect(spans.map((s) => binLabel(s).aria)).toEqual([
+      '1 star',
+      '2 stars',
+      '3 to 3.5 stars',
+      '4 stars',
+      '5 stars',
     ])
-    expect(labels).toEqual(['1', '2', '3–3.5', '4', '5'])
   })
   test('says nothing about binning, and nothing without a community rating', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBeUndefined()

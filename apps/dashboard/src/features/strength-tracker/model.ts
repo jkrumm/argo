@@ -210,7 +210,7 @@ export function latestE1rm(points: readonly Point[]): number | null {
 
 /**
  * `stale`: no session inside the window. The reason is the strip's one note (`staleNote`); the
- * phrase then names the window.
+ * phrase is empty.
  */
 export type LiftDelta = {
   delta: number | null
@@ -230,7 +230,7 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
   if (Date.parse(last.date) <= cutoff) {
-    return { delta: null, phrase: `no scored e1RM in ${withUnit(days, 'd')}`, stale: true, days }
+    return { delta: null, phrase: '', stale: true, days }
   }
   const base = sessions.findLast((p) => Date.parse(p.date) <= cutoff)
   if (base === undefined || !isNum(base.e1rm)) {
@@ -348,12 +348,13 @@ export function lastSession(
  * move. The per-lift e1RM and move are the strip's, the score and ACWR the call card's: the
  * headline repeats none of them.
  */
-export function summaryParts(lifts: readonly { delta: LiftDelta }[]): { sentence: string } {
-  const moves = lifts.flatMap((l) => (l.delta.delta === null ? [] : [l.delta.delta]))
-  if (moves.length === 0) return { sentence: `No lift scored in ${withUnit(DELTA_DAYS, 'd')}` }
-  const up = moves.filter((m) => m > 0).length
+export function summaryParts(lifts: readonly { delta: LiftDelta }[]): { sentence: string } | null {
+  const moves = lifts.flatMap((l) => (l.delta.delta === null ? [] : [l.delta]))
+  const days = moves[0]?.days
+  if (days === undefined) return null
+  const up = moves.filter((m) => (m.delta ?? 0) > 0).length
   return {
-    sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${withUnit(DELTA_DAYS, 'd')}`,
+    sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${withUnit(days, 'd')}`,
   }
 }
 

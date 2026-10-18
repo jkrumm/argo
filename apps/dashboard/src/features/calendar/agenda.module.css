@@ -202,14 +202,3 @@
   white-space: nowrap;
   color: var(--vx-muted);
 }
-
-/*
- * A meeting title wraps whole instead of ellipsizing. `ScheduleRow` (upstream prototype, shared with
- * Home) exposes no wrap option, so the title div is reached by its `title` attribute.
- */
-.eventRows div[title] {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}

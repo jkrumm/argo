@@ -13,7 +13,7 @@ import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
 import { withUnit } from '../../../lib/format'
-import { fmtMonthly, perMonthRaw } from '../model'
+import { DELTA_DAYS, fmtMonthly, perMonthRaw } from '../model'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
 
 /** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
@@ -111,7 +111,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
                 {fmtMonthly(monthly)}
               </Text>
               <Text span size="xs" c="dimmed">
-                %/mo, {withUnit(28, 'd')} velocity
+                %/mo, {withUnit(DELTA_DAYS, 'd')} velocity
               </Text>
               <Text span fw={600} size="xs" c={directionColor(dir)}>
                 {directionArrow(dir)}

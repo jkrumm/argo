@@ -125,16 +125,16 @@ const move = (delta: number | null) => ({
 
 describe('summaryParts', () => {
   test('counts the lifts up over the window, out of those with a scored move', () => {
-    expect(summaryParts([move(10), move(-2.5), move(0), move(null)]).sentence).toBe(
+    expect(summaryParts([move(10), move(-2.5), move(0), move(null)])?.sentence).toBe(
       '1 of 3 lifts up in 28\u00a0d',
     )
   })
   test('a single scored lift is singular', () => {
-    expect(summaryParts([move(2.5), move(null)]).sentence).toBe('1 of 1 lift up in 28\u00a0d')
+    expect(summaryParts([move(2.5), move(null)])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
   })
-  test('no scored move says so instead of 0 of 0', () => {
-    expect(summaryParts([move(null)]).sentence).toBe('No lift scored in 28\u00a0d')
-    expect(summaryParts([]).sentence).toBe('No lift scored in 28\u00a0d')
+  test('no scored move carries no lift-count clause', () => {
+    expect(summaryParts([move(null)])).toBeNull()
+    expect(summaryParts([])).toBeNull()
   })
 })
 
@@ -178,7 +178,7 @@ describe('liftDelta', () => {
   })
   test('says so when the last session is older than the window', () => {
     const r = liftDelta([pt('2026-08-01', 100), pt('2026-09-02', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: 'no scored e1RM in 28\u00a0d', stale: true, days: 28 })
+    expect(r).toEqual({ delta: null, phrase: '', stale: true, days: 28 })
   })
   test('a first session inside the window is not "no session"', () => {
     const r = liftDelta([pt('2026-10-10', 100), pt('2026-10-14', 110)], NOW)
@@ -220,7 +220,7 @@ describe('card and strip read one figure each', () => {
     expect(acwrReading(lifts, NOW).acwr).toBe(1.2)
     const delta = liftDelta(series, NOW)
     expect(delta.delta).toBe(10)
-    expect(summaryParts([{ delta }]).sentence).toBe('1 of 1 lift up in 28\u00a0d')
+    expect(summaryParts([{ delta }])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
   })
 })
 
@@ -340,7 +340,7 @@ describe('liftFooter', () => {
     )
   })
   test('a stale lift carries its record alone; the strip says why once', () => {
-    const delta = { delta: null, phrase: 'no scored e1RM in 28\u00a0d', stale: true, days: 28 }
+    const delta = { delta: null, phrase: '', stale: true, days: 28 }
     expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('PR 100.0 kg')
   })
   test('an empty phrase and no PR is a dash, not an empty string', () => {

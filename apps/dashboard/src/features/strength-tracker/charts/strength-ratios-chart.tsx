@@ -4,6 +4,7 @@ import { Meter } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { withUnit } from '../../../lib/format'
 import { METRIC_TOOLTIPS } from '../constants'
 import { type RatioStatus } from '../formulas'
 import {
@@ -52,7 +53,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
     <ChartCard
       title="Strength balance"
       info={METRIC_TOOLTIPS.strengthRatios}
-      subtitle={`Borderline: balanced only through the ${Math.round(RATIO_TOLERANCE * 100)} % tolerance`}
+      subtitle={`Borderline: balanced only through the ${withUnit(Math.round(RATIO_TOLERANCE * 100), '%')} tolerance`}
       state={{ empty: !hasData && 'Need data for multiple lifts' }}
       placeholderHeight={180}
     >
