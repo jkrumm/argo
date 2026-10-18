@@ -163,3 +163,8 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: the backlog names its pace (`≈ {h} h to read at {p} pages/h`); 390 range bucket labels no longer run into each other. Carried: the pace cell half blank (`emptyRatio` 0.51 — basalt row); no days-to-finish on finished rows (the API sends no start date for them). **New:** none. Unscored: one bucket reads `{a}–{b} ★` at 1440 but `{a} ★` at 390, which reads as a whole-star bucket; the backlog focus crop under the bottom nav (harness).
 - **Against Keel:** does not yet — the pace cell is still half blank beside the histogram.
+
+### Wave 30 fixes
+
+- Rating bucket label: fixed — one label at every width, `{a}–{b} ★`; the narrow-only lower-edge variant (`short`) is gone. Risk: the full range at 390 was the w28 "run into each other" case; re-check on the next shot.
+- Not fixed (basalt / no API field): pace cell half blank, no days-to-finish on finished rows.
