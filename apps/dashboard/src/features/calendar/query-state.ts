@@ -60,25 +60,25 @@ export function feedGap(
   return { state: 'error', text: card, card }
 }
 
+/** The slice of a TanStack query the task reads are judged on. */
+export type TaskRead = {
+  isPending: boolean
+  isError: boolean
+  isPlaceholderData: boolean
+  isFetching: boolean
+  data: unknown
+}
+
+/** A task read `taskFeedState` counts as failed: errored with nothing cached to show. */
+export const taskReadFailed = (query: TaskRead) => query.isError && query.data === undefined
+
 /**
  * The task list's own fetch state: the projects read, then one read per project. Unknown tasks are
  * never an empty list — a pending or failed read must not print `0`.
  */
-export function taskFeedState(
-  queries: readonly {
-    isPending: boolean
-    isError: boolean
-    isPlaceholderData: boolean
-    isFetching: boolean
-    data: unknown
-  }[],
-): 'loading' | 'error' | 'ready' {
+export function taskFeedState(queries: readonly TaskRead[]): 'loading' | 'error' | 'ready' {
   // Loading while any read is pending; a failure only counts once all have settled, and a failed
   // background refetch that still holds cached data is not one.
   if (queries.some((q) => q.isPending || (q.isPlaceholderData && q.isFetching))) return 'loading'
   return queries.some(taskReadFailed) ? 'error' : 'ready'
 }
-
-/** A task read `taskFeedState` counts as failed: errored with nothing cached to show. */
-export const taskReadFailed = (query: { isError: boolean; data: unknown }) =>
-  query.isError && query.data === undefined
