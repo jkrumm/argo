@@ -71,7 +71,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   ]
 
   return (
-    <Box data-shot="skinfold-chart" data-shot-absent="empty loading error">
+    <Box data-shot="skinfold-chart">
       <ChartCard
         title={`Skinfold, ${windowLabel(params)}`}
         info={METRIC_TOOLTIPS.skinfoldChart}

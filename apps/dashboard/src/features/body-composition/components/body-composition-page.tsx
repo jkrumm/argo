@@ -95,12 +95,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
         <SkinfoldChart params={params} />
       ) : (
         <Paper>
-          <Box
-            className={classes.emptyRow}
-            data-shot="empty-row"
-            data-shot-states="empty"
-            data-shot-absent="loading error"
-          >
+          <Box className={classes.emptyRow} data-shot="empty-row" data-shot-states="empty">
             <span>
               {sessions.length === 0
                 ? 'No caliper session in this window — log abdominal and suprailiac to start a baseline.'

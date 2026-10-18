@@ -30,7 +30,7 @@ import StrengthCompositeChart from '../features/strength-tracker/charts/strength
 import StrengthRatiosChart from '../features/strength-tracker/charts/strength-ratios-chart'
 import TrainingLoadChart from '../features/strength-tracker/charts/training-load-chart'
 import WeeklyVolumeChart from '../features/strength-tracker/charts/weekly-volume-chart'
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { exerciseQueries } from '../lib/queries/exercises'
 import { strengthQueries, type StrengthQueryParams } from '../lib/queries/strength'
 import { workoutsQueries } from '../lib/queries/workouts'
@@ -125,10 +125,8 @@ function StrengthTrackerPage() {
 
   // Total workout count drives the page-level empty state. The list query is
   // already prefetched in the loader, so this hits the cache.
-  const { data: workoutsList } = useQuery(workoutsQueries.list({ page: 1, limit: 20 }))
-  // Pending or failed is not empty: only a settled zero total shows the empty card.
-  const hasWorkouts =
-    shotState() !== 'empty' && (workoutsList === undefined || workoutsList.total > 0)
+  const { data: workoutsList } = useSuspenseQuery(workoutsQueries.list({ page: 1, limit: 20 }))
+  const hasWorkouts = shotState() !== 'empty' && workoutsList.total > 0
 
   return (
     <>
@@ -170,11 +168,7 @@ function StrengthTrackerPage() {
                 multiExercise={exercises.length > 1}
               />
             ) : !hasWorkouts ? (
-              <Card
-                data-shot="empty-workouts"
-                data-shot-states="empty"
-                data-shot-absent="loading error"
-              >
+              <Card data-shot="empty-workouts" data-shot-states="empty">
                 <EmptyState
                   icon={<IconBarbell size={28} stroke={1.5} />}
                   title="No workouts logged"
@@ -233,7 +227,7 @@ function ChartsPanel({
         <SparklineGridChart params={params} />
       </Suspense>
 
-      <Box data-shot="sec-strength" data-shot-states="loading" data-shot-absent="empty error">
+      <Box data-shot="sec-strength">
         <Section title={`Strength, ${period}`}>
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -246,7 +240,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-load" data-shot-states="loading" data-shot-absent="empty error">
+      <Box data-shot="sec-load">
         <Section title={`Load, ${period}`}>
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -262,7 +256,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-balance" data-shot-states="loading" data-shot-absent="empty error">
+      <Box data-shot="sec-balance">
         <Section title="Balance">
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -275,7 +269,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-readiness" data-shot-states="loading" data-shot-absent="empty error">
+      <Box data-shot="sec-readiness">
         <Section title={`Readiness, ${period}`}>
           <Suspense fallback={pending}>
             <ReadinessStrainChart params={params} />
@@ -283,7 +277,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-diagnostics" data-shot-states="loading" data-shot-absent="empty error">
+      <Box data-shot="sec-diagnostics">
         <Section
           title={DIAGNOSTICS_TITLE}
           summary={
@@ -300,7 +294,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-alignment" data-shot-states="loading" data-shot-absent="empty error">
+      <Box data-shot="sec-alignment">
         <Section
           title="Where training and recovery disagree, last 90 days"
           collapsible
