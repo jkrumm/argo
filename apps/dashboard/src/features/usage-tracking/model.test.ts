@@ -23,10 +23,10 @@ import {
   foldTopN,
   countAgainst,
   dropPartialDay,
-  regroup,
   prepareFolded,
-  toolGroupKey,
-  toolLabel,
+  FOLD_MAX_N,
+  slowerDaysLine,
+  cacheUnderLine,
   OTHER_KEY,
   pctChange,
   pctDelta,
@@ -39,6 +39,7 @@ import {
   recentMean,
   tokensQuantity,
 } from './model'
+import { RANK_PALETTE } from './constants'
 import type { TimePoint } from './types'
 
 describe('fmtUsdWhole', () => {
@@ -337,41 +338,40 @@ describe('foldTopN widening', () => {
   })
 })
 
-describe('tool names', () => {
-  it('counts every tool of one MCP server under the server', () => {
-    expect(toolGroupKey('mcp__agent-gateway__check')).toBe('mcp__agent-gateway')
-    expect(toolGroupKey('mcp__agent-gateway__review')).toBe('mcp__agent-gateway')
-    expect(toolGroupKey('Bash')).toBe('Bash')
+describe('dropPartialDay', () => {
+  // Buckets are UTC days that `dayToDate` keeps as local midnight of the same year-month-day.
+  const days = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+
+  it('drops the bucket of the UTC day of now, whatever the browser offset', () => {
+    // 00:30 UTC on 3 Jan: 3 Jan 01:30 in Berlin, but still 2 Jan evening in the Americas.
+    const justAfterUtcMidnight = Date.UTC(2026, 0, 3, 0, 30)
+    expect(dropPartialDay(days, justAfterUtcMidnight).map((d) => d.value)).toEqual([1, 2])
   })
-  it('prints identifiers in words', () => {
-    expect(toolLabel('mcp__agent-gateway')).toBe('Agent gateway (MCP)')
-    expect(toolLabel('mcp__chrome-devtools__take_screenshot')).toBe(
-      'Chrome devtools · Take screenshot',
-    )
-    expect(toolLabel('web_search')).toBe('Web search')
-    expect(toolLabel('Bash')).toBe('Bash')
-    expect(toolLabel(OTHER_KEY)).toBe(OTHER_KEY)
+  it('keeps the next UTC day running when it is already the local day east of UTC', () => {
+    // 23:30 UTC on 2 Jan: already 3 Jan 00:30 in Berlin, yet the running bucket is 2 Jan.
+    const justBeforeUtcMidnight = Date.UTC(2026, 0, 2, 23, 30)
+    expect(dropPartialDay(days, justBeforeUtcMidnight).map((d) => d.value)).toEqual([1, 3])
   })
-  it('regroups buckets by key and adds them up', () => {
-    const r = regroup(
-      [day(1, { mcp__s__a: 2, mcp__s__b: 3, Bash: 1 })],
-      ['mcp__s__a', 'mcp__s__b', 'Bash'],
-      toolGroupKey,
-    )
-    expect(r.groupKeys).toEqual(['mcp__s', 'Bash'])
-    expect(r.points[0]?.groups).toEqual({ mcp__s: 5, Bash: 1 })
+  it('keeps everything when the feed ends before today', () => {
+    expect(dropPartialDay(days.slice(0, 2), Date.UTC(2026, 0, 3, 12))).toHaveLength(2)
   })
 })
 
-describe('dropPartialDay', () => {
-  const now = new Date(2026, 0, 3, 14, 0).getTime()
-  const days = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
-
-  it('drops the bucket dated today and keeps full days', () => {
-    expect(dropPartialDay(days, now).map((d) => d.value)).toEqual([1, 2])
+describe('fold palette', () => {
+  it('the rank palette has a hue for every series the fold can name', () => {
+    expect(RANK_PALETTE.length).toBeGreaterThanOrEqual(FOLD_MAX_N)
   })
-  it('keeps everything when the feed ends before today', () => {
-    expect(dropPartialDay(days.slice(0, 2), now)).toHaveLength(2)
+})
+
+describe('day-count sentences', () => {
+  it('counts days slower than the window p95, null without a window or a day', () => {
+    expect(slowerDaysLine([1, 5, null, 9], 4)).toBe('2 of 3 days slower than the 30 d p95')
+    expect(slowerDaysLine([1, 5], null)).toBeNull()
+    expect(slowerDaysLine([null], 4)).toBeNull()
+  })
+  it('counts days under the cache target, null without a day', () => {
+    expect(cacheUnderLine([0.5, 0.7, 0.59, null])).toBe('2 of 3 days under it')
+    expect(cacheUnderLine([])).toBeNull()
   })
 })
 
@@ -390,7 +390,13 @@ describe('prepareFolded', () => {
   it('counts tools per MCP server and labels them in words', () => {
     const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'sub_tool' })
     expect(folded.keys).toEqual(['mcp__s', 'Bash', 'Read'])
+    expect(folded.points[0]?.groups).toEqual({ mcp__s: 9, Bash: 3, Read: 1 })
     expect(labelOf('mcp__s')).toBe('S (MCP)')
+    expect(labelOf('mcp__chrome-devtools__take_screenshot')).toBe(
+      'Chrome devtools · Take screenshot',
+    )
+    expect(labelOf('web_search')).toBe('Web search')
+    expect(labelOf(OTHER_KEY)).toBe(OTHER_KEY)
   })
   it('leaves every other dimension as sent', () => {
     const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'project' })

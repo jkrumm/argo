@@ -35,7 +35,8 @@ import {
   pointsDelta,
   priorNote,
   recentMean,
-  countAgainst,
+  cacheUnderLine,
+  slowerDaysLine,
   dropPartialDay,
   secondsDelta,
   secondsQuantity,
@@ -52,11 +53,11 @@ type Headline = NonNullable<ReturnType<typeof useHeadline>['data']>
 type Series = { days: Daily[]; loading: boolean; failed: boolean }
 
 /**
- * One metric's last 30 days. One rule for the running day across the strip: `dropToday` leaves it
- * out, so every trend, mean, peak and day count below is over full days; the headline figures are a
- * rolling window and include today.
+ * One metric's last 30 days, full days only: today is still running and would draw as a drop, so
+ * every trend, mean, peak and day count below leaves it out. The headline figures are a rolling
+ * window and include today.
  */
-function useDaily(metric: Metric, { dropToday, now }: { dropToday: boolean; now: number }): Series {
+function useDaily(metric: Metric, now: number): Series {
   const query = useQuery(
     usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none' }),
   )
@@ -65,7 +66,7 @@ function useDaily(metric: Metric, { dropToday, now }: { dropToday: boolean; now:
       date: dayToDate(b.bucket),
       value: b.groups['value'] ?? null,
     })) ?? []
-  const days = dropToday ? dropPartialDay(all, now) : all
+  const days = dropPartialDay(all, now)
   return { days, loading: query.isPending, failed: query.isError }
 }
 
@@ -242,14 +243,6 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
   const qty = secondsQuantity(h?.p95Ms30d)
   const worst = peakOf(p95.days)
   const p95Window = h?.p95Ms30d ?? null
-  const slower =
-    p95Window === null
-      ? null
-      : countAgainst(
-          p95.days.map((d) => d.value),
-          p95Window,
-          'above',
-        )
   const vs = compare({
     h,
     current: h?.p95Ms30d,
@@ -277,9 +270,10 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
       />
     ),
     footer: footerOf([
-      slower === null || slower.of === 0
-        ? null
-        : `${slower.count} of ${slower.of} days slower than the 30 d p95`,
+      slowerDaysLine(
+        p95.days.map((d) => d.value),
+        p95Window,
+      ),
       worst === null || worst.value === null
         ? null
         : `slowest day ${secondsQuantity(worst.value).value} s, ${shortDay.format(worst.date)}`,
@@ -292,16 +286,9 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
   const ratio = h?.cacheHitRatio30d ?? null
   const recent = recentMean(cache.days.map((d) => d.value))
   const delta = pointsDelta(recent, ratio)
-  const under = countAgainst(
-    cache.days.map((d) => d.value),
-    CACHE_HIT_TARGET,
-    'below',
-  )
   const underLine = cache.failed
     ? 'daily trend failed to load'
-    : under.of === 0
-      ? null
-      : `${under.count} of ${under.of} days under it`
+    : cacheUnderLine(cache.days.map((d) => d.value))
   return {
     key: 'cache',
     caption: 'Cache hit',
@@ -380,12 +367,11 @@ function billingFooter({ h, loading }: Ctx) {
 export function UsageStrip() {
   const headline = useHeadline()
   const now = useNow()
-  const basis = { dropToday: true, now }
-  const cost = useDaily('cost', basis)
-  const tokens = useDaily('tokens', basis)
-  const p95 = useDaily('latency_p95', basis)
-  const errors = useDaily('error_rate', basis)
-  const cache = useDaily('cache_ratio', basis)
+  const cost = useDaily('cost', now)
+  const tokens = useDaily('tokens', now)
+  const p95 = useDaily('latency_p95', now)
+  const errors = useDaily('error_rate', now)
+  const cache = useDaily('cache_ratio', now)
   const ctx: Ctx = { h: headline.data, loading: headline.isPending }
 
   return (

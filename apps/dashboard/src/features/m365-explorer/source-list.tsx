@@ -25,11 +25,13 @@ export type TeamChannels = {
   retry: () => void
 }
 
+/** One team with the state of its channel list. */
+export type TeamRow = { team: Team; channels: TeamChannels }
+
 export type SourceListProps = {
   view: 'chats' | 'teams'
   chats: readonly ChatRow[]
-  teams: readonly Team[]
-  channelsByTeam: ReadonlyMap<string, TeamChannels>
+  teamRows: readonly TeamRow[]
   labelOf: (sourceId: string) => { label: string } | undefined
   tag: string
   query: string
@@ -95,10 +97,9 @@ function ChatGroups(props: SourceListProps) {
 function TeamTree(props: SourceListProps) {
   const [openId, setOpenId] = useState<string | null>(null)
   const term = props.query.trim().toLowerCase()
-  const visible = props.teams.flatMap((team) => {
-    const entry = props.channelsByTeam.get(team.id)
+  const visible = props.teamRows.flatMap(({ team, channels: entry }) => {
     const teamMatches = term === '' || team.displayName.toLowerCase().includes(term)
-    const channels = (entry?.channels ?? []).filter(
+    const channels = entry.channels.filter(
       (ch) =>
         (teamMatches || ch.displayName.toLowerCase().includes(term)) &&
         matchesTag(props.tag, props.labelOf(channelSourceId(team.id, ch.id))),
@@ -119,8 +120,8 @@ function TeamTree(props: SourceListProps) {
       <h3 className={classes.groupHeading}>Teams · {visible.length}</h3>
       {visible.map(({ team, entry, channels, autoOpen }) => {
         const isOpen = autoOpen || openId === team.id
-        const state = entry?.state ?? 'loading'
-        const all = entry?.channels.length ?? 0
+        const state = entry.state
+        const all = entry.channels.length
         const filtered = props.tag !== '' || term !== ''
         const meta =
           state === 'loaded'
@@ -145,7 +146,7 @@ function TeamTree(props: SourceListProps) {
                 team={team}
                 state={state}
                 channels={channels}
-                retry={entry?.retry}
+                retry={entry.retry}
               />
             ) : null}
           </div>

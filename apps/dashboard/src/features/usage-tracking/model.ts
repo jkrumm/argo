@@ -2,8 +2,7 @@
  * Pure derivations for the Usage Tracking page: every figure the summary sentence, the strip and the
  * chart headers print. No React, no queries — a null reading is handled once (always `—`, never 0).
  */
-import { RANK_PALETTE } from './constants'
-import type { TimePoint } from './types'
+import type { CostGroupBy, TimePoint, TokensGroupBy } from './types'
 
 export const EM_DASH = '—'
 
@@ -16,9 +15,9 @@ export const ERROR_BAD_ABOVE = 0.03
 const STALE_AFTER_MIN = 30
 const STALE_IN_HOURS_FROM_MIN = 120
 /** Series kept in a stacked chart before the rest fold into "Other". */
-export const FOLD_TOP_N = 6
-/** The fold widens past `FOLD_TOP_N` up to one named series per palette hue while `Other` outweighs the smallest one. */
-export const FOLD_MAX_N = RANK_PALETTE.length
+const FOLD_TOP_N = 6
+/** The fold widens past `FOLD_TOP_N` up to this many named series while `Other` outweighs the smallest one; the rank palette has at least this many hues. */
+export const FOLD_MAX_N = 8
 export const ERROR_FOLD_TOP_N = 3
 export const OTHER_KEY = 'Other'
 
@@ -171,14 +170,15 @@ export function meanOf(values: readonly (number | null)[]): number | null {
 
 /**
  * Drop today's bucket: the day is still running, so its total would draw as a drop against full
- * days. Only a day dated today (local) goes; a feed that stopped earlier keeps every bucket.
+ * days. Buckets are UTC days (`dayToDate` keeps the bucket's own year-month-day as local midnight),
+ * so they are matched against the UTC day of `now`, whatever the browser's offset.
  */
 export function dropPartialDay<T extends { date: Date }>(days: readonly T[], now: number): T[] {
-  const today = new Date(now)
+  const utc = new Date(now)
   const isToday = (d: Date) =>
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
+    d.getFullYear() === utc.getUTCFullYear() &&
+    d.getMonth() === utc.getUTCMonth() &&
+    d.getDate() === utc.getUTCDate()
   return days.filter((d) => !isToday(d.date))
 }
 
@@ -260,11 +260,10 @@ export function foldTopN(
   // `Other` must never be the largest bucket: widen the named set (up to `max`) while the remainder
   // outweighs the smallest named series.
   let keep = n
-  while (
-    keep < max &&
-    keep < ranked.length &&
-    sumOf(ranked.slice(keep)) > (sums.get(ranked[keep - 1] ?? '') ?? 0)
-  ) {
+  while (keep < Math.min(max, ranked.length)) {
+    const smallestKept = sums.get(ranked[keep - 1] ?? '') ?? 0
+    const remainder = sumOf(ranked.slice(keep))
+    if (remainder <= smallestKept) break
     keep++
   }
   const kept = ranked.slice(0, keep)
@@ -364,14 +363,14 @@ function plainWords(raw: string): string {
 }
 
 /** The group a tool is counted under: every `mcp__{server}__{tool}` joins its server's one bucket. */
-export function toolGroupKey(raw: string): string {
+function toolGroupKey(raw: string): string {
   if (!raw.startsWith(MCP_PREFIX)) return raw
   const server = raw.slice(MCP_PREFIX.length).split('__')[0] ?? ''
   return server === '' ? raw : `${MCP_PREFIX}${server}`
 }
 
 /** A tool identifier in words: `mcp__agent-gateway` → `Agent gateway (MCP)`, `web_search` → `Web search`. */
-export function toolLabel(raw: string): string {
+function toolLabel(raw: string): string {
   if (raw === OTHER_KEY) return raw
   if (!raw.startsWith(MCP_PREFIX)) return plainWords(raw)
   const [server = '', ...tool] = raw.slice(MCP_PREFIX.length).split('__')
@@ -383,7 +382,7 @@ export function toolLabel(raw: string): string {
  * Re-key a grouped series: buckets whose keys map to the same group add up. Used to fold every tool
  * of one MCP server into a single series before the top-N cut.
  */
-export function regroup(
+function regroup(
   points: readonly TimePoint[],
   groupKeys: readonly string[],
   keyOf: (key: string) => string,
@@ -453,21 +452,45 @@ export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {
   return range === 'all' ? 'all time' : range.replace('d', ' d')
 }
 
-/**
- * The folded series the chart and list read. Tools are counted per MCP server before the cut and
- * labelled in words; every other dimension keeps its keys as sent.
- */
+type FoldGroupBy = CostGroupBy | TokensGroupBy
+
+/** Per dimension: how raw keys join into series before the cut, and how a key reads. */
+const GROUPING: Record<
+  FoldGroupBy,
+  { keyOf: (key: string) => string; labelOf: (key: string) => string }
+> = {
+  source: { keyOf: (key) => key, labelOf: (key) => key },
+  machine: { keyOf: (key) => key, labelOf: (key) => key },
+  billing: { keyOf: (key) => key, labelOf: (key) => key },
+  model_norm: { keyOf: (key) => key, labelOf: (key) => key },
+  project: { keyOf: (key) => key, labelOf: (key) => key },
+  // Tools are counted per MCP server and read in words.
+  sub_tool: { keyOf: toolGroupKey, labelOf: toolLabel },
+}
+
+/** The folded series the chart and list read, per the dimension's grouping. */
 export function prepareFolded(input: {
   points: readonly TimePoint[]
   groupKeys: readonly string[]
-  groupBy: string
+  groupBy: FoldGroupBy
 }): { folded: FoldedSeries; labelOf: (key: string) => string } {
-  const tools = input.groupBy === 'sub_tool'
-  const source = tools
-    ? regroup(input.points, input.groupKeys, toolGroupKey)
-    : { points: [...input.points], groupKeys: [...input.groupKeys] }
-  return {
-    folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N),
-    labelOf: tools ? toolLabel : (key) => key,
-  }
+  const { keyOf, labelOf } = GROUPING[input.groupBy]
+  const source = regroup(input.points, input.groupKeys, keyOf)
+  return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
+}
+
+/** `{n} of {m} days slower than the 30 d p95`, or `null` without a window p95 or any full day. */
+export function slowerDaysLine(
+  days: readonly (number | null)[],
+  windowP95: number | null,
+): string | null {
+  if (windowP95 === null) return null
+  const slower = countAgainst(days, windowP95, 'above')
+  return slower.of === 0 ? null : `${slower.count} of ${slower.of} days slower than the 30 d p95`
+}
+
+/** `{n} of {m} days under it` (the target), or `null` without a full day. */
+export function cacheUnderLine(days: readonly (number | null)[]): string | null {
+  const under = countAgainst(days, CACHE_HIT_TARGET, 'below')
+  return under.of === 0 ? null : `${under.count} of ${under.of} days under it`
 }

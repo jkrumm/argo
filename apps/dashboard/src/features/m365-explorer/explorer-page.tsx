@@ -42,7 +42,7 @@ import {
   type SourceRef,
 } from './model'
 import { RecordPane } from './record-pane'
-import { SourceList, type TeamChannels } from './source-list'
+import { SourceList, type TeamRow } from './source-list'
 import { ExplorerStrip } from './strip'
 import { explorerStore, type PaneKey, type ViewKey } from './store'
 import { TagChips, type ChipScope } from './tag-chips'
@@ -61,8 +61,6 @@ const PANE_META: Record<PaneKey, { title: string; tab: string; shot?: string }> 
   detail: { title: 'Detail', tab: 'Detail', shot: 'detail-pane' },
 }
 const CHATS_TOP = 50
-/** A team whose channel query has not started yet. */
-const NOT_STARTED: TeamChannels = { state: 'loading', channels: [], retry: () => {} }
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
 const CHANNEL_WINDOW = 4
 
@@ -98,23 +96,29 @@ export function M365ExplorerPage(): ReactElement {
       enabled: i < settled + CHANNEL_WINDOW,
     })),
   })
-  const channelStates: TeamChannels[] = channelQs.map((q, i) => ({
-    state: (q.isError ? 'failed' : q.data ? 'loaded' : 'loading') satisfies ChannelState,
-    channels: q.data?.channels ?? [],
-    retry: () => {
-      void channelQs[i]?.refetch()
-    },
-  }))
-  const channelsByTeam = new Map<string, TeamChannels>(
-    teams.flatMap((t, i) => {
-      const states = channelStates[i]
-      return states === undefined ? [] : [[t.id, states] as const]
-    }),
-  )
-  // One row per team, keyed by team id: a team whose channel query has not started reads as loading.
-  const teamRows = teams.map((team) => ({
-    team,
-    channels: channelsByTeam.get(team.id) ?? NOT_STARTED,
+  // One row per team, one pass: the query list is built from `teams`, so the two never differ in length.
+  const teamRows: TeamRow[] = teams.flatMap((team, i) => {
+    const q = channelQs[i]
+    if (q === undefined) return []
+    const state: ChannelState = q.isError ? 'failed' : q.data ? 'loaded' : 'loading'
+    return [
+      {
+        team,
+        channels: {
+          state,
+          channels: q.data?.channels ?? [],
+          retry: () => {
+            void q.refetch()
+          },
+        },
+      },
+    ]
+  })
+
+  const teamSizes = teamRows.map(({ team, channels }) => ({
+    name: team.displayName,
+    state: channels.state,
+    channels: channels.channels.length,
   }))
 
   const chatRows: ChatRow[] = chatsQ.data.chats.map((c) => ({
@@ -190,7 +194,9 @@ export function M365ExplorerPage(): ReactElement {
     const parts = parseChannelId(l.sourceId)
     if (!parts) return
     const team = teams.find((t) => t.id === parts.teamId)
-    const channel = channelsByTeam.get(parts.teamId)?.channels.find((c) => c.id === parts.channelId)
+    const channel = teamRows
+      .find((r) => r.team.id === parts.teamId)
+      ?.channels.channels.find((c) => c.id === parts.channelId)
     select({
       kind: 'channel',
       ...parts,
@@ -289,8 +295,7 @@ export function M365ExplorerPage(): ReactElement {
         <SourceList
           view={view}
           chats={chatRows}
-          teams={teams}
-          channelsByTeam={channelsByTeam}
+          teamRows={teamRows}
           labelOf={(id) => labelMap.get(id)}
           tag={tag}
           query={query}
@@ -322,9 +327,9 @@ export function M365ExplorerPage(): ReactElement {
   })
 
   const retryFailed = (): void => {
-    channelStates.forEach((c) => {
-      if (c.state === 'failed') c.retry()
-    })
+    for (const { channels } of teamRows) {
+      if (channels.state === 'failed') channels.retry()
+    }
   }
 
   return (
@@ -384,13 +389,7 @@ export function M365ExplorerPage(): ReactElement {
           list={sourceListName(chatRows.length, chatRows.length >= CHATS_TOP)}
           chats={kindCounts}
           channels={channelsTotal}
-          largestTeam={largestTeam(
-            teamRows.map(({ team, channels }) => ({
-              name: team.displayName,
-              state: channels.state,
-              channels: channels.channels.length,
-            })),
-          )}
+          largestTeam={largestTeam(teamSizes)}
           onRetry={retryFailed}
         />
 
