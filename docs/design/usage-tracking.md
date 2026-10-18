@@ -182,7 +182,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Tokens footer orphans `days`:** fixed — `full days` is glued with `NBSP` in the shared mean line (Cost and Tokens).
 - **`{n} B` vs `{n} M` in the Tokens cell:** partly fixed — mean and peak per day share one magnitude (`tokensFormatterFor`, taken from the larger). The headline stays in its own magnitude: it is the 30 d total, a different quantity from a per-day figure, and in `M` it would read as a long number.
-- **Tokens tooltip magnitudes:** fixed — the chart's axis and every tooltip row use one magnitude, taken from the largest bucket total.
+- **Tokens tooltip magnitudes:** fixed — the chart's axis and every tooltip row use one magnitude, taken from the largest bucket total; a non-zero row never prints as zero (two significant digits below 1 of the unit, `<0.01` below that).
 - **Tokens tooltip zero rows:** not fixed — basalt row. `StackedArea` drops a stack row where any band is `null`, and the per-series `tooltip` flag is static, so there is no per-datum filter and no honest way to omit a zero without breaking the stack.
 - **Errors footer repeats baseline:** fixed — the badge carries `prior 30 d`; the footer now reads `was {r}`.
 - **p95 line through the top tick:** not fixed — no y-domain headroom prop set; left to basalt.

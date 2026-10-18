@@ -204,6 +204,13 @@
   opacity: 1;
 }
 
+/* Coarse pointers have no hover: always visible there (Wave 22 ruling), still muted. */
+@media (hover: none), (pointer: coarse) {
+  .removeWrap {
+    opacity: 1;
+  }
+}
+
 .rowShell {
   display: flex;
   align-items: center;
