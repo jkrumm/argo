@@ -3,6 +3,7 @@ import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { agendaDay, agendaSummary, type CalendarItem } from './derive'
 import { feedGap } from './query-state'
 import { EMPTY_WINDOW, countdown, summaryParts, todayCardState, untilLabel } from './summary'
+import { FEED_LABEL } from './labels'
 
 const D = '2026-10-14'
 const ev = (id: string, start: string, end: string): CalendarItem => ({
@@ -24,7 +25,9 @@ describe('summaryParts empty window', () => {
     const { sentence, facts } = summaryParts(agendaSummary([], now), null, EMPTY_WINDOW)
     expect(sentence).toBe(EMPTY_WINDOW.sentence)
     expect(sentence.startsWith(EMPTY_WINDOW.short)).toBe(true)
-    expect(sentence.match(/Google or Microsoft 365/g)).toHaveLength(1)
+    expect(
+      sentence.match(new RegExp(`${FEED_LABEL.personal} or ${FEED_LABEL.work}`, 'g')),
+    ).toHaveLength(1)
     expect(facts).toEqual([])
   })
   test('a meeting beyond the window keeps its countdown fact', () => {
@@ -69,7 +72,7 @@ describe('summaryParts', () => {
     expect(summaryParts(summary, loading)).toEqual({ sentence: 'Loading calendar', facts: [] })
     const failed = feedGap(new Set(['work']), new Set(['work']))
     expect(summaryParts(summary, failed)).toEqual({
-      sentence: 'Microsoft 365 failed to load',
+      sentence: `${FEED_LABEL.work} failed to load`,
       facts: [],
     })
   })
