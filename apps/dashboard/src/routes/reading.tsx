@@ -115,7 +115,7 @@ function ReadingPage() {
             />
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
-            <div className={classes.pair}>
+            <div className={timeRows.length > 0 ? classes.pair : undefined}>
               <div data-shot="finished">
                 <Finished groups={finishedGroups(shelf)} undated={counts.read - counts.readDated} />
               </div>

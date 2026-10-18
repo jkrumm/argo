@@ -47,7 +47,9 @@ export function Finished({
             <section key={group.label} aria-label={group.label}>
               <Text className={classes.groupHeading}>
                 {group.label}
-                <span>{group.rows.length}</span>
+                <span>
+                  {withUnit(group.rows.length, group.rows.length === 1 ? 'book' : 'books')}
+                </span>
               </Text>
               <ul className={classes.list}>
                 {group.rows.map(({ book, readDate, days }) => (

@@ -134,18 +134,18 @@ describe('summaryParts', () => {
   test('a single lift is singular', () => {
     expect(summaryParts([move(2.5)])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
   })
-  test('nothing up carries no lift clause: zero, negative, unscored, none selected', () => {
-    expect(summaryParts([move(0), move(null)])).toBeNull()
-    expect(summaryParts([move(-1.5), move(-0.1)])).toBeNull()
-    expect(summaryParts([move(null)])).toBeNull()
+  test('nothing up still states a fact: flat or down, or nothing scored', () => {
+    expect(summaryParts([move(0), move(null)])?.sentence).toBe('No lift moved up in 28\u00a0d')
+    expect(summaryParts([move(-1.5), move(-0.1)])?.sentence).toBe('No lift moved up in 28\u00a0d')
+    expect(summaryParts([move(null)])?.sentence).toBe('No scored e1RM in 28\u00a0d')
     expect(summaryParts([])).toBeNull()
   })
 })
 
 describe('diagnosticsTitle', () => {
   test('names the period only when the window is a real one', () => {
-    expect(diagnosticsTitle('all', 'all time')).toBe('Against your 90-day norm')
-    expect(diagnosticsTitle('30d', '30 days')).toBe('Against your 90-day norm, 30 days')
+    expect(diagnosticsTitle('all', 'all time')).toBe('Strength against your 90-day norm')
+    expect(diagnosticsTitle('30d', '30 days')).toBe('Strength against your 90-day norm, 30 days')
   })
 })
 
@@ -294,9 +294,9 @@ describe('balance', () => {
     expect(bandOffset(null, [1, 2])).toBeNull()
   })
   test('a hair outside the band never prints inside it', () => {
-    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 over the 1.0–2.0 band')
+    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 outside the 1.0–2.0 band')
     expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
-    expect(offText(-0.1, [1, 2])).toBe('0.10 under the 1.0–2.0 band')
+    expect(offText(-0.1, [1, 2])).toBe('0.10 outside the 1.0–2.0 band')
     expect(offText(null, [1, 2])).toBe('—')
   })
   test('status words', () => {
@@ -318,8 +318,8 @@ describe('balance', () => {
   })
   test('inside the band the row names the band alone, outside it the distance', () => {
     expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
-    expect(offText(-0.2, [1, 2])).toBe('0.20 under the 1.0–2.0 band')
-    expect(offText(0.4, [1, 2])).toBe('0.40 over the 1.0–2.0 band')
+    expect(offText(-0.2, [1, 2])).toBe('0.20 outside the 1.0–2.0 band')
+    expect(offText(0.4, [1, 2])).toBe('0.40 outside the 1.0–2.0 band')
     expect(offText(null, [1, 2])).toBe('—')
   })
 })
@@ -408,7 +408,7 @@ describe('staleNote', () => {
       ]),
     ).toBe('No scored e1RM in 28 d: Squat, Bench Press')
   })
-  test('every lift stale is one sentence', () => {
-    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('Every lift: no scored e1RM in 28 d')
+  test('every lift stale is the headline, not a second note', () => {
+    expect(staleNote([{ id: 'squat', delta: stale }])).toBeNull()
   })
 })

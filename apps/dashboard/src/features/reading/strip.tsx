@@ -70,7 +70,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
         <div className={classes.axis}>
           {shape.labels.map((label, i) => (
             <span key={i} className={classes.axisLabel}>
-              <span>{label.visible}</span>
+              <span>{`${label.visible}★`}</span>
               <span>{shape.buckets[i]}</span>
             </span>
           ))}
