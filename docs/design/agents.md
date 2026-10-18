@@ -277,3 +277,4 @@ No basalt gaps this round.
 ### Wave 38 round
 
 - **Longest run on its own line:** a project card's `Running` cell keeps the value and `agent`/`agents` as its reading and moves `longest {d}` to the new optional `EntityCardCell.note` — a muted mono line under the reading — so at 390 it no longer crowds the value. 1440 reads the same. Closes the Wave 37 carried P3. No lost fact.
+- **Fleet strip empty states (`w38-r2`, basalt-ui 2.24.0):** the Fleet cell (no snapshot, or a snapshot without counts) and the Oldest-wait cell (nothing waiting, or waiting without a clock) carry their reason through `state: { kind: 'empty', reason }`; the null `Meter` that only held the reason is gone. Reason texts are unchanged.

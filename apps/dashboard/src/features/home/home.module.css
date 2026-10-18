@@ -208,3 +208,8 @@
   display: block;
   text-wrap: balance;
 }
+
+/* A Meter above a Sparkline in one strip slot: the sparkline's readout stays in its own box instead of lifting over the Meter's end label (basalt-ui 2.24 § Chart readouts and chrome). */
+.composite {
+  --basalt-spark-readout-lift: 0;
+}
