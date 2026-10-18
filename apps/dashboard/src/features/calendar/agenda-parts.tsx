@@ -43,7 +43,7 @@ function isHttpUrl(value: string): boolean {
 }
 
 /** Pending is a skeleton, never a sentence. The width is definite so the bars resolve in a flex row. */
-export function SkeletonLines({ rows = 1, label = 'Loading' }: { rows?: number; label?: string }) {
+function SkeletonLines({ rows = 1, label = 'Loading' }: { rows?: number; label?: string }) {
   return (
     <Box role="status" aria-label={label} w="100%" py="xs">
       {Array.from({ length: rows }, (_, i) => (
@@ -87,22 +87,20 @@ export function SkeletonRows({
   )
 }
 
-/** Rows the pending Next 7 days card stands for. */
-const NEXT_DAYS_SKELETON_ROWS = 6
-
 /** A card's gap line: a pending read is a skeleton; a failure names the source. */
 export function GapLine({
   gap,
-  rows = 1,
+  skeleton,
   inline = false,
 }: {
   gap: FeedGap
-  rows?: number
+  /** What a pending read stands in for: the caller's `rows` of a list, or a single line of text. */
+  skeleton: { kind: 'rows'; rows: number } | { kind: 'lines' }
   /** A span in a flex row instead of a block `Text`. */
   inline?: boolean
 }) {
   if (gap.state === 'loading')
-    return inline ? <SkeletonLines rows={rows} /> : <SkeletonRows rows={rows} />
+    return skeleton.kind === 'rows' ? <SkeletonRows rows={skeleton.rows} /> : <SkeletonLines />
   return inline ? (
     <span className={classes.muted} role="status">
       {gap.card}
@@ -184,6 +182,7 @@ export function DayGroups({
   now,
   next,
   gap = null,
+  skeletonRows,
 }: {
   days: readonly AgendaDay[]
   /** All-day items per day key. */
@@ -195,6 +194,8 @@ export function DayGroups({
    * listed as `No events`. Days that do hold items still show them.
    */
   gap?: FeedGap | null
+  /** Rows a pending read stands for: the caller owns the list's usual length (a 7-day card, a 3-day phone list). */
+  skeletonRows: number
 }) {
   // An unanswered calendar cannot say a day is empty, so those days are not listed.
   const visible = gap
@@ -202,7 +203,7 @@ export function DayGroups({
     : days
   return (
     <div>
-      {gap && <GapLine gap={gap} rows={NEXT_DAYS_SKELETON_ROWS} />}
+      {gap && <GapLine gap={gap} skeleton={{ kind: 'rows', rows: skeletonRows }} />}
       {visible.map((day) => {
         const chips = allDay[day.key] ?? []
         const headLabel = dayHeadLabel(day, formatMinutes, chips.length)
@@ -319,7 +320,7 @@ export function WeekStrip({
                   </span>
                 )
               })}
-            {gap && <GapLine gap={gap} inline />}
+            {gap && <GapLine gap={gap} skeleton={{ kind: 'lines' }} inline />}
           </Box>
         ) : emptyWeek ? (
           <Text className={classes.muted}>

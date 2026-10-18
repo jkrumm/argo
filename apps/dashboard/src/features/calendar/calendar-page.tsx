@@ -47,6 +47,9 @@ export type CalendarPageProps = {
 /** The Week tab on a phone: this many days, anchored on the selected date (± 1 day). */
 const COMPACT_DAYS = 3
 
+/** The phone Week view's pending list stands for its three days. */
+const COMPACT_SKELETON_ROWS = COMPACT_DAYS
+
 function todayISO(): string {
   return format(new Date(), 'yyyy-MM-dd')
 }
@@ -266,6 +269,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           now={new Date(nowMs)}
           next={null}
           gap={gap.gap}
+          skeletonRows={COMPACT_SKELETON_ROWS}
         />
       )}
 

@@ -42,6 +42,9 @@ const hhmm = (d: Date) => format(d, 'HH:mm')
 /** Rows the pending Today card stands for: the loaded card typically shows this many. */
 const TODAY_SKELETON_ROWS = 5
 
+/** Rows the pending Next 7 days card stands for. */
+const NEXT_DAYS_SKELETON_ROWS = 6
+
 export function AgendaView({
   events,
   errors,
@@ -126,7 +129,7 @@ export function AgendaView({
                   >
                     {todayState === 'unknown' ? (
                       gap ? (
-                        <GapLine gap={gap} rows={TODAY_SKELETON_ROWS} />
+                        <GapLine gap={gap} skeleton={{ kind: 'rows', rows: TODAY_SKELETON_ROWS }} />
                       ) : (
                         <SkeletonRows rows={TODAY_SKELETON_ROWS} />
                       )
@@ -153,6 +156,7 @@ export function AgendaView({
                     now={now}
                     next={summary.next}
                     gap={gap}
+                    skeletonRows={NEXT_DAYS_SKELETON_ROWS}
                   />
                 </Section>
               </Card>
