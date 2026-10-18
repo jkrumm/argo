@@ -212,8 +212,16 @@ export function bookedBySourceClass(
   return split
 }
 
-export function weekBookedMin(events: readonly CalendarItem[], keys: readonly DayKey[]): number {
-  return dayLoad(events, keys).reduce((sum, d) => sum + (d.bookedMin ?? 0), 0)
+/** The week's booked minutes; null when any day is unknown (an unanswered calendar), never a partial sum. */
+export function weekBookedMin(
+  events: readonly CalendarItem[],
+  keys: readonly DayKey[],
+  incomplete = false,
+): number | null {
+  const days = dayLoad(events, keys, incomplete)
+  return days.some((d) => d.bookedMin === null)
+    ? null
+    : days.reduce((sum, d) => sum + (d.bookedMin ?? 0), 0)
 }
 
 // ---- free time ------------------------------------------------------------------------------
@@ -419,7 +427,7 @@ export function agendaSummary(
     incomplete,
     todayCount: incomplete ? null : eventsOnDay(events, todayKey).length,
     todayBookedMin: incomplete ? null : bookedMinOnDay(events, todayKey),
-    weekBookedMin: incomplete ? null : weekBookedMin(events, keys),
+    weekBookedMin: weekBookedMin(events, keys, incomplete),
     // The next meeting may sit in the calendar that has not answered.
     next: incomplete ? null : nextEvent(events, now),
   }
@@ -464,8 +472,13 @@ function taskTone(priority: number | undefined): { tone: TaskTone; label: TaskDu
   return { tone: 'neutral', label: priority === undefined || priority <= 0 ? 'No priority' : 'Low' }
 }
 
-const labelRank = (label: TaskDue['label']): number =>
-  label === 'High' ? 2 : label === 'Medium' ? 1 : 0
+const LABEL_RANK: Record<TaskDue['label'], number> = {
+  High: 3,
+  Medium: 2,
+  Low: 1,
+  'No priority': 0,
+}
+const labelRank = (label: TaskDue['label']): number => LABEL_RANK[label]
 
 /** Open tasks overdue or due within `horizonDays` of `todayKey` (inclusive of today), soonest first. */
 export function tasksDue(

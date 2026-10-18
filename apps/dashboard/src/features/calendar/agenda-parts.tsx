@@ -215,13 +215,15 @@ export function WeekStrip({
             }))}
           />
         ) : unknown.size > 0 ? (
-          // The week's total is the headline's; a split is only worth a line when a source is missing.
+          // The week's total is the headline's; a split is only worth a line when a source is
+          // missing: the known source keeps its minutes, the missing one says so.
           <Box className={classes.split}>
-            {(['work', 'personal'] as const)
-              .filter((key) => unknown.has(key))
-              .map((key) => (
-                <span key={key}>{SPLIT_LABEL[key]} unavailable</span>
-              ))}
+            {(['work', 'personal'] as const).map((key) => (
+              <span key={key}>
+                {SPLIT_LABEL[key]}{' '}
+                {unknown.has(key) ? 'unavailable' : formatDurationMin(split[key])}
+              </span>
+            ))}
           </Box>
         ) : null}
       </Section>
