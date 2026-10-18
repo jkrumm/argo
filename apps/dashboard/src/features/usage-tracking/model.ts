@@ -38,11 +38,11 @@ export function fmtUsdWhole(n: number | null | undefined): string {
   return `$${usdFormat.format(Math.round(n))}`
 }
 
-/** A 0–1 share as a whole percentage; a non-zero share under 1 % reads `<1%`. */
+/** A 0–1 share as a whole percentage, glued (`62 %`); a non-zero share under 1 % reads `<1 %`. */
 export function fmtShare(ratio: number | null | undefined): string {
   if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return EM_DASH
-  if (ratio > 0 && ratio < 0.005) return '<1%'
-  return `${Math.round(ratio * 100)}%`
+  if (ratio > 0 && ratio < 0.005) return `<1${NBSP}%`
+  return withUnit(Math.round(ratio * 100), '%')
 }
 
 export type Quantity = { value: string; unit: string }
@@ -127,10 +127,10 @@ export function fmtTokens(n: number | null | undefined): string {
   return q.unit === '' ? q.value : `${q.value}${NBSP}${q.unit}`
 }
 
-/** A 0–1 ratio as a percentage with `digits` decimals. */
+/** A 0–1 ratio as a percentage with `digits` decimals, glued (`87.2 %`). */
 export function fmtPct(ratio: number | null | undefined, digits = 1): string {
   if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return EM_DASH
-  return `${(ratio * 100).toFixed(digits)}%`
+  return withUnit((ratio * 100).toFixed(digits), '%')
 }
 
 /** Latency in seconds with one decimal, as a value + unit pair. */
@@ -170,12 +170,11 @@ export const pointsDelta = (current: number | null, prior: number | null) =>
 // ── Badge and readout formatters ─────────────────────────────────────────────────────────────
 
 /** Badge magnitudes: the glyph carries the sign, so these print the absolute value. */
-export const fmtPctBadge = (v: number) => `${Math.abs(v).toFixed(1)}%`
+export const fmtPctBadge = (v: number) => withUnit(Math.abs(v).toFixed(1), '%')
 export const fmtPointsBadge = (v: number) => `${Math.abs(v).toFixed(1)} pp`
 export const fmtSecondsBadge = (v: number) => `${Math.abs(v).toFixed(1)} s`
 
 /** Sparkline readouts, each with its unit. */
-export const fmtUsdDay = (v: number) => `$${v.toFixed(2)}`
 export const fmtTokensDay = (v: number) => `${fmtTokens(v)} tokens`
 export const fmtSeconds = (ms: number) => {
   const q = secondsQuantity(ms)

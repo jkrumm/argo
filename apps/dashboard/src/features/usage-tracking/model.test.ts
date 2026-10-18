@@ -14,7 +14,6 @@ import {
   errorComparison,
   priorNote,
   fmtPctBadge,
-  fmtUsdDay,
   fmtTokensDay,
   fmtSeconds,
   errorDayState,
@@ -74,16 +73,16 @@ describe('tokens and latency units', () => {
     expect(secondsQuantity(null)).toEqual({ value: '—', unit: '' })
   })
   it('formats ratios', () => {
-    expect(fmtPct(0.872)).toBe('87.2%')
+    expect(fmtPct(0.872)).toBe('87.2\u00a0%')
     expect(fmtPct(null)).toBe('—')
   })
 })
 
 describe('fmtShare', () => {
   it('rounds to a whole percent and marks a non-zero sliver as <1%', () => {
-    expect(fmtShare(0.968)).toBe('97%')
-    expect(fmtShare(0.003)).toBe('<1%')
-    expect(fmtShare(0)).toBe('0%')
+    expect(fmtShare(0.968)).toBe('97\u00a0%')
+    expect(fmtShare(0.003)).toBe('<1\u00a0%')
+    expect(fmtShare(0)).toBe('0\u00a0%')
     expect(fmtShare(null)).toBe('—')
   })
 })
@@ -223,7 +222,7 @@ describe('prior comparisons', () => {
     )
     expect(errorComparison({ current: 0.02, prior: 0.012, calls })).toEqual({
       value: expect.closeTo(0.8),
-      note: 'was 1.2%',
+      note: 'was 1.2\u00a0%',
     })
     expect(errorComparison({ current: 0, prior: 0.012, calls: 0 })).toEqual({
       value: null,
@@ -235,9 +234,9 @@ describe('prior comparisons', () => {
 describe('error rate reading', () => {
   it('is a dash for a window with no calls, never 0.0%', () => {
     expect(errorRateReading(0, 0)).toBe('—')
-    expect(errorRateReading(0, 12)).toBe('0.0%')
-    expect(errorRateReading(0.005, 200)).toBe('0.5%')
-    expect(errorRateReading(0.005, undefined)).toBe('0.5%')
+    expect(errorRateReading(0, 12)).toBe('0.0\u00a0%')
+    expect(errorRateReading(0.005, 200)).toBe('0.5\u00a0%')
+    expect(errorRateReading(0.005, undefined)).toBe('0.5\u00a0%')
     expect(errorRateReading(null, 5)).toBe('—')
   })
 })
@@ -276,7 +275,7 @@ describe('badge deltas', () => {
 
 describe('readout formatters', () => {
   it('every readout carries its unit', () => {
-    expect(fmtUsdDay(12.4)).toBe('$12.40')
+    expect(fmtUsdWhole(12.4)).toBe('$12')
     expect(fmtTokensDay(3_200_000)).toBe('3.2\u00a0M tokens')
     expect(fmtTokensDay(950)).toBe('950 tokens')
     expect(fmtSeconds(1800)).toBe('1.8\u00a0s')
@@ -284,7 +283,7 @@ describe('readout formatters', () => {
   })
 
   it('badge magnitudes keep one decimal so a small change is not a red 0%', () => {
-    expect(fmtPctBadge(-0.4)).toBe('0.4%')
+    expect(fmtPctBadge(-0.4)).toBe('0.4\u00a0%')
   })
 })
 
@@ -297,10 +296,10 @@ describe('shortDay', () => {
 describe('error days, peak and source note', () => {
   it('words warn and bad days with counts', () => {
     expect(errorDaysLine([0, 0.02, 0.05, null, 0.011])).toBe(
-      `2${NBSP}warn${NBSP}days${NBSP}(1%–3%), 1${NBSP}bad${NBSP}day${NBSP}(>${NBSP}3%)`,
+      `2${NBSP}warn${NBSP}days${NBSP}(1\u00a0%–3\u00a0%), 1${NBSP}bad${NBSP}day${NBSP}(>${NBSP}3\u00a0%)`,
     )
-    expect(errorDaysLine([0.02, null])).toBe(`1${NBSP}warn${NBSP}day${NBSP}(1%–3%)`)
-    expect(errorDaysLine([0, 0.001])).toBe('no day above 1%')
+    expect(errorDaysLine([0.02, null])).toBe(`1${NBSP}warn${NBSP}day${NBSP}(1\u00a0%–3\u00a0%)`)
+    expect(errorDaysLine([0, 0.001])).toBe('no day above 1\u00a0%')
     expect(errorDaysLine([null, null])).toBe('no daily reading yet')
   })
   it('finds the peak day', () => {
@@ -313,13 +312,13 @@ describe('error days, peak and source note', () => {
     expect(peakOf([{ date: 'x', value: null }])).toBeNull()
   })
   it('words the health and fold info from the constants', () => {
-    expect(healthInfo('week')).toContain('a week under 1%')
+    expect(healthInfo('week')).toContain('a week under 1\u00a0%')
     expect(foldInfo('billing lane')).toBe(
       'The largest billing lanes in the window are named (at least 6, more while the rest would outweigh the smallest), the rest are grouped as Other.',
     )
   })
   it('states what the source percentage is of', () => {
-    expect(topSourceNote('api', 30, 100)).toBe('30% from api')
+    expect(topSourceNote('api', 30, 100)).toBe('30\u00a0% from api')
     expect(topSourceNote('api', 0, 0)).toBe('api')
   })
 })
