@@ -182,6 +182,18 @@ describe('evidence line', () => {
       body: 'CI failed on {sha}: the head commit is red. — PR left open: https://example.com/pr/1',
     })
     expect(left.evidenceLine).toBe('CI failed on {sha}: the head commit is red; PR left open')
+    const dangling = cardCopy({
+      authored: 'Merge?',
+      body: 'CI failed on {sha}: checks have not passed on the head commit: CI. — PR left open: https://example.com/pr/6',
+    })
+    expect(dangling.evidenceLine).toBe(
+      'CI failed on {sha}: checks have not passed on the head commit; PR left open',
+    )
+    const kept = cardCopy({
+      authored: 'Merge?',
+      body: 'Build failed on {sha}: step lint. — PR left open: https://example.com/pr/7',
+    })
+    expect(kept.evidenceLine).toBe('Build failed on {sha}: step lint; PR left open')
     // The dash continues the sentence before it: clauses, never a fragment.
     const folded = cardCopy({
       authored: 'Merge?',

@@ -223,3 +223,10 @@ Basalt rows for `UPSTREAM.md`:
 - **CI-failed card** — fixed: `planActions` drops `Merge` for a failed item whose normalised reason says `CI failed` anywhere (`GitHub Actions: CI failed …`, `Verification failed — CI failed …`) or opens `verification failed` — the wire has no structured field (`failure_class` is warden's open vocabulary); the secondary is `Dismiss`.
 - **Failed card's evidence around `— PR left open`** — fixed: a sentence that opens with a dash continues the one before it (`…: CI; PR left open`); the PR-left-open fact survives, the URL stays in the PR link.
 - **`times` orphan** (`retried {n} times`) — not fixed: not in this round's list.
+
+Follow-up (w30-r1):
+
+- **Failed-card evidence, dangling `CI`** — fixed: a closing `: {word}` that only repeats a word the sentence already said (`…on the head commit: CI.`) is dropped with its colon (`withoutEchoTail`, `lib/question-copy.ts`), so the clauses read `CI failed on {sha}: …; PR left open`. A different tail (`: step lint`) stays. Titles untouched.
+- **`revised {n} times` orphan** — fixed: count and word joined by a no-break space (`pluralizeWhole`); supersedes the "not fixed" line above.
+- **`waiting {h} h` precision** — already one spelling: the facts line and the history ages both go through `formatDuration`; a test now pins the pair so they cannot drift.
+- **`ago` glue everywhere on a card** — fixed: `Ago`, the tracking-fact lines and the history lines share `relativeWhole` / `historyAge`.

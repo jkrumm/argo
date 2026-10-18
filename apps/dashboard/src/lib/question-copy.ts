@@ -95,6 +95,18 @@ function joinDashClauses(sentences: readonly string[]): string[] {
 }
 
 /**
+ * A closing `: {word}` that only repeats a word the sentence already said (`…on the head commit:
+ * CI.`) is a dangling fragment, not a fact: it goes, with its colon. Any other tail stays.
+ */
+function withoutEchoTail(sentence: string): string {
+  const match = /^(.*\S):\s+([\p{L}\p{N}_-]+)([.!?]*)$/u.exec(sentence)
+  if (match === null) return sentence
+  const [, head, word, end] = match as unknown as [string, string, string, string]
+  const echoed = new RegExp(`(?<![\\p{L}\\p{N}_-])${word}(?![\\p{L}\\p{N}_-])`, 'iu').test(head)
+  return echoed ? `${head}${end}` : sentence
+}
+
+/**
  * One line of evidence from a reason: statements only (a second question never repeats the title's),
  * raw URLs removed (the whole reason keeps them), cut at a word boundary when long.
  */
@@ -102,6 +114,7 @@ function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
   const cleaned = joinDashClauses(
     sentencesOf(text)
       .map(withoutUrls)
+      .map(withoutEchoTail)
       .filter((sentence) => sentence !== '' && !/^[\s.,;:\-–—()[\]]+$/.test(sentence)),
   )
   const statements = cleaned.filter((sentence) => !asksQuestion(sentence))
