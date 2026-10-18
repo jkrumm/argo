@@ -51,7 +51,9 @@ describe('strip cells with no reading', () => {
       isToday: false,
     })
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
-    expect(cell.footer).toBe('today fills after the next Garmin sync (every 6\u00a0h)')
+    expect(cell.footer).toBe(
+      '7\u00a0d mean 65 · today fills after the next Garmin sync (every 6\u00a0h)',
+    )
   })
 
   it('names the reading day in the ACWR footer only when it is not today', () => {
