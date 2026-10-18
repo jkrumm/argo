@@ -15,6 +15,7 @@ import {
   median,
   parseTimestamp,
   ratingShape,
+  ratingsFooter,
   readingPace,
   scopeLabel,
   shelfParts,
@@ -412,5 +413,19 @@ describe('scopeLabel', () => {
     expect(scopeLabel([])).toBe('')
     expect(scopeLabel([g('Mar 2026')])).toBe('Mar 2026')
     expect(scopeLabel([g('Oct 2026'), g('Jun 2026'), g('Mar 2026')])).toBe('Mar 2026 – Oct 2026')
+  })
+})
+
+describe('ratingsFooter', () => {
+  test('states the community mean and its base, one decimal', () => {
+    const shelf = [
+      book({ rating: 4, communityRating: 3.5 }),
+      book({ rating: 3, communityRating: 4 }),
+      book({ rating: 5 }),
+    ]
+    expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8 ★ on 2 of the same books')
+  })
+  test('says nothing without a community rating', () => {
+    expect(ratingsFooter(ratingShape([book({ rating: 4 })]))).toBeUndefined()
   })
 })

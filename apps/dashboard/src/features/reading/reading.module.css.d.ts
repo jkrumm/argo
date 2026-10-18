@@ -12,10 +12,13 @@ declare const classes: {
   readonly barFilled: string
   readonly meanTick: string
   readonly axis: string
+  readonly axisMinor: string
   readonly paceTrack: string
   readonly paceRail: string
   readonly paceDot: string
   readonly paceMedian: string
+  readonly titleClamp: string
+  readonly titleLink: string
   readonly cover: string
   readonly cardGrid: string
   readonly card: string

@@ -26,18 +26,7 @@ export function Finished({
   undated: number
 }) {
   const total = groups.reduce((sum, g) => sum + g.rows.length, 0)
-  const unknownDays = groups.reduce(
-    (sum, g) => sum + g.rows.filter((r) => r.days === null).length,
-    0,
-  )
-  const notes = [
-    ...(undated > 0 ? [`${undated} read without a date, not listed`] : []),
-    ...(unknownDays > 0
-      ? [
-          `days to finish needs a start date; ${unknownDays} of ${total} have none, so no days are shown`,
-        ]
-      : []),
-  ]
+  const notes = undated > 0 ? [`${undated} more finished without a read date`] : []
   const scope = scopeLabel(groups)
   return (
     <Section
