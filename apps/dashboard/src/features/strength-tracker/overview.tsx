@@ -251,13 +251,10 @@ function readinessTitle(call: ReturnType<typeof useOverview>['call']): string {
 
 type LiftPr = ReturnType<typeof useOverview>['summary']['byExercise'][number]
 
-const PR_LABEL = 'PR'
-
-/** The dashed PR line and its caption, or nothing for a lift without a record. */
-function prReference(
-  pr: LiftPr | undefined,
-): { reference: number; referenceLabel: string } | Record<never, never> {
-  return pr?.bestE1RM == null ? {} : { reference: pr.bestE1RM, referenceLabel: PR_LABEL }
+/** The dashed PR line and its caption; absent for a lift without a record. */
+function prReference(pr: LiftPr | undefined): { reference?: number; referenceLabel?: string } {
+  if (pr?.bestE1RM == null) return {}
+  return { reference: pr.bestE1RM, referenceLabel: 'PR' }
 }
 
 /** One lift's strip cell: latest e1RM, its 28 d delta, the recent line against the PR. */
