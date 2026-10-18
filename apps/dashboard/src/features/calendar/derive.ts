@@ -364,7 +364,9 @@ export type AgendaDay = {
   rows: AgendaRow[]
   /** Live all-day items covering the day (never tasks, never cancelled). */
   allDay: CalendarItem[]
-  /** THE event count: every live event of the day, timed and all-day alike. Tasks are not events. */
+  /** Live timed meetings: the set `bookedMin` covers. */
+  timedCount: number
+  /** THE event count (`timedCount + allDay.length`): every live event of the day. Tasks are not events. */
   count: number
   /** Timed live meetings only: all-day items book no time. */
   bookedMin: number
@@ -379,6 +381,7 @@ export function agendaDay(events: readonly CalendarItem[], key: DayKey): AgendaD
     key,
     rows: listed.map(agendaRow),
     allDay,
+    timedCount: live.length,
     count: live.length + allDay.length,
     bookedMin: bookedMinOf(live, key),
   }
@@ -391,7 +394,7 @@ export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKe
 /** The one wording of an empty day / window; the headline's sentence leads with it too. */
 export const NO_EVENTS = 'No events'
 
-const noun = (n: number) => `${n} ${n === 1 ? 'event' : 'events'}`
+export const noun = (n: number) => `${n} ${n === 1 ? 'event' : 'events'}`
 
 /**
  * `2 events · 3h` / `No events` / `1 event · all day` / `all cancelled` — the day heading's
@@ -400,8 +403,7 @@ const noun = (n: number) => `${n} ${n === 1 ? 'event' : 'events'}`
  */
 export function dayHeadLabel(day: AgendaDay, format: (min: number) => string): string {
   if (day.count === 0) return day.rows.length > 0 ? 'all cancelled' : NO_EVENTS
-  const timedLive = day.count - day.allDay.length
-  return `${noun(day.count)} · ${timedLive > 0 ? format(day.bookedMin) : 'all day'}`
+  return `${noun(day.count)} · ${day.timedCount > 0 ? format(day.bookedMin) : 'all day'}`
 }
 
 /** Live all-day events (never tasks, never cancelled) covering `key`, titles intact. */

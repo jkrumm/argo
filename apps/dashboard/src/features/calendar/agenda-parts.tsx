@@ -179,15 +179,12 @@ export function EventRows({
 
 export function DayGroups({
   days,
-  allDay,
   now,
   next,
   gap = null,
   skeletonRows,
 }: {
   days: readonly AgendaDay[]
-  /** All-day items per day key. */
-  allDay: Readonly<Record<DayKey, readonly CalendarItem[]>>
   now: Date
   next: NextEvent | null
   /**
@@ -199,16 +196,13 @@ export function DayGroups({
   skeletonRows: number
 }) {
   // An unanswered calendar cannot say a day is empty, so those days are not listed.
-  const visible = gap
-    ? days.filter((day) => day.rows.length > 0 || (allDay[day.key] ?? []).length > 0)
-    : days
+  const visible = gap ? days.filter((day) => day.count > 0 || day.rows.length > 0) : days
   return (
     <div>
       {gap && <GapLine gap={gap} skeleton={{ kind: 'rows', rows: skeletonRows }} />}
       {visible.map((day) => {
-        const chips = allDay[day.key] ?? []
         const headLabel = dayHeadLabel(day, formatMinutes)
-        if (day.rows.length === 0 && chips.length === 0) {
+        if (day.rows.length === 0 && day.allDay.length === 0) {
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
@@ -222,9 +216,9 @@ export function DayGroups({
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               {!gap && headLabel && <span className={classes.muted}>{headLabel}</span>}
             </Box>
-            {chips.length > 0 && (
+            {day.allDay.length > 0 && (
               <Box pt="xs">
-                <AllDayChips items={chips} />
+                <AllDayChips items={day.allDay} />
               </Box>
             )}
             <EventRows rows={day.rows} now={now} next={next} />

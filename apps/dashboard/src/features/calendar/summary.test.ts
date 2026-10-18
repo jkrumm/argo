@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
-import { agendaSummary, type CalendarItem } from './derive'
+import { agendaDay, agendaSummary, type CalendarItem } from './derive'
 import { feedGap } from './query-state'
 import { EMPTY_WINDOW, countdown, summaryParts, todayCardState, untilLabel } from './summary'
 
@@ -55,6 +55,10 @@ describe('summaryParts', () => {
       facts: ['nothing booked this week'],
     })
   })
+  test('an all-day-only today states its count and no booked time', () => {
+    const allDay = { ...ev('d', D, D), payload: { source: 'm365', isAllDay: true } } as CalendarItem
+    expect(summaryParts(agendaSummary([allDay], now)).sentence).toBe('1 event today')
+  })
   test('a lone meeting reads singular', () => {
     const summary = agendaSummary([events[1] as CalendarItem], now)
     expect(summaryParts(summary).sentence).toStartWith('1 event today, 40\u00a0min booked')
@@ -104,6 +108,11 @@ describe('todayCardState', () => {
   test('rows show whatever the completeness', () => {
     expect(todayCardState(2, false)).toBe('rows')
     expect(todayCardState(1, true)).toBe('rows')
+  })
+  test('an all-day-only day (count > 0, no timed rows) still shows the card', () => {
+    const day = agendaDay([{ ...ev('d', D, D), payload: { source: 'm365', isAllDay: true } }], D)
+    expect(day.rows).toHaveLength(0)
+    expect(todayCardState(day.count, false)).toBe('rows')
   })
   test('empty and complete hides the card', () => {
     expect(todayCardState(0, false)).toBe('hidden')

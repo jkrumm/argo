@@ -128,14 +128,13 @@ describe('booked hours', () => {
     )
     expect(nothingBooked(dayLoad([], weekKeys(D), true))).toBe(false)
   })
-  test('a day holding only live all-day items counts them as `all day`; empty days say No events', () => {
+  test('a day with only live all-day items reads `{n} events · all day`; empty and cancelled days read their own wording', () => {
     const fmt = (m: number) => `${m}m`
-    const two = [ev('a1', D, D, { isAllDay: true }), ev('a2', D, D, { isAllDay: true })]
+    const first = ev('a1', D, D, { isAllDay: true })
+    const two = [first, ev('a2', D, D, { isAllDay: true })]
     expect(dayHeadLabel(agendaDay(two, D), fmt)).toBe('2 events · all day')
     const cancelledRow = cancelled('x', 'Canceled:', at(D, '09:00'), at(D, '10:00'))
-    expect(dayHeadLabel(agendaDay([cancelledRow, two[0] as CalendarItem], D), fmt)).toBe(
-      '1 event · all day',
-    )
+    expect(dayHeadLabel(agendaDay([cancelledRow, first], D), fmt)).toBe('1 event · all day')
     expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('No events')
     expect(dayHeadLabel(agendaDay([cancelledRow], D), fmt)).toBe('all cancelled')
   })
@@ -146,6 +145,8 @@ describe('booked hours', () => {
       D,
     )
     expect(day.count).toBe(2)
+    expect(day.timedCount).toBe(1)
+    expect(day.count).toBe(day.timedCount + day.allDay.length)
     expect(day.bookedMin).toBe(60)
     expect(dayHeadLabel(day, fmt)).toBe('2 events · 60m')
   })
@@ -467,6 +468,12 @@ describe('cancelled meetings', () => {
     expect(dayHeadLabel(agendaDay([ev('a', `${D} 09:00:00`, `${D} 10:00:00`)], D), fmt)).toBe(
       '1 event · 60m',
     )
+  })
+  test('a cancelled all-day item is out of the count and the all-day list', () => {
+    const cancelledAllDay = ev('c', D, D, { isAllDay: true, isCancelled: true })
+    const day = agendaDay([cancelledAllDay], D)
+    expect(day.count).toBe(0)
+    expect(day.allDay).toEqual([])
   })
   test('cancelled all-day events are not listed', () => {
     const allDay = (title: string): CalendarItem => ({

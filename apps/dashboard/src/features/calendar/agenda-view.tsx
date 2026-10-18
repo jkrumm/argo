@@ -22,7 +22,6 @@ import {
   addDays,
   agendaDays,
   agendaSummary,
-  allDayEvents,
   bookedBySourceClass,
   dayLoad,
   agendaDay,
@@ -31,7 +30,6 @@ import {
   longestFreeBlock,
   tasksDue,
   type CalendarItem,
-  type DayKey,
 } from './derive'
 
 const NEXT_DAYS = 7
@@ -82,18 +80,14 @@ export function AgendaView({
     const { todayKey } = summary
     const nextKeys = Array.from({ length: NEXT_DAYS }, (_, i) => addDays(todayKey, i + 1))
     const days = agendaDays(events, nextKeys)
-    const allDay: Record<DayKey, CalendarItem[]> = {}
-    for (const key of nextKeys) allDay[key] = allDayEvents(events, key)
     return {
       summary,
       nextKeys,
       emptyWindow: isEmptyWindow(events, summary, nextKeys) ? EMPTY_WINDOW : null,
       free: summary.incomplete ? null : longestFreeBlock(events, todayKey, now),
       today: agendaDay(events, todayKey),
-      todayAllDay: allDayEvents(events, todayKey),
       days,
       nextCount: days.reduce((sum, d) => sum + d.count, 0),
-      allDay,
       load: dayLoad(events, summary.weekKeys, summary.incomplete),
       split: bookedBySourceClass(events, summary.weekKeys),
       tasks: tasksDue(events, todayKey),
@@ -104,7 +98,7 @@ export function AgendaView({
   const { summary, free, emptyWindow } = model
   const gap = feedGap(unknown, failed)
   const parts = summaryParts(summary, gap, emptyWindow)
-  const todayState = todayCardState(model.today.rows.length, summary.incomplete)
+  const todayState = todayCardState(model.today.count, summary.incomplete)
   return (
     <Stack gap="md">
       <Box data-shot="calendar-headline" data-shot-states="loading error empty">
@@ -130,7 +124,6 @@ export function AgendaView({
           />
         )}
       </Box>
-      <AllDayChips items={model.todayAllDay} />
       <Box className={classes.frame}>
         <Box className={classes.page}>
           <Box className={classes.col}>
@@ -155,7 +148,12 @@ export function AgendaView({
                         <SkeletonRows rows={TODAY_SKELETON_ROWS} />
                       )
                     ) : (
-                      <EventRows rows={model.today.rows} now={now} next={summary.next} />
+                      <>
+                        <Box pb="xs">
+                          <AllDayChips items={model.today.allDay} />
+                        </Box>
+                        <EventRows rows={model.today.rows} now={now} next={summary.next} />
+                      </>
                     )}
                   </Section>
                 </Card>
@@ -173,7 +171,6 @@ export function AgendaView({
                 >
                   <DayGroups
                     days={model.days}
-                    allDay={model.allDay}
                     now={now}
                     next={summary.next}
                     gap={gap}
