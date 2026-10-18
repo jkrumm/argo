@@ -64,7 +64,7 @@ function ClampedText({ text }: { text: string }) {
   const canToggle = overflows || expanded
   return (
     <Stack gap={4} align="flex-start">
-      <Text id={textId} ref={ref} size="sm" lineClamp={expanded ? undefined : 3}>
+      <Text id={textId} ref={ref} size="sm" {...(expanded ? {} : { lineClamp: 3 })}>
         {text}
       </Text>
       {canToggle ? (
