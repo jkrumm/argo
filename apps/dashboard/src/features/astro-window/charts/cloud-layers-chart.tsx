@@ -7,6 +7,7 @@ import {
   fmtShortDay,
   hourlyTicks,
   hourlyTimeLabel,
+  cloudHeadline,
   lowCloudStat,
   withFacts,
 } from '../formulas'
@@ -81,9 +82,7 @@ export default function CloudLayersChart({
       title={`Cloud cover by layer · ${fmtShortDay(night.date)}`}
       info={METRIC_TOOLTIPS.cloudLayers}
       subtitle={flatLayersNote(hourly) ?? undefined}
-      {...withFacts(
-        stat === null ? null : { value: stat.value, unit: stat.unit, period: stat.basis },
-      )}
+      {...withFacts(stat === null ? null : cloudHeadline(stat))}
       state={{ empty: series.length === 0 && 'No cloud data for this night' }}
       placeholderHeight={CHART_HEIGHT}
     >
