@@ -198,11 +198,10 @@ describe('summary', () => {
     expect(summaryHeadline([])).toBeNull()
   })
 
-  it('words the untitled fold, the one place the count is printed', () => {
-    expect(untitledLabel(3, '2 months ago')).toBe(
-      `3 untitled chats · oldest 2${NBSP}months${NBSP}ago`,
-    )
-    expect(untitledLabel(1, 'yesterday')).toBe('1 untitled chat · oldest yesterday')
+  it('words the untitled fold without the count (the chip prints it)', () => {
+    expect(untitledLabel('2 months ago')).toBe(`Untitled · oldest 2${NBSP}months${NBSP}ago`)
+    expect(untitledLabel('yesterday')).toBe('Untitled · oldest yesterday')
+    expect(untitledLabel('3 days ago')).not.toMatch(/^\d|\d untitled/)
   })
 })
 
@@ -256,10 +255,10 @@ describe('listEndNote', () => {
   it('is null without threads', () => {
     expect(listEndNote([], 0, NOW, 0)).toBeNull()
   })
-  it('is silent once the server total is covered (the fold names the oldest)', () => {
-    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)).toBeNull()
-    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toBeNull()
-    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toBeNull()
+  it('names when the first thread started once the server total is covered', () => {
+    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)).toMatch(/^First thread [^,]+$/)
+    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/^First thread [^,]+$/)
+    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toMatch(/^First thread /)
   })
   it('says how far back a capped list reaches', () => {
     expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, 9)).toMatch(

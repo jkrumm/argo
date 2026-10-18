@@ -160,7 +160,7 @@ export function ThreadList({
               aria-disabled={foldOpen || undefined}
               onClick={() => !foldOpen && onToggleOpen()}
             >
-              {untitledLabel(untitled.length, relativeTime(oldestUpdatedAt(untitled)))}
+              {untitledLabel(relativeTime(oldestUpdatedAt(untitled)))}
             </UnstyledButton>
             <Button
               variant="subtle"

@@ -263,9 +263,12 @@ export function summaryHeadline(entries: readonly ThreadEntry[]): { sentence: st
   }
 }
 
-/** The disclosure row: `{n} untitled chats · oldest {age}`; the age is glued so `ago` never orphans. */
-export function untitledLabel(count: number, oldestAge: string): string {
-  return `${count} untitled ${count === 1 ? 'chat' : 'chats'} · oldest ${oldestAge.replace(/ /g, NBSP)}`
+/** Every space unbreakable: a phrase that must never split across lines. */
+const glue = (text: string): string => text.replaceAll(' ', NBSP)
+
+/** The disclosure row: `Untitled · oldest {age}`. The count lives on the `Untitled` chip only. */
+export function untitledLabel(oldestAge: string): string {
+  return `Untitled · oldest ${glue(oldestAge)}`
 }
 
 function oldestOf(entries: readonly ThreadEntry[], field: 'createdAt' | 'updatedAt'): number {
@@ -279,8 +282,8 @@ export function oldestUpdatedAt(entries: readonly ThreadEntry[]): number {
 /**
  * The line under the last row of an unfiltered list. The list request is capped, so how far back
  * the loaded part reaches is stated only when the server's `total` (or, without it, a list at the
- * cap) says more exist; a complete list says nothing (the last row and the untitled fold already
- * carry the oldest dates).
+ * cap) says more exist; a complete list names when its first thread started (rows print last-reply
+ * times, a different fact).
  */
 export function listEndNote(
   entries: readonly ThreadEntry[],
@@ -292,7 +295,7 @@ export function listEndNote(
   if (entries.length === 0) return null
   const loaded = entries.length + archivedCount
   const capped = serverTotal === null ? loaded >= limit : serverTotal > loaded
-  if (!capped) return null
+  if (!capped) return `First thread ${startedDate(oldestOf(entries, 'createdAt'), now)}`
   const back = startedDate(oldestOf(entries, 'updatedAt'), now)
   return serverTotal === null
     ? `The newest ${loaded} threads, back to ${back}`

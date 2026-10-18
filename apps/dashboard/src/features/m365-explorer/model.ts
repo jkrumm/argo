@@ -104,6 +104,8 @@ const KIND_TYPE = {
 export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<{
   key: keyof ReturnType<typeof chatKindCounts>
   label: string
+  /** The kind's noun, counted (`chats`, `meetings`), singular at one. */
+  noun: string
   text: string
   value: number
 }> {
@@ -111,9 +113,34 @@ export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<
     const value = counts[key]
     if (value === 0) return []
     const label = CHAT_TYPE_LABEL[KIND_TYPE[key]]
-    const noun = key === 'meeting' ? label : `${label} chat`
-    return [{ key, label, text: plural(value, noun), value }]
+    const one = key === 'meeting' ? label : `${label} chat`
+    const noun = value === 1 ? one : `${one}s`
+    return [{ key, label, noun, text: `${value} ${noun}`, value }]
   })
+}
+
+/**
+ * The Chats cell: the leading kind (most chats, reading order on a tie) is the hero, the other kinds
+ * are the footer, so no figure prints twice and the total stays the `All` chip's. `value` is `null`
+ * without chats.
+ */
+export function chatsStat(counts: ReturnType<typeof chatKindCounts>): {
+  value: string | null
+  unit: string | null
+  footer: string | null
+} {
+  const parts = chatKindParts(counts)
+  const lead = parts.reduce<(typeof parts)[number] | null>(
+    (best, p) => (best === null || p.value > best.value ? p : best),
+    null,
+  )
+  if (lead === null) return { value: null, unit: null, footer: 'no chats' }
+  const rest = parts.filter((p) => p !== lead)
+  return {
+    value: String(lead.value),
+    unit: lead.noun,
+    footer: rest.length === 0 ? null : rest.map((p) => p.text).join(' · '),
+  }
 }
 
 export function chatKindCounts(rows: ReadonlyArray<{ chatType: ChatType }>): {
@@ -208,13 +235,6 @@ export function formatTime(iso: string | null | undefined, now: Date): string {
   return format(d, differenceInCalendarDays(now, d) < 7 ? 'EEE dd' : 'dd MMM')
 }
 
-export function formatDay(iso: string | null | undefined): string {
-  if (!iso) return FALLBACK_TIME
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return FALLBACK_TIME
-  return format(d, 'dd MMM')
-}
-
 export function formatStamp(iso: string | null | undefined): string {
   if (!iso) return FALLBACK_TIME
   const d = new Date(iso)
@@ -226,37 +246,38 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-/** What the strip counts over, in words: the newest-N chat window when the list is capped, plus channels. */
+/** Why a label's source is not in the list: the chat list is capped (`older`) or the source is gone (`missing`). */
+type OutsideReason = 'older' | 'missing'
+
+/** What the strip counts over, in words: the newest-N chat window when the list is capped, plus every channel. */
 export function sourceListName(chats: number, capped: boolean): string {
-  return capped ? `newest ${chats} chats and channels` : 'chats and channels'
+  return capped ? `newest ${chats} chats and all channels` : 'chats and channels'
 }
 
 /**
  * The labeled cell's footer: the list the count ranges over, and, when labels sit on sources the
- * list cannot place, how many, naming the same list and why they are missing from it.
+ * list cannot place, how many and why. Channels are never age-windowed, so only chats are `older`.
  */
-export function labeledBasis(c: Coverage, list: string, capped: boolean): string {
-  if (c.outside === 0) return `across the ${list}`
-  const why = capped ? 'older than' : 'missing from'
-  return `${plural(c.outside, 'more label')} on sources ${why} the ${list}`
+export function labeledBasis(c: Coverage, list: { chats: number; capped: boolean }): string {
+  if (c.outside === 0) return `across the ${sourceListName(list.chats, list.capped)}`
+  const reason: OutsideReason = list.capped ? 'older' : 'missing'
+  const where =
+    reason === 'older' ? `chats older than the newest ${list.chats}` : 'sources no longer listed'
+  return `${plural(c.outside, 'more label')} on ${where}`
 }
 
 /** The phone Sources pane's heading: the pane's name only; the tabs and cells print the counts. */
 export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
-  return view === 'feed' ? 'Labeled sources' : view === 'chats' ? 'Chats' : 'Teams'
+  return view === 'feed' ? 'Feed sources' : view === 'chats' ? 'Chats' : 'Teams'
 }
 
 /**
- * The page's opening: how far back the chat list reaches, the one fact its rows do not print (each
- * row carries its own time, and every count appears once elsewhere).
+ * The page's opening: only the empty state speaks. With chats, every candidate fact (newest time,
+ * oldest reach, kind mix, counts) is already a row, a cell or a chip, and the list's reach is a
+ * request-cap artifact, so there is no headline.
  */
-export function headlineOf(h: {
-  /** Pre-formatted date of the oldest chat in the list, or null when there is none. */
-  oldest: string | null
-}): { sentence: string } {
-  return {
-    sentence: h.oldest === null ? 'No chat activity yet' : `Chats reach back to ${h.oldest}`,
-  }
+export function headlineOf(chats: number): { sentence: string } | null {
+  return chats === 0 ? { sentence: 'No chat activity yet' } : null
 }
 
 /** How many messages a record fetches; the pane's heading never states it (it is a request cap, not what renders). */

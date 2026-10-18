@@ -24,13 +24,11 @@ import {
   chipCounts,
   visibleChipCounts,
   coverageOf,
-  formatDay,
   headlineOf,
   labeledPaneTitle,
   sectionTitleFor,
   parseChannelId,
   largestTeam,
-  sourceListName,
   sourceIdFor,
   tagCountsOf,
   validTag,
@@ -132,6 +130,7 @@ export function M365ExplorerPage(): ReactElement {
   const tagNames = tagCounts.map(([t]) => t)
   const tag = validTag(storedTag, tagNames)
   const kindCounts = chatKindCounts(chatRows)
+  const chatsCapped = chatRows.length >= CHATS_TOP
 
   const coverage = coverageOf({
     chatIds: chatRows.map((r) => r.ref.chatId),
@@ -166,12 +165,7 @@ export function M365ExplorerPage(): ReactElement {
     tag,
   )
 
-  const oldest = chatRows.reduce<string | null>(
-    (best, r) => (r.lastUpdatedAt && (!best || r.lastUpdatedAt < best) ? r.lastUpdatedAt : best),
-    null,
-  )
-
-  const headline = headlineOf({ oldest: oldest ? formatDay(oldest) : null })
+  const headline = headlineOf(chatRows.length)
 
   const invalidateLabels = (): void => {
     void qc.invalidateQueries({ queryKey: [...m365Queries.all(), 'labels'] })
@@ -373,12 +367,11 @@ export function M365ExplorerPage(): ReactElement {
       />
 
       <div className={classes.stack}>
-        <PageSummary sentence={headline.sentence} />
+        {headline !== null && <PageSummary sentence={headline.sentence} />}
 
         <ExplorerStrip
           coverage={coverage}
-          list={sourceListName(chatRows.length, chatRows.length >= CHATS_TOP)}
-          capped={chatRows.length >= CHATS_TOP}
+          list={{ chats: chatRows.length, capped: chatsCapped }}
           chats={kindCounts}
           channels={channelsTotal}
           largestTeam={largestTeam(teamSizes)}
