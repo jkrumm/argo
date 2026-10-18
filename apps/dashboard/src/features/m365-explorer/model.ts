@@ -41,7 +41,7 @@ export function chatTitle(chat: {
 }
 
 export const CHAT_TYPE_LABEL: Record<ChatType, string> = {
-  oneOnOne: '1:1',
+  oneOnOne: 'direct',
   group: 'group',
   meeting: 'meeting',
   unknownFutureValue: 'other',
@@ -99,7 +99,7 @@ const KIND_TYPE = {
 } as const satisfies Record<string, ChatType>
 
 /**
- * The kinds that have chats, in reading order, for the Chats cell: a zero kind is not a fact.
+ * The kinds that have chats, biggest first, for the Chats cell: a zero kind is not a fact.
  * `label` is the kind's word (the bar segment), `text` the counted noun (`2 meetings`, `1 group chat`).
  */
 export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<{
@@ -110,13 +110,15 @@ export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<
   text: string
   value: number
 }> {
-  return (Object.keys(KIND_TYPE) as Array<keyof typeof KIND_TYPE>).flatMap((key) => {
+  const parts = (Object.keys(KIND_TYPE) as Array<keyof typeof KIND_TYPE>).flatMap((key) => {
     const value = counts[key]
     if (value === 0) return []
     const label = CHAT_TYPE_LABEL[KIND_TYPE[key]]
     const one = key === 'meeting' ? label : `${label} chat`
     return [{ key, label, noun: noun(value, one), text: plural(value, one), value }]
   })
+  // Biggest first (reading order on a tie; sort is stable), so the bar, the hero and the footer agree.
+  return parts.sort((a, b) => b.value - a.value)
 }
 
 /**
@@ -272,14 +274,20 @@ export function labeledBasis(c: Coverage, list: { chats: number; capped: boolean
   const complete = c.loading + c.failed === 0
   if (c.outside === 0) return `across the ${sourceListName(list.chats, list.capped, complete)}`
   const more = plural(c.outside, 'more label')
-  if (list.capped)
-    return `${more} on chats older than the newest ${list.chats}, or no longer listed`
-  return `${more} on sources no longer listed`
+  if (list.capped) return `${more} on chats outside the newest ${list.chats}, or gone from the list`
+  return `${more} on sources gone from the chat and channel list`
 }
 
 /** The phone Sources pane's heading: the pane's name only; the tabs and cells print the counts. */
 export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
   return view === 'feed' ? 'Feed sources' : view === 'chats' ? 'Chats' : 'Teams'
+}
+
+/** `3–17 Oct` within a month, `28 Sep – 17 Oct` across two. */
+function spanDates(from: number, to: number): string {
+  return format(from, 'MMM') === format(to, 'MMM')
+    ? `${format(from, 'd')}–${format(to, 'd MMM')}`
+    : `${format(from, 'd MMM')} – ${format(to, 'd MMM')}`
 }
 
 /**
@@ -294,10 +302,15 @@ export function headlineOf(h: {
 }): { sentence: string } {
   const stamps = h.times.map(timeOf).filter(Number.isFinite)
   if (stamps.length === 0) return { sentence: 'No chat activity yet' }
-  const days = differenceInCalendarDays(Math.max(...stamps), Math.min(...stamps))
+  const newest = Math.max(...stamps)
+  const oldest = Math.min(...stamps)
+  const days = differenceInCalendarDays(newest, oldest)
   const lead = h.capped ? `Newest ${stamps.length} chats` : 'Chats'
   return {
-    sentence: days === 0 ? `${lead} all from one day` : `${lead} span ${withUnit(days, 'd')}`,
+    sentence:
+      days === 0
+        ? `${lead} all from ${format(newest, 'd MMM')}`
+        : `${lead} span ${withUnit(days, 'd')}, ${spanDates(oldest, newest)}`,
   }
 }
 
@@ -315,7 +328,7 @@ export function sectionTitleFor(input: {
     case 'sources':
       return sourcesTitle(input.view)
     case 'labeled':
-      return input.tag === '' || input.tag === LABELED_FILTER ? 'Labeled sources' : input.tag
+      return input.tag === '' || input.tag === LABELED_FILTER ? 'Chats and channels' : input.tag
     case 'detail':
       if (input.view === 'feed') return 'Agent feed'
       return input.open ? 'Messages' : 'Nothing open'
