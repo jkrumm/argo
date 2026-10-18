@@ -181,7 +181,7 @@ export function Board({
 
   return (
     <Section title="Board" count={open} {...(tabs && open > 0 ? { tabs } : {})}>
-      <Box data-shot="board" data-shot-states="empty">
+      <Box data-shot="board">
         {open === 0 ? (
           <Text size="xs" c="dimmed">
             {emptyText}

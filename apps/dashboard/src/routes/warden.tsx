@@ -104,19 +104,23 @@ function WardenPage() {
         {snapshot === null ? null : (
           <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
         )}
-        <DecisionQueues
-          view={awaitingOwner}
-          items={raw?.items}
-          pending={pending}
-          onSelectItem={setSelectedEventId}
-          onAction={handleAction}
-        />
-        <Board
-          columns={board.columns}
-          open={board.open}
-          emptyText={board.emptyText}
-          onSelectItem={setSelectedEventId}
-        />
+        {snapshot === null ? null : (
+          <>
+            <DecisionQueues
+              view={awaitingOwner}
+              items={raw?.items}
+              pending={pending}
+              onSelectItem={setSelectedEventId}
+              onAction={handleAction}
+            />
+            <Board
+              columns={board.columns}
+              open={board.open}
+              emptyText={board.emptyText}
+              onSelectItem={setSelectedEventId}
+            />
+          </>
+        )}
         <PollersList pollers={pollers} />
       </Stack>
 
