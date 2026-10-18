@@ -121,6 +121,8 @@ export function rateCell({
   latestDate: string | null
 }): StatStripCell {
   const rate = summary.kgPerWeek
+  // With no rate the meter's empty line is the cell's one statement of why (no footer repeats it).
+  const line = rateFooter({ rate, entries, status })
   return {
     key: 'rate',
     caption: 'Rate',
@@ -145,10 +147,10 @@ export function rateCell({
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}
         startCaption={null}
-        emptyText="No rate yet"
+        emptyText={line}
       />
     ),
-    footer: rateFooter({ rate, entries, status }),
+    ...(rate !== null && { footer: line }),
   }
 }
 
