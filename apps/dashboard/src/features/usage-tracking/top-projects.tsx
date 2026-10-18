@@ -46,6 +46,7 @@ export default function TopProjects({
   return (
     <ChartCard
       className={classes.fill}
+      placeholderHeight="content"
       title={`Top projects · ${periodNoun(range)}${printTotal ? ` · ${fmtUsdWhole(data.total)}` : ''}`}
       state={{ empty: data.rows.length === 0 && emptyText }}
     >
