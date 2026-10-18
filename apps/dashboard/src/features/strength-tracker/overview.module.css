@@ -8,6 +8,6 @@
 
 .method {
   font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-sm);
+  font-size: var(--vx-text-xs);
   color: var(--vx-muted);
 }

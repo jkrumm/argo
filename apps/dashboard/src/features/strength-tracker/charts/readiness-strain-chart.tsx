@@ -13,12 +13,15 @@ import {
   readinessReading,
 } from '../model'
 import { METRIC_TOOLTIPS } from '../constants'
+import { trailingMA } from './trailing-ma'
 
 const HEIGHT = 280
+const SMOOTH_DAYS = 7
 
 type ReadinessPoint = {
   day: Date
   readiness: number | null
+  smoothed: number | null
   garminRecovery: number | null
   fatigueDebt: number
   driver: string | null
@@ -33,9 +36,18 @@ function readinessZoneLabel(v: number): { text: string; color: string } {
 const READINESS_SERIES: ChartSeries<ReadinessPoint>[] = [
   {
     key: 'readiness',
-    label: 'Readiness (adjusted)',
+    label: 'Daily',
     color: VX.line,
+    strokeOpacity: 0.45,
     getValue: (d) => d.readiness,
+    formatValue: (v) => String(Math.round(v)),
+  },
+  {
+    key: 'smoothed',
+    label: `${SMOOTH_DAYS}-day average`,
+    color: VX.line,
+    strokeWidth: 2.25,
+    getValue: (d) => d.smoothed,
     formatValue: (v) => String(Math.round(v)),
   },
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
@@ -71,17 +83,21 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
     strengthQueries.readiness({ window: params.window, from: params.from, to: params.to }),
   )
 
-  const points = useMemo<ReadinessPoint[]>(
-    () =>
-      (query.data?.points ?? []).map((p) => ({
-        day: localDay(p.date),
-        readiness: p.readiness,
-        garminRecovery: p.garminRecovery,
-        fatigueDebt: p.fatigueDept,
-        driver: p.driver,
-      })),
-    [query.data],
-  )
+  const points = useMemo<ReadinessPoint[]>(() => {
+    const raw = query.data?.points ?? []
+    const smoothed = trailingMA(
+      raw.map((p) => p.readiness),
+      SMOOTH_DAYS,
+    )
+    return raw.map((p, i) => ({
+      day: localDay(p.date),
+      readiness: p.readiness,
+      smoothed: smoothed[i] ?? null,
+      garminRecovery: p.garminRecovery,
+      fatigueDebt: p.fatigueDept,
+      driver: p.driver,
+    }))
+  }, [query.data])
   const hasData = points.some((p) => p.readiness !== null)
   // The header is the verdict card's reading, from the same fixed-window query and function: the
   // server's score depends on the window it is computed over, so the plotted window must not

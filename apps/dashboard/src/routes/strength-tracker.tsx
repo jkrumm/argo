@@ -281,7 +281,7 @@ function ChartsPanel({
 
       <Box data-shot="sec-diagnostics">
         <Section
-          title={`Composite, ${period} · Alignment, fixed last 90 d`}
+          title={`Velocity, tonnage and INOL against baseline, ${period} · Alignment matrix, fixed last 90 d`}
           collapsible
           defaultOpen={false}
         >

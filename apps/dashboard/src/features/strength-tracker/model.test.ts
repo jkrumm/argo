@@ -20,7 +20,7 @@ import {
   shortDate,
   signed,
   statusWord,
-  summarySentence,
+  summaryParts,
   todaysCall,
 } from './model'
 
@@ -104,13 +104,43 @@ describe('deload recency', () => {
   })
 })
 
+type PartsInput = Parameters<typeof summaryParts>[0]
+/** The headline and its facts, as the one line they used to be. */
+const summaryText = (input: PartsInput) => {
+  const { sentence, facts } = summaryParts(input)
+  return [sentence, ...facts].join(' · ')
+}
+
+describe('summaryParts', () => {
+  test('the headline is the leader lift, the facts are load and readiness', () => {
+    const call = todaysCall(
+      readinessReading([{ date: '2026-10-17', readiness: 50, driver: null }]),
+      undefined,
+      NOW,
+    )
+    expect(
+      summaryParts({
+        leader: 'deadlift',
+        e1rm: 110,
+        delta: { delta: 10, phrase: '+10.0 kg in 28d' },
+        acwr: 1.2,
+        call,
+        score: 50,
+      }),
+    ).toEqual({
+      sentence: 'Deadlift e1RM 110.0 kg, +10.0 kg in 28d',
+      facts: ['ACWR 1.20 optimal', 'readiness 50/100 Normal'],
+    })
+  })
+})
+
 describe('readiness reads one value everywhere', () => {
   // One fixture: the card heading, the summary sentence and the section header all read it.
   const reading = readinessReading([{ date: '2026-10-17', readiness: 87.6, driver: 'HRV' }])
   test('the same figure, verdict and date in all three', () => {
     const header = readinessHeader(reading)
     const call = todaysCall(reading, undefined, NOW)
-    const sentence = summarySentence({
+    const sentence = summaryText({
       leader: null,
       e1rm: null,
       delta: liftDelta([], NOW),
@@ -124,7 +154,7 @@ describe('readiness reads one value everywhere', () => {
   })
   test('a capped call names both the reading and the call', () => {
     const call = todaysCall(reading, { verdict: 'monitor', activeSignals: ['x'] }, NOW)
-    const sentence = summarySentence({
+    const sentence = summaryText({
       leader: null,
       e1rm: null,
       delta: liftDelta([], NOW),
@@ -190,7 +220,7 @@ describe('card, summary sentence and chart header agree', () => {
     const delta = liftDelta(series, NOW) // strip cell and summary read this
     const readiness = readinessReading([{ date: '2026-10-17', readiness: 50, driver: null }])
     const call = todaysCall(readiness, undefined, NOW)
-    const sentence = summarySentence({
+    const sentence = summaryText({
       leader: 'deadlift',
       e1rm: 110,
       delta,
@@ -206,9 +236,9 @@ describe('card, summary sentence and chart header agree', () => {
   test('unknowns are dashes', () => {
     const call = todaysCall(null, undefined, NOW)
     const delta = liftDelta([], NOW)
-    expect(
-      summarySentence({ leader: null, e1rm: null, delta, acwr: null, call, score: null }),
-    ).toBe('e1RM · ACWR — · readiness — —')
+    expect(summaryText({ leader: null, e1rm: null, delta, acwr: null, call, score: null })).toBe(
+      'readiness — — · ACWR —',
+    )
   })
 })
 
