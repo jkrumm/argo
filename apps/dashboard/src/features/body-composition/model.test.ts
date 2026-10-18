@@ -59,8 +59,8 @@ describe('dates', () => {
   })
   test('ageLabel', () => {
     expect(ageLabel(0)).toBe('today')
-    expect(ageLabel(1)).toBe('1 day ago')
-    expect(ageLabel(9)).toBe('9 days ago')
+    expect(ageLabel(1)).toBe('1\u00a0d ago')
+    expect(ageLabel(9)).toBe('9\u00a0d ago')
   })
 })
 
@@ -131,7 +131,7 @@ describe('summaryParts', () => {
       }),
     ).toEqual({
       sentence: 'Weight falling over 28 d, 5.0 kg from the 75.0 kg goal',
-      facts: ['12 weigh-ins in 30\u00a0d', 'last weigh-in 1 day ago'],
+      facts: ['12 weigh-ins in 30\u00a0d', 'last weigh-in 1\u00a0d ago'],
     })
   })
   test('an old last weigh-in dates the rate window', () => {
@@ -148,7 +148,7 @@ describe('summaryParts', () => {
       }),
     ).toEqual({
       sentence: 'Weight rising over the 28 d to 3 Jun',
-      facts: ['5 weigh-ins in 30\u00a0d', 'last weigh-in 20 days ago · stale'],
+      facts: ['5 weigh-ins in 30\u00a0d', 'last weigh-in 20\u00a0d ago · stale'],
     })
   })
   test('inside the maintenance band the weight is holding steady', () => {
@@ -246,7 +246,7 @@ describe('rateDays', () => {
 
 describe('windowLabel', () => {
   test('presets, all and custom', () => {
-    expect(windowLabel({ window: '90d' })).toBe('90 days')
+    expect(windowLabel({ window: '90d' })).toBe('90\u00a0d')
     expect(windowLabel({ window: 'all' })).toBe('all time')
     expect(windowLabel({ from: '2026-01-01', to: '2026-02-01' })).toBe('2026-01-01 to 2026-02-01')
   })

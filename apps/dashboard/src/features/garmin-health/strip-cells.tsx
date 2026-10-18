@@ -139,14 +139,15 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
             min={0}
             max={100}
             zones={[
-              { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', color: VX.bad },
+              { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', short: 'Rest', color: VX.bad },
               {
                 from: RECOVERY_REST_BELOW,
                 to: RECOVERY_PUSH_FROM,
                 label: 'Normal',
+                short: 'Normal',
                 color: VX.warn,
               },
-              { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
+              { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', short: 'Push', color: VX.good },
             ]}
             startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
             endCaption="100"
@@ -196,10 +197,28 @@ function useLoadCell(params: SummaryParams): StatStripCell {
           max={ACWR_METER_MAX}
           format={(v) => v.toFixed(2)}
           zones={[
-            { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
-            { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
-            { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
-            { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
+            { from: 0, to: ACWR_FLOOR, label: 'Under', short: 'Under', color: VX.warn },
+            {
+              from: ACWR_FLOOR,
+              to: ACWR_OPTIMAL_TO,
+              label: 'Optimal',
+              short: 'Optimal',
+              color: VX.good,
+            },
+            {
+              from: ACWR_OPTIMAL_TO,
+              to: ACWR_CAUTION_TO,
+              label: 'Caution',
+              short: 'Warn',
+              color: VX.warn,
+            },
+            {
+              from: ACWR_CAUTION_TO,
+              to: ACWR_METER_MAX,
+              label: 'Danger',
+              short: 'Danger',
+              color: VX.bad,
+            },
           ]}
           startCaption="0"
           endCaption={ACWR_METER_MAX.toFixed(1)}

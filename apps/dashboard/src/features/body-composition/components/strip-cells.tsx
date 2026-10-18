@@ -130,16 +130,16 @@ export function rateCell({
         max={RATE_SCALE_KG_WK}
         format={(v) => `${signed(v, 2)}\u00a0kg/wk`}
         zones={[
-          { from: -RATE_SCALE_KG_WK, to: -RATE_NEUTRAL_KG_WK, label: 'Cut' },
+          { from: -RATE_SCALE_KG_WK, to: -RATE_NEUTRAL_KG_WK, label: 'Cut', short: 'Cut' },
           {
             from: -RATE_NEUTRAL_KG_WK,
             to: RATE_NEUTRAL_KG_WK,
             label: `Maintenance \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`,
             short: 'Maintain',
           },
-          { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
+          { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk', short: 'Bulk' },
         ]}
-        startCaption={null}
+        startCaption={`maintain \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`}
         emptyText="No rate yet"
       />
     ),

@@ -2,11 +2,13 @@
  * Pure derivations for the body-composition page. Every figure a sentence repeats is computed here
  * once, so the summary line, the strip cells and the chart header read the same number.
  */
-import { NBSP, withUnit } from '../../lib/format'
+import { formatAgo, NBSP, withUnit } from '../../lib/format'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
 import type { WeightWindowStats } from './types'
+
+const DAY_MS = 86_400_000
 
 /** The API's trailing-rate lookback. */
 const RATE_LOOKBACK_DAYS = 28
@@ -54,10 +56,10 @@ export function entryAgeDays(points: readonly { date: string }[], todayKey: stri
 export const isStale = (ageDays: number | null): boolean =>
   ageDays !== null && ageDays >= STALE_DAYS
 
-/** "today" / "1 day ago" / "{n} days ago". */
+/** "today" / "{n} d ago". */
 export function ageLabel(ageDays: number): string {
   if (ageDays === 0) return 'today'
-  return ageDays === 1 ? '1 day ago' : `${ageDays} days ago`
+  return formatAgo(ageDays * DAY_MS)
 }
 
 /** A signed fixed-point figure with a real minus sign; `null` is `—`, never 0. */
@@ -219,11 +221,11 @@ export function rateDays(span: number | null): number {
 
 export type WindowParams = { window?: string; from?: string; to?: string }
 
-/** "90 days" / "all time" / "{from} to {to}" for the chart title. */
+/** "90 d" / "all time" / "{from} to {to}" for the chart title. */
 export function windowLabel(params: WindowParams): string {
   if (params.window === 'all') return 'all time'
   const days = params.window?.match(/^(\d+)d$/)?.[1]
-  if (days !== undefined) return `${days} days`
+  if (days !== undefined) return withUnit(days, 'd')
   if (params.from !== undefined && params.to !== undefined) return `${params.from} to ${params.to}`
   return 'selected window'
 }
