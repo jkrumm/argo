@@ -78,7 +78,7 @@ export default function WeightChart({
       : undefined
 
   return (
-    <Box data-shot="weight-chart" data-shot-absent="loading error">
+    <Box data-shot="weight-chart">
       <ChartCard
         title={`Body weight, ${windowLabel(params)}`}
         info={goal === null ? METRIC_TOOLTIPS.bodyWeight : METRIC_TOOLTIPS.bodyWeightGoal}
