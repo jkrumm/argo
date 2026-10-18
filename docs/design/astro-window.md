@@ -54,10 +54,10 @@ Format is binding; figures are placeholders.
 - Cells: `DARK · {duration}`, `CORE · peak {alt}°`, `MOON · {illumination} % · sets {time}`, `CLOUD · low {low} / mid {mid} / high {high} %`, `SKY · {mpsas} mag/arcsec²`
 - Charts: `Core, moon and sun altitude · {weekday} {day} · {start}–{end}`, `Cloud cover by layer · {weekday} {day}`, `Usable core hours per month · peak <month> <h> h`
 - Sources: `DWD ICON ● down · global ● ok · 7Timer ● ok`
-- Sky footer (two lines at 1440): `town glow +{d} mag ·` / `clarity {n}/8 (1 best)`.
+- Sky footer: `town glow +{d} mag · transparency {n}/8 (1 = best)` — three lines at 1440; the word is the page's (`Transparency` on the score card), and the direction hint is a fact, so no two-line form is honest.
 - Forecast, site not in the list: `{site} is not in the site list — pick another in Site, or reload if the list is empty`.
 
-**Shot states.** Forecast declares `empty` (the site list emptied, so the `Unknown site` card renders). Tonight declares none: its route loader awaits the window and the site list, so a hung or failed fetch is the route's pending / error screen, never a card; the window API answers an unknown site 404 and an out-of-range `detailDate` with the first scored night, so no Tonight card has an empty branch, and the empty site list only empties the site selector in the bar.
+**Shot states.** Forecast declares `empty` (the site list emptied, so the unknown-site card renders; it is a plain card that ends at its content and wraps a long site id). Tonight declares none: its route loader awaits the window and the site list, so a hung or failed fetch is the route's pending / error screen, never a card; the window API answers an unknown site 404 and an out-of-range `detailDate` with the first scored night, so no Tonight card has an empty branch, and the empty site list only empties the site selector in the bar.
 
 ## Upstream candidates
 

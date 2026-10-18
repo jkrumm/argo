@@ -4,7 +4,6 @@ export {
   METRIC_TOOLTIPS,
   CHART_HEIGHT,
   PANORAMA_HEIGHT,
-  UNKNOWN_SITE_HEIGHT,
   SIDE_PANEL_HEIGHT,
   MAP_FULL_BLEED_HEIGHT,
   MAP_MIN_HEIGHT,
@@ -27,7 +26,6 @@ export type {
 } from './types'
 
 export {
-  unknownSiteCopy,
   verdictTone,
   fmtDegrees,
   fmtMinutes,
@@ -69,6 +67,7 @@ export { TonightTop } from './components/tonight-top'
 export { NightStrip } from './components/night-strip'
 export { NightAnatomy } from './components/night-anatomy'
 export { ScoreCard } from './components/score-card'
+export { UnknownSiteCard } from './components/unknown-site-card'
 export { SourcesFooter } from './components/sources-footer'
 
 // Lazy-loaded: maplibre-gl is ~253kB gzipped and this is the only page that uses it, so the
