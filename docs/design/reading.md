@@ -191,3 +191,8 @@ Follow-up (w30-r2):
 
 - **Reviewer:** fail on basalt-only P0s. Changed only by the state attributes: `empty` declared on `finished` (a rest anchor absent in empty), the real `Your shelf is empty` branch cropped as `empty-shelf`; progress, finished, backlog and time-read declare themselves absent. **New (basalt):** the `StatGroup` strip's cell anchors (`strip-<key>`) vanish under `empty` with no way to declare `data-shot-absent`, so 12 error shots. Carried (basalt): the pace column a blank half beside the histogram; the shelf bar floating under its hero; the mono `★`; slashed zeros. No lost fact.
 - **Against Keel:** does not yet — the pace column is still a blank half beside the histogram.
+
+### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail on basalt-only P0s; not changed this round. Carried (basalt): the `StatGroup` strip-cell anchors error under `empty` (12 shots, no way to declare `data-shot-absent`); the pace column a blank half beside the histogram; the mono `★`; slashed zeros. `empty-shelf` passes (cause + when the data arrives). No lost fact.
+- **Against Keel:** does not yet — the pace column is still a blank half.

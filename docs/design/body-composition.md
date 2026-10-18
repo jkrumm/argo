@@ -201,3 +201,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 33 fixes
 
 - **Empty state:** the page substitutes the empty weight summary and series at the read under `?shot-state=empty`, so the strip (latest value, `7 d mean`, 30 d delta, 28 d slope, rate) empties with the chart — production with no entries renders the same. The headline carries the full sentence (`NO_WEIGHT_ENTRIES`: cause + next step); the chart empty and the weight and rate cell footers say the cause only (`NO_WEIGHT_ENTRIES_SHORT`: `No entries in this window`).
+
+### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail. Fixed: the strip empties with the series (`—` + `No entries in this window`, no 7 d mean, delta or slope left behind); the rate qualifier makes no slope claim without entries. **New (argo):** the rate cell words one gap twice under `empty` (the meter's `No rate yet` above the footer's `No entries in this window`); the chart and weight cell carry the cause only, and the headline that holds the next step has no empty shot of its own (unverifiable). Carried (basalt): the maintain zone unnamed at 390, the weight line through its `7 d mean` end label, the info tooltip over the net change, the slashed zero. No lost fact.
+- **Against Keel:** close — the remaining overlaps are shared basalt components.

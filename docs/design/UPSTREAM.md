@@ -412,3 +412,22 @@ route's pending / error screen there, not a card. The first render of those stat
 `StackedArea` zero rows, decimal ticks, `BandStrip` glyphs, the strip's floating visual, info tooltips over the card above at 390,
 sticky bars over section crops, the 390 2 + 1 strip, the slashed zero in titles; harness: hover crops that hover the selected cell or
 the pane, not a row.
+
+### Wave 33 — states that say why (#139–#143) and the `w33-r1` live re-score
+
+Still on basalt-ui 2.22.0 (no release announced during the wave). Every declared state now names its cause and next step on argo's
+side; what the round's states surfaced on basalt's side:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatGroup variant="strip"` | (the Wave 32 row, a third consumer) a way for a strip cell's derived anchor to declare `data-shot-absent` | Warden hides its health strip under no snapshot (28 error shots), beside Reading (12) and Strength (16) | as rendered — basalt Wave 37 carries the row |
+| `ChartCard` `state.empty` | an empty card that ends at its content (or centres its message) instead of keeping the chart's placeholder height around one line | Garmin's seven chart empties, usage's lists and projects card (message top-set in an ~80 % blank card beside a centred chart empty) | as rendered |
+| shot rubric | a page with no reachable card state (the loader awaits every read) still fails `craft-7/no-declared-states`; needs a way to declare "none reachable" | astro Tonight | documented in `astro-window.md`, no declaration |
+
+`w33-r1` re-confirmed open rows: the Alert × `Code` nested radius (Agents, Warden), the `Meter` null caption `No data` (calendar week
+strip), the `ViewTabs` nested radius (usage), the `Meter` zone-name fit (`Caution` on Home at 1440, the maintain zone at 390), detached
+`Meter` ticks, the sparkline readout over the meter's `100`, the ACWR legend gone at 390 (now confirmed), `Sparkline referenceLabel`
+struck through, `Lines` overprinting `Low`, `Bars` shade-only series, four type sizes in the `Section` shells, `Button` chip hover,
+mixed date ticks, `StackedArea` zero rows, decimal ticks, `BandStrip` glyphs, info tooltips over a hero or the card above, sticky bars
+over section crops, the 390 2 + 1 strip, the slashed zero; harness: hover crops that hover the selected cell or the pane, the phone
+preset crop clipping its tabs.

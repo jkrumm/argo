@@ -197,3 +197,8 @@ Follow-up (w30-r1):
 
 - **Reviewer:** fail. Fixed: `craft-7/no-declared-states` (`empty` declared on `sec-strength`; the real `No workouts logged` card says why and what to do). **New (basalt):** 16 error shots — the strip cell anchors vanish under `empty` and cannot declare `data-shot-absent` (as Reading). Carried (basalt): the `PR` label struck through by its own dashed line and covered by the focus outline; the INOL focus tooltip over the headline; four type sizes in three `Section` shells; mixed date ticks; the sticky bar over section crops. Carried (argo, left out): at 390 the scan's lift names wrap and status is a dot — basalt's table folds the Status column at narrow width. No lost fact.
 - **Against Keel:** close — every figure once; jargon density and four-size shells remain.
+
+### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail; not changed this round. Carried (basalt): the strip-cell anchors error under `empty` (16 shots); the `PR` label struck through by its own dashed line and under the focus outline; the INOL tooltip over the headline; four type sizes in the three `Section` shells; the ACWR's full-date ticks beside month ticks; the sticky bar over section crops. Carried (argo, no anchor): at 390 the scan's lift names wrap and status is a dot. `empty-workouts` passes. No lost fact.
+- **Against Keel:** close — every figure once; jargon density and the four-size shells remain.

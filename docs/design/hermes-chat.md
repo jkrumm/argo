@@ -177,3 +177,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **No threads:** the toolbar (the `All 0` chip and the search field) renders only when a thread exists; the list's own note carries the state. `thread-toolbar` stays the declaring anchor and is absent under `empty`.
 - **At 390:** the title wraps to two lines (cut at a word past ~52 characters) and the summary holds to one.
+
+### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail (basalt only). Fixed: with no threads the toolbar (`All 0` chip, search) is absent; `thread-empty` says what is missing and what to do; at 390 titles wrap to two lines and summaries hold one. **New (argo, P2):** at 390 the leading tag column takes ~a quarter of the row, so a one-line summary shows ~four words — the reviewer counts that as a lost fact against w32's two summary lines. Carried (basalt): filter chips without hover. Unscored: the composer placeholder wraps at 390.
+- **Against Keel:** does not yet — three rows and a fold over a void above the composer.

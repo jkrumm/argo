@@ -1691,7 +1691,7 @@ warden and agent-gateway, not built — add nothing for it.
 - **Boards copied to the MacBook:** `~/Downloads/argo-design-review/w32/` (`w32-r1-*`).
 - **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
 
-## Wave 33 — Re-score round 12: states that say why, strips that empty with their charts <!-- status: active -->
+## Wave 33 — Re-score round 12: states that say why, strips that empty with their charts <!-- status: done -->
 
 Same shape as Wave 32 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
 `rd merge`, live re-shoot incl. the m365 pane presets once the dashboard bundle is live, fresh `basalt-design-reviewer`s with the w32
@@ -1701,17 +1701,91 @@ is in `docs/design/<page>.md` § "Wave 32 round". WalkingPad passes: leave it; R
 is an owner-approved backlog item in warden and agent-gateway, not built — add nothing for it. A state is declared only where production
 renders it (`lib/shot-state.ts`).
 
-- [ ] Every declared state says what is missing, why and what to do, in one wording per gap: the Agents / Warden `No snapshot yet` alerts
+- [x] Every declared state says what is missing, why and what to do, in one wording per gap: the Agents / Warden `No snapshot yet` alerts
       (a next step), Warden's `no data: …` strip cells, the Agents activity strip's two-line empty, Garmin's chart empties and the
       triple-stated load cell, Usage's `No data in this window` lists and the ChartCard `empty` labels argo does not pass, m365's
       `No chats yet` and the labeled cell's blank track, astro's `Unknown site` (copy and its 49 % empty height), Hermes' `All 0` toolbar;
       Calendar's loading worded as error, `tasks-due`'s false zero under loading / error, the bare `{day} —` rows and the lone `—` in Today.
-- [ ] A page's strip and summary empty with its charts under `empty` (Body composition weight + rate cells, Usage's strip, Home's agents
+- [x] A page's strip and summary empty with its charts under `empty` (Body composition weight + rate cells, Usage's strip, Home's agents
       cell); Home and Garmin say the empty recovery window in one wording. Then the carried argo items: the Home recovery footer's
       orphaned `of {n}`, `ScheduleRow` at three sizes, the Sky footer in two lines at 1440, Tonight's declared state (settle the dispute:
       declare a real one or record why none exists), the m365 `Labeled {n}` restatement and `no channels`, the warden fixes-cell
       equation wrap. Then unscored.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 34 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 34 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 34 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **Landed (master, deployed, `/api/health` = `fd5acb3`, Deploy + check workflows green):** five fan-out PRs, each with two independent
+  agent-gateway review rounds, scope frozen after round 2, the last fix diff read by the lead, CI `check` green on the PR head before
+  `rd merge`: #139 body composition (strength unchanged), #140 warden + agents, #141 astro, #142 usage + m365 + hermes, #143 home +
+  garmin + calendar. `make check` green on merged master (1462 + 598 pass) and the dashboard build green. Reading and WalkingPad untouched.
+- **Fixed this round (verified live):** the Agents / Warden `No snapshot yet` alerts name the producer, cadence and what to check; Warden
+  renders no strip, queues or board without a snapshot (no `no data: …` cells, no false `Nothing needs you`); the Agents activity strip
+  states its absence once, needs-you / oldest-wait say `Waiting for the first snapshot`; Garmin's seven chart empties share one wording
+  with the window length and sync cadence (the copy's day count now matches the preset, it read one day long), the load cell says its
+  absence once; Home's recovery and agents cells word their gaps as Garmin and Agents do; Calendar `tasks-due` tracks its fetch (no false
+  `0`), loading and error are worded apart, `Today` names its failed sources; `ScheduleRow` consumers at three sizes; Body composition's
+  strip empties with its series; Usage's lists, charts (ChartCard `empty` labels now passed) and health share one filter-aware wording
+  and its strip empties with the charts; m365's empty lists say why and what to do, the labeled cell says its absence once, no restated
+  `Labeled {n}` or `no channels`; Hermes drops the `All 0` chip and search with no threads, 390 titles wrap; astro's unknown-site card
+  says why and what to do and ends at its content; the warden fixes legend wraps before an operator.
+- **Tonight's state, settled:** it declares none — its loader awaits the window and the site list, the API never yields an empty card,
+  an empty site list only empties the selector (recorded in `astro-window.md`). The reviewer accepts the reasoning; the remaining
+  `craft-7` is a rubric gap, filed as a basalt row.
+- **Sky footer:** stays three lines at 1440 by decision — the page's word `transparency` and the direction hint `(1 = best)` have no
+  honest two-line form (a worker's `clarity` rename inverted the scale's reading and split the vocabulary with the score card; reverted).
+- **What the lead caught before review:** one empty sentence four times on one screen (body composition); a false `nothing waiting`
+  under no snapshot (agents); the `clarity` rename; formatter churn in unowned docs (`UPSTREAM.md`, `warden.md`, `home.md` tables).
+- **Code review caught:** shot-only masks on calendar's failure flags (removed: under `empty` only the data is substituted); a pending
+  task read classified as error, and placeholder reads as ready; false `no usage` with one latency point and an errors gate that never
+  fired; the m365 labeled empty hiding failures and Retry; live strip figures spread into emptied usage cells; false zeros in Warden's
+  queues and board; the empty declaration moved off Warden's rest anchor; a slope claim with no entries; the copy's off-by-one window.
+- **Rounds:** `w33-r1` (all pages live, 1440 + 390, both schemes, plus the two m365 pane presets; shot after the served bundle carried
+  the new strings, not on `/api/health` alone). `basalt-ui shot --base https://argo.jkrumm.com`, `argo-auth` seeded from
+  `secrets-run read op://common/api/SECRET` via env, never printed or written. Boards: `.design-shots/w33-r1-{a,b,c,m365-labeled,m365-detail}`
+  (gitignored). Four fresh `basalt-design-reviewer`s each given the w32 shots, plus a Keel side-by-side; verdicts in
+  `docs/design/<page>.md` § "Wave 33 round"; basalt rows in `UPSTREAM.md` § "Wave 33".
+- **Reviewer verdict, stated plainly:** **WalkingPad passes a seventh time.** Warden, Reading and Strength fail on basalt-only P0s (the
+  strip-cell `data-shot-absent` row, basalt Wave 37); astro fails on basalt rows plus the rubric gap; Hermes on basalt plus one P2. Home,
+  Agents, Garmin, Body composition, Calendar, Usage and M365 still carry argo state copy: the remaining empties without a reason, two
+  wordings for one gap, Calendar's repeated per-row state, one false zero (usage errors). No lost fact except the reviewer's count of
+  Hermes' 390 summary (one line of ~four words beside the tag column, where w32 showed two lines).
+- **Against Keel:** close — Home, Agents, Garmin, Warden, Strength, Body composition, WalkingPad, Astro, Usage (at rest), M365; does not
+  yet — Calendar (failure states), Reading, Hermes.
+- **Not verified:** the m365 source-row focus ring (the focus crop lands on a chip); the 390 m365 detail pane with a source open; Body
+  composition's empty headline (no empty crop of the summary); row hovers the harness cannot reach.
+- **Boards NOT copied to the MacBook:** `iumac` timed out on port 2222 for the whole close-out (MacBook asleep or off the tailnet). The
+  boards are in the main checkout's `.design-shots/w33-r1-*`; copy with
+  `rsync -a .design-shots/w33-r1-* iumac:Downloads/argo-design-review/w33/` once it is reachable.
+- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
+
+## Wave 34 — Re-score round 13: one wording per gap, the last reasonless empties <!-- status: active -->
+
+Same shape as Wave 33 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
+`rd merge`, live re-shoot incl. the m365 pane presets once the served dashboard bundle carries the change, fresh
+`basalt-design-reviewer`s with the w33 shots + a Keel side-by-side). **Subtract before you add**; a removal that leaves a reader without
+a fact is a defect. Each page's detail is in `docs/design/<page>.md` § "Wave 33 round". WalkingPad passes: leave it; Reading, Strength
+and Warden fail only on basalt rows: touch them only if a basalt release closes a row. Basalt rows (`UPSTREAM.md` § "Wave 28"–"Wave 33"):
+no local workaround. The question rung stays frozen to its table; the authored producer `question` is an owner-approved backlog item in
+warden and agent-gateway, not built — add nothing for it. A state is declared only where production renders it (`lib/shot-state.ts`);
+under `empty` only the data is substituted.
+
+- [ ] The remaining reasonless empties and split wordings, fanned out: Home's ACWR cell (Garmin's training-load wording), the activity
+      card's `Live` pulse / `0 updates` / burst caption and reasonless empty line, the meetings card's `Tasks: 0 …` under `empty`, the
+      budget cell's poll age beside `Not reported yet`, the recovery footer's lone `observed` at 390; Agents' fleet cell (`Waiting for the
+      first snapshot`, one wording) and the never-shown `None working` legend item; Garmin's dash-only fitness cell; Body composition's
+      rate cell worded twice; Calendar's state stated once per card (not per day row), one wording per calendar failure across next-days,
+      the week strip and Today with the source and next step, the week strip's empty reason, `Loading calendar` in three cards,
+      `no events` vs `no meetings`; Usage's errors-half false zero under `empty`, the billing footer's missing action, the empty lists'
+      top-set message and the tokens chart height; m365's chats / channels empty cells in one wording, the detail pane pointing at an
+      empty list, the `All 0` chip over an empty list, the focus ring; Hermes' 390 tag column squeezing the summary; astro's `Site`
+      label in the unknown-site copy, the raw site id, the altitude card's two wordings for one missed night.
+- [ ] If the orchestrator announces a basalt-ui release, bump it in its own commit before the re-shoot and re-check the rows it closes
+      (the strip-cell `data-shot-absent` row would clear Reading, Strength and Warden).
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 35 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

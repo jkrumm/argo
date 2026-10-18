@@ -182,3 +182,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** pass, a sixth time. Changed only by the state attributes (`empty` declared on `record-header`; the page keeps its strip in the empty state, so no strip-anchor error). Carried: the slashed zero in the empty-state title (basalt, P3).
 - **Against Keel:** close — most of the 1440 page is blank below the empty state.
+
+### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
+
+- **Reviewer:** **pass** (seventh time); not changed this round. Unscored: under `empty` the strip cells are a bare `—`, the reason stated once in `empty-window` below them. Carried (basalt): the slashed zero in the empty copy. No lost fact.
+- **Against Keel:** close — most of the 1440 page is blank below the empty state.

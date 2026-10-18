@@ -205,3 +205,8 @@ Follow-up (w30-r1):
 
 - **Reviewer:** fail. Fixed: the recovery chart facts separate `mean · ` from the next figure; `craft-7/no-declared-states` (`empty` declared on the strip and every chart; the strip's three cells and the summary line all empty together); the recovery cell part-empty did not show (scored state — data-dependent). **New (argo, empty state):** each chart card says only `No {metric} in this window` in a full-height card — no cause (sync, window), no action; the training-load cell states the same absence three times. Carried (basalt): detached load-meter ticks. Unscored (basalt, unconfirmed): the ACWR legend is gone at 390, so its zone lines separate by hue only. No lost fact.
 - **Against Keel:** close — the strip reads like Keel's metric cards; the chart grid is plainer than Keel's composite cards.
+
+### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail. Fixed: the seven chart empties read one wording, `No {metric} in this {n} d window — Garmin syncs every {h} h` (the window length now matches the preset); the training-load cell states its absence once, and the load cell and the ACWR card both say `training load`. **New (argo):** under `empty` the fitness cell is dashes only (`— · slope · {n} d`, rows `— —`), no cause or next step, while its two neighbours give both. Unscored: empty chart cards keep their full height around one line. Carried (basalt): the ACWR legend gone at 390 (zones by hue only — now confirmed); the ACWR info tooltip over the headline; detached load-meter ticks. No lost fact.
+- **Against Keel:** close — the strip reads like Keel's metric cards; the chart grid is plainer than Keel's composite cards.

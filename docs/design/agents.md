@@ -246,3 +246,8 @@ No basalt gaps this round.
 ### Wave 33 fixes (round 12)
 
 - **Empty state:** the `No snapshot yet` alert uses the shape shared with Warden — `agent-gateway pushes to {route} every 10 min from each dev host. If this stays empty, check that agent-gateway is running on a dev host.` The empty activity strip states the absence once (`No snapshot in the last {n} h`); the `{n} hours without a snapshot` line shows only beside a real fact. The needs-you cell reads `Waiting for the first snapshot` instead of a bare `—`.
+
+### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail. Fixed: the `No snapshot yet` alert names the cause and the next step; the empty activity strip states the absence once; the needs-you and oldest-wait cells say `Waiting for the first snapshot` instead of `—` / a false `nothing waiting`. **New (argo):** the fleet cell under `empty` says `No fleet data in this snapshot` beside two `Waiting for the first snapshot` cells — two wordings for one gap, the second implying a snapshot exists. Unscored: the empty activity strip's legend still lists `None working`, which never appears. Carried (basalt): the activity strip's focus readout over its legend and footer; the Alert × `Code` nested radius. Carried: card 3's one action; frozen titles; a project card's value and unit on separate lines in dark 1440 (polish). No lost fact.
+- **Against Keel:** close — Keel's cells each carry a micro-visual, ours are text readings.
