@@ -65,11 +65,35 @@ const ZONE_LINES = [
   { value: STRESS_HIGH_FROM, color: VX.badRef, dashed: true },
 ]
 
-/** Rest and low share the good hue; the area gradient hard-stops at each boundary. */
+/** Rest and low share the good hue; the area gradient hard-stops at each boundary. Names match the tooltip's. */
 const STRESS_ZONES = [
-  { from: 0, to: STRESS_MODERATE_FROM, fill: ZONE_FILL.good },
-  { from: STRESS_MODERATE_FROM, to: STRESS_HIGH_FROM, fill: ZONE_FILL.warn },
-  { from: STRESS_HIGH_FROM, to: 100, fill: ZONE_FILL.bad },
+  {
+    from: 0,
+    to: STRESS_REST_BELOW,
+    fill: ZONE_FILL.good,
+    legend: { label: `Rest (< ${STRESS_REST_BELOW})`, color: VX.goodSolid },
+  },
+  {
+    from: STRESS_REST_BELOW,
+    to: STRESS_MODERATE_FROM,
+    fill: ZONE_FILL.good,
+    legend: { label: `Low (${STRESS_REST_BELOW}–${STRESS_MODERATE_FROM})`, color: VX.goodSolid },
+  },
+  {
+    from: STRESS_MODERATE_FROM,
+    to: STRESS_HIGH_FROM,
+    fill: ZONE_FILL.warn,
+    legend: {
+      label: `Moderate (${STRESS_MODERATE_FROM}–${STRESS_HIGH_FROM})`,
+      color: VX.warnSolid,
+    },
+  },
+  {
+    from: STRESS_HIGH_FROM,
+    to: 100,
+    fill: ZONE_FILL.bad,
+    legend: { label: `High (≥ ${STRESS_HIGH_FROM})`, color: VX.badSolid },
+  },
 ]
 
 export default function StressChart({ params }: { params: SummaryParams }) {

@@ -52,23 +52,6 @@ const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
     getValue: (d) => d.recovery,
     formatValue: (v) => String(Math.round(v)),
   },
-  // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
-  {
-    key: 'push',
-    label: `Push (≥ ${RECOVERY_PUSH_FROM})`,
-    color: VX.goodSolid,
-    mark: 'bar',
-    role: 'reference',
-    getValue: () => null,
-  },
-  {
-    key: 'rest',
-    label: `Rest (< ${RECOVERY_REST_BELOW})`,
-    color: VX.badSolid,
-    mark: 'bar',
-    role: 'reference',
-    getValue: () => null,
-  },
 ]
 
 export default function RecoveryTrendChart({ params }: { params: SummaryParams }) {
@@ -112,9 +95,33 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
           series={RECOVERY_SERIES}
           y={{ domain: [0, 100] }}
           zones={[
-            { from: RECOVERY_PUSH_FROM, to: 100, fill: ZONE_FILL.good },
-            { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, fill: ZONE_FILL.warn },
-            { from: 0, to: RECOVERY_REST_BELOW, fill: ZONE_FILL.bad },
+            {
+              from: RECOVERY_PUSH_FROM,
+              to: 100,
+              fill: ZONE_FILL.good,
+              legend: {
+                label: `${RECOVERY_VERDICT_NAME.push} (≥ ${RECOVERY_PUSH_FROM})`,
+                color: VERDICT_COLOR.push,
+              },
+            },
+            {
+              from: RECOVERY_REST_BELOW,
+              to: RECOVERY_PUSH_FROM,
+              fill: ZONE_FILL.warn,
+              legend: {
+                label: `${RECOVERY_VERDICT_NAME.normal} (${RECOVERY_REST_BELOW}–${RECOVERY_PUSH_FROM - 1})`,
+                color: VERDICT_COLOR.normal,
+              },
+            },
+            {
+              from: 0,
+              to: RECOVERY_REST_BELOW,
+              fill: ZONE_FILL.bad,
+              legend: {
+                label: `${RECOVERY_VERDICT_NAME.rest} (< ${RECOVERY_REST_BELOW})`,
+                color: VERDICT_COLOR.rest,
+              },
+            },
           ]}
           tooltip={{
             rows: (d) => {
