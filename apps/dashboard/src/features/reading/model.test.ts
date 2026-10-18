@@ -202,12 +202,9 @@ describe('ratingShape', () => {
     expect(ratingShape([book({ rating: 2.5 })]).buckets).toEqual([0, 1, 0, 0, 0])
   })
 
-  test('every bin label keeps its range, one spelling at every width', () => {
+  test('every bin label keeps its range, one spelling', () => {
     const labels = ratingShape([0.5, 1, 2.5, 3, 4, 5].map((rating) => book({ rating }))).labels
-    expect(labels.map((l) => l.visible)).toEqual(
-      ['0.5–1', '2–2.5', '3', '4', '5'].map((v) => `${v}\u00a0★`),
-    )
-    expect(labels.map((l) => l.compact)).toEqual(['0.5–1', '2–2.5', '3', '4', '5'])
+    expect(labels.map((l) => l.span)).toEqual(['0.5–1', '2–2.5', '3', '4', '5'])
   })
 
   test('community mean covers the same rated books', () => {
@@ -457,10 +454,7 @@ describe('ratingsFooter', () => {
       book({ rating: 3.5 }),
       book({ rating: 4 }),
     ])
-    expect(labels.map((l) => l.visible)).toEqual(
-      ['1', '2', '3–3.5', '4', '5'].map((v) => `${v}\u00a0★`),
-    )
-    expect(labels.map((l) => l.compact)).toEqual(['1', '2', '3–3.5', '4', '5'])
+    expect(labels.map((l) => l.span)).toEqual(['1', '2', '3–3.5', '4', '5'])
     expect(labels.map((l) => l.aria)).toEqual([
       '1 star',
       '2 stars',
