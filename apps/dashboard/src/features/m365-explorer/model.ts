@@ -271,6 +271,10 @@ export const nothingToLabel = (c: Coverage): boolean =>
 /** The teams view's gap: no team came back, or teams came back holding no channel. */
 export const teamsGap = (teams: number): string => (teams === 0 ? NO_TEAMS : NO_CHANNELS)
 
+/** The channels cell's short form: the leading clause of the sentence the screen shows once (`No chats or channels came back` when the Labeled cell leads). */
+export const channelsCellGap = (labeledLeads: boolean): string =>
+  labeledLeads ? NO_SOURCES : NO_TEAMS
+
 /** The first empty strip cell in reading order carries the full sentence; the rest the short form. */
 export type GapLeader = 'labeled' | 'chats' | 'channels' | null
 export const gapLeader = (g: {
@@ -283,10 +287,6 @@ export const gapLeader = (g: {
 /** A short form's full sentence: its leading clause, verbatim, then the cause and the step. */
 export const withStep = (short: string): string =>
   `${short} — Microsoft 365 returned none; refresh to retry`
-
-/** The phone Detail pane's line for an empty sources list: says why there is nothing to open. */
-export const nothingToOpen = (cause: string) =>
-  `Nothing to open — ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`
 
 /** How many chats the list request asks for. */
 export const CHATS_TOP = 50

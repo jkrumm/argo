@@ -2,6 +2,7 @@ import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Skeleton, UnstyledButton } from '@mantine/core'
 import {
+  channelsCellGap,
   channelsFooter,
   chatKindParts,
   chatsStat,
@@ -9,7 +10,6 @@ import {
   labeledSegmentCaption,
   NO_CHATS,
   NO_SOURCES,
-  NO_TEAMS,
   gapLeader,
   nothingToLabel,
   withStep,
@@ -131,10 +131,13 @@ function channelsCell(
   failed: number,
   noTeams: boolean,
   leading: boolean,
+  labeledLeads: boolean,
 ): StatStripCell {
-  // No teams came back: the channel count is unknown, not zero.
+  // No teams came back: the channel count is unknown, not zero. When the Labeled cell leads, the
+  // screen's sentence says `No chats or channels came back`; this cell repeats that clause verbatim.
   if (noTeams) {
-    const reason = leading ? withStep(NO_TEAMS) : NO_TEAMS
+    const short = channelsCellGap(labeledLeads)
+    const reason = leading ? withStep(short) : short
     return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason } }
   }
   return {
@@ -180,7 +183,14 @@ export function ExplorerStrip({
       cells={[
         labeledCell(coverage, list, onRetry, leader === 'labeled'),
         chatsCell(chats, noChats, leader === 'chats'),
-        channelsCell(channels, largestTeam, coverage.failed, noTeams, leader === 'channels'),
+        channelsCell(
+          channels,
+          largestTeam,
+          coverage.failed,
+          noTeams,
+          leader === 'channels',
+          leader === 'labeled',
+        ),
       ]}
     />
   )
