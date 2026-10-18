@@ -95,15 +95,15 @@ function joinDashClauses(sentences: readonly string[]): string[] {
 }
 
 /**
- * A closing `: {word}` that only repeats a word the sentence already said (`…on the head commit:
- * CI.`) is a dangling fragment, not a fact: it goes, with its colon. Any other tail stays.
+ * A closing `: {word}` that only echoes the sentence's own first word (`CI failed on {sha}: … head
+ * commit: CI.`) is a dangling fragment, not a fact: it goes, with its colon. Any other tail stays.
  */
 function withoutEchoTail(sentence: string): string {
   const [, head = '', word = '', end = ''] =
     /^(.*\S):\s+([\p{L}\p{N}_-]+)([.!?]*)$/u.exec(sentence) ?? []
   if (word === '') return sentence
-  const echoed = new RegExp(`(?<![\\p{L}\\p{N}_-])${word}(?![\\p{L}\\p{N}_-])`, 'iu').test(head)
-  return echoed ? `${head}${end}` : sentence
+  const subject = /^[\p{L}\p{N}_-]+/u.exec(head)?.[0]
+  return subject?.toLowerCase() === word.toLowerCase() ? `${head}${end}` : sentence
 }
 
 /**

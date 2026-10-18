@@ -189,6 +189,11 @@ describe('evidence line', () => {
     expect(dangling.evidenceLine).toBe(
       'CI failed on {sha}: checks have not passed on the head commit; PR left open',
     )
+    const repeated = cardCopy({
+      authored: 'Merge?',
+      body: 'Previous run failed; current state: failed.',
+    })
+    expect(repeated.evidenceLine).toBe('Previous run failed; current state: failed.')
     const kept = cardCopy({
       authored: 'Merge?',
       body: 'Build failed on {sha}: step lint. — PR left open: https://example.com/pr/7',

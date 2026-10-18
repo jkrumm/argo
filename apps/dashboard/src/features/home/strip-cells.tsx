@@ -14,7 +14,7 @@ import {
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
 } from '../garmin-health/model'
-import { acwrMeterZones } from '../garmin-health/formulas'
+import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
 import { BUDGET_MISSING, deriveBudget, pollerAgeText } from '../warden/page-model'
 import {
   countdownLabel,
@@ -250,7 +250,7 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
     key: 'acwr',
     caption: `Training load · ${withUnit(7, 'd')} / ${withUnit(28, 'd')}`,
     value: reading.acwr.toFixed(2),
-    ...(reading.zone !== null && { unit: reading.zone }),
+    ...(reading.zone !== null && { unit: acwrZoneLabel(reading.zone) }),
     visual: (
       <Meter
         label="Acute to chronic workload ratio"
