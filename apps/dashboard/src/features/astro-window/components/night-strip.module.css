@@ -56,6 +56,11 @@
   background: var(--vx-surface-subtle);
 }
 
+/* The selected cell answers hover too (the pointer is usually already on it after a click). */
+.cell[aria-pressed='true']:hover {
+  background: color-mix(in srgb, var(--vx-line) 22%, var(--vx-surface-subtle));
+}
+
 .date {
   font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-xs);
