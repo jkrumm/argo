@@ -15,6 +15,7 @@ import {
   paceValues,
   priorLabel,
   shiftCellsToLocal,
+  emptyWindowParts,
   summaryParts,
   trimLeadingEmpty,
   weekSummary,
@@ -416,5 +417,27 @@ describe('formats and summary', () => {
       sentence: '0.0\u00a0km this week in 0 walks',
       facts: ['streak 0 d', 'pace 3.4\u00a0km/h over all time'],
     })
+  })
+})
+
+describe('emptyWindowParts', () => {
+  const now = Date.parse('2026-01-20T10:00:00Z')
+
+  it('names the window, the days since the last walk and its date', () => {
+    expect(
+      emptyWindowParts({ preset: '7d', lastEndedAt: '2026-01-05T08:00:00Z', nowMs: now }).sentence,
+    ).toBe('No walks in the last 7 days; the last was 15 d ago, on Jan 5')
+  })
+
+  it('a walk earlier today reads today', () => {
+    expect(
+      emptyWindowParts({ preset: '7d', lastEndedAt: '2026-01-20T06:00:00Z', nowMs: now }).sentence,
+    ).toContain('the last was today, on Jan 20')
+  })
+
+  it('no walk ever recorded says so', () => {
+    expect(emptyWindowParts({ preset: '7d', lastEndedAt: null, nowMs: now }).sentence).toBe(
+      'No walks recorded yet',
+    )
   })
 })

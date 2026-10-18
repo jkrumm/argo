@@ -53,8 +53,8 @@ function WalkingPadPage() {
   // Toast + confetti on new achievement unlocks. Side-effect hook.
   useAchievementWatcher()
 
-  // An empty window renders the record header and one empty-state row, nothing else: no strip of
-  // zeros and no empty chart cards. Pending is not empty, so the first paint waits for the count.
+  // An empty window keeps its structure: headline, record header and a dimmed strip over one
+  // empty-state row, no empty chart cards. Pending is not empty, so the first paint waits for the count.
   const empty = summary.data?.sessions === 0
 
   return (
@@ -68,14 +68,17 @@ function WalkingPadPage() {
       />
 
       <Stack gap="md">
-        {!empty && <SummaryLine params={params} />}
+        <SummaryLine params={params} empty={empty} />
         <RecordHeader />
         {summary.isPending ? (
           <Skeleton height={160} radius="md" />
         ) : empty ? (
-          <Box data-shot="empty-window">
-            <EmptyWindow />
-          </Box>
+          <>
+            <WalkingStrip params={params} empty />
+            <Box data-shot="empty-window">
+              <EmptyWindow />
+            </Box>
+          </>
         ) : (
           <>
             <WalkingStrip params={params} />
