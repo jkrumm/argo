@@ -238,9 +238,11 @@ export type BinLabel = { visible: string; aria: string }
 /** One bin's span, two views: the axis text (`3–3.5 ★`) and the screen-reader text (`3 to 3.5 stars`). */
 function binLabel(lo: number, hi: number): BinLabel {
   const stars = (n: number) => (n === 1 ? 'star' : 'stars')
-  return lo === hi
-    ? { visible: withUnit(lo, '★'), aria: `${lo} ${stars(lo)}` }
-    : { visible: withUnit(`${lo}–${hi}`, '★'), aria: `${lo} to ${hi} ${stars(hi)}` }
+  const span = lo === hi ? `${lo}` : `${lo}–${hi}`
+  return {
+    visible: withUnit(span, '★'),
+    aria: lo === hi ? `${lo} ${stars(lo)}` : `${lo} to ${hi} ${stars(hi)}`,
+  }
 }
 
 export type RatingShape = {
