@@ -1,6 +1,6 @@
+import { format } from 'date-fns'
 import type { AgentPart, AgentThread } from 'basalt-ui/agent'
 import type { HermesThreadType } from '../../lib/queries/hermes'
-import { APP_LOCALE } from '../../lib/format'
 import { isThreadPersisted, THREADS_LIST_LIMIT } from './threads-store'
 
 // The pure half of the thread list: what a row says, which day group it sits in, which threads
@@ -210,27 +210,17 @@ export function buildView({
   }
 }
 
-const timeFormat = new Intl.DateTimeFormat(APP_LOCALE, {
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-})
-const dayFormat = new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short' })
-const dayYearFormat = new Intl.DateTimeFormat(APP_LOCALE, {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-})
+const timeOf = (ms: number): string => format(ms, 'HH:mm')
 
 /** `HH:mm` for today, `D Mon` for anything older. */
 export function listTime(ms: number, now: number): string {
-  return ms >= startOfDay(now) ? timeFormat.format(ms) : dayFormat.format(ms)
+  return ms >= startOfDay(now) ? timeOf(ms) : format(ms, 'd MMM')
 }
 
 /** A start date: `D Mon`, with the year once it is not this year. */
 export function startedDate(ms: number, now: number): string {
   const sameYear = new Date(ms).getFullYear() === new Date(now).getFullYear()
-  return (sameYear ? dayFormat : dayYearFormat).format(ms)
+  return format(ms, sameYear ? 'd MMM' : 'd MMM yyyy')
 }
 
 /** Parts of the facts line, joined by ` · ` at render. Wide: `Started {date}`, `last reply {time}` (the type is the chip beside the title). Compact, no chip: `last reply {time} · {type}`. */
@@ -250,58 +240,33 @@ export function factsParts({
     ? [`last reply ${reply}`, type]
     : sameDay
       ? [
-          `Started ${startedDate(entry.createdAt, now)} ${timeFormat.format(entry.createdAt)}`,
-          `last reply ${timeFormat.format(entry.updatedAt)}`,
+          `Started ${startedDate(entry.createdAt, now)} ${timeOf(entry.createdAt)}`,
+          `last reply ${timeOf(entry.updatedAt)}`,
         ]
       : [`Started ${startedDate(entry.createdAt, now)}`, `last reply ${reply}`]
   return parts.filter((part): part is string => part !== null)
 }
 
-type ThreadSummary = {
-  untitled: number
-  pinned: number
-  today: number
-  /** Active in the last 7 days, today included. */
-  week: number
-  /** `null` with no threads. */
-  lastReply: string | null
-}
-
-export function summarize(entries: readonly ThreadEntry[], now: number): ThreadSummary {
-  const today = startOfDay(now)
+/** Time of the newest reply in `HH:mm` / `D Mon` form, or `null` with no threads. */
+export function lastReplyOf(entries: readonly ThreadEntry[], now: number): string | null {
   const newest = entries.reduce<number | null>(
     (max, entry) => (max === null || entry.updatedAt > max ? entry.updatedAt : max),
     null,
   )
-  return {
-    untitled: entries.filter((entry) => isUntitled(entry, now)).length,
-    pinned: entries.filter((entry) => entry.pinned).length,
-    today: entries.filter((entry) => entry.updatedAt >= today).length,
-    week: entries.filter((entry) => entry.updatedAt >= weekWindowStart(now)).length,
-    lastReply: newest === null ? null : listTime(newest, now),
-  }
+  return newest === null ? null : listTime(newest, now)
 }
 
 /**
- * The headline: activity (`{n} active today, {m} in the last 7 days`), with untitled, pinned and the
- * last reply as facts. The activity counts cover every non-archived thread, including the untitled
- * ones the list folds away (the `untitled` fact names them). The thread total is the `All` chip's
- * figure and is not printed here.
+ * The headline: the one fact no group heading, chip or fold already prints. Today, this week,
+ * pinned and untitled counts are the headings' and chips' figures, so none repeats here.
  */
-export function summaryHeadline(summary: ThreadSummary): { sentence: string; facts: string[] } {
-  return {
-    sentence: `${summary.today} active today, ${summary.week} in the last 7 days`,
-    facts: [
-      ...(summary.untitled > 0 ? [`${summary.untitled} untitled`] : []),
-      `${summary.pinned} pinned`,
-      ...(summary.lastReply === null ? [] : [`last reply ${summary.lastReply}`]),
-    ],
-  }
+export function summaryHeadline(lastReply: string | null): { sentence: string } {
+  return { sentence: lastReply === null ? 'No threads yet' : `Last reply ${lastReply}` }
 }
 
-/** The disclosure row: `{n} untitled chats · oldest {age}`. `ageLabel` is the relative age. */
-export function untitledLabel(count: number, oldestAge: string): string {
-  return `${count} untitled ${count === 1 ? 'chat' : 'chats'} · oldest ${oldestAge}`
+/** The disclosure row: `Untitled chats · oldest {age}`; the count is the `Untitled` chip's. */
+export function untitledLabel(oldestAge: string): string {
+  return `Untitled chats · oldest ${oldestAge}`
 }
 
 function oldestOf(entries: readonly ThreadEntry[], field: 'createdAt' | 'updatedAt'): number {
@@ -338,6 +303,8 @@ export function listEndNote(
 }
 
 const SUMMARY_MAX_CHARS = 110
+/** Two lines of the phone's narrow body column; a longer cut would be clipped mid-word by the line clamp. */
+export const SUMMARY_MAX_CHARS_COMPACT = 52
 
 /**
  * A summary cut at a word boundary with an ellipsis; short text passes through with whitespace

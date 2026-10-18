@@ -16,6 +16,7 @@
   align-items: center;
   gap: var(--vx-space-stack-xs);
   padding-block: var(--vx-space-stack-xs);
+  padding-inline: var(--vx-space-stack-sm);
   font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-micro);
   letter-spacing: 0.04em;
@@ -62,6 +63,7 @@
   display: block;
   width: 100%;
   padding-block: var(--vx-space-stack-sm);
+  padding-inline: var(--vx-space-stack-sm);
   text-align: left;
   border-bottom: 1px solid var(--vx-surface-hairline);
   color: inherit;
@@ -147,6 +149,7 @@
   justify-content: space-between;
   gap: var(--vx-space-stack-md);
   padding-block: var(--vx-space-stack-sm);
+  padding-inline: var(--vx-space-stack-sm);
   border-bottom: 1px solid var(--vx-surface-hairline);
 }
 

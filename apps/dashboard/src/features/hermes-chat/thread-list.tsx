@@ -1,10 +1,12 @@
 import { Fragment } from 'react'
 import { Box, Button, Text, UnstyledButton } from '@mantine/core'
+import { useSizeClass } from 'basalt-ui'
 import { overlays } from 'basalt-ui/commands'
 import { relativeTime } from 'basalt-ui/format'
 import {
   TYPE_LABEL,
   clampAtWord,
+  SUMMARY_MAX_CHARS_COMPACT,
   listTime,
   oldestUpdatedAt,
   untitledLabel,
@@ -51,6 +53,7 @@ function Row({
   label: string
   onOpen: (id: string) => void
 }) {
+  const compact = useSizeClass() === 'compact'
   return (
     <UnstyledButton className={classes['row']} onClick={() => onOpen(entry.id)}>
       <Box className={classes['rowGrid']}>
@@ -58,7 +61,9 @@ function Row({
         <Box className={classes['body']}>
           <Text className={classes['title']}>{label}</Text>
           {entry.summary !== null && (
-            <Text className={classes['summary']}>{clampAtWord(entry.summary)}</Text>
+            <Text className={classes['summary']}>
+              {clampAtWord(entry.summary, compact ? SUMMARY_MAX_CHARS_COMPACT : undefined)}
+            </Text>
           )}
         </Box>
         <Text component="span" className={classes['time']}>
@@ -147,7 +152,7 @@ export function ThreadList({
               aria-disabled={foldOpen || undefined}
               onClick={() => !foldOpen && onToggleOpen()}
             >
-              {untitledLabel(untitled.length, relativeTime(oldestUpdatedAt(untitled)))}
+              {untitledLabel(relativeTime(oldestUpdatedAt(untitled)))}
             </UnstyledButton>
             <Button
               variant="subtle"
