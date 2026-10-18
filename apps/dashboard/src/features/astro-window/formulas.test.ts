@@ -487,10 +487,9 @@ describe('windowFact', () => {
     })
   })
 
-  test('with no window, both tabs word the miss through gateMissText', () => {
+  test('a no-window OUT night states the miss on Forecast only', () => {
     expect(windowFact(outNight('2026-06-13', 8, 4.1), { withMiss: false })).toEqual({
       value: 'No window',
-      period: 'core 3.9° under its gate',
     })
   })
 
