@@ -10,6 +10,10 @@ import {
   STRESS_HIGH_FROM,
   STRESS_MODERATE_FROM,
   STRESS_REST_BELOW,
+  STRESS_ZONE_LEGEND,
+  STRESS_ZONE_NAME,
+  stressZone,
+  type StressZone,
   countWhere,
   stressFact,
 } from '../model'
@@ -28,11 +32,16 @@ type StressPoint = {
   sleepStress: number | null
 }
 
+const STRESS_ZONE_COLOR = {
+  rest: VX.goodSolid,
+  low: VX.goodSolid,
+  moderate: VX.warnSolid,
+  high: VX.badSolid,
+} as const satisfies Record<StressZone, string>
+
 function stressZoneLabel(v: number): { text: string; color: string } {
-  if (v >= STRESS_HIGH_FROM) return { text: 'High', color: VX.badSolid }
-  if (v >= STRESS_MODERATE_FROM) return { text: 'Moderate', color: VX.warnSolid }
-  if (v >= STRESS_REST_BELOW) return { text: 'Low', color: VX.goodSolid }
-  return { text: 'Rest', color: VX.goodSolid }
+  const zone = stressZone(v)
+  return { text: STRESS_ZONE_NAME[zone], color: STRESS_ZONE_COLOR[zone] }
 }
 
 const fmtStress = (v: number): string => String(Math.round(v))
@@ -65,34 +74,31 @@ const ZONE_LINES = [
   { value: STRESS_HIGH_FROM, color: VX.badRef, dashed: true },
 ]
 
-/** Rest and low share the good hue; the area gradient hard-stops at each boundary. Names match the tooltip's. */
+/** Rest and low share the good hue; the area gradient hard-stops at each boundary. */
 const STRESS_ZONES = [
   {
     from: 0,
     to: STRESS_REST_BELOW,
     fill: ZONE_FILL.good,
-    legend: { label: `Rest (< ${STRESS_REST_BELOW})`, color: VX.goodSolid },
+    legend: { label: STRESS_ZONE_LEGEND.rest, color: STRESS_ZONE_COLOR.rest },
   },
   {
     from: STRESS_REST_BELOW,
     to: STRESS_MODERATE_FROM,
     fill: ZONE_FILL.good,
-    legend: { label: `Low (${STRESS_REST_BELOW}–${STRESS_MODERATE_FROM})`, color: VX.goodSolid },
+    legend: { label: STRESS_ZONE_LEGEND.low, color: STRESS_ZONE_COLOR.low },
   },
   {
     from: STRESS_MODERATE_FROM,
     to: STRESS_HIGH_FROM,
     fill: ZONE_FILL.warn,
-    legend: {
-      label: `Moderate (${STRESS_MODERATE_FROM}–${STRESS_HIGH_FROM})`,
-      color: VX.warnSolid,
-    },
+    legend: { label: STRESS_ZONE_LEGEND.moderate, color: STRESS_ZONE_COLOR.moderate },
   },
   {
     from: STRESS_HIGH_FROM,
     to: 100,
     fill: ZONE_FILL.bad,
-    legend: { label: `High (≥ ${STRESS_HIGH_FROM})`, color: VX.badSolid },
+    legend: { label: STRESS_ZONE_LEGEND.high, color: STRESS_ZONE_COLOR.high },
   },
 ]
 

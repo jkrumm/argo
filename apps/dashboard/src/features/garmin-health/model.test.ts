@@ -34,6 +34,10 @@ import {
   recoveryGap,
   recoveryQualifier,
   recoveryVerdict,
+  stressZone,
+  STRESS_ZONE_LEGEND,
+  STRESS_ZONE_NAME,
+  LOAD_LOADING_TEXT,
   recoverySentence,
   shortDate,
   signed,
@@ -635,5 +639,27 @@ describe('recoveryQualifier', () => {
     expect(recoveryQualifier('2020-01-02')).toBe('2 Jan')
     expect(recoveryQualifier(undefined)).toBeUndefined()
     expect(recoveryQualifier(null)).toBeUndefined()
+  })
+})
+
+describe('stress zones', () => {
+  test('boundaries 24/25/49/50/74/75 land in one band each', () => {
+    const names = [24, 25, 49, 50, 74, 75].map((v) => STRESS_ZONE_NAME[stressZone(v)])
+    expect(names).toEqual(['Rest', 'Low', 'Low', 'Moderate', 'Moderate', 'High'])
+  })
+
+  test('legend ranges never share a bound', () => {
+    expect(Object.values(STRESS_ZONE_LEGEND)).toEqual([
+      'Rest (< 25)',
+      'Low (25–49)',
+      'Moderate (50–74)',
+      'High (≥ 75)',
+    ])
+  })
+})
+
+describe('load meter empty text', () => {
+  test('pending or placeholder (no gap yet) reads the loading text', () => {
+    expect(LOAD_LOADING_TEXT).toBe('Loading training load')
   })
 })
