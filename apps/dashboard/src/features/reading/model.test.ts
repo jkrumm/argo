@@ -20,6 +20,7 @@ import {
   lastReadFact,
   median,
   parseTimestamp,
+  ratingBin,
   ratingShape,
   ratingsFooter,
   readingPace,
@@ -201,6 +202,19 @@ describe('ratingShape', () => {
     expect(ratingShape([book({ rating: 2.5 })]).buckets).toEqual([0, 0, 1, 0, 0])
   })
 
+  test('bin edges: 0.5 and 1 in the first bin, 4.5 and 5 in the last', () => {
+    expect([0.5, 1, 1.5, 4, 4.5, 5].map(ratingBin)).toEqual([0, 0, 1, 3, 4, 4])
+    expect(ratingBin(0)).toBe(0)
+    expect(ratingBin(6)).toBe(4)
+  })
+
+  test('the mean marker is positioned by the model on the 0…5 track', () => {
+    expect(ratingShape([book({ rating: 2.5 })]).meanAt).toBe(50)
+    expect(ratingShape([book({ rating: 5 })]).meanAt).toBe(100)
+    expect(ratingShape([book({ rating: 0.5 })]).meanAt).toBeCloseTo(10)
+    expect(ratingShape([book()]).meanAt).toBeNull()
+  })
+
   test('every bin label spells its two half steps, whatever the data', () => {
     const expected = ['0.5–1', '1.5–2', '2.5–3', '3.5–4', '4.5–5']
     expect(ratingShape([book({ rating: 3 })]).labels.map((l) => l.span)).toEqual(expected)
@@ -345,14 +359,32 @@ describe('paceRange', () => {
 describe('paceTicks', () => {
   test('ticks and median sit on the slowest-to-fastest span', () => {
     expect(paceTicks([20, 30, 40], 30)).toEqual({
-      at: [0, 50, 100],
+      ticks: [
+        { at: 0, count: 1 },
+        { at: 50, count: 1 },
+        { at: 100, count: 1 },
+      ],
       medianAt: 50,
       slowest: '20',
       fastest: '40',
     })
   })
-  test('an endpoint that rounds to 0 reads < 1', () => {
-    expect(paceTicks([0, 30], 15)?.slowest).toBe('< 1')
+  test('books at one displayed pace are one tick that counts them', () => {
+    const shape = paceTicks([20, 20, 40], 20)
+    expect(shape?.ticks).toEqual([
+      { at: 0, count: 2 },
+      { at: 100, count: 1 },
+    ])
+    expect(shape?.ticks.reduce((n, t) => n + t.count, 0)).toBe(3)
+  })
+  test('a tick on the median keeps its own position', () => {
+    const shape = paceTicks([20, 30, 40], 30)
+    expect(shape?.ticks.some((t) => t.at === shape.medianAt)).toBe(true)
+  })
+  test('endpoints: < 1 below one, the integer otherwise', () => {
+    expect(paceTicks([0, 30], 15)).toMatchObject({ slowest: '< 1', fastest: '30' })
+    expect(paceTicks([20, 40], 30)).toMatchObject({ slowest: '20', fastest: '40' })
+    expect(paceRange([0, 30])).toBe('slowest < 1, fastest 30\u00a0pages/h')
   })
   test('one book, or books at one pace, have no span to draw', () => {
     expect(paceTicks([30], 30)).toBeNull()
