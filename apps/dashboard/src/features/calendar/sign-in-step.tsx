@@ -1,6 +1,7 @@
-import { Anchor, Button, Code, Text } from '@mantine/core'
+import { Anchor, Button, Text } from '@mantine/core'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { SignInStep } from './query-state'
+import classes from './agenda.module.css'
 
 function CommandStep({ hint, command }: { hint: string; command: string }) {
   const copy = useCopyAction('Copy command', command)
@@ -10,7 +11,7 @@ function CommandStep({ hint, command }: { hint: string; command: string }) {
       <Text span inherit>
         {hint}
       </Text>{' '}
-      <Code>{command}</Code>
+      <span className={classes.command}>{command}</span>
       {copy && (
         <Button
           variant="subtle"

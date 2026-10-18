@@ -64,6 +64,11 @@
   color: var(--vx-muted);
 }
 
+.command {
+  font-family: var(--basalt-font-mono);
+  white-space: nowrap;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
