@@ -19,8 +19,10 @@ import {
   CHAT_TYPE_LABEL,
   channelSourceId,
   CHATS_TOP,
+  NO_CHANNELS,
   NO_CHATS,
   NO_TEAMS,
+  nothingToOpen,
   chatKindCounts,
   chatsCapped as isCapped,
   chatSourceId,
@@ -314,14 +316,14 @@ export function M365ExplorerPage(): ReactElement {
   // The detail side: the feed in the feed view, the open record, else the labeled sources on a wide
   // screen (a phone has its own Labeled pane) or a hint on a phone.
   // Teams that loaded with no channel in any of them leave nothing to pick either.
+  // `chats`/`teams` are suspense reads (never pending at render) and `channelsTotal` is null until
+  // every channel loaded, so an empty list here is a real gap, not a load in flight.
   const sourcesEmpty = view === 'chats' ? noChats : noTeams || channelsTotal === 0
-  const emptySourcesCause = (
-    view === 'chats' ? NO_CHATS : noTeams ? NO_TEAMS : 'No channels came back'
-  ).replace(/^N/, 'n')
+  const emptyCause = { chats: NO_CHATS, teams: noTeams ? NO_TEAMS : NO_CHANNELS }
   const emptyDetail = (
     <p className={classes.empty}>
       {sourcesEmpty
-        ? `Nothing to open — ${emptySourcesCause}`
+        ? nothingToOpen(view === 'chats' ? emptyCause.chats : emptyCause.teams)
         : 'Pick a chat or channel in Sources to open it'}
     </p>
   )

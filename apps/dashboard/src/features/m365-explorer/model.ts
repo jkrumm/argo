@@ -260,6 +260,12 @@ export function labeledSegmentCaption(value: number, labeled: number, unlabeled:
 export const NO_CHATS = 'No chats came back'
 /** The strip's channels cell when no team came back: the fact only. */
 export const NO_TEAMS = 'No teams came back'
+/** The channels view's gap when teams loaded but none holds a channel: the fact only. */
+export const NO_CHANNELS = 'No channels came back'
+
+/** The phone Detail pane's line for an empty sources list: says why there is nothing to open. */
+export const nothingToOpen = (cause: string) =>
+  `Nothing to open — ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`
 
 /** The labeled cell when there is nothing to label: said once, with the cause. */
 export const NOTHING_TO_LABEL =

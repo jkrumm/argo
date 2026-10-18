@@ -6,6 +6,7 @@ import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
+import { WARDEN_PUSH_MIN } from '../warden/page-model'
 import { leadOf, subjectOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
@@ -467,10 +468,16 @@ export function activityStream(
   return { groups, total: live.length }
 }
 
+/** Who pushes the feed and how often: one shared cadence reads once, differing ones read apart. */
+const pushCadence = () =>
+  WARDEN_PUSH_MIN === AGENT_GATEWAY_PUSH_MIN
+    ? `Warden and agent-gateway push every ${withUnit(WARDEN_PUSH_MIN, 'min')}`
+    : `Warden pushes every ${withUnit(WARDEN_PUSH_MIN, 'min')}, agent-gateway every ${withUnit(AGENT_GATEWAY_PUSH_MIN, 'min')}`
+
 /**
  * The activity card's line with nothing to count: the empty window when a feed loaded, then every
  * source that is unknown (`— reload to retry` only when one failed); with no feed and no cause
- * known, the no-snapshot wording.
+ * known, the feed's own gap: no feed yet, and each producer's push cadence.
  */
 export function feedEmptyLine(input: {
   loaded: boolean
@@ -481,7 +488,7 @@ export function feedEmptyLine(input: {
   const { loaded, failed, pending, now } = input
   const unknown = unknownPhrase(failed, pending)
   if (!loaded && unknown === '') {
-    return `No feed yet — Warden and agent-gateway push every ${withUnit(AGENT_GATEWAY_PUSH_MIN, 'min')}.`
+    return `No feed yet — ${pushCadence()}.`
   }
   const retry = failed.length > 0 ? ' — reload to retry' : ''
   return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]

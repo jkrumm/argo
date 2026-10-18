@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'bun:test'
+import { AGENT_GATEWAY_PUSH_MIN } from '../agents/model'
+import { WARDEN_PUSH_MIN } from '../warden/page-model'
 
 // A zone with DST, so the day-boundary tests exercise a 23 h day whatever the machine's own zone.
 process.env.TZ = 'Europe/Berlin'
@@ -155,7 +157,9 @@ describe('feedEmptyLine', () => {
   })
   it("with no feed and no cause known, says the feed's own gap", () => {
     expect(feedEmptyLine({ loaded: false, ...none })).toBe(
-      'No feed yet — Warden and agent-gateway push every 10\u00a0min.',
+      WARDEN_PUSH_MIN === AGENT_GATEWAY_PUSH_MIN
+        ? `No feed yet — Warden and agent-gateway push every ${WARDEN_PUSH_MIN}\u00a0min.`
+        : `No feed yet — Warden pushes every ${WARDEN_PUSH_MIN}\u00a0min, agent-gateway every ${AGENT_GATEWAY_PUSH_MIN}\u00a0min.`,
     )
     expect(feedEmptyLine({ loaded: false, ...none, pending: ['Warden', 'Agents'] })).toBe(
       'Warden and Agents loading.',
