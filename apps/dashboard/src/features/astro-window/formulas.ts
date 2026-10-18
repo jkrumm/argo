@@ -657,10 +657,18 @@ export function skyCellFooter({
   return joinPhrases([`town glow ${dome}`, `transparency ${index} ${glue('(1 = best)')}`])
 }
 
+/** What the Forecast tab presents: the unknown-site card alone when the site is not in the fetched list, else the night's cards; `none` off the Forecast tab or with no night. */
+export type ForecastView = 'unknown-site' | 'night' | 'none'
+export function forecastView(tab: string, site: unknown, night: Night | null): ForecastView {
+  if (tab !== 'forecast') return 'none'
+  if (!site) return 'unknown-site'
+  return night === null ? 'none' : 'night'
+}
+
 /** The Forecast tab's unknown-site card: the title is the short form of the gap (the site id is not in the fetched list, an empty list included), the hint the one next step; together they read as one sentence. */
 export function unknownSiteCopy(siteId: string): { title: string; hint: string } {
   return {
-    title: `No site \u201c${siteId}\u201d in the list`,
+    title: `No site “${siteId}” in the list`,
     hint: 'Choose another site, or reload if the list is empty',
   }
 }
