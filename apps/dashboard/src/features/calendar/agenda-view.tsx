@@ -150,7 +150,6 @@ export function AgendaView({
                     now={now}
                     next={summary.next}
                     gap={gap}
-                    emptyWindow={emptyWindow}
                   />
                 </Section>
               </Card>
