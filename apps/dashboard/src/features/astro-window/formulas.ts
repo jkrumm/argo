@@ -305,7 +305,8 @@ function gapToGate(night: Night): number | null {
 function rawGapToGate(night: Night): number | null {
   if (night.gateCoreAltitude === null || night.coreGateDeg === null) return null
   if (!coreGateFailure(night)) return null
-  return Math.max(0, night.coreGateDeg - night.gateCoreAltitude)
+  // Normalised so float noise (8 − 7.95 = 0.04999…98) cannot flip a half-step rounding.
+  return Math.max(0, Math.round((night.coreGateDeg - night.gateCoreAltitude) * 1e9) / 1e9)
 }
 
 /** The verdict as a word and its colour (the same `verdictTone` the strip uses): the verdict's own tier (Excellent … Poor) or OUT, drawn as a status dot + word, never a bare word. */
@@ -325,7 +326,7 @@ function headlineKiller(night: Night): Killer | undefined {
   return core ?? night.killers[0]
 }
 
-/** The one wording of a missed core gate, shared by the verdict, the strip cell and both timelines: `core 3.9° under its gate`. Null when the core gate is not the miss, or the gap is exactly 0. Any raw gap above 0 shows, so a sub-0.05° miss reads `core 0.0° under its gate` on purpose (the night is still out on that gate). */
+/** The shared `core 3.9° under its gate` wording; null unless the core gate is missed by a raw gap above 0 (a sub-0.05° miss reads 0.0° on purpose). */
 function coreGateMissClause(night: Night): string | null {
   const raw = rawGapToGate(night)
   const gap = gapToGate(night)
