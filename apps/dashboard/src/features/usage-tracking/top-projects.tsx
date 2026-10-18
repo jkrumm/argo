@@ -4,8 +4,9 @@ import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
+import classes from './usage.module.css'
 import type { BillingValue, WorkspaceValue } from './types'
-import { EM_DASH, fmtShare, fmtUsdWhole, periodNoun } from './model'
+import { EM_DASH, fmtShare, fmtUsdWhole, NO_USAGE_WINDOW, periodNoun } from './model'
 
 export default function TopProjects({
   range,
@@ -35,13 +36,14 @@ export default function TopProjects({
 
   return (
     <ChartCard
+      className={classes.fill}
       title={`Top projects · ${periodNoun(range)}${printTotal ? ` · ${fmtUsdWhole(data.total)}` : ''}`}
     >
       <BarList
         label={`Top ${data.rows.length} projects by cost, ${periodNoun(range)}`}
         format={fmtUsdWhole}
         variant="thin"
-        emptyText="No data in this window"
+        emptyText={NO_USAGE_WINDOW}
         items={data.rows.map((r) => ({
           key: r.key,
           label: r.key,
