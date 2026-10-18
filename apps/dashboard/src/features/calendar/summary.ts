@@ -57,7 +57,7 @@ export function summaryParts(
   }
   const sentence =
     summary.todayCount > 0
-      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatMinutes(summary.todayBookedMin)} booked`
+      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'event' : 'events'} today${summary.todayBookedMin > 0 ? `, ${formatMinutes(summary.todayBookedMin)} booked` : ''}`
       : 'No events today'
   const week =
     summary.weekBookedMin === 0
