@@ -120,9 +120,11 @@ export const fmtSecondsDay = (v: number) => {
   return q.unit === '' ? q.value : `${q.value} ${q.unit}`
 }
 
-/** `18 Oct`: a daily bucket's tooltip header and axis caption. */
-/** `3 Oct`, its space unbreakable so a date never splits across lines. */
-export const shortDay = (d: Date): string => formatDate(d, 'd MMM').replace(' ', NBSP)
+/** Every space unbreakable: a phrase that must never split across lines. */
+const glue = (text: string): string => text.replaceAll(' ', NBSP)
+
+/** `18 Oct`, unbreakable so a date never splits: a daily bucket's tooltip header and axis caption. */
+export const shortDay = (d: Date): string => glue(formatDate(d, 'd MMM'))
 
 // ── Prior-window comparisons ─────────────────────────────────────────────────────────────────
 
@@ -346,7 +348,7 @@ export function errorDaysLine(rates: readonly (number | null)[]): string {
     bad > 0 ? `${bad} bad ${days(bad)} (> ${fmtPct(ERROR_BAD_ABOVE, 0)})` : null,
   ]
     .filter((p): p is string => p !== null)
-    .map((p) => p.replaceAll(' ', NBSP))
+    .map(glue)
   return parts.length === 0 ? `no day above ${fmtPct(ERROR_WARN_FROM, 0)}` : parts.join(', ')
 }
 

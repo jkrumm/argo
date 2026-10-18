@@ -1,7 +1,7 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Skeleton, UnstyledButton } from '@mantine/core'
-import { channelsFooter, chatKindParts, labeledBasis, type Coverage } from './model'
+import { channelsFooter, chatKindParts, chatsStat, labeledBasis, type Coverage } from './model'
 import classes from './m365.module.css'
 
 /** A split is not a verdict: neutral fills, never a status colour. */
@@ -16,8 +16,7 @@ type Chats = { oneOnOne: number; group: number; meeting: number; other: number }
 
 function labeledCell(
   coverage: Coverage,
-  list: string,
-  capped: boolean,
+  list: { chats: number; capped: boolean },
   onRetry: () => void,
 ): StatStripCell {
   const { labeled, total, loading, failed } = coverage
@@ -43,7 +42,7 @@ function labeledCell(
     ),
     footer: (
       <>
-        {labeledBasis(coverage, list, capped)}
+        {labeledBasis(coverage, list)}
         {failed > 0 ? (
           <>
             {' · '}
@@ -59,16 +58,16 @@ function labeledCell(
 }
 
 /**
- * The chat kinds as one split bar, shaded by rank (a split is not a verdict), keyed by the footer
- * words. A kind with no chats is left out; `other` takes any kind the API adds later.
+ * The chat kinds as one split bar, shaded by rank (a split is not a verdict); the hero is the leading
+ * kind, the footer the rest. A kind with no chats is left out; `other` takes any kind the API adds later.
  */
 function chatsCell(chats: Chats): StatStripCell {
   const parts = chatKindParts(chats)
+  const stat = chatsStat(chats)
   return {
     key: 'chats',
     caption: 'Chats by kind',
-    value: String(parts.reduce((sum, p) => sum + p.value, 0)),
-    unit: parts.length === 1 && parts[0]?.value === 1 ? 'chat' : 'chats',
+    ...(stat.value === null || stat.unit === null ? {} : { value: stat.value, unit: stat.unit }),
     visual:
       parts.length === 0 ? undefined : (
         <Meter
@@ -85,7 +84,7 @@ function chatsCell(chats: Chats): StatStripCell {
           }))}
         />
       ),
-    footer: parts.length === 0 ? 'no chats' : parts.map((p) => p.text).join(' · '),
+    ...(stat.footer === null ? {} : { footer: stat.footer }),
   }
 }
 
@@ -106,10 +105,8 @@ function channelsCell(
 
 export type StripProps = {
   coverage: Coverage
-  /** What the labeled count ranges over, from `sourceListName`. */
-  list: string
-  /** The chat list hit its request cap, so older sources are missing. */
-  capped: boolean
+  /** What the labeled count ranges over: the chat count and whether the list hit its request cap. */
+  list: { chats: number; capped: boolean }
   chats: Chats
   /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
@@ -120,7 +117,6 @@ export type StripProps = {
 export function ExplorerStrip({
   coverage,
   list,
-  capped,
   chats,
   channels,
   largestTeam,
@@ -132,7 +128,7 @@ export function ExplorerStrip({
       label="Coverage summary"
       cols={3}
       cells={[
-        labeledCell(coverage, list, capped, onRetry),
+        labeledCell(coverage, list, onRetry),
         chatsCell(chats),
         channelsCell(channels, largestTeam, coverage.failed),
       ]}

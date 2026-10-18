@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
   chatKindParts,
+  chatsStat,
   sectionTitleFor,
   groupByRecency,
   chipCounts,
@@ -187,20 +188,18 @@ describe('formatTime', () => {
 })
 
 describe('headlineOf', () => {
-  test('is how far back the list reaches: a fact no row prints, no count', () => {
-    expect(headlineOf({ oldest: '17 Sep' })).toEqual({
-      sentence: 'Chats reach back to 17 Sep',
-    })
-    expect(headlineOf({ oldest: null })).toEqual({ sentence: 'No chat activity yet' })
+  test('only the empty state speaks; chats leave no headline', () => {
+    expect(headlineOf(0)).toEqual({ sentence: 'No chat activity yet' })
+    expect(headlineOf(3)).toBeNull()
   })
 })
 
 describe('chatKindParts', () => {
   test('drops kinds with no chats, reads in order and counts the noun', () => {
     expect(chatKindParts({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual([
-      { key: 'oneOnOne', label: '1:1', text: '4 1:1 chats', value: 4 },
-      { key: 'group', label: 'group', text: '1 group chat', value: 1 },
-      { key: 'meeting', label: 'meeting', text: '2 meetings', value: 2 },
+      { key: 'oneOnOne', label: '1:1', noun: '1:1 chats', text: '4 1:1 chats', value: 4 },
+      { key: 'group', label: 'group', noun: 'group chat', text: '1 group chat', value: 1 },
+      { key: 'meeting', label: 'meeting', noun: 'meetings', text: '2 meetings', value: 2 },
     ])
     expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 1, other: 3 })[1]?.text).toBe(
       '3 other chats',
@@ -209,12 +208,39 @@ describe('chatKindParts', () => {
   })
 })
 
+describe('chatsStat', () => {
+  test('the leading kind is the hero and the footer never repeats it', () => {
+    expect(chatsStat({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual({
+      value: '4',
+      unit: '1:1 chats',
+      footer: '1 group chat · 2 meetings',
+    })
+    expect(chatsStat({ oneOnOne: 1, group: 3, meeting: 3, other: 0 })).toEqual({
+      value: '3',
+      unit: 'group chats',
+      footer: '1 1:1 chat · 3 meetings',
+    })
+  })
+  test('one kind has no footer, none says so', () => {
+    expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 1, other: 0 })).toEqual({
+      value: '1',
+      unit: 'meeting',
+      footer: null,
+    })
+    expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual({
+      value: null,
+      unit: null,
+      footer: 'no chats',
+    })
+  })
+})
+
 describe('sectionTitleFor', () => {
   const base = { view: 'chats', tag: '', open: false } as const
   test('says a fact about the pane, not the tab name or a count', () => {
     expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('Chats')
     expect(sectionTitleFor({ ...base, pane: 'sources', view: 'teams' })).toBe('Teams')
-    expect(sectionTitleFor({ ...base, pane: 'sources', view: 'feed' })).toBe('Labeled sources')
+    expect(sectionTitleFor({ ...base, pane: 'sources', view: 'feed' })).toBe('Feed sources')
     expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Labeled sources')
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: LABELED_FILTER })).toBe(
       'Labeled sources',
@@ -265,22 +291,22 @@ describe('labeled count, outside note and sources title', () => {
   test('one labeled count, unknown while a team loads', () => {})
   test('the footer names the list the count ranges over', () => {
     const list = sourceListName(50, true)
-    expect(list).toBe('newest 50 chats and channels')
+    expect(list).toBe('newest 50 chats and all channels')
     expect(sourceListName(12, false)).toBe('chats and channels')
-    expect(labeledBasis(cov, list, true)).toBe(
-      '1 more label on sources older than the newest 50 chats and channels',
+    expect(labeledBasis(cov, { chats: 50, capped: true })).toBe(
+      '1 more label on chats older than the newest 50',
     )
-    expect(labeledBasis(cov, 'chats and channels', false)).toBe(
-      '1 more label on sources missing from the chats and channels',
+    expect(labeledBasis(cov, { chats: 12, capped: false })).toBe(
+      '1 more label on sources no longer listed',
     )
-    expect(labeledBasis({ ...cov, outside: 0 }, list, true)).toBe(
-      'across the newest 50 chats and channels',
+    expect(labeledBasis({ ...cov, outside: 0 }, { chats: 50, capped: true })).toBe(
+      'across the newest 50 chats and all channels',
     )
   })
   test('the sources title is the pane name only', () => {
     expect(sourcesTitle('chats')).toBe('Chats')
     expect(sourcesTitle('teams')).toBe('Teams')
-    expect(sourcesTitle('feed')).toBe('Labeled sources')
+    expect(sourcesTitle('feed')).toBe('Feed sources')
   })
 })
 
