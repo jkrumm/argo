@@ -314,7 +314,7 @@ export function M365ExplorerPage(): ReactElement {
     chats: chatRows.length,
     channels: channelsTotal,
     teams: teams.length,
-    labeled: labeledCount(coverage),
+    labeled: labels.length,
   })
 
   const retryFailed = (): void => {
@@ -397,7 +397,7 @@ export function M365ExplorerPage(): ReactElement {
                     value,
                     label:
                       value === 'labeled'
-                        ? `${PANE_META[value].tab} ${labels.length}`
+                        ? `${PANE_META[value].tab} ${labeledCount(coverage) ?? '…'}`
                         : PANE_META[value].tab,
                   }))}
               />

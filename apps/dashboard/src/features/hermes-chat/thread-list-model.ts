@@ -1,7 +1,7 @@
 import type { AgentPart, AgentThread } from 'basalt-ui/agent'
 import type { HermesThreadType } from '../../lib/queries/hermes'
 import { APP_LOCALE } from '../../lib/format'
-import { isThreadPersisted } from './threads-store'
+import { isThreadPersisted, THREADS_LIST_LIMIT } from './threads-store'
 
 // The pure half of the thread list: what a row says, which day group it sits in, which threads
 // fold into the untitled disclosure, and the summary sentence. Counts are derived client-side from
@@ -295,25 +295,36 @@ export function untitledLabel(count: number, oldestAge: string): string {
   return `${count} untitled ${count === 1 ? 'chat' : 'chats'} · oldest ${oldestAge}`
 }
 
+function oldestOf(entries: readonly ThreadEntry[], field: 'createdAt' | 'updatedAt'): number {
+  return entries.reduce((min, entry) => Math.min(min, entry[field]), Number.POSITIVE_INFINITY)
+}
+
 export function oldestUpdatedAt(entries: readonly ThreadEntry[]): number {
-  return entries.reduce((min, entry) => Math.min(min, entry.updatedAt), Number.POSITIVE_INFINITY)
+  return oldestOf(entries, 'updatedAt')
 }
 
 /**
- * The line under the last row of an unfiltered list: that the list is complete, since when, and what
- * is hidden in the archive, so a short list reads as "all of it" rather than a half-loaded page.
+ * The line under the last row of an unfiltered list. The list request is capped, so completeness is
+ * only claimed when the server's `total` (or, without it, a list shorter than the cap) allows it;
+ * otherwise it says how far back the loaded part reaches.
  */
 export function listEndNote(
   entries: readonly ThreadEntry[],
   archivedCount: number,
   now: number,
+  serverTotal: number | null,
+  limit: number = THREADS_LIST_LIMIT,
 ): string | null {
   if (entries.length === 0) return null
-  const oldest = entries.reduce(
-    (min, entry) => Math.min(min, entry.createdAt),
-    Number.POSITIVE_INFINITY,
-  )
+  const loaded = entries.length + archivedCount
+  const capped = serverTotal === null ? loaded >= limit : serverTotal > loaded
+  if (capped) {
+    const back = startedDate(oldestOf(entries, 'updatedAt'), now)
+    return serverTotal === null
+      ? `The newest ${loaded} threads, back to ${back}`
+      : `${loaded} of ${serverTotal} threads, back to ${back}`
+  }
   const noun = entries.length === 1 ? 'thread' : 'threads'
   const archive = archivedCount > 0 ? `, plus ${archivedCount} archived` : ''
-  return `That is every thread: ${entries.length} ${noun} since ${startedDate(oldest, now)}${archive}. Type below to start another.`
+  return `That is every thread: ${entries.length} ${noun} since ${startedDate(oldestOf(entries, 'createdAt'), now)}${archive}`
 }

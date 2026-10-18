@@ -266,6 +266,7 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
           format={fmtPointsBadge}
           polarity="up-good"
           period="last 7 d vs 30 d"
+          periodPrefix=""
         />
       ),
     loading,

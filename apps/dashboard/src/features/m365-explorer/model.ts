@@ -224,15 +224,11 @@ export function sourcesTitle(input: {
   chats: number
   channels: number | null
   teams: number
-  /** From `labeledCount`; `null` falls back to the team count. */
-  labeled: number | null
+  /** The labeled list the pane renders. */
+  labeled: number
 }): string {
   if (input.view === 'chats') return plural(input.chats, 'chat')
-  if (input.view === 'feed') {
-    return input.labeled === null
-      ? plural(input.teams, 'team')
-      : plural(input.labeled, 'labeled source')
-  }
+  if (input.view === 'feed') return plural(input.labeled, 'labeled source')
   return input.channels === null
     ? plural(input.teams, 'team')
     : `${plural(input.channels, 'channel')} in ${plural(input.teams, 'team')}`

@@ -265,7 +265,7 @@ function HermesChatFeed() {
   const archived = everything.filter((entry) => entry.archived)
   const view = buildView({ entries, archived, filter: { type: typeFilter, query }, now })
   const headline = summaryHeadline(summarize(entries, now))
-  const endNote = listEndNote(entries, view.archivedCount, now)
+  const endNote = listEndNote(entries, view.archivedCount, now, store.total)
   const openEntry = everything.find((entry) => entry.id === expandedId)
   const openThread = store.threads.find((thread) => thread.id === expandedId)
 

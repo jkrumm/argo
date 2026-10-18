@@ -16,6 +16,7 @@ import {
   errorDayState,
   type ErrorDayState,
   topSourceNote,
+  healthInfo,
   fmtTokens,
   foldTopN,
   OTHER_KEY,
@@ -99,7 +100,7 @@ export default function HealthCard({
   return (
     <ChartCard
       title={`Latency and errors · per ${unit} · ${periodNoun(range)}`}
-      info="p95 latency: 95 % of calls finish faster than this; only calls that report a duration count. Error events: calls that ended in an error. A day's error rate is its error events divided by its calls; days under 1 % are fine, 1–3 % are warn, over 3 % are bad. The three sources with the most error events are named, the rest are grouped as Other."
+      info={healthInfo(unit)}
     >
       <Box className={classes.healthBox}>
         <Box className={classes.health}>
