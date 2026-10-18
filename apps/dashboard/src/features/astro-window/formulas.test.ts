@@ -115,7 +115,8 @@ describe('nightNote', () => {
   } as unknown as Night
 
   test('a night out on the core gate states how far it fell short', () => {
-    expect(nightNote(base)).toBe('3.8° short')
+    expect(nightNote(base)).toBe('core 3.8° under its gate')
+    expect(nightNote(base)).toBe(gateMissText(base))
   })
 
   test('a night out on another gate names its killer', () => {
@@ -1096,7 +1097,7 @@ describe('darkSkyTickText and moonInterferes', () => {
 describe('unknownSiteCopy', () => {
   test('names the site and the next step', () => {
     expect(unknownSiteCopy('example-site')).toBe(
-      'No site "example-site" in the list — pick another from the site filter, or reload if the list is empty',
+      'No site "example-site" in the list — pick another from Site, or reload if the list is empty',
     )
   })
 })
