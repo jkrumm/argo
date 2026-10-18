@@ -311,13 +311,15 @@ export function deriveSummary(input: SummaryInput): {
           oldestAgeDays === null ? '' : `, oldest ${formatAgeDays(oldestAgeDays)}`
         }`
   // A degraded headline that names the stale poller already carries its age: say it once.
+  const fixesFact =
+    input.unattendedFixes === null
+      ? null
+      : `${input.unattendedFixes === 1 ? '1 fix' : `${formatNumber(input.unattendedFixes)} fixes`} in ${input.windowDays} d`
   const facts = [
     input.oldestPollerMin === null || input.stalePoller !== null
       ? null
       : `poller ${formatNumber(input.oldestPollerMin)} min old`,
-    input.unattendedFixes === null
-      ? null
-      : `${input.unattendedFixes === 1 ? '1 fix' : `${formatNumber(input.unattendedFixes)} fixes`} in ${input.windowDays} d`,
+    fixesFact,
     input.dispatch === null || input.dispatch === undefined
       ? null
       : `budget ${input.dispatch.used} of ${input.dispatch.max}`,
@@ -327,7 +329,8 @@ export function deriveSummary(input: SummaryInput): {
     const age = Number.isFinite(parsed)
       ? ` — snapshot ${formatSpan(now - parsed)} old`
       : ' — no snapshot yet'
-    return { text: `${needs}. Loop stalled${age}.`, facts, status: 'stalled' }
+    // Poller age, fixes and budget are all time-based readings of a snapshot that is stale: omit them.
+    return { text: `${needs}. Loop stalled${age}.`, facts: [], status: 'stalled' }
   }
   if (input.stalePoller !== null) {
     return {
