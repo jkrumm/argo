@@ -250,13 +250,15 @@ export function lastReadFact(lastRead: number | null, now: number): string {
 export const RATING_MAX = 5
 const RATING_BINS = RATING_MAX
 
-/**
- * A position on the histogram track, in column widths from its left edge (0…{@link RATING_MAX}).
- * Column `N` is centred on star `N`, i.e. at `N − 0.5`, so a mean of `m` stars sits at `m − 0.5`
- * (clamped to the first and last centre). The columns have a gap: see {@link gapsBefore}.
- */
 const FIRST_STAR = 1
 const HALF_STAR = 0.5
+
+/**
+ * A position on the histogram track, in column widths from its left edge (0.5…4.5, the first and
+ * last column centres). Column `N` is centred on star `N`, i.e. at `N − 0.5`, so a mean of `m`
+ * stars sits at `m − 0.5`, clamped to those centres. The columns have a gap: see
+ * {@link gapsBeforePosition}.
+ */
 const trackAt = (value: number): number =>
   Math.min(RATING_MAX, Math.max(FIRST_STAR, value)) - HALF_STAR
 
