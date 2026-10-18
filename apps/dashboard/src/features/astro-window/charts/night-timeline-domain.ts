@@ -16,5 +16,5 @@ export function timelineDomain(hourly: readonly HourlyPoint[]): [number, number]
       if (typeof v === 'number' && Number.isFinite(v) && v > peak) peak = v
     }
   }
-  return [FLOOR_DEG, Math.ceil(peak / STEP_DEG) * STEP_DEG]
+  return [FLOOR_DEG, Math.ceil(peak / STEP_DEG - 1e-9) * STEP_DEG]
 }
