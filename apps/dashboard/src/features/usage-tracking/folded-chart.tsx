@@ -23,7 +23,7 @@ import {
   dropPartialBucket,
   EM_DASH,
   fmtShare,
-  NO_USAGE_WINDOW,
+  noUsageWindow,
   OTHER_KEY,
   periodNoun,
   prepareFolded,
@@ -90,6 +90,7 @@ export function FoldedChart({
     if (!byRank) return color(key)
     return RANK_PALETTE[folded.keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
+  const emptyText = noUsageWindow(billing !== undefined || workspace !== undefined)
   const rows = compact && !showAll ? folded.totals.slice(0, COMPACT_ROWS) : folded.totals
   const hidden = folded.totals.length - rows.length
   // The chart stops at the last complete bucket (the running one would draw as a drop); the list
@@ -115,7 +116,7 @@ export function FoldedChart({
               <ViewTabs field={usageStore.field.tokensGroupBy} label="Group by" />
             )
           }
-          state={{ empty: (series.length === 0 || drawn.length === 0) && NO_USAGE_WINDOW }}
+          state={{ empty: (series.length === 0 || drawn.length === 0) && emptyText }}
         >
           <StackedArea
             ariaLabel={`${unitNoun} per ${perBucket}, stacked by ${groupNoun}`}
@@ -138,7 +139,7 @@ export function FoldedChart({
           <BarList
             label={`${unitNoun} by ${groupNoun}, ${periodNoun(range)}`}
             format={listFormat}
-            emptyText={NO_USAGE_WINDOW}
+            emptyText={emptyText}
             items={rows.map((t) => ({
               key: t.key,
               label: labelOf(t.key),

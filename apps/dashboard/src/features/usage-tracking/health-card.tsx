@@ -21,7 +21,7 @@ import {
   healthInfo,
   fmtTokens,
   foldTopN,
-  NO_USAGE_WINDOW,
+  noUsageWindow,
   OTHER_KEY,
   periodNoun,
   fmtSeconds,
@@ -87,6 +87,13 @@ export default function HealthCard({
   const rateByDay = new Map(
     rates.buckets.map((b) => [dayToDate(b.bucket).getTime(), b.groups['value'] ?? null]),
   )
+  // The timeseries emits a null bucket for every empty day, so rows are judged by their value: a
+  // window has calls when any bucket carries an error rate.
+  const hasCalls = rates.buckets.some((b) => b.groups['value'] != null)
+  const emptyWindow = noUsageWindow(billing !== undefined || workspace !== undefined)
+  const unit = grain === 'day' ? 'day' : 'week'
+  const latencyEmpty = hasCalls ? `A line needs latency on two ${unit}s` : emptyWindow
+  const errorsEmpty = hasCalls ? 'No errors in this window' : emptyWindow
   const last = p95.at(-1)
   const lastQty = secondsQuantity(last?.v)
   const folded = foldTopN(
@@ -102,7 +109,6 @@ export default function HealthCard({
     state: errorDayState(rateByDay.get(p.date.getTime()) ?? null),
   }))
   const topSource = folded.totals.find((t) => t.key !== OTHER_KEY && t.value > 0)
-  const unit = grain === 'day' ? 'day' : 'week'
   return (
     <ChartCard
       title={`Latency and errors · per ${unit} · ${periodNoun(range)}`}
@@ -138,7 +144,7 @@ export default function HealthCard({
                 },
               ]}
               tooltip={{ formatHeader: (x) => shortDay(x) }}
-              state={{ empty: p95.length < 2 && NO_USAGE_WINDOW }}
+              state={{ empty: p95.length < 2 && latencyEmpty }}
             />
           </div>
           <div className={classes.healthRight}>
@@ -163,11 +169,7 @@ export default function HealthCard({
               y={{ format: fmtTokens, ticks: 2 }}
               bars={VERDICT_BARS}
               tooltip={{ formatHeader: (x) => shortDay(x) }}
-              state={{
-                empty:
-                  folded.total === 0 &&
-                  (latency.buckets.length === 0 ? NO_USAGE_WINDOW : 'No errors in this window'),
-              }}
+              state={{ empty: folded.total === 0 && errorsEmpty }}
             />
           </div>
         </Box>

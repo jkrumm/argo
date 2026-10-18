@@ -77,11 +77,8 @@ function useDaily(metric: Metric, now: number): Series {
 }
 
 /** The cell with its readings replaced by the one empty reason. */
-const emptied = ({ key, caption, qualifier, info }: StatStripCell): StatStripCell => ({
-  key,
-  caption,
-  ...(qualifier === undefined ? {} : { qualifier }),
-  ...(info === undefined ? {} : { info }),
+const emptied = (cell: StatStripCell): StatStripCell => ({
+  ...cell,
   state: { kind: 'empty', reason: NO_USAGE_CELL },
 })
 
