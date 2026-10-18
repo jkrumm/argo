@@ -4,9 +4,23 @@ import { RECOVERY_VERDICT_NAME, recoveryVerdict } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import type { RecoveryReading } from './model'
 import { recoveryFooter } from './model'
-import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
+import {
+  acwrCell,
+  agentsCell,
+  budgetCell,
+  meetingCell,
+  recoveryCell as recoveryCellOf,
+  type SeriesState,
+} from './strip-cells'
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
+
+const SETTLED: SeriesState = { settled: true, failed: false }
+const recoveryCell = (
+  reading: Parameters<typeof recoveryCellOf>[0],
+  loading = false,
+  series: SeriesState = SETTLED,
+) => recoveryCellOf(reading, loading, series)
 
 const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
   score: 55,

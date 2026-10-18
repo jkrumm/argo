@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { PageSummary } from 'basalt-ui'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
+import { shotState } from '../../lib/shot-state'
 import { summaryParts } from './model'
 import { RefetchDim } from './refetch-dim'
 import type { SummaryParams } from './types'
@@ -16,15 +17,18 @@ export function SummaryLine({ params }: { params: SummaryParams }) {
 
   if (recovery.isPending || load.isPending) return <PageSummary sentence="" loading />
 
+  // `basalt-ui shot`'s `empty` state reads like the strip below it: no score, no load.
+  const empty = shotState() === 'empty'
   const acwr =
-    applyVisibilityFilter(load.data?.points ?? [], (p) => p.date).findLast((p) => p.acwr !== null)
-      ?.acwr ?? null
+    applyVisibilityFilter(empty ? [] : (load.data?.points ?? []), (p) => p.date).findLast(
+      (p) => p.acwr !== null,
+    )?.acwr ?? null
   return (
     <RefetchDim active={recovery.isPlaceholderData || load.isPlaceholderData}>
       <PageSummary
         {...summaryParts({
-          recovery: recovery.data?.recovery ?? null,
-          recoveryDate: recovery.data?.date ?? null,
+          recovery: empty ? null : (recovery.data?.recovery ?? null),
+          recoveryDate: empty ? null : (recovery.data?.date ?? null),
           recoveryStatus: recovery.status,
           acwr,
         })}

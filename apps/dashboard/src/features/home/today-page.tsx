@@ -4,7 +4,7 @@ import { Stack } from '@mantine/core'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
-import { RECOVERY_DAYS, lastScoredVisible } from '../garmin-health/model'
+import { RECOVERY_DAYS, lastScored } from '../garmin-health/model'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
@@ -94,10 +94,13 @@ export function TodayPage() {
   const snapshot = agentsRecord?.snapshot
   const warden = wardenQuery.data ?? null
   const wardenRaw = warden?.raw
-  const unavailable = [
-    ...(warden === null && !wardenQuery.isPending ? ['Warden'] : []),
-    ...(agentsRecord === null && !agentsQuery.isPending ? ['Agents'] : []),
-  ]
+  // Under the shot's `empty` every source answered: nothing is unavailable or stale.
+  const unavailable = shotEmpty
+    ? []
+    : [
+        ...(warden === null && !wardenQuery.isPending ? ['Warden'] : []),
+        ...(agentsRecord === null && !agentsQuery.isPending ? ['Agents'] : []),
+      ]
 
   const decisions = shotEmpty
     ? []
@@ -131,28 +134,39 @@ export function TodayPage() {
   const next = agenda === null ? null : nextMeeting(agenda.meetings, now)
 
   const tasksLoaded =
-    !projectsQuery.isError && projectsQuery.data !== undefined && taskQueries.every((q) => q.data)
+    shotEmpty ||
+    (!projectsQuery.isError && projectsQuery.data !== undefined && taskQueries.every((q) => q.data))
   const tasks = tasksLoaded
     ? taskCounts(
-        taskQueries.flatMap(
-          (q) =>
-            ((q.data as { data?: { tasks?: unknown } } | undefined)?.data?.tasks ??
-              []) as Parameters<typeof taskCounts>[0],
-        ),
+        shotEmpty
+          ? []
+          : taskQueries.flatMap(
+              (q) =>
+                ((q.data as { data?: { tasks?: unknown } } | undefined)?.data?.tasks ??
+                  []) as Parameters<typeof taskCounts>[0],
+            ),
         now,
       )
     : null
 
   // ── Body ───────────────────────────────────────────────────────────────────────────────────
-  const recovery = recoveryNow.data
-    ? recoveryReading(
-        recoveryNow.data,
-        (recoverySeries.data?.points ?? []).slice(-RECOVERY_DAYS),
-        now,
-        lastScoredVisible(recoverySeries.data?.points ?? []),
-      )
-    : null
-  const loadPoints = loadQuery.data?.points
+  // The series is the source of the trend and of the last scored day: one flag for both and for the cell.
+  const seriesSettled = recoverySeries.isSuccess && !recoverySeries.isPlaceholderData
+  const recoverySnapshot = shotEmpty ? undefined : recoveryNow.data
+  const recoveryPoints = applyVisibilityFilter(
+    shotEmpty ? [] : (recoverySeries.data?.points ?? []),
+    (p) => p.date,
+  )
+  const recovery =
+    recoverySnapshot || shotEmpty
+      ? recoveryReading(
+          recoverySnapshot,
+          recoveryPoints.slice(-RECOVERY_DAYS),
+          now,
+          seriesSettled ? lastScored(recoveryPoints) : null,
+        )
+      : null
+  const loadPoints = shotEmpty ? [] : loadQuery.data?.points
   // The Garmin Health strip's visibility rule, so both pages name the same "latest" day.
   const acwr = useMemo(
     () =>
@@ -176,10 +190,14 @@ export function TodayPage() {
     now,
   )
   const stale = staleFeeds(
-    [
-      ...(warden === null ? [] : [{ name: 'Warden', receivedAt: warden.receivedAt }]),
-      ...(agentsRecord === null ? [] : [{ name: 'Agents', receivedAt: agentsRecord.receivedAt }]),
-    ],
+    shotEmpty
+      ? []
+      : [
+          ...(warden === null ? [] : [{ name: 'Warden', receivedAt: warden.receivedAt }]),
+          ...(agentsRecord === null
+            ? []
+            : [{ name: 'Agents', receivedAt: agentsRecord.receivedAt }]),
+        ],
     now,
   )
 
@@ -213,7 +231,7 @@ export function TodayPage() {
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
             recoveryCell(recovery, recoveryNow.isPending, {
-              settled: recoverySeries.isSuccess && !recoverySeries.isPlaceholderData,
+              settled: seriesSettled,
               failed: recoverySeries.isError,
             }),
             acwrCell(acwr, now),

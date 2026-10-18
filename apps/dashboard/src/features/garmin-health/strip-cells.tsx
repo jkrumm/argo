@@ -32,7 +32,7 @@ import {
   vo2Hero,
   contributorItems,
   firstToLast,
-  lastScoredVisible,
+  lastScored,
   missingInputs,
   recoveryGap,
   loadFooter,
@@ -99,7 +99,10 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   const empty = shotState() === 'empty'
   const seriesData = empty ? undefined : series.data
 
-  const last = useMemo(() => lastScoredVisible(seriesData?.points ?? []), [seriesData])
+  const last = useMemo(
+    () => lastScored(applyVisibilityFilter(seriesData?.points ?? [], (p) => p.date)),
+    [seriesData],
+  )
 
   const data = empty ? undefined : summary.data
   const score = data?.recovery ?? null

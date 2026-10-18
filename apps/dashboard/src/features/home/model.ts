@@ -306,10 +306,13 @@ export type ActivityEvent = {
   detail?: string
 }
 
-/** Where a remaining decision is waiting: Agents holds the agents and the human queue, Warden its own items. */
+/** Where a remaining decision waits: Agents holds the agents and the human queue, Warden its items. */
 const REST_PLACE = { '/agents': 'on Agents', '/warden': 'in Warden' } as const
 
-/** The show-more button for the `count` decisions beyond the cards, worded as the remainder (the summary's facts count the whole list). */
+/**
+ * The show-more button for the `count` decisions beyond the cards, worded as the remainder (the
+ * summary's facts count the whole list).
+ */
 export const restLabel = (href: keyof typeof REST_PLACE, count: number): string =>
   `${count} more ${REST_PLACE[href]}`
 
