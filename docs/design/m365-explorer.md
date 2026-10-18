@@ -221,3 +221,11 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the `Chats by kind` lead caption no longer restates the hero's count (`{kind}`; the rest keep `{kind} {n}`, a tie keeps every count); the labeled pane has one root with its header above the scroll area, so the scrollbar starts under the header; the light 390 mid-load capture is gone; `empty` declared (the two phone presets' remaining `craft-7` fixed after the shot in `69568a6`). **New (argo, empty state):** the unfiltered source list reads `No chats yet` with no reason or next step, while the labeled pane beside it gives both; the labeled cell draws a blank track with `Labeled 0 · Unlabeled 0` under `0 of 0`. Unscored: the `Labeled {n}` caption repeats the hero's `{n} of {total}` (the restatement just fixed in `Chats by kind`); `no channels` repeats `0 channels`; the labeled row's focus ring sits flush on the pane edge with the remove control outside it. Carried: tag-chip hover (basalt); row hover unverifiable (harness hovers the pane); the 390 labeled header not captured (harness); the 390 2 + 1 strip (basalt); the ~640 px empty band under the panes at 1440 (owner unproven); the 390 detail pane with a source open not verified.
 - **Against Keel:** close — Keel's rows carry real columns; ours are name + meta + time.
+
+### Wave 33 fixes (round 12)
+
+- **One empty pattern:** `No chats yet — Microsoft 365 returned none; refresh to retry` (and the same for teams) matches the labeled pane's `{what} — {next step}` shape.
+- **Labeled cell:** with nothing to label the cell states it once (`Nothing to label — no chats or channels came back; refresh to retry`) instead of a blank track under `0 of 0`.
+- **No restatement:** the labeled meter's lead caption is `Labeled` (the hero holds `{n} of {total}`); on a tie both captions keep their count. The channels footer drops `no channels` when the hero reads `0 channels`.
+- **Focus ring:** a source row's focus ring is inset, so it no longer sits flush on the pane edge.
+- **Basalt, no workaround:** tag-chip hover, the 390 2 + 1 strip.
