@@ -5,6 +5,10 @@
  * fetch — for a route whose loader awaits its data that is the route's pending / error screen, not a
  * card, so its anchors do not declare those states; `empty`
  * is page-owned — a page substitutes its own empty data where `shotState() === 'empty'`.
+ *
+ * Honoured in the production bundle on purpose: the redesign loop shoots the deployed dashboard
+ * (`basalt-ui shot --base https://argo.jkrumm.com`). The param only changes what this tab renders
+ * (it writes nothing), and the dashboard has one authenticated user; a URL carrying it is a shot URL.
  */
 export type ShotState = 'empty' | 'loading' | 'error'
 
