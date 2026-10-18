@@ -570,17 +570,36 @@ function historyFact(row: AwaitingOwnerRow): string {
     .join(', ')
 }
 
-/** The repo (first, so `capFacts` never drops it) plus `waiting {d} d {h} h` (the app's one duration spelling) and the item's history. */
+/** Milliseconds from the snapshot's receipt to `now`; 0 when the receipt is unknown or ahead of the clock. */
+export function sinceSnapshotMs(receivedAt: string | null, now: number): number {
+  const received = receivedAt === null ? Number.NaN : Date.parse(receivedAt)
+  return Number.isFinite(received) ? Math.max(0, now - received) : 0
+}
+
+/** `waiting {duration}`; under a minute `waiting <1 min`, never `waiting 0 min` (a measured zero is not a wait). */
+function waitingFact(ms: number): string {
+  return `waiting ${ms < 60_000 ? formatDuration(1) : formatDuration(ms)}`
+}
+
+/**
+ * The repo (first, so `capFacts` never drops it) plus `waiting {d} d {h} h` (the app's one duration spelling) and the item's history.
+ * `ageDays` is frozen at the snapshot's push, so `sinceSnapshotMs` (live clock minus the push time) carries it
+ * to now — the same clock the history's `{n} min ago` reads.
+ */
 export function cardFacts(
   row: AwaitingOwnerRow,
   repo = stripShortcodes(asText(row.repo)),
+  sinceSnapshotMs = 0,
 ): DecisionCardFact[] {
   const waiting =
     row.ageDays === null
       ? ''
       : row.ageDays > WAIT_WARN_DAYS
-        ? { text: `waiting ${formatDuration(row.ageDays * DAY_MS)}`, tone: 'warn' as const }
-        : `waiting ${formatDuration(row.ageDays * DAY_MS)}`
+        ? {
+            text: waitingFact(row.ageDays * DAY_MS + sinceSnapshotMs),
+            tone: 'warn' as const,
+          }
+        : waitingFact(row.ageDays * DAY_MS + sinceSnapshotMs)
   return [repo, waiting, historyFact(row)].filter((part) => part !== '')
 }
 

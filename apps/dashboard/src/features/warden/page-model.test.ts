@@ -5,6 +5,7 @@ import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from '.
 import { formatDuration } from '../../lib/format'
 import {
   cardFacts,
+  sinceSnapshotMs,
   deferredNote,
   deriveBoardColumns,
   deriveBudget,
@@ -474,6 +475,33 @@ describe('cardFacts glue', () => {
     expect(historyAge(new Date(0).toISOString(), 0.1 * 86_400_000)).toBe(
       `${formatDuration(0.1 * 86_400_000)}\u00a0ago`,
     )
+  })
+})
+
+describe('cardFacts waiting boundaries', () => {
+  const MIN = 60_000
+  const waitingAt = (ageDays: number, sinceMs = 0) =>
+    cardFacts(row({ ageDays }), 'repo-a', sinceMs)[1]
+  it('never reads a zero: under a minute is `<1 min`', () => {
+    expect(waitingAt(0)).toBe('waiting <\u00a01\u00a0min')
+    expect(waitingAt(0, 59_000)).toBe('waiting <\u00a01\u00a0min')
+  })
+  it('a minute and past reads the duration', () => {
+    expect(waitingAt(0, MIN)).toBe('waiting 1\u00a0min')
+    expect(waitingAt(0, 5 * MIN)).toBe('waiting 5\u00a0min')
+  })
+  it('the waiting fact and the history age of one row agree on the live clock', () => {
+    const receivedAt = new Date(1_000_000).toISOString()
+    const now = 1_000_000 + 3 * MIN
+    const transitionAt = new Date(1_000_000).toISOString()
+    const waiting = waitingAt(0, sinceSnapshotMs(receivedAt, now))
+    expect(waiting).toBe('waiting 3\u00a0min')
+    expect(historyAge(transitionAt, now)).toBe('3\u00a0min\u00a0ago')
+  })
+  it('sinceSnapshotMs is 0 for an unknown or future receipt', () => {
+    expect(sinceSnapshotMs(null, 10)).toBe(0)
+    expect(sinceSnapshotMs('nope', 10)).toBe(0)
+    expect(sinceSnapshotMs(new Date(20).toISOString(), 10)).toBe(0)
   })
 })
 
