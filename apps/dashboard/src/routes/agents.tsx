@@ -13,10 +13,14 @@ import {
   oldestNeedsYouWait,
   countUnknownAgents,
   feedState,
+  snapshotAgeMs,
+  ageAgo,
+  STALE_AFTER_MS,
+  summaryParts,
 } from '../features/agents/model'
 import { FeedNotice } from '../features/agents/feed-notice'
 import { StaleBanner } from '../features/agents/stale-banner'
-import { PageSummary } from '../features/agents/page-summary'
+import { PageSummary } from '../components/upstream/page-summary'
 import { FleetStrip } from '../features/agents/fleet-strip'
 import { NeedsYouSection } from '../features/agents/needs-you-section'
 import { ProjectCards } from '../features/agents/project-cards'
@@ -54,6 +58,15 @@ function AgentsPage() {
   const needsYouItems = needsYouCount(humanQueue, agents, now)
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
+  const summary = summaryParts({
+    items: needsYouItems,
+    oldestWaitMs: oldestAgent?.ms ?? null,
+    oldestAskMs: askMs,
+    fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
+    idleProjects: quiet.length,
+  })
+  const feedAge = latest === null ? null : snapshotAgeMs(latest, now)
+
   const feed = feedState({
     hasData: latest !== null,
     isPending: latestQuery.isPending,
@@ -83,17 +96,15 @@ function AgentsPage() {
           <Skeleton h="8rem" aria-label="Loading the agent snapshot" />
         ) : (
           <Stack gap="md" opacity={feed === 'stale' ? 0.6 : 1}>
-            {feed === 'failed' ? null : (
+            {feed === 'failed' || latest === null ? null : (
               <PageSummary
-                latest={latest}
-                now={now}
-                summary={{
-                  items: needsYouItems,
-                  oldestWaitMs: oldestAgent?.ms ?? null,
-                  oldestAskMs: askMs,
-                  fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
-                  idleProjects: quiet.length,
-                }}
+                sentence={summary.sentence}
+                facts={summary.facts}
+                aside={
+                  feedAge === null
+                    ? undefined
+                    : `${feedAge < STALE_AFTER_MS ? 'Live' : 'Stale'} · updated ${ageAgo(feedAge)}`
+                }
               />
             )}
             {feed === 'failed' ? null : (
