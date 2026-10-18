@@ -34,6 +34,7 @@ import {
   withFacts,
   windowFact,
   peakLowCloud,
+  lowCloudPeakFact,
   peakMonth,
   nextUsableText,
   gateMissText,
@@ -150,7 +151,7 @@ describe('coreGateDetail', () => {
     }) as unknown as Night
   test('branches on the API cause tag, with no figure', () => {
     expect(coreGateDetail(failed('ridge'))).toBe('the skyline raised the gate')
-    expect(coreGateDetail(failed('floor'))).toBe('below the atmospheric floor')
+    expect(coreGateDetail(failed('floor'))).toBe('stayed too low above the horizon')
     expect(coreGateDetail(failed('never-rises'))).toBe('never rises while it is dark')
   })
   test('an unknown or missing cause shows the API reason verbatim', () => {
@@ -450,6 +451,23 @@ describe('windowFact', () => {
   })
 })
 
+describe('lowCloudPeakFact', () => {
+  const hour = (astroDark: boolean, cloudLow: number | null) =>
+    ({ astroDark, cloudLow }) as unknown as HourlyPoint
+
+  test('one statistic and window for the cell and the chart: the dark-hours peak', () => {
+    expect(lowCloudPeakFact([hour(false, 90), hour(true, 30.4)])).toEqual({
+      value: '30\u00a0%',
+      unit: 'peak low cloud',
+      period: 'during astronomical dark',
+    })
+  })
+  test('without dark readings it is the whole night; without data it is null', () => {
+    expect(lowCloudPeakFact([hour(false, 40)])?.period).toBe('over the night')
+    expect(lowCloudPeakFact([hour(true, null)])).toBeNull()
+  })
+})
+
 describe('peakLowCloud', () => {
   const hour = (astroDark: boolean, cloudLow: number | null) =>
     ({ astroDark, cloudLow }) as unknown as HourlyPoint
@@ -573,8 +591,8 @@ describe('lowCloudRow', () => {
       factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0.1, ruinous }],
     }) as unknown as Night
 
-  test('quotes the scored window mean when the API calls the factor ruinous', () => {
-    expect(lowCloudRow(night(true))).toBe('62 % mean over the shooting window')
+  test('states no figure when the API calls the factor ruinous', () => {
+    expect(lowCloudRow(night(true))).toBe('lowers the score, not a gate')
   })
 
   test('no row unless the API says ruinous, nor without a scored value', () => {
@@ -591,13 +609,13 @@ describe('moonGateDetail', () => {
   const night = (killers: Night['killers'], darkMinutes = 300) =>
     ({ killers, darkMinutes, moon: { illumination: 0.456 } }) as unknown as Night
 
-  test('a failed gate shows the API reason verbatim', () => {
+  test('a failed gate says why, without repeating the Moon cell figures', () => {
     expect(
       moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'moon 46% up' }]), 0.25),
-    ).toBe('moon 46% up')
+    ).toBe('over the limit while up and clear of the skyline')
   })
-  test('a pass states the illumination against the response limit', () => {
-    expect(moonGateDetail(night([]), 0.5)).toBe('46 % lit · limit 50 %')
+  test('a pass under the limit says so in words', () => {
+    expect(moonGateDetail(night([]), 0.5)).toBe('under the limit')
   })
 })
 
@@ -617,7 +635,7 @@ describe('gateRows', () => {
       ['darkness', 'passed', 'good'],
       ['core-altitude', 'passed', 'good'],
       ['moon', 'passed', 'good'],
-      ['cloud-low', 'ruinous · scored, not a gate', 'neutral'],
+      ['cloud-low', 'ruinous', 'neutral'],
     ])
   })
 
@@ -679,14 +697,12 @@ describe('moon gate row on a pass', () => {
 
   test('over the limit it says why it passed, never a bare contradiction', () => {
     expect(moonGateDetail(passed(-10), 0.25)).toBe(
-      '96 % lit, over the 25 % limit · down through the shooting window',
+      'over the limit · down through the shooting window',
     )
     expect(moonGateDetail(passed(12), 0.25)).toBe(
-      '96 % lit, over the 25 % limit · behind the skyline in the shooting window',
+      'over the limit · behind the skyline in the shooting window',
     )
-    expect(moonGateDetail(passed(0, true), 0.25)).toBe(
-      '96 % lit, over the 25 % limit · passed on its position',
-    )
+    expect(moonGateDetail(passed(0, true), 0.25)).toBe('over the limit · passed on its position')
   })
 })
 
@@ -743,7 +759,7 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: 'core at its closest to the gate',
+      unit: 'core at its closest',
       period: 'gate 9.8°',
     })
   })

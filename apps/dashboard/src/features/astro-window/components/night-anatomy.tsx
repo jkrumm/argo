@@ -9,11 +9,14 @@ import {
   fmtDegrees,
   fmtLocalClock,
   fmtMinutes,
+  lowCloudPeakFact,
   moonPhaseLabel,
+  peakLowCloud,
   skyCellFooter,
 } from '../formulas'
 import { LP_RAMP, LP_RAMP_MAX, LP_RAMP_MIN } from '../map-layers'
-import type { Location, Night } from '../types'
+import { withUnit } from '../../../lib/format'
+import type { HourlyPoint, Location, Night } from '../types'
 import classes from './night-anatomy.module.css'
 
 const pct = (value: number, min: number, max: number) =>
@@ -47,8 +50,6 @@ function SkyScale({ mpsas }: { mpsas: number | null }) {
     </Box>
   )
 }
-
-const cloudPct = (value: number | null) => (value === null ? '—' : `${Math.round(value)} %`)
 
 /** A reading against a limit: a muted fill with a tick at `target`. A missing reading keeps the track and tick. */
 function gauge(label: string, value: number | null, max: number, target: number | null): ReactNode {
@@ -92,23 +93,30 @@ function coreCell(night: Night): StatStripCell {
 }
 
 /**
- * The selected night in five readings — Dark, Core, Moon, Cloud, Sky — as a `StatGroup` strip. Every micro-visual is a reading against a target: the core and the moon against their gates, the sky against the dark threshold. Cloud has no limit the API sends, so it states values and draws nothing.
+ * The selected night in five readings — Dark, Core, Moon, Cloud, Sky — as a `StatGroup` strip. Every micro-visual is a reading against a target: the core and the moon against their gates, low cloud against the engine's ruin level, the sky against the dark threshold.
  */
 export function NightAnatomy({
   night,
+  hourly,
   location,
   moonLimit,
+  cloudLimit,
 }: {
   night: Night
+  /** The selected night's hourly rows: the Forecast cloud chart's own input, so the Cloud cell and the chart state one figure. */
+  hourly: readonly HourlyPoint[]
   location: Location
   moonLimit: number
+  /** Low-cloud cover (percent) at which the engine calls the night ruined. */
+  cloudLimit: number
 }) {
   const { timeZone } = location
   const limitPct = Math.round(moonLimit * 100)
   const moonPct = Math.round(night.moon.illumination * 100)
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
   const moonSet = night.moon.set === null ? null : fmtLocalClock(night.moon.set, timeZone)
-  const { weather } = night
+  const cloud = lowCloudPeakFact(hourly)
+  const cloudPeak = peakLowCloud(hourly)?.pct ?? null
 
   return (
     <Box data-shot="night-anatomy">
@@ -133,7 +141,7 @@ export function NightAnatomy({
           {
             key: 'moon',
             caption: 'Moon',
-            value: `${moonPct} %`,
+            value: withUnit(moonPct, '%'),
             unit: 'lit',
             visual: gauge(
               `Moon ${moonPct} percent against a ${limitPct} percent limit`,
@@ -141,14 +149,20 @@ export function NightAnatomy({
               100,
               limitPct,
             ),
-            footer: `limit ${limitPct} % · ${moonPhaseLabel(night.moon.phase)}${moonSet === null ? '' : ` · sets ${moonSet}`}`,
+            footer: `limit ${withUnit(limitPct, '%')} · ${moonPhaseLabel(night.moon.phase)}${moonSet === null ? '' : ` · sets ${moonSet}`}`,
           },
           {
             key: 'cloud',
             caption: 'Cloud cover',
-            value: cloudPct(weather.cloudLow),
-            unit: 'low',
-            footer: `mid ${cloudPct(weather.cloudMid)} · high ${cloudPct(weather.cloudHigh)}`,
+            value: cloud?.value ?? null,
+            ...(cloud === null ? {} : { unit: cloud.unit }),
+            visual: gauge(
+              `Peak low cloud ${cloud?.value ?? 'unknown'} against a ruin level of ${cloudLimit} percent`,
+              cloudPeak,
+              100,
+              cloudLimit,
+            ),
+            footer: `limit ${withUnit(cloudLimit, '%')} · ${cloud?.period ?? 'no cloud data'}`,
           },
           {
             key: 'sky',
@@ -158,7 +172,7 @@ export function NightAnatomy({
             visual: <SkyScale mpsas={sky} />,
             footer: skyCellFooter({
               domePenaltyMag: location.domePenaltyMag,
-              transparency: weather.transparency,
+              transparency: night.weather.transparency,
             }),
           },
         ]}

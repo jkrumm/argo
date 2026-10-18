@@ -285,8 +285,8 @@ function AstroWindowPage() {
               label="Site"
               options={sites.data.map((s) => ({
                 value: s.id,
-                // The core direction, not the zenith: it is the number the ranking turns on. No drive time: the longer label cut the selected value at 1440.
-                label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} mag`,
+                // Name only: the Sky cell states the brightness, and any longer label cut the selected value at 1440 and 390.
+                label: s.name,
               }))}
             />
             {/* `field.number` + `NumberFilter` (basalt-ui 1.27.0): the URL keeps a NUMBER, and
@@ -334,7 +334,7 @@ function AstroWindowPage() {
         </Suspense>
       ) : (
         <Stack gap="sm">
-          <PageSummary sentence={summary.sentence} facts={summary.facts} aside={summary.aside} />
+          <PageSummary sentence={summary.sentence} facts={summary.facts} />
           {search.tab === 'tonight' && selectedNight && (
             <TonightTop
               verdict={
@@ -372,8 +372,10 @@ function AstroWindowPage() {
                 <Grid.Col span={{ base: 12, lg: 9 }}>
                   <NightAnatomy
                     night={selectedNight}
+                    hourly={data.detail.hourly}
                     location={data.location}
                     moonLimit={data.moonMaxIllumination}
+                    cloudLimit={data.cloudRuinsAt.low}
                   />
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, lg: 3 }}>
