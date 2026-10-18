@@ -245,27 +245,42 @@ describe('chatKindParts', () => {
     )
     expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual([])
   })
+
+  test('every kind with chats is covered with its count, the value the bar caption prints', () => {
+    const parts = chatKindParts({ oneOnOne: 5, group: 3, meeting: 2, other: 1 })
+    expect(parts.map((p) => [p.key, p.value])).toEqual([
+      ['oneOnOne', 5],
+      ['group', 3],
+      ['meeting', 2],
+      ['other', 1],
+    ])
+  })
+
+  test('a tie keeps reading order', () => {
+    const parts = chatKindParts({ oneOnOne: 2, group: 2, meeting: 2, other: 2 })
+    expect(parts.map((p) => p.key)).toEqual(['oneOnOne', 'group', 'meeting', 'other'])
+  })
 })
 
 describe('chatsStat', () => {
-  test('the leading kind is the hero; the bar captions name the rest, so no footer', () => {
+  test('the leading kind is the hero; the bar captions name the rest, so no empty line', () => {
     expect(chatsStat({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual({
       hero: { value: '4', unit: 'direct chats' },
-      footer: null,
+      empty: null,
     })
     expect(chatsStat({ oneOnOne: 1, group: 3, meeting: 3, other: 0 })).toEqual({
       hero: { value: '3', unit: 'group chats' },
-      footer: null,
+      empty: null,
     })
   })
   test('one kind is the hero alone, none says so', () => {
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 1, other: 0 })).toEqual({
       hero: { value: '1', unit: 'meeting' },
-      footer: null,
+      empty: null,
     })
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual({
       hero: null,
-      footer: 'no chats',
+      empty: 'no chats',
     })
   })
 })

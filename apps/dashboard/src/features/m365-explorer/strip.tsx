@@ -59,7 +59,7 @@ function labeledCell(
 
 /**
  * The chat kinds as one split bar, shaded by rank (a split is not a verdict); the hero is the leading
- * kind, the footer the rest. A kind with no chats is left out; `other` takes any kind the API adds later.
+ * kind and the bar's row captions name every kind with its count. A kind with no chats is left out; `other` takes any kind the API adds later.
  */
 function chatsCell(chats: Chats): StatStripCell {
   const parts = chatKindParts(chats)
@@ -84,7 +84,7 @@ function chatsCell(chats: Chats): StatStripCell {
           }))}
         />
       ),
-    ...(stat.footer === null ? {} : { footer: stat.footer }),
+    ...(stat.empty === null ? {} : { footer: stat.empty }),
   }
 }
 

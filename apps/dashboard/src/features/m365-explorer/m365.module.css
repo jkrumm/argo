@@ -74,6 +74,7 @@
   cursor: pointer;
 }
 
+/* panel-hover is lighter than panel in the light scheme: a hand-mixed ink wash reads in both. A chip is not a row, so no row token. */
 .chip:hover:not(.chipActive) {
   background: color-mix(in srgb, var(--vx-ink) 12%, var(--vx-surface-subtle));
 }
