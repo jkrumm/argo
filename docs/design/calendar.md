@@ -216,4 +216,4 @@ No new basalt rows.
 
 ### Wave 38 round
 
-- **Tasks-due empty names its whole scope:** the card is scoped `Overdue or due within 7 days`, so its empty line reads `Nothing overdue or due in the next 7 days.` (was `Nothing due in the next 7 days.`). Closes the Wave 37 carried P3. No lost fact.
+- **Tasks-due empty names its whole scope:** the card is scoped `Overdue or due within 7 days`, so its empty line reads `Nothing overdue or due within 7 days.` (was `Nothing due in the next 7 days.`) — the subtitle's wording verbatim. Closes the Wave 37 carried P3. No lost fact.
