@@ -49,7 +49,8 @@ function WardenPage() {
   const [refreshRequested, setRefreshRequested] = useState(false)
 
   // `empty` is the real "nothing pushed yet" branch (404 → null).
-  const snapshot = shotState() === 'empty' ? null : (snapshotQuery.data ?? null)
+  const pushedSnapshot = snapshotQuery.data ?? null
+  const snapshot = shotState() === 'empty' ? null : pushedSnapshot
   // The request ends when the fetch it started settles — two quick clicks share one settle.
   const isFetching = snapshotQuery.isFetching
   const [wasFetching, setWasFetching] = useState(isFetching)

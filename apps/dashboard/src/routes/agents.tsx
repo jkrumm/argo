@@ -50,8 +50,12 @@ function AgentsPage() {
 
   const historyQuery = useQuery(agentsQueries.history(HISTORY_HOURS))
 
-  // `empty` is the real "nothing pushed yet" branch (`latest: null`).
-  const latest = shotState() === 'empty' ? null : (latestQuery.data?.latest ?? null)
+  // `empty` is the real "nothing pushed yet" branch: no overview and no history (same producer).
+  // Narratives come from another producer (hermes-agent), so they stay live.
+  const emptyShot = shotState() === 'empty'
+  const pushedLatest = latestQuery.data?.latest ?? null
+  const latest = emptyShot ? null : pushedLatest
+  const history = emptyShot ? undefined : historyQuery.data?.data
   const snapshot = latest?.snapshot
   const agents = flattenAgents(snapshot)
   const now = useNow()
@@ -125,7 +129,7 @@ function AgentsPage() {
             <NeedsYouSection cards={cards} unknown={latest === null} />
             {feed === 'failed' ? null : <ProjectCards active={active} quiet={quiet} now={now} />}
             {feed === 'failed' ? null : (
-              <ActivityStrip history={historyQuery.data?.data} hours={HISTORY_HOURS} now={now} />
+              <ActivityStrip history={history} hours={HISTORY_HOURS} now={now} />
             )}
             <NarrativesSection query={narrativesQuery} />
           </Stack>
