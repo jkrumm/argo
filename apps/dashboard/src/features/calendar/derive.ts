@@ -454,14 +454,14 @@ export type TaskDue = {
   dueKey: DayKey
   overdue: boolean
   tone: TaskTone
-  /** `High` / `Medium` text so priority is never colour alone; `Low` and none are unlabeled. */
-  label: 'High' | 'Medium' | null
+  /** Every task names its priority in words, so it is never colour alone. */
+  label: 'High' | 'Medium' | 'Low' | 'No priority'
 }
 
 function taskTone(priority: number | undefined): { tone: TaskTone; label: TaskDue['label'] } {
   if (priority !== undefined && priority >= 5) return { tone: 'bad', label: 'High' }
   if (priority !== undefined && priority >= 3) return { tone: 'warn', label: 'Medium' }
-  return { tone: 'neutral', label: null }
+  return { tone: 'neutral', label: priority === undefined || priority <= 0 ? 'No priority' : 'Low' }
 }
 
 const labelRank = (label: TaskDue['label']): number =>

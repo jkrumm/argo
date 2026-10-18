@@ -184,9 +184,8 @@
 }
 
 .taskTitle {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps at word boundaries; the full title is also the element's title attribute. */
+  overflow-wrap: break-word;
   color: var(--vx-ink);
 }
 

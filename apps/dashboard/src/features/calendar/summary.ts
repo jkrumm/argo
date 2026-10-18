@@ -1,6 +1,6 @@
 /** The Agenda's summary sentence — pure, so its wording is tested on synthetic events. */
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
-import { addDays, displayTitle, keyToDate, type AgendaSummary, type FreeBlock } from './derive'
+import { addDays, displayTitle, keyToDate, type AgendaSummary } from './derive'
 
 const weekdayShort = (key: string) =>
   keyToDate(key).toLocaleDateString('en-GB', { weekday: 'short' })
@@ -27,12 +27,10 @@ const keepTogether = (text: string) => text.replace(/(\d+h) (\d+m)/g, '$1\u00a0$
 
 /**
  * The page opening, built from the same derivation as the lists and the strip beside it: the
- * headline answers "what is today", the facts carry the countdown and the week.
+ * headline answers "what is today", the facts carry the countdown and the week. The free time
+ * left is the free-block cell's, not repeated here.
  */
-export function summaryParts(
-  summary: AgendaSummary,
-  free: FreeBlock | null,
-): { sentence: string; facts: string[] } {
+export function summaryParts(summary: AgendaSummary): { sentence: string; facts: string[] } {
   // A calendar that has not answered makes every figure unknown: dashes, never "No events".
   if (
     summary.todayCount === null ||
@@ -44,7 +42,7 @@ export function summaryParts(
   const sentence =
     summary.todayCount > 0
       ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatDurationMin(summary.todayBookedMin)} booked`
-      : `No events today${free ? ` · ${formatDurationMin(free.minutes)} free` : ''}`
+      : 'No events today'
   const week =
     summary.weekBookedMin === 0
       ? 'nothing booked this week'

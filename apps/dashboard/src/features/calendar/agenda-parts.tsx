@@ -172,7 +172,7 @@ export function WeekStrip({
       <Section title={title}>
         <Box className={`${classes.stripRow} ${classes.stripHead}`} aria-hidden>
           <span />
-          <span className={classes.stripTarget}>{DAY_TARGET_H} h</span>
+          <span className={classes.stripTarget}>target {DAY_TARGET_H} h</span>
           <span className={classes.stripBooked}>booked</span>
           <span className={classes.stripCount}>events</span>
         </Box>
@@ -214,15 +214,16 @@ export function WeekStrip({
               color: SPLIT_COLOR[key],
             }))}
           />
-        ) : (
+        ) : unknown.size > 0 ? (
+          // The week's total is the headline's; a split is only worth a line when a source is missing.
           <Box className={classes.split}>
-            {(['work', 'personal'] as const).map((key) => (
-              <span key={key}>
-                {SPLIT_LABEL[key]} {unknown.has(key) ? '—' : formatDurationMin(split[key])}
-              </span>
-            ))}
+            {(['work', 'personal'] as const)
+              .filter((key) => unknown.has(key))
+              .map((key) => (
+                <span key={key}>{SPLIT_LABEL[key]} unavailable</span>
+              ))}
           </Box>
-        )}
+        ) : null}
       </Section>
     </Card>
   )
