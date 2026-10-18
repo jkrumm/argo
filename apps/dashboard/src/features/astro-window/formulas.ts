@@ -659,9 +659,13 @@ export function skyCellFooter({
 
 /** What the Forecast tab presents: the unknown-site card alone when the site is not in the fetched list, else the night's cards; `none` off the Forecast tab or with no night. */
 export type ForecastView = 'unknown-site' | 'night' | 'none'
-export function forecastView(tab: string, site: unknown, night: Night | null): ForecastView {
+export function forecastView(
+  tab: 'tonight' | 'map' | 'forecast',
+  site: { id: string } | undefined,
+  night: Night | null,
+): ForecastView {
   if (tab !== 'forecast') return 'none'
-  if (!site) return 'unknown-site'
+  if (site === undefined) return 'unknown-site'
   return night === null ? 'none' : 'night'
 }
 

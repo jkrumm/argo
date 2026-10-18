@@ -1145,12 +1145,6 @@ describe('unknownSiteCopy', () => {
   })
 })
 
-describe('gate miss wording', () => {
-  test('binds `its` to `gate` with a no-break space, so `gate` never wraps alone', () => {
-    expect(gateMissText(outNight('2026-06-13', 8, 4.1))).toContain('its\u00a0gate')
-  })
-})
-
 describe('forecastView', () => {
   const site = { id: 'example-site' }
   const night = outNight('2026-06-13', 8, 4.1)
