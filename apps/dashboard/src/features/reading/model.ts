@@ -252,6 +252,9 @@ export type BinLabel = { span: string; aria: string }
 /** Five bins on a 0…5 track; bin `i` is `(i, i + 1]`, so each holds two half steps. The one source of the bin rule, its edges and the mean marker. */
 const RATING_BINS = 5
 
+/** A 0–100 position on a track; the one clamp for the mean marker and the pace ticks. */
+const toPercent = (v: number): number => Math.min(100, Math.max(0, v))
+
 /** `(0.5, 1]` → 0 … `(4.5, 5]` → 4; a rating outside 0.5–5 clamps to the end bin. */
 export function ratingBin(rating: number): number {
   return Math.min(RATING_BINS, Math.max(1, Math.ceil(rating))) - 1
@@ -291,7 +294,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
     labels: tuple5(binLabel),
     n: rated.length,
     mean,
-    meanAt: mean === null ? null : Math.min(100, Math.max(0, (mean / RATING_BINS) * 100)),
+    meanAt: mean === null ? null : toPercent((mean / RATING_BINS) * 100),
     community:
       community.length === 0
         ? null
@@ -428,8 +431,8 @@ export function paceRange(paces: readonly number[]): string | null {
   return `slowest ${paceEndpoint(Math.min(...paces))}, fastest ${withUnit(paceEndpoint(Math.max(...paces)), 'pages/h')}`
 }
 
-/** One tick per distinct displayed pace, `count` books at it. */
-export type PaceTick = { at: number; count: number }
+/** One tick per distinct displayed pace: its position, `count` books at it, and its `pace` as shown. */
+export type PaceTick = { at: number; count: number; pace: string }
 
 /** The pace axis: ticks and the median as 0–100 along the slowest-to-fastest span. */
 export type PaceTicks = { ticks: PaceTick[]; medianAt: number; slowest: string; fastest: string }
@@ -440,14 +443,17 @@ export type PaceTicks = { ticks: PaceTick[]; medianAt: number; slowest: string; 
  * with fewer than two distinct paces: a span of one value has no distribution to draw.
  */
 export function paceTicks(paces: readonly number[], median: number): PaceTicks | null {
-  const lo = Math.min(...paces)
-  const hi = Math.max(...paces)
-  if (paces.length < 2 || lo === hi) return null
-  const along = (v: number) => Math.min(100, Math.max(0, ((v - lo) / (hi - lo)) * 100))
+  const shown = paces.map(Math.round)
+  const lo = Math.min(...shown)
+  const hi = Math.max(...shown)
+  if (shown.length < 2 || lo === hi) return null
+  const along = (v: number) => toPercent(((v - lo) / (hi - lo)) * 100)
   const counts = new Map<number, number>()
-  for (const pace of paces) counts.set(pace, (counts.get(pace) ?? 0) + 1)
+  for (const pace of shown) counts.set(pace, (counts.get(pace) ?? 0) + 1)
   return {
-    ticks: [...counts].toSorted(([a], [b]) => a - b).map(([v, count]) => ({ at: along(v), count })),
+    ticks: [...counts]
+      .toSorted(([a], [b]) => a - b)
+      .map(([v, count]) => ({ at: along(v), count, pace: paceEndpoint(v) })),
     medianAt: along(median),
     slowest: paceEndpoint(lo),
     fastest: paceEndpoint(hi),
