@@ -184,16 +184,18 @@ describe('buildView', () => {
 })
 
 describe('summary', () => {
-  it('carries no figure: what is running, over every thread', () => {
+  it('carries the figure it rests on: what is running, of every thread', () => {
     expect(summaryHeadline([entry({ id: 'a' }), entry({ id: 'b', streaming: true })])).toEqual({
-      sentence: 'Hermes is replying',
+      sentence: 'Hermes is replying in 1 of 2 threads',
     })
-    expect(summaryHeadline([entry({ id: 'a' })])).toEqual({ sentence: 'Nothing running' })
+    expect(summaryHeadline([entry({ id: 'a' })])).toEqual({
+      sentence: 'Nothing running in 1 thread',
+    })
   })
 
   it('counts archived threads, and has no headline with none at all', () => {
     expect(summaryHeadline([entry({ id: 'a', archived: true })])).toEqual({
-      sentence: 'Nothing running',
+      sentence: 'Nothing running in 1 thread',
     })
     expect(summaryHeadline([])).toBeNull()
   })
@@ -255,10 +257,10 @@ describe('listEndNote', () => {
   it('is null without threads', () => {
     expect(listEndNote([], 0, NOW, 0)).toBeNull()
   })
-  it('names when the first thread started once the server total is covered', () => {
-    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)).toMatch(/^First thread [^,]+$/)
-    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/^First thread [^,]+$/)
-    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toMatch(/^First thread /)
+  it('is null once the server total is covered: the fold and the rows say how far back it reaches', () => {
+    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)).toBeNull()
+    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toBeNull()
+    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toBeNull()
   })
   it('says how far back a capped list reaches', () => {
     expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, 9)).toMatch(
