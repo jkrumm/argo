@@ -112,9 +112,9 @@ export const fmtSecondsBadge = (v: number) => `${Math.abs(v).toFixed(1)} s`
 /** Sparkline readouts, each with its unit. */
 export const fmtUsdDay = (v: number) => `$${v.toFixed(2)}`
 export const fmtTokensDay = (v: number) => `${fmtTokens(v)} tokens`
-export const fmtSecondsDay = (v: number) => {
-  const q = secondsQuantity(v)
-  return q.unit === '' ? q.value : `${q.value} ${q.unit}`
+export const fmtSeconds = (ms: number) => {
+  const q = secondsQuantity(ms)
+  return q.unit === '' ? q.value : `${q.value}${NBSP}${q.unit}`
 }
 
 /** Every space unbreakable: a phrase that must never split across lines. */
@@ -437,14 +437,15 @@ function ageMinutes(iso: string | null | undefined, now: number): number | null 
 // ── Copy ─────────────────────────────────────────────────────────────────────────────────────
 
 export type SummaryInput = {
-  cost30d: number | null
+  calls30d: number | null
   /** Pre-formatted age from `relativeTime`, or `null` when the feed has no record. */
   lastEvent: string | null
 }
 
-/** `{$} spent in the last 30 d` — the page's answer, the same window and figure as the strip's Cost cell. */
-export function summarySentence(s: Pick<SummaryInput, 'cost30d'>): string {
-  return `${fmtUsdWhole(s.cost30d)} spent in the last ${D30}`
+/** `{n} calls in the last 30 d` — the strip's window, with the one figure its cells never print (the spend is the Cost cell's). */
+export function summarySentence(s: Pick<SummaryInput, 'calls30d'>): string {
+  const n = s.calls30d === null ? EM_DASH : s.calls30d.toLocaleString('en-US')
+  return `${n} calls in the last ${D30}`
 }
 
 /** The facts line under the sentence: active sources and the last event (the strip owns the rest). */
@@ -531,7 +532,6 @@ export function cacheUnderLine(days: readonly (number | null)[]): string | null 
 export function printTotal(input: {
   range: '7d' | '30d' | '90d' | 'all'
   filtered: boolean
-  metric: 'cost' | 'tokens'
 }): boolean {
   if (input.filtered) return true
   return input.range !== '30d'

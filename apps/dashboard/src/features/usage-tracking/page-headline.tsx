@@ -15,7 +15,7 @@ function age(iso: string | null | undefined, now: number): string | null {
 
 const STALE_INK = { warn: VX.status.warn, bad: VX.status.bad } as const
 
-/** The page's opening: 30 d spend as the sentence, sources and last event as facts, freshness as a word. */
+/** The page's opening: 30 d call count as the sentence, sources and last event as facts, freshness as a word. */
 export function UsageHeadline() {
   const { data, isPending } = useQuery(usageQueries.headline())
   const now = useNow()
@@ -24,7 +24,7 @@ export function UsageHeadline() {
   const fresh = freshness(data.maxTs, now)
   return (
     <PageSummary
-      sentence={summarySentence({ cost30d: data.costUsd30d })}
+      sentence={summarySentence({ calls30d: data.calls30d ?? null })}
       facts={summaryFacts({
         sources: data.sourcesActive,
         lastEvent: age(data.maxTs, now),

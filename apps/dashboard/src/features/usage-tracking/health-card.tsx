@@ -22,7 +22,7 @@ import {
   foldTopN,
   OTHER_KEY,
   periodNoun,
-  fmtSecondsDay,
+  fmtSeconds,
   secondsQuantity,
   shortDay,
 } from './model'
@@ -121,14 +121,15 @@ export default function HealthCard({
               formatX={(d) => shortDay(d)}
               legend={false}
               cursorResolution="leading"
-              y={{ format: fmtSecondsDay, ticks: 2, autoPad: 1.3 }}
+              // Headroom above the data so the line clears the top tick label.
+              y={{ format: fmtSeconds, ticks: 2, autoPad: 1.3 }}
               series={[
                 {
                   key: 'p95',
                   label: 'p95 latency',
                   color: VX.line,
                   getValue: (d: P95Point) => d.v,
-                  formatValue: fmtSecondsDay,
+                  formatValue: fmtSeconds,
                 },
               ]}
               tooltip={{ formatHeader: (x) => shortDay(x) }}

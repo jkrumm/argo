@@ -31,8 +31,7 @@ function UsageTrackingPage() {
   const billing = search.billing.length > 0 ? [...search.billing] : undefined
   const workspace = search.workspace.length > 0 ? [...search.workspace] : undefined
   const filtered = billing !== undefined || workspace !== undefined
-  const printCost = printTotal({ range: search.range, filtered, metric: 'cost' })
-  const printTokens = printTotal({ range: search.range, filtered, metric: 'tokens' })
+  const showTotal = printTotal({ range: search.range, filtered })
   const tsBase = { range: search.range, grain: search.grain, billing, workspace }
 
   return (
@@ -61,11 +60,11 @@ function UsageTrackingPage() {
         <UsageStrip />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <CostChart {...tsBase} groupBy={search.costGroupBy} printTotal={printCost} />
+          <CostChart {...tsBase} groupBy={search.costGroupBy} printTotal={showTotal} />
         </Suspense>
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <TokensChart {...tsBase} groupBy={search.tokensGroupBy} printTotal={printTokens} />
+          <TokensChart {...tsBase} groupBy={search.tokensGroupBy} printTotal={showTotal} />
         </Suspense>
 
         <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
@@ -83,7 +82,7 @@ function UsageTrackingPage() {
                   range={search.range}
                   billing={billing}
                   workspace={workspace}
-                  printTotal={printCost}
+                  printTotal={showTotal}
                 />
               </Box>
             </Suspense>
