@@ -1,3 +1,4 @@
+import { relativeTime } from 'basalt-ui/format'
 import { describe, expect, it } from 'bun:test'
 import {
   busiestCell,
@@ -384,7 +385,7 @@ describe('formats and summary', () => {
         prior: 'prior 30 d',
         period: '30 d',
       }).facts,
-    ).toEqual(['streak —', 'pace —'])
+    ).toEqual(['streak unavailable', 'pace —'])
   })
 
   it('an unreported week says so in words', () => {
@@ -426,28 +427,18 @@ describe('emptyWindowParts', () => {
   const now = Date.parse('2026-01-20T10:00:00Z')
   const last = (endedAt: string) => ({ state: 'last', endedAt }) as const
 
-  it('says how long ago the last walk was, with its date, and never names the window', () => {
+  it('says how long ago the last walk was, in the live header’s wording, and never names the window', () => {
     expect(emptyWindowParts({ last: last('2026-01-05T08:00:00Z'), nowMs: now }).sentence).toBe(
-      'The last walk was 15 d ago, on Jan 5',
+      `The last walk was ${relativeTime('2026-01-05T08:00:00Z', { now })}`,
+    )
+    expect(emptyWindowParts({ last: last('2025-10-20T08:00:00Z'), nowMs: now }).sentence).toBe(
+      'The last walk was 3 months ago',
     )
   })
 
-  it('a walk earlier today reads today', () => {
-    expect(emptyWindowParts({ last: last('2026-01-20T06:00:00Z'), nowMs: now }).sentence).toBe(
-      'The last walk was today, on Jan 20',
-    )
-  })
-
-  it('the day count follows the printed day keys, never elapsed hours', () => {
-    const late = Date.parse('2026-01-20T01:00:00Z')
-    expect(emptyWindowParts({ last: last('2026-01-19T02:00:00Z'), nowMs: late }).sentence).toBe(
-      'The last walk was 1 d ago, on Jan 19',
-    )
-  })
-
-  it('a future-dated walk (clock skew) reads as today, count and date agreeing', () => {
+  it('a future-dated walk (clock skew) reads as just ended', () => {
     expect(emptyWindowParts({ last: last('2026-01-22T06:00:00Z'), nowMs: now }).sentence).toBe(
-      'The last walk was today, on Jan 20',
+      'The last walk just ended',
     )
   })
 
@@ -490,28 +481,27 @@ describe('emptyWindowHint', () => {
     ).toBeUndefined()
   })
 
-  it('promises reaching the last walk only when the wider window contains it', () => {
+  it('states whether the wider window contains the last walk', () => {
     const near = { state: 'last', endedAt: '2026-01-05T08:00:00Z' } as const
     const far = { state: 'last', endedAt: '2025-06-01T08:00:00Z' } as const
-    expect(emptyWindowHint({ last: near, wider: '30d', nowMs: now })).toContain(
-      'to reach the last walk',
+    expect(emptyWindowHint({ last: near, wider: '30d', nowMs: now })).toBe(
+      'The last walk falls inside the last 30 days.',
     )
-    expect(emptyWindowHint({ last: far, wider: '30d', nowMs: now })).toContain(
-      'to look further back',
+    expect(emptyWindowHint({ last: far, wider: '30d', nowMs: now })).toBe(
+      'The last walk is older than the last 30 days.',
     )
   })
 
-  it('has no widen clause without a wider window, and failure-specific copy otherwise', () => {
+  it('never describes the UI, and has nothing to say without a wider window', () => {
     const near = { state: 'last', endedAt: '2026-01-05T08:00:00Z' } as const
-    expect(emptyWindowHint({ last: near, wider: null, nowMs: now })).not.toContain('widen')
+    expect(emptyWindowHint({ last: near, wider: null, nowMs: now })).toBeUndefined()
+    expect(emptyWindowHint({ last: near, wider: '30d', nowMs: now })).not.toContain('strip')
     expect(emptyWindowHint({ last: { state: 'failed' }, wider: '30d', nowMs: now })).toContain(
       'could not be loaded',
     )
   })
 
-  it('a never-walked history only waits for the first walk', () => {
-    expect(emptyWindowHint({ last: { state: 'never' }, wider: '30d', nowMs: now })).toBe(
-      'The strip fills after the first walk is recorded.',
-    )
+  it('a never-walked history leaves the headline to say so', () => {
+    expect(emptyWindowHint({ last: { state: 'never' }, wider: '30d', nowMs: now })).toBeUndefined()
   })
 })
