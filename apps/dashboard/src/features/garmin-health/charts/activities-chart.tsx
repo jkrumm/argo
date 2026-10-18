@@ -11,6 +11,7 @@ import { VISIBLE_DATE_MIN } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
+import { shotState } from '../../../lib/shot-state'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 240
@@ -135,11 +136,10 @@ function activityRowProps(activity: Activity) {
 
 export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   const query = useQuery(activitiesWindowQueries.list(params))
+  // `basalt-ui shot`'s `empty` state renders the chart's own empty branch.
+  const data = shotState() === 'empty' ? undefined : query.data
 
-  const activities = useMemo(
-    () => applyVisibilityFilter(query.data ?? [], (a) => a.date),
-    [query.data],
-  )
+  const activities = useMemo(() => applyVisibilityFilter(data ?? [], (a) => a.date), [data])
   const points = useMemo(() => buildPoints(activities), [activities])
   const orderedTypes = useMemo(() => buildOrderedTypes(activities), [activities])
 

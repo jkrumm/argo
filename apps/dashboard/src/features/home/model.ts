@@ -6,7 +6,7 @@ import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
 import { RECOVERY_DAYS } from '../garmin-health/model'
-import { leadOf } from '../../lib/question-copy'
+import { leadOf, subjectOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
@@ -241,12 +241,15 @@ export type RecoveryReading = {
   date: string | null
   /** The score is for the local today. A last scored day that is not today must not read as today's. */
   isToday: boolean
+  /** The newest scored day in the window, for the pre-sync gap's wording (`recoveryGap`). */
+  last: { value: number; date: string } | null
 }
 
 export function recoveryReading(
   snapshot: { recovery: number | null; ceiling: number | null; date?: string | null } | undefined,
   points: readonly { recovery: number | null }[] | undefined,
   now: number,
+  last: RecoveryReading['last'] = null,
 ): RecoveryReading {
   const trend = (points ?? []).map((p) => p.recovery).filter(isNum)
   return {
@@ -257,15 +260,17 @@ export function recoveryReading(
     trend,
     date: snapshot?.date ?? null,
     isToday: snapshot?.date === localKey(now),
+    last,
   }
 }
 
 /** The tile's footer: the window mean (whenever there is one) plus the day-fill fact for this reading. */
 export function recoveryFooter({ mean, days, isToday }: RecoveryReading): string {
   const parts = [
-    ...(mean === null ? [] : [`${withUnit(RECOVERY_DAYS, 'd')} mean ${Math.round(mean)}`]),
+    ...(mean === null ? [] : [`${withUnit(RECOVERY_DAYS, 'd')} mean${NBSP}${Math.round(mean)}`]),
+    // The trailing figure is glued to its word, so a narrow footer never leaves it alone on a line.
     isToday
-      ? `${days} observed ${days === 1 ? 'day' : 'days'} of ${RECOVERY_DAYS}`
+      ? `${days} observed ${days === 1 ? 'day' : 'days'} of${NBSP}${RECOVERY_DAYS}`
       : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`,
   ]
   return parts.join(' · ')
@@ -349,7 +354,8 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
     const rawTitle = board?.title ?? str(itemBag?.['title'])
     // Cleaned once, where the item is read, so every row built from it renders a clean string.
     const repo = rawRepo === null ? null : stripShortcodes(rawRepo) || null
-    const itemTitle = rawTitle === null ? null : stripShortcodes(rawTitle) || null
+    // The card's own subject (`subjectOf`): the raw `[{monitor} - …]` prefix is dropped as on the Warden cards.
+    const itemTitle = rawTitle === null ? null : subjectOf(rawTitle)
     const steps: Step[] = []
     for (const t of timeline.transitions ?? []) {
       const row = bag(t)

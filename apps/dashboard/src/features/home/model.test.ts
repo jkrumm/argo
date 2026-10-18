@@ -286,6 +286,14 @@ describe('wardenEvents', () => {
     expect(burst?.detail).toBe('{item title}')
   })
 
+  it("drops a monitor's [prefix] from the item title, as the Warden cards do", () => {
+    const monitored = {
+      board: { items: [{ event_id: 7, repo: '{repo}', title: '[{monitor}] Down {reason}' }] },
+      items: { '7': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
+    } as unknown as Parameters<typeof wardenEvents>[0]
+    expect(wardenEvents(monitored)[0]?.detail).toBe('{monitor} Down {reason}')
+  })
+
   it('starts a new row after a gap and times each row at its last step', () => {
     const later = wardenEvents(raw).find((r) => r.ms === NOW - 5 * MIN)
     expect(later?.title).toBe('moved {repo} item')

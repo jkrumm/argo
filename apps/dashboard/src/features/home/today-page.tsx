@@ -4,13 +4,14 @@ import { Stack } from '@mantine/core'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
-import { RECOVERY_DAYS } from '../garmin-health/model'
+import { RECOVERY_DAYS, lastScored } from '../garmin-health/model'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
 import { dayKey } from '../calendar/derive'
 import { unanswered } from '../calendar/query-state'
 import { useNow } from '../../lib/use-now'
+import { shotState } from '../../lib/shot-state'
 import { countUnknownAgents, fleetParts, flattenAgents } from '../agents/model'
 import { derivePollers } from '../warden/page-model'
 import { ActivityFeed } from './activity-feed'
@@ -57,6 +58,8 @@ const asEvents = (data: unknown): RawCalendarEvent[] | null =>
  */
 export function TodayPage() {
   const now = useNow()
+  // `basalt-ui shot`'s `empty` state: the real empty branches (no decision, no meeting, no update).
+  const shotEmpty = shotState() === 'empty'
 
   const agentsQuery = useQuery(agentsQueries.latest())
   const narrativesQuery = useQuery(agentsQueries.narratives())
@@ -96,12 +99,14 @@ export function TodayPage() {
     ...(agentsRecord === null && !agentsQuery.isPending ? ['Agents'] : []),
   ]
 
-  const decisions = deriveDecisions({
-    warden: wardenRaw,
-    agents: snapshot,
-    wardenReceivedAt: warden?.receivedAt,
-    now,
-  })
+  const decisions = shotEmpty
+    ? []
+    : deriveDecisions({
+        warden: wardenRaw,
+        agents: snapshot,
+        wardenReceivedAt: warden?.receivedAt,
+        now,
+      })
 
   // ── Fleet and loop ─────────────────────────────────────────────────────────────────────────
   const agents = flattenAgents(snapshot)
@@ -109,8 +114,8 @@ export function TodayPage() {
   const poller = derivePollers(wardenRaw?.metrics, wardenRaw?.health)[0]
 
   // ── Calendar ───────────────────────────────────────────────────────────────────────────────
-  const google = unanswered(googleQuery) ? null : asEvents(googleQuery.data)
-  const m365 = unanswered(m365Query) ? null : asEvents(m365Query.data)
+  const google = unanswered(googleQuery) ? null : asEvents(shotEmpty ? [] : googleQuery.data)
+  const m365 = unanswered(m365Query) ? null : asEvents(shotEmpty ? [] : m365Query.data)
   const feeds = [
     ...(google === null ? [] : [{ sourceClass: 'personal' as const, events: google }]),
     ...(m365 === null ? [] : [{ sourceClass: 'work' as const, events: m365 }]),
@@ -143,6 +148,7 @@ export function TodayPage() {
         recoveryNow.data,
         (recoverySeries.data?.points ?? []).slice(-RECOVERY_DAYS),
         now,
+        lastScored(applyVisibilityFilter(recoverySeries.data?.points ?? [], (p) => p.date)),
       )
     : null
   const loadPoints = loadQuery.data?.points
@@ -159,11 +165,13 @@ export function TodayPage() {
 
   // ── Activity ───────────────────────────────────────────────────────────────────────────────
   const stream = activityStream(
-    [
-      ...wardenEvents(wardenRaw),
-      ...narrativeEvents(narrativesQuery.data?.data),
-      ...(agenda === null ? [] : calendarEvents(agenda.meetings, now)),
-    ],
+    shotEmpty
+      ? []
+      : [
+          ...wardenEvents(wardenRaw),
+          ...narrativeEvents(narrativesQuery.data?.data),
+          ...(agenda === null ? [] : calendarEvents(agenda.meetings, now)),
+        ],
     now,
   )
   const stale = staleFeeds(
@@ -209,7 +217,11 @@ export function TodayPage() {
         />
 
         <div className={classes.columns}>
-          <NeedsYou decisions={decisions} unavailable={unavailable} />
+          <NeedsYou
+            decisions={decisions}
+            unavailable={unavailable}
+            pending={agentsQuery.isPending || wardenQuery.isPending}
+          />
           <Stack gap="md">
             <Meetings agenda={agenda} tasks={tasks} now={now} />
             <ActivityFeed

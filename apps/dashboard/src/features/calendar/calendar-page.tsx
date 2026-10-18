@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { shotState } from '../../lib/shot-state'
 import { useNavigate } from '@tanstack/react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Box, Stack, Text, useMantineColorScheme } from '@mantine/core'
@@ -107,13 +108,17 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     })),
   })
 
+  // `basalt-ui shot`'s `empty` state: the sources answered with no events and no tasks.
+  const shotEmpty = shotState() === 'empty'
+  const googleData = shotEmpty ? undefined : googleQuery.data
+  const m365Data = shotEmpty ? undefined : m365Query.data
   const meetings = useMemo<CalendarItem[]>(
-    () => [...googleToEvents(googleQuery.data), ...m365ToEvents(m365Query.data)],
-    [googleQuery.data, m365Query.data],
+    () => [...googleToEvents(googleData), ...m365ToEvents(m365Data)],
+    [googleData, m365Data],
   )
   // The Week and Month grids draw the meetings that still happen; the agenda lists cancelled ones.
   const liveMeetings = useMemo(() => meetings.filter((m) => !isCancelled(m)), [meetings])
-  const taskData = projectQueries.map((query) => query.data)
+  const taskData = projectQueries.map((query) => (shotEmpty ? undefined : query.data))
   const events = useMemo<CalendarItem[]>(() => {
     if (view !== 'agenda') return meetings
     const tasks = taskData.flatMap((data, index) => {

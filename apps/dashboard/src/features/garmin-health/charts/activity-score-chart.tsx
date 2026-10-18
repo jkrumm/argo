@@ -10,6 +10,7 @@ import { ACTIVITY_TARGET_SCORE, activityScoreFact, dayLabel, fmtNum, mean } from
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
+import { shotState } from '../../../lib/shot-state'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 280
@@ -37,10 +38,12 @@ const BARS: BarsBar<ActivityPoint>[] = [
 
 export default function ActivityScoreChart({ params }: { params: SummaryParams }) {
   const query = useQuery(dailyMetricsQueries.series(params))
+  // `basalt-ui shot`'s `empty` state renders the chart's own empty branch.
+  const data = shotState() === 'empty' ? undefined : query.data
 
   const chartData = useMemo<ActivityPoint[]>(
     () =>
-      applyVisibilityFilter(query.data?.points ?? [], (p) => p.date).map((p) => ({
+      applyVisibilityFilter(data?.points ?? [], (p) => p.date).map((p) => ({
         day: localDay(p.date),
         date: p.date,
         vigorousMin: p.vigorousIntensityMin,
@@ -48,7 +51,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
         steps: p.steps,
         score: p.activityScore,
       })),
-    [query.data],
+    [data],
   )
 
   const hasData = chartData.some((d) => d.score !== null)

@@ -17,6 +17,7 @@ import {
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
+import { shotState } from '../../../lib/shot-state'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 280
@@ -73,18 +74,20 @@ const STRESS_ZONES = [
 
 export default function StressChart({ params }: { params: SummaryParams }) {
   const query = useQuery(dailyMetricsQueries.series(params))
+  // `basalt-ui shot`'s `empty` state renders the chart's own empty branch.
+  const data = shotState() === 'empty' ? undefined : query.data
 
   const chartData = useMemo<StressPoint[]>(
     () =>
       applyVisibilityFilter(
-        (query.data?.points ?? []).filter((p) => p.stress !== null),
+        (data?.points ?? []).filter((p) => p.stress !== null),
         (p) => p.date,
       ).map((p) => ({
         day: localDay(p.date),
         avgStress: p.stress,
         sleepStress: p.avgSleepStress,
       })),
-    [query.data],
+    [data],
   )
 
   const compact = useSizeClass() === 'compact'

@@ -168,7 +168,7 @@ export function WeekStrip({
   const total = split.work + split.personal
   const showSplitBar = unknown.size === 0 && split.work > 0 && split.personal > 0
   return (
-    <Card data-shot="week-strip">
+    <Card data-shot="week-strip" data-shot-states="empty loading error">
       <Section title={title}>
         <Box className={`${classes.stripRow} ${classes.stripHead}`} aria-hidden>
           <span />
@@ -241,7 +241,7 @@ const TONE_COLOR = { bad: VX.status.bad, warn: VX.status.warn, neutral: VX.neutr
 
 export function TaskList({ tasks, todayKey }: { tasks: readonly TaskDue[]; todayKey: DayKey }) {
   return (
-    <Card data-shot="tasks-due">
+    <Card data-shot="tasks-due" data-shot-states="empty">
       <Section title="Tasks due" count={tasks.length}>
         <Text className={classes.muted}>Overdue or due within 7 days</Text>
         {tasks.length === 0 ? (

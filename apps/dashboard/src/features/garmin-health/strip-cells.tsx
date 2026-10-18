@@ -43,6 +43,7 @@ import {
 } from './model'
 import { withUnit } from '../../lib/format'
 import { activitiesRange } from '../../lib/queries/activities-window'
+import { shotState } from '../../lib/shot-state'
 import { VISIBLE_DATE_MIN } from './constants'
 import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
@@ -94,13 +95,15 @@ function LoadRows({
 function useRecoveryCell(params: SummaryParams): StatStripCell {
   const summary = useQuery(recoveryQueries.summary(params))
   const series = useQuery(recoveryQueries.series(params))
+  // `basalt-ui shot`'s `empty` state renders the cell's own no-score branch.
+  const seriesData = shotState() === 'empty' ? undefined : series.data
 
   const last = useMemo(
-    () => lastScored(applyVisibilityFilter(series.data?.points ?? [], (p) => p.date)),
-    [series.data],
+    () => lastScored(applyVisibilityFilter(seriesData?.points ?? [], (p) => p.date)),
+    [seriesData],
   )
 
-  const data = summary.data
+  const data = shotState() === 'empty' ? undefined : summary.data
   const score = data?.recovery ?? null
   // The score's own date: today reads "today", a sync gap reads its date.
   const when = dayLabel(data?.date)

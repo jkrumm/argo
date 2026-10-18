@@ -21,6 +21,7 @@ import {
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
+import { shotState } from '../../../lib/shot-state'
 import { localDay } from './local-day'
 
 type RecoveryPoint = {
@@ -71,14 +72,16 @@ const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
 
 export default function RecoveryTrendChart({ params }: { params: SummaryParams }) {
   const query = useQuery(recoveryQueries.series(params))
+  // `basalt-ui shot`'s `empty` state renders the chart's own empty branch.
+  const data = shotState() === 'empty' ? undefined : query.data
 
   const points = useMemo<RecoveryPoint[]>(
     () =>
-      applyVisibilityFilter(query.data?.points ?? [], (p) => p.date).map((p) => ({
+      applyVisibilityFilter(data?.points ?? [], (p) => p.date).map((p) => ({
         day: localDay(p.date),
         recovery: p.recovery,
       })),
-    [query.data],
+    [data],
   )
   const hasRecovery = points.some((p) => p.recovery !== null)
   const compact = useSizeClass() === 'compact'

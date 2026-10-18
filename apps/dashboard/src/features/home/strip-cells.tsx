@@ -13,6 +13,7 @@ import {
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
+  recoveryGap,
 } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
@@ -184,6 +185,12 @@ function recoveryDay(date: string | null): string {
     .replace(',', '')
 }
 
+/** The pre-sync gap in Garmin Health's wording, from its one function (`recoveryGap`), lower-cased for a footer. */
+function noScoreLine({ date, last }: RecoveryReading): string {
+  const line = recoveryGap({ date, settled: true, last }).line ?? ''
+  return line.charAt(0).toLowerCase() + line.slice(1)
+}
+
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(reading: RecoveryReading | null, loading = false): StatStripCell {
   if (reading === null || reading.score === null) {
@@ -196,7 +203,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
           ? loading
             ? 'loading Garmin data'
             : 'Garmin data not loaded; reload to retry'
-          : `no reading yet · Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`,
+          : `${noScoreLine(reading)} · Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`,
     }
   }
   const { score, trend, date, isToday } = reading
