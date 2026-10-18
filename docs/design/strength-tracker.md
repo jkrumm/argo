@@ -140,6 +140,7 @@ No new basalt rows.
 - Info tooltips (one-RM, composite, weekly volume, momentum, relative progression, readiness, ratios, alignment, scan) now define terms and name windows; none describes the drawing.
 - ACWR, INOL and the readiness score are defined in plain words (`TERM_DEFINITIONS` in `constants.ts`) behind an info icon on the call card, each with its healthy range.
 - The call card is a local `Card` instead of `DecisionCard`: the evidence slot's tinted inset was the filled grey well. Content sits on the card surface, the two meters side by side at wide widths; the method line under ACWR is dropped (the definition holds it).
+- Band numbers in the definitions and tooltips are built from `bands.ts` (a leaf module, so `constants.ts` needs no import from `model.ts`); a tooltip that covers a defined term references `TERM_DEFINITIONS` instead of restating it. The INOL range reads 1–12 reps, matching `sessionInol`.
 - `Diagnostics · {period}` is now `Signals and recovery alignment, {period}`.
 
 No new basalt rows.

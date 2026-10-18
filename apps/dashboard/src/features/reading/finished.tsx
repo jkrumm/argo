@@ -26,15 +26,13 @@ export function Finished({
   undated: number
 }) {
   const total = groups.reduce((sum, g) => sum + g.rows.length, 0)
-  const notes = undated > 0 ? [`${undated} more finished without a read date`] : []
+  const note = undated > 0 ? `${undated} more finished without a read date` : null
   const scope = scopeLabel(groups)
   return (
     <Section
       title={scope === '' ? 'Finished' : `Finished · ${scope}`}
       count={total}
-      {...(notes.length > 0 && {
-        summary: <Text className={classes.facts}>{notes.join(' · ')}</Text>,
-      })}
+      {...(note !== null && { summary: <Text className={classes.facts}>{note}</Text> })}
     >
       {total === 0 ? (
         <Text size="sm" c="dimmed">

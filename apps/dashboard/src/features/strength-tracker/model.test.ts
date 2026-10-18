@@ -11,6 +11,7 @@ import {
   groupByDay,
   lastSession,
   liftFooter,
+  callFacts,
   liftDelta,
   localIso,
   offText,
@@ -355,7 +356,23 @@ describe('liftFooter', () => {
     const delta = { delta: null, phrase: 'no session in 28d' }
     expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('no session in 28d · PR 100.0 kg')
   })
+  test('an empty phrase and no PR is a dash, not an empty string', () => {
+    expect(liftFooter({ delta: { delta: null, phrase: '' }, prKg: null, prDate: null })).toBe('—')
+  })
   test('nothing known is a dash, never a zero', () => {
     expect(liftFooter({ delta: { delta: 1, phrase: '' }, prKg: null, prDate: null })).toBe('—')
+  })
+})
+
+describe('callFacts', () => {
+  const session = { exercise_id: 'squat', date: '2026-10-16', inol: 0.756 }
+  test('joins the as-of date, driver and last session; INOL is returned apart', () => {
+    expect(callFacts({ asOf: '2026-10-17', driver: 'sleep', session })).toEqual({
+      text: 'latest 2026-10-17 · driver sleep · last session Squat, Fri 16 Oct',
+      inol: 'INOL 0.76',
+    })
+  })
+  test('nothing known is an empty line and no INOL', () => {
+    expect(callFacts({ asOf: null, driver: null, session: null })).toEqual({ text: '', inol: null })
   })
 })

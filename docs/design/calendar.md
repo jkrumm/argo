@@ -136,6 +136,6 @@ No new basalt rows.
 
 ### Wave 25 fixes
 
-- The Today card renders only when there are events today. With none, the headline already says so and names the next event, so the card (a full-width block holding that sentence again) is gone and the column starts at Next 7 days.
+- The Today card renders only when there are events today. With none, the headline already says so and names the next event, so the card (a full-width block holding that sentence again) is gone and the column starts at Next 7 days. An unanswered calendar keeps the card as `—` (`todayCardState`, tested): no rows then is not no events.
 
 No new basalt rows.
