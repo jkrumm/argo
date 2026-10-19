@@ -9,7 +9,7 @@ import { toChartFact } from '../chart-facts'
 import { activitiesFact, fillDays, fmtMinutes, windowDayCount, windowSpan } from '../model'
 import { VISIBLE_DATE_MIN } from '../constants'
 import type { SummaryParams } from '../types'
-import { applyVisibilityFilter } from '../visibility'
+import { applyVisibilityFilter, lastVisibleDay } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
 import { useChartEmpty } from './empty'
@@ -148,10 +148,17 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   const dayCount = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
 
   // The axis spans the window, not just the days with an activity: rest days stay as empty columns.
+  // A window with no activity keeps `points` as is: the card shows its own empty state there, so no
+  // bare plot of empty columns is ever drawn.
   const axisPoints = useMemo(() => {
     const first = points[0]?.date
     if (first === undefined) return points
-    const { from, to } = windowSpan(activitiesRange(params), VISIBLE_DATE_MIN, first)
+    const { from, to } = windowSpan(
+      activitiesRange(params),
+      VISIBLE_DATE_MIN,
+      first,
+      lastVisibleDay(),
+    )
     return fillDays(points, from, to, (date) => ({
       date,
       day: localDay(date),
@@ -205,7 +212,7 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
         tooltip={{
           rows: (d, ctx) => {
             const hidden = new Set(ctx.hidden.map((s) => s.key))
-            if (d.activities.length === 0) return []
+            if (d.activities.length === 0) return [{ label: 'No activity', value: '' }]
             const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
             return [
               { label: 'Total', value: fmtMinutes(total), color: VX.axis },

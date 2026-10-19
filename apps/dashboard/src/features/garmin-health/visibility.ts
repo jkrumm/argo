@@ -5,8 +5,7 @@ import { HIDE_TODAY_BEFORE_HOUR, VISIBLE_DATE_MIN } from './constants'
  * format used throughout the page (Garmin syncs in local time, the API stores
  * the local date string).
  */
-function todayLocalIso(): string {
-  const now = new Date()
+function todayLocalIso(now: Date = new Date()): string {
   const y = now.getFullYear()
   const m = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')
@@ -21,8 +20,8 @@ function todayLocalIso(): string {
  *
  * Sleep / fitness-trend metrics lock in overnight, so they pass `hideToday: false`.
  */
-function shouldHideTodayNow(): boolean {
-  return new Date().getHours() < HIDE_TODAY_BEFORE_HOUR
+function shouldHideTodayNow(now: Date = new Date()): boolean {
+  return now.getHours() < HIDE_TODAY_BEFORE_HOUR
 }
 
 export type VisibilityOptions = {
@@ -61,4 +60,13 @@ export function applyVisibilityFilter<T>(
     out.push(p)
   }
   return out
+}
+
+/**
+ * The newest day `applyVisibilityFilter` can show (default `hideToday` rule): today, or yesterday
+ * while today is still hidden. A day axis ends here so a hidden day never draws as an empty one.
+ */
+export function lastVisibleDay(now: Date = new Date()): string {
+  if (!shouldHideTodayNow(now)) return todayLocalIso(now)
+  return todayLocalIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1))
 }
