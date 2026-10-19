@@ -2448,18 +2448,26 @@ wave before a pause for the owner's weekly limit: one round, no scope beyond the
 - **Shots:** `.design-shots/w44-{a,b}` (0 failed; gitignored), shot with `--base https://argo.jkrumm.com`, auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 
-## Wave 44 — Garmin: one date axis on ACWR <!-- status: active -->
+## Wave 44 — Garmin: one date axis on ACWR <!-- status: done -->
 
 The last open P1 on the last failing page: Garmin's ACWR card draws its date axis twice, because the ratio line chart is
 stacked over the delta bars and both carry `xTicks` (`apps/dashboard/src/features/garmin-health/charts/acwr-chart.tsx`, the
 two `xTicks={xTicks}` props). The basalt lead's reading (basalt `mother.md`): the upper chart drops its axis with `xTicks={[]}`.
 This is argo's composition, not a basalt row. Last wave before the owner's weekly-limit pause: one change, one round.
 
-- [ ] Keep one date axis on the ACWR card (the lower chart, the one at the card's bottom edge), confirm the two plots still
+- [x] Keep one date axis on the ACWR card (the lower chart, the one at the card's bottom edge), confirm the two plots still
       share the x domain so the days line up, and add a test if the chart module has one. Check/test green, direct to master.
-- [ ] Once the served bundle carries it (and not before): re-shoot Garmin with `basalt-ui shot` (1440 / 390, both schemes)
+- [x] Once the served bundle carries it (and not before): re-shoot Garmin with `basalt-ui shot` (1440 / 390, both schemes)
       and re-score it with a fresh `basalt-design-reviewer` given the w44 shots + Keel. A pass makes argo 14 of 14.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 44 is `done`; no Wave 45 is authored.**
+
+- **Change:** the ratio line's `xTicks={[]}` in `acwr-chart.tsx`, commit `2cf05011`; the delta strip keeps the one date axis. Shared `xDomain` untouched. `make check` green (609 tests); no chart test exists for the module. Deploy succeeded and `/api/health` = `2cf05011` before shooting.
+- **Verdict (`basalt-ui shot`, fresh reviewer, 0 failed):** **pass, Garmin 95** (up from 82), every component pass. The doubled date axis is closed in all schemes and viewports; no lost fact, no regression. **Argo is 14 of 14.**
+- **Noted, not fixed (scope):** the line spans the plot edge to edge while the bars and ticks sit on band centres, so the two plots differ by up to ~half a day at the ends (~17 px at 1440), and the 29 delta bars start a day after the 30 line points; `strip-load` scale label "0" reads under the marker (P2); empty-state wording and the Sleep score / Body battery net lacking an info icon (P3).
+- **Not verified:** the previous w44 shots were not opened by the reviewer (comparison rests on the prior verdict); no `detect.json` run.
+- **Shots:** `apps/dashboard/.design-shots/w45` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 # Part 1, continued
 
