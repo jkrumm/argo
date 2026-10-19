@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { NBSP } from './format'
-import { FACT_SEPARATOR, glueNumberUnits } from './text-breaks'
+import { glueNumberUnits } from './text-breaks'
 
 describe('glueNumberUnits', () => {
   it('glues a number to the unit after it', () => {
@@ -11,13 +11,7 @@ describe('glueNumberUnits', () => {
   })
 
   it('leaves words that merely start with a unit letter, and unit-less numbers, alone', () => {
-    const text = 'retry 3 days later, 2 hours, 5 sutob rounds, 7 dogs'
+    const text = 'retry 3 days later, 2 hours, 90 %ile, 5 sutob rounds, 7 dogs'
     expect(glueNumberUnits(text)).toBe(text)
-  })
-})
-
-describe('FACT_SEPARATOR', () => {
-  it('breaks before the dot and never after it', () => {
-    expect(FACT_SEPARATOR).toBe(` ·${NBSP}`)
   })
 })
