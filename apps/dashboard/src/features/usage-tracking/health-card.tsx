@@ -88,21 +88,21 @@ export default function HealthCard({
   const errors = emptyShot ? { ...errorsQ.data, buckets: [] } : errorsQ.data
   const rates = emptyShot ? { ...ratesQ.data, buckets: [] } : ratesQ.data
 
-  const now = useNow()
-  // Window days only: the rolling window's partial leading day is left out of both halves, as in the strip.
-  const p95: P95Point[] = rangeWindowDays(
-    latency.buckets.flatMap((b) => {
-      const v = b.groups['value']
-      return v === null || v === undefined ? [] : [{ date: dayToDate(b.bucket), v }]
-    }),
-    { range, grain, now },
+  const windowOpts = { range, grain, now: useNow() }
+  // Window days only: the rolling window's partial leading day is left out of every half, as in the strip.
+  const latencyDays = latency.buckets.flatMap((b) => {
+    const v = b.groups['value']
+    return v === null || v === undefined ? [] : [{ date: dayToDate(b.bucket), v }]
+  })
+  const p95: P95Point[] = rangeWindowDays(latencyDays, windowOpts)
+  const rateDays = rangeWindowDays(
+    rates.buckets.map((b) => ({ date: dayToDate(b.bucket), rate: b.groups['value'] ?? null })),
+    windowOpts,
   )
-  const rateByDay = new Map(
-    rates.buckets.map((b) => [dayToDate(b.bucket).getTime(), b.groups['value'] ?? null]),
-  )
+  const rateByDay = new Map(rateDays.map((d) => [d.date.getTime(), d.rate]))
   // The timeseries emits a null bucket for every empty day, so rows are judged by their value: a
-  // window has calls when any bucket carries an error rate.
-  const hasCalls = rates.buckets.some((b) => b.groups['value'] != null)
+  // window has calls when any windowed bucket carries an error rate.
+  const hasCalls = rateDays.some((d) => d.rate != null)
   // No calls in the window: neither half has a reading, so the card says so once instead of
   // printing a zero count beside a dash.
   const emptyWindow = noUsageWindow({
@@ -117,7 +117,7 @@ export default function HealthCard({
   const folded = foldTopN(
     rangeWindowDays(
       errors.buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups })),
-      { range, grain, now },
+      windowOpts,
     ),
     errors.groupKeys,
     ERROR_FOLD_TOP_N,
