@@ -4,6 +4,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceBars,
+  paceLabel,
   paceRange,
   gapsBeforePosition,
   RATING_MAX,
@@ -119,7 +120,7 @@ function paceCell(pace: Pace): StatStripCell {
                   label: 'Pace',
                   color: VX.line,
                   getValue: (d) => d.pace,
-                  formatValue: (v) => `${Math.round(v)} pages/h`,
+                  formatValue: (v) => paceLabel(Math.round(v)),
                 },
               ]}
               legend={false}
