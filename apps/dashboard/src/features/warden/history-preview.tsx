@@ -9,7 +9,16 @@ import { historyLineWithAge, historyTail, type HistoryView } from './page-model'
  * (`Latest change: A → B · 2 h ago`) with no well; several are a short list, newest first, in the
  * card's right-hand well. A Warden card passes its one clock (`now`), shared with its `waiting` fact; a caller without one (Home) falls back to the page clock. State names are never truncated: a line wraps at its spaces instead.
  */
-export function HistoryPreview({ view, now: cardNow }: { view: HistoryView; now?: number }) {
+export function HistoryPreview({
+  view,
+  now: cardNow,
+  hanging = false,
+}: {
+  view: HistoryView
+  now?: number
+  /** Continuation lines of a wrapped row hang in from the first (Home's compact list). */
+  hanging?: boolean
+}) {
   const ownNow = useNow()
   const now = cardNow ?? ownNow
   if (view.layout === 'inline') {
@@ -30,7 +39,12 @@ export function HistoryPreview({ view, now: cardNow }: { view: HistoryView; now?
         Latest changes
       </Text>
       {view.lines.map((line, i) => (
-        <Text key={`${i}-${line.text}`} size="xs" miw={0} className={classes.wrap}>
+        <Text
+          key={`${i}-${line.text}`}
+          size="xs"
+          miw={0}
+          className={hanging ? `${classes.wrap} ${classes.hanging}` : classes.wrap}
+        >
           {historyLineWithAge(line.text, line.at, now)}
         </Text>
       ))}

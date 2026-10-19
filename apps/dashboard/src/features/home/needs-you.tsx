@@ -58,7 +58,7 @@ function Card({ decision }: { decision: Decision }) {
       facts={decision.facts}
       evidenceLine={decision.evidenceLine}
       subject={decision.entity ? <BreakableTitle text={decision.entity} /> : null}
-      {...(view !== null && { preview: <HistoryPreview view={view} /> })}
+      {...(view !== null && { preview: <HistoryPreview view={view} hanging /> })}
       {...(view?.layout === 'inline' && { previewPlacement: 'inline' as const })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(decision.detail !== null && {
@@ -92,13 +92,8 @@ export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props)
             // A check is an all-clear; with the list unknown there is none to give.
             icon={unknown ? <IconCircleDashed size={28} /> : <IconCircleCheck size={28} />}
             title={needsYouEmptyTitle(sources)}
-            description={
-              unknown
-                ? `${unknownSentence(phrase)}, so what is waiting is unknown.`
-                : phrase === ''
-                  ? 'No decision is waiting in Warden or on an agent.'
-                  : `Nothing waiting in the source that loaded; ${phrase}.`
-            }
+            // The title already says nothing needs you / can't tell; the body names only what failed to load.
+            {...(phrase !== '' && { description: unknownSentence(phrase) + '.' })}
           />
         ) : (
           shown.map((decision, i) => (

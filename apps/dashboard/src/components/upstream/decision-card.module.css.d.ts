@@ -4,6 +4,7 @@
  */
 declare const classes: {
   readonly identifier: string
+  readonly hanging: string
   readonly inset: string
   readonly preview: string
   readonly question: string
