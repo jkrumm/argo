@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Box, Group } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { NBSP, withUnit } from '../../lib/format'
@@ -8,7 +8,6 @@ import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/querie
 import { walkingStore } from '../../lib/window-stores'
 import { walkingLocal } from './local-store'
 import {
-  emptyWindowShort,
   fmtDuration,
   fmtKm,
   fmtKmh,
@@ -68,7 +67,7 @@ function useWeekCell(): StatStripCell {
         max={Math.max(targetKm * TARGET_HEADROOM, km ?? 0)}
         target={targetKm}
         format={(v) => `${v.toFixed(1)}${NBSP}km`}
-        startCaption="so far"
+        startCaption={null}
         endCaption={`${isDefault ? 'default' : 'target'} ${targetKm}${NBSP}km`}
         tone="muted"
         loading={query.isPending}
@@ -77,18 +76,17 @@ function useWeekCell(): StatStripCell {
     ),
     // `StatStripCell` has no caption-line action slot, so the target control rides the footer.
     footer: (
-      <Group gap="xs" wrap="nowrap">
-        {query.isPending ? null : (
-          <Box>
-            {week === null
-              ? 'this week not reported'
-              : weekTargetLine(week.sessions, km ?? 0, targetKm)}
-          </Box>
+      <Box>
+        {query.isPending ? null : week === null ? (
+          'this week not reported'
+        ) : (
+          <>
+            {weekTargetLine(week.sessions, km ?? 0, targetKm)}
+            {NBSP}
+          </>
         )}
-        <Box ml="auto">
-          <TargetPopover />
-        </Box>
-      </Group>
+        <TargetPopover />
+      </Box>
     ),
   }
 }
@@ -232,7 +230,8 @@ function EmptyStrip({ params }: { params: WalkingPadWindowParams }) {
   const { window: preset } = walkingStore.useValues()
   const week = useWeekCell()
   const streak = useStreakCell(params)
-  const state = { kind: 'empty', reason: emptyWindowShort(preset) } as const
+  // The window is in each cell's qualifier; the full sentence is the empty state's title.
+  const state = { kind: 'empty', reason: 'No walks' } as const
   const cells: StatStripCell[] = [
     week,
     { key: 'pace', caption: 'Pace', qualifier: `avg ${windowQualifier(preset)}`, state },

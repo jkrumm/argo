@@ -557,9 +557,9 @@ describe('lastWalkLabel', () => {
 
 describe('weekTargetLine', () => {
   const nb = '\u00a0'
-  it('0 walks, 1 walk and n walks pluralise; the percent phrase is glued', () => {
-    expect(weekTargetLine(0, 0, 20)).toBe(`0 walks · 0${nb}%${nb}of${nb}target`)
-    expect(weekTargetLine(1, 5, 20)).toBe(`1 walk · 25${nb}%${nb}of${nb}target`)
-    expect(weekTargetLine(4, 25, 20)).toBe(`4 walks · 125${nb}%${nb}of${nb}target`)
+  it('0 walks, 1 walk and n walks pluralise; the dot is glued both sides and the percent to its sign', () => {
+    expect(weekTargetLine(0, 0, 20)).toBe(`0 walks${nb}·${nb}0${nb}% of${nb}target`)
+    expect(weekTargetLine(1, 5, 20)).toBe(`1 walk${nb}·${nb}25${nb}% of${nb}target`)
+    expect(weekTargetLine(4, 25, 20)).toBe(`4 walks${nb}·${nb}125${nb}% of${nb}target`)
   })
 })

@@ -527,8 +527,12 @@ export function lastWalkLabel(input: {
   return `last walk ${when}`
 }
 
-/** The week cell's footer: walks so far and how much of the weekly target the distance is; the percent phrase never breaks. */
+/**
+ * The week cell's footer: walks so far and how much of the weekly target the distance is. The dot
+ * is glued to both neighbours and the percent figure to its sign, so a wrap can only fall before
+ * `of target` and no line starts or ends on the dot.
+ */
 export function weekTargetLine(sessions: number, km: number, targetKm: number): string {
   const percent = Math.round((km / targetKm) * 100)
-  return `${sessions} ${sessions === 1 ? 'walk' : 'walks'} · ${percent}${NBSP}%${NBSP}of${NBSP}target`
+  return `${sessions} ${sessions === 1 ? 'walk' : 'walks'}${NBSP}·${NBSP}${percent}${NBSP}% of${NBSP}target`
 }
