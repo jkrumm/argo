@@ -2,6 +2,7 @@ import { formatAgo, formatAgoWhole, formatDuration } from '../../lib/format'
 import { Box, SimpleGrid, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
+import entityClasses from './entity-card.module.css'
 import { EntityCard, type EntityCardCell } from './entity-card'
 import { StatusChip, type StatusTone } from './status-chip'
 import { longestRunMs, STATE_LABEL, type AgentState, type ProjectGroup } from './model'
@@ -61,7 +62,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           <Text size="sm" c="dimmed" span>
             {waiting > 0 && running === 0 ? 'Waiting' : 'Now'}
           </Text>
-          <Text size="sm" span>
+          <Text size="sm" span className={entityClasses.nowValue}>
             {group.now ?? (waiting > 0 ? 'on you' : 'working')}
           </Text>
         </>
