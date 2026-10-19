@@ -6,7 +6,7 @@ import { activitiesWindowQueries } from '../../../lib/queries/activities'
 import { activitiesRange } from '../../../lib/queries/activities-window'
 import { ACTIVITY } from '../../../lib/series'
 import { toChartFact } from '../chart-facts'
-import { activitiesFact, fillDays, fmtMinutes, windowDayCount, windowSpan } from '../model'
+import { activitiesFact, dayKeysBetween, fillDays, fmtMinutes, windowSpan } from '../model'
 import { VISIBLE_DATE_MIN } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter, lastVisibleDay } from '../visibility'
@@ -144,28 +144,30 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   const points = useMemo(() => buildPoints(activities), [activities])
   const orderedTypes = useMemo(() => buildOrderedTypes(activities), [activities])
 
-  // The window's length in calendar days (not the rows returned), clipped at the visible floor.
-  const dayCount = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
-
   // The axis spans the window, not just the days with an activity: rest days stay as empty columns.
-  // A window with no activity keeps `points` as is: the card shows its own empty state there, so no
-  // bare plot of empty columns is ever drawn.
-  const axisPoints = useMemo(() => {
+  // A window with no activity has no span: `points` stays as is and the card shows its own empty
+  // state, so no bare plot of empty columns is ever drawn.
+  const span = useMemo(() => {
     const first = points[0]?.date
-    if (first === undefined) return points
-    const { from, to } = windowSpan(
-      activitiesRange(params),
-      VISIBLE_DATE_MIN,
-      first,
-      lastVisibleDay(),
-    )
-    return fillDays(points, from, to, (date) => ({
-      date,
-      day: localDay(date),
-      totals: {},
-      activities: [],
-    }))
+    if (first === undefined) return null
+    return windowSpan(activitiesRange(params), VISIBLE_DATE_MIN, first, lastVisibleDay())
   }, [points, params])
+
+  const axisPoints = useMemo(
+    () =>
+      span === null
+        ? points
+        : fillDays(points, span.from, span.to, (date) => ({
+            date,
+            day: localDay(date),
+            totals: {},
+            activities: [],
+          })),
+    [points, span],
+  )
+
+  // The fact counts the days the axis draws, so its rate and period match the plot.
+  const dayCount = span === null ? 0 : dayKeysBetween(span.from, span.to).length
 
   const totalMin = useMemo(
     () => points.reduce((s, p) => s + Object.values(p.totals).reduce((acc, v) => acc + v, 0), 0),
