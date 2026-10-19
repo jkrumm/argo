@@ -543,30 +543,32 @@ export type RecoveryInput = 'HRV' | 'sleep' | 'RHR'
 
 type Components = { hrv: number | null; sleep: number | null; rhr: number | null }
 
+/** The three recovery inputs, in the order the cell lists them. */
+const RECOVERY_INPUTS: readonly RecoveryInput[] = ['HRV', 'sleep', 'RHR']
+
+const COMPONENT_KEY: Record<RecoveryInput, keyof Components> = {
+  HRV: 'hrv',
+  sleep: 'sleep',
+  RHR: 'rhr',
+}
+
 /** The recovery inputs a day did not measure, in the order the cell lists them. */
 export function missingInputs(components: Components): RecoveryInput[] {
-  return [
-    ...(components.hrv === null ? (['HRV'] as const) : []),
-    ...(components.sleep === null ? (['sleep'] as const) : []),
-    ...(components.rhr === null ? (['RHR'] as const) : []),
-  ]
+  return RECOVERY_INPUTS.filter((i) => components[COMPONENT_KEY[i]] === null)
 }
 
 const join = (xs: readonly string[]): string => xs.join(' and ')
 
-/** The three recovery inputs, in the order the cell lists them. */
-const RECOVERY_INPUTS = ['HRV', 'sleep', 'RHR'] as const
-
 /**
  * The basis of a scored recovery cell that lacks contributors: the API re-weights the score over the
  * components it has (`recoveryScore` in `garmin-formulas.ts`), so the line names what is missing and
- * what the score stands on. A scored cell has at least one contributor, so `present` is never empty.
- * `null` when all three contributed.
+ * what the score stands on. `null` when all three contributed, or when none did (no score to explain).
  */
 export function recoveryBasis(components: Components): string | null {
   const missing = missingInputs(components)
   if (missing.length === 0) return null
   const present = RECOVERY_INPUTS.filter((i) => !missing.includes(i))
+  if (present.length === 0) return null
   const lead = join(missing)
   return `${lead.charAt(0).toUpperCase()}${lead.slice(1)} not scored — score from ${join(present)} only`
 }
@@ -575,8 +577,8 @@ export function recoveryBasis(components: Components): string | null {
 export type RowDelta =
   | { kind: 'none' }
   | { kind: 'unchanged' }
-  /** The slope is inside its threshold: no good or bad reading. */
-  | { kind: 'flat' }
+  /** The slope is inside its threshold: the change is printed, but not as a good or bad move. */
+  | { kind: 'flat'; value: number }
   /** A reading-to-reading difference with no fit behind it: printed plain, not coloured. */
   | { kind: 'plain'; value: number }
   | { kind: 'move'; value: number }
@@ -603,8 +605,8 @@ export function fitnessRowDelta(input: {
     if (delta === null) return { kind: 'none' }
     return delta === 0 ? { kind: 'unchanged' } : { kind: 'plain', value: delta }
   }
+  if (flat) return { kind: 'flat', value: change }
   if (change === 0) return { kind: 'unchanged' }
-  if (flat) return { kind: 'flat' }
   return { kind: 'move', value: change }
 }
 

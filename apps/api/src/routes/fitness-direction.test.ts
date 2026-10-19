@@ -15,6 +15,10 @@ type Body = {
   color: string
   rhrSlope: number | null
   hrvSlope: number | null
+  rhrChange: number | null
+  hrvChange: number | null
+  rhrFlat: boolean | null
+  hrvFlat: boolean | null
   rhrDelta: number | null
   hrvDelta: number | null
   vo2max: number | null

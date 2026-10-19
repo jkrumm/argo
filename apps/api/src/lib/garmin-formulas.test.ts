@@ -333,6 +333,17 @@ describe('fitnessDirection change + flat', () => {
     ).toBe(false)
   })
 
+  it('change is not rounded to a tenth, so a small move keeps its size', () => {
+    const r = fitnessDirection(
+      series(
+        14,
+        (i) => 60 + i * 0.0501,
+        () => 50,
+      ),
+    )
+    expect(r.rhrChange).toBe(0.651)
+  })
+
   it('a flat slope agrees with a Stable label', () => {
     const r = fitnessDirection(
       series(
