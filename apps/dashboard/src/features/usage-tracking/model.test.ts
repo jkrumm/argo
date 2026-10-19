@@ -33,6 +33,7 @@ import {
   barStateOf,
   dropPartialBucket,
   fullDays,
+  windowDays,
   periodNoun,
   printTotal,
   footerTotal,
@@ -494,6 +495,15 @@ describe('day-count sentences', () => {
     ]
     expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1, 9])
     expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')
+  })
+  it('windowDays keeps the running day and drops only the partial leading day', () => {
+    const days = [
+      { date: new Date(2025, 11, 11), value: 9 },
+      { date: new Date(2025, 11, 12), value: 1 },
+      reading(10, 5),
+    ]
+    expect(windowDays(days, NOW).map((d) => d.value)).toEqual([1, 5])
+    expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1])
   })
   it('takes the mean and the peak day over full days only', () => {
     const days = [

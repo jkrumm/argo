@@ -43,6 +43,7 @@ import {
   slowerDaysLine,
   dropPartialBucket,
   fullDays,
+  windowDays,
   D7,
   secondsDelta,
   secondsQuantity,
@@ -162,7 +163,7 @@ function costCell({ h, loading, now }: Ctx, cost: Series): StatStripCell {
     visual: (
       <Trend
         label="Cost per day over the last 30 days"
-        days={full}
+        days={windowDays(cost.days, now)}
         loading={cost.loading}
         format={fmtUsdWhole}
       />
@@ -201,7 +202,7 @@ function tokensCell({ h, loading, now }: Ctx, tokens: Series): StatStripCell {
     visual: (
       <Trend
         label="Tokens per day over the last 30 days"
-        days={full}
+        days={windowDays(tokens.days, now)}
         loading={tokens.loading}
         format={fmtTokensDay}
       />
@@ -279,7 +280,7 @@ function p95Cell({ h, loading, now }: Ctx, p95: Series): StatStripCell {
     visual: (
       <Trend
         label="p95 latency per day over the last 30 days"
-        days={full}
+        days={windowDays(p95.days, now)}
         loading={p95.loading}
         format={fmtSeconds}
         reference={p95Window ?? undefined}
