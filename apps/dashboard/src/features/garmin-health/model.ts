@@ -87,14 +87,6 @@ export const STRESS_ZONE_NAME = {
   high: 'High',
 } as const satisfies Record<StressZone, string>
 
-/** Legend labels carry the inclusive integer range, so adjacent bands never share a bound. */
-export const STRESS_ZONE_LEGEND = {
-  rest: `${STRESS_ZONE_NAME.rest} (< ${STRESS_REST_BELOW})`,
-  low: `${STRESS_ZONE_NAME.low} (${STRESS_REST_BELOW}–${STRESS_MODERATE_FROM - 1})`,
-  moderate: `${STRESS_ZONE_NAME.moderate} (${STRESS_MODERATE_FROM}–${STRESS_HIGH_FROM - 1})`,
-  high: `${STRESS_ZONE_NAME.high} (≥ ${STRESS_HIGH_FROM})`,
-} as const satisfies Record<StressZone, string>
-
 export function stressZone(v: number): StressZone {
   if (v >= STRESS_HIGH_FROM) return 'high'
   if (v >= STRESS_MODERATE_FROM) return 'moderate'
@@ -102,12 +94,9 @@ export function stressZone(v: number): StressZone {
   return 'rest'
 }
 
-/** The load meter's empty line while the read is pending or a placeholder (no gap to name yet). */
-export const LOAD_LOADING_TEXT = 'Loading training load'
-
 /** The load meter's empty line: the gap's own line, or the loading text while there is no gap yet. */
 export function loadMeterEmptyText<G>(gap: G | undefined, line: (gap: G) => string): string {
-  return gap === undefined ? LOAD_LOADING_TEXT : line(gap)
+  return gap === undefined ? 'Loading training load' : line(gap)
 }
 
 /**
@@ -241,16 +230,21 @@ export function windowDayCount(
   return ms < 0 ? 0 : Math.round(ms / 86_400_000) + 1
 }
 
-/** The window's first and last day keys: an open start runs from `first` (the earliest point), a start before `floor` is clipped, an open end runs to `today`. */
+/**
+ * The window's first and last day keys: an open start runs from `first` (the earliest point), a
+ * start before `floor` is clipped; the end is `dateTo` (open: `lastVisible`) but never past
+ * `lastVisible`, so a hidden or future day is never drawn as an empty one.
+ */
 export function windowSpan(
   range: { dateFrom?: string | undefined; dateTo?: string | undefined },
   floor: string,
   first: string,
-  today: Date = new Date(),
+  lastVisible: string,
 ): { from: string; to: string } {
   const from =
     range.dateFrom === undefined ? first : range.dateFrom > floor ? range.dateFrom : floor
-  return { from, to: range.dateTo ?? dayKey(today) }
+  const to = range.dateTo === undefined || range.dateTo > lastVisible ? lastVisible : range.dateTo
+  return { from, to }
 }
 
 /**

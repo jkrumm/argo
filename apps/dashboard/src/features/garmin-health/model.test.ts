@@ -1,3 +1,4 @@
+import { lastVisibleDay } from './visibility'
 import { describe, expect, test } from 'bun:test'
 import { ACWR_ZONE_NAME, acwrMeterZones, acwrZoneLabel } from './formulas'
 import { recoveryMeterProps } from './recovery-meter'
@@ -39,7 +40,6 @@ import {
   recoveryQualifier,
   recoveryVerdict,
   stressZone,
-  STRESS_ZONE_LEGEND,
   STRESS_ZONE_NAME,
   loadCellBranch,
   loadMeterEmptyText,
@@ -655,15 +655,6 @@ describe('stress zones', () => {
     const names = [24, 25, 49, 50, 74, 75].map((v) => STRESS_ZONE_NAME[stressZone(v)])
     expect(names).toEqual(['Rest', 'Low', 'Low', 'Moderate', 'Moderate', 'High'])
   })
-
-  test('legend ranges never share a bound', () => {
-    expect(Object.values(STRESS_ZONE_LEGEND)).toEqual([
-      'Rest (< 25)',
-      'Low (25–49)',
-      'Moderate (50–74)',
-      'High (≥ 75)',
-    ])
-  })
 })
 
 describe('strip cell branches', () => {
@@ -729,15 +720,33 @@ describe('fillDays', () => {
 })
 
 describe('windowSpan', () => {
-  test('an open start runs from the first point, a closed one clips at the floor, an open end to today', () => {
-    const t = new Date(2026, 9, 18)
-    expect(windowSpan({}, '2026-04-15', '2026-09-02', t)).toEqual({
+  const last = '2026-10-17'
+
+  test('an open start runs from the first point, a closed one clips at the floor', () => {
+    expect(windowSpan({}, '2026-04-15', '2026-09-02', last)).toEqual({
       from: '2026-09-02',
-      to: '2026-10-18',
+      to: last,
     })
     expect(
-      windowSpan({ dateFrom: '2026-01-01', dateTo: '2026-04-20' }, '2026-04-15', '2026-04-16', t),
+      windowSpan(
+        { dateFrom: '2026-01-01', dateTo: '2026-04-20' },
+        '2026-04-15',
+        '2026-04-16',
+        last,
+      ),
     ).toEqual({ from: '2026-04-15', to: '2026-04-20' })
+  })
+
+  test('the end never passes the last visible day, even for a far-future dateTo', () => {
+    expect(windowSpan({ dateTo: '9999-12-31' }, '2026-04-15', '2026-09-02', last).to).toBe(last)
+  })
+})
+
+describe('lastVisibleDay', () => {
+  test('ends yesterday before the cutoff hour, today after it', () => {
+    expect(lastVisibleDay(new Date(2026, 9, 18, 9))).toBe('2026-10-17')
+    expect(lastVisibleDay(new Date(2026, 9, 18, 23))).toBe('2026-10-18')
+    expect(lastVisibleDay(new Date(2026, 10, 1, 9))).toBe('2026-10-31')
   })
 })
 
