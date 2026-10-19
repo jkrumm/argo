@@ -570,7 +570,7 @@ export function recoveryBasis(components: Components): string | null {
   const present = RECOVERY_INPUTS.filter((i) => !missing.includes(i))
   if (present.length === 0) return null
   const lead = join(missing)
-  return `${lead.charAt(0).toUpperCase()}${lead.slice(1)} not scored — score from ${join(present)} only`
+  return `${lead.charAt(0).toUpperCase()}${lead.slice(1)} not scored${NBSP}— score from ${join(present)} only`
 }
 
 /** What a fitness row prints in its delta column. */

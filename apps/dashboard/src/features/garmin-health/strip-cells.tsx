@@ -388,7 +388,7 @@ function useFitnessCell(): StatStripCell {
   return {
     key: 'fitness',
     caption: 'Fitness',
-    qualifier: `${d?.label || '—'} · ${slope(FITNESS_DAYS)}`,
+    qualifier: `${d?.label || '—'} · RHR/HRV ${slope(FITNESS_DAYS)}`,
     value: fmtNum(vo2Hero(vo2.values, d?.vo2max), 1),
     unit: 'VO2max ml/kg/min',
     loading: direction.isPending,
