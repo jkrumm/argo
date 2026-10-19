@@ -791,7 +791,7 @@ export function needsYouCards(
     const waitMs = activeAt === null ? -1 : Math.max(0, now - activeAt)
     const facts = [
       projectOf(a),
-      waitMs >= 0 ? `waiting ${formatDuration(waitMs)}` : null,
+      waitMs >= 0 ? `waiting${NBSP}${formatDuration(waitMs)}` : null,
       machine,
     ].filter(isText)
     const title = titleOf(a)

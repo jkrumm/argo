@@ -649,7 +649,7 @@ describe('needsYouCards', () => {
     })
     const [card] = needsYouCards([], [waiting], now, { machine: 'mini' })
     expect(card).toMatchObject({
-      facts: ['project-a', 'waiting 1\u00a0h\u00a030\u00a0min', 'mini'],
+      facts: ['project-a', 'waiting\u00a01\u00a0h\u00a030\u00a0min', 'mini'],
       evidenceLine: 'No blocker reported.',
       preview: null,
     })

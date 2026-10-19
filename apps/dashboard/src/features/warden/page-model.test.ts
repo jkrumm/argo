@@ -487,8 +487,8 @@ describe('cardFacts waiting boundaries', () => {
   const waitingAt = (ageDays: number, elapsedMs = 0, historyAgeMs = 0) =>
     cardFacts(row({ ageDays }), 'repo-a', { elapsedMs, historyAgeMs })[1]
   it('never reads a zero: under a minute is `<1 min`', () => {
-    expect(waitingAt(0)).toBe('waiting <\u00a01\u00a0min')
-    expect(waitingAt(0, 59_000)).toBe('waiting <\u00a01\u00a0min')
+    expect(waitingAt(0)).toBe('waiting\u00a0<\u00a01\u00a0min')
+    expect(waitingAt(0, 59_000)).toBe('waiting\u00a0<\u00a01\u00a0min')
   })
   it('a minute and past reads the duration', () => {
     expect(waitingAt(0, MIN)).toBe('waiting\u00a01\u00a0min')
