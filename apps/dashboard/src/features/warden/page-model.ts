@@ -764,40 +764,49 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionHisto
 // ── History preview ─────────────────────────────────────────────────────────
 
 /** The arrow glued to the word before it; the space after it is the only break point in a transition. */
-const HISTORY_ARROW = `${NBSP}→ `
+const TRAILING_ARROW = `${NBSP}→ `
+/** The arrow glued to the word after it instead: a wrapped line starts with `→ B`, never ends on `→`. */
+const LEADING_ARROW = ` →${NBSP}`
+
+export type ArrowPlacement = 'trailing' | 'leading'
 
 /**
  * `Needs decision → Working`; a creation row reads `Created` (or `Created → <state>`). Each state
  * name is one unbreakable unit and the arrow stays with the word before it, so a wrapped line
  * breaks only after the arrow, never inside a state name.
  */
-export function transitionText({ from, to }: TransitionLine): string {
+export function transitionText(
+  { from, to }: TransitionLine,
+  /** `trailing` (Warden) breaks after the arrow; `leading` (Home's compact row) breaks before it. */
+  arrow: ArrowPlacement = 'trailing',
+): string {
+  const sep = arrow === 'leading' ? LEADING_ARROW : TRAILING_ARROW
   const target = glue(sentenceCase(to) ?? to)
-  if (from === null) return to === 'new' ? 'Created' : `Created${HISTORY_ARROW}${target}`
-  return `${glue(sentenceCase(from) ?? from)}${HISTORY_ARROW}${target}`
+  if (from === null) return to === 'new' ? 'Created' : `Created${sep}${target}`
+  return `${glue(sentenceCase(from) ?? from)}${sep}${target}`
 }
 
-/**
- * A transition line for Home's compact row: the arrow moves to the front of the break, `A →{nbsp}B`,
- * so a wrapped line starts with `→ B` and never ends on a bare `→`.
- */
-export const leadingArrow = (text: string): string => text.replaceAll(`${NBSP}→ `, ` →${NBSP}`)
-
 /** Tokens shorter than this are ordinary words and never get break points. */
-export const BREAK_TOKEN_MIN = 14
+const BREAK_TOKEN_MIN = 14
+
+/** A boundary inside an identifier-like token: after `.` `/` `_` `-` or `::`, before a non-separator. */
+const TOKEN_BOUNDARY = /(?<=::|[./_-])(?=[^\s./_:-])/
+
+export type TitleSegment = { text: string; breakBefore: boolean }
 
 /**
- * A title cut into segments at the natural boundaries of long identifier-like tokens (after each
- * `.` `/` `_` `-` `::`); the segments concatenate back to `text`, a break may fall between any two.
- * Ordinary words and short tokens stay whole.
+ * A title cut into segments at the natural boundaries of long identifier-like tokens; the texts
+ * concatenate back to the input. `breakBefore` marks a break opportunity between this segment and
+ * the previous one (never across whitespace, which breaks on its own). Ordinary words and short
+ * tokens stay whole.
  */
-export function titleSegments(text: string): string[] {
-  return text
-    .split(/(\s+)/)
-    .flatMap((part) =>
-      part.length < BREAK_TOKEN_MIN ? [part] : part.split(/(?<=::|[./_-])(?=[^\s./_:-])/),
-    )
-    .filter((part) => part !== '')
+export function titleSegments(text: string): TitleSegment[] {
+  if (text === '') return []
+  return text.split(/(\s+)/).flatMap((part) => {
+    if (part === '') return []
+    const pieces = part.length < BREAK_TOKEN_MIN ? [part] : part.split(TOKEN_BOUNDARY)
+    return pieces.map((piece, i) => ({ text: piece, breakBefore: i > 0 }))
+  })
 }
 
 /** `{n} min ago` as one unbreakable unit (`ago` glued to its duration); `—` for an unreadable time. */
@@ -830,12 +839,15 @@ export type HistoryView = {
   earlier: number
 }
 
-export function historyView(history: TransitionHistory): HistoryView | null {
+export function historyView(
+  history: TransitionHistory,
+  arrow: ArrowPlacement = 'trailing',
+): HistoryView | null {
   const summary = historySummary(history, history.total)
   if (summary === null) return null
   return {
     layout: Math.max(history.total ?? 0, history.length) <= 1 ? 'inline' : 'well',
-    lines: history.toReversed().map((line) => ({ text: transitionText(line), at: line.at })),
+    lines: history.toReversed().map((line) => ({ text: transitionText(line, arrow), at: line.at })),
     earlier: summary.earlier - (history.length - 1),
   }
 }

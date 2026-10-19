@@ -2,24 +2,14 @@ import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
 import classes from '../../components/upstream/decision-card.module.css'
-import { leadingArrow, historyLineWithAge, historyTail, type HistoryView } from './page-model'
+import { historyLineWithAge, historyTail, type HistoryView } from './page-model'
 
 /**
  * The decision card's change history. One transition is a single inline sentence
  * (`Latest change: A → B · 2 h ago`) with no well; several are a short list, newest first, in the
  * card's right-hand well. A Warden card passes its one clock (`now`), shared with its `waiting` fact; a caller without one (Home) falls back to the page clock. State names are never truncated: a line wraps at its spaces instead.
  */
-export function HistoryPreview({
-  view,
-  now: cardNow,
-  leadingArrow: lead = false,
-}: {
-  view: HistoryView
-  now?: number
-  /** Home's compact row: a wrapped transition breaks before its arrow, so no line ends on a bare `→`. */
-  leadingArrow?: boolean
-}) {
-  const text = (t: string) => (lead ? leadingArrow(t) : t)
+export function HistoryPreview({ view, now: cardNow }: { view: HistoryView; now?: number }) {
   const ownNow = useNow()
   const now = cardNow ?? ownNow
   if (view.layout === 'inline') {
@@ -28,7 +18,7 @@ export function HistoryPreview({
       <Text size="xs" c="dimmed">
         Latest change:{' '}
         <Text span inherit c={VX.ink}>
-          {only ? text(only.text) : null}
+          {only?.text}
         </Text>
         {only?.at ? historyTail(only.at, now) : null}
       </Text>
@@ -41,7 +31,7 @@ export function HistoryPreview({
       </Text>
       {view.lines.map((line, i) => (
         <Text key={`${i}-${line.text}`} size="xs" miw={0} className={classes.wrap}>
-          {historyLineWithAge(text(line.text), line.at, now)}
+          {historyLineWithAge(line.text, line.at, now)}
         </Text>
       ))}
       {view.earlier > 0 ? (

@@ -4,7 +4,6 @@ import { capFacts } from '../../components/upstream/decision-card-model'
 import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
 import { formatDuration } from '../../lib/format'
 import {
-  leadingArrow,
   titleSegments,
   cardFacts,
   resolveWaitMs,
@@ -1295,52 +1294,71 @@ describe('resolveQueueAsks', () => {
   })
 })
 
-describe('leadingArrow', () => {
-  it('moves the break in front of the arrow: a line starts with `→ B`, never ends on `→`', () => {
-    const text = leadingArrow(transitionText({ from: 'working', to: 'needs_decision', at: null }))
-    expect(text).toBe('Working →\u00a0Needs\u00a0decision')
+describe('transitionText arrow placement', () => {
+  const line = { from: 'working', to: 'needs_decision', at: null }
+  it('trailing (default): glued to the word before it, breaks after the arrow', () => {
+    expect(transitionText(line)).toBe('Working\u00a0→ Needs\u00a0decision')
+    expect(transitionText({ from: null, to: 'working', at: null })).toBe('Created\u00a0→ Working')
   })
-  it('leaves the default transition breaking after its arrow', () => {
-    expect(transitionText({ from: 'working', to: 'done', at: null })).toContain('\u00a0→ ')
+  it('leading: breaks before the arrow, so a line starts with `→ B` and never ends on `→`', () => {
+    expect(transitionText(line, 'leading')).toBe('Working →\u00a0Needs\u00a0decision')
+    expect(transitionText({ from: null, to: 'working', at: null }, 'leading')).toBe(
+      'Created →\u00a0Working',
+    )
+    expect(transitionText({ from: null, to: 'new', at: null }, 'leading')).toBe('Created')
+  })
+  it('historyView builds its lines with the placement it is given', () => {
+    expect(historyView([line], 'leading')?.lines[0]?.text).toBe(
+      'Working →\u00a0Needs\u00a0decision',
+    )
+    expect(historyView([line])?.lines[0]?.text).toBe('Working\u00a0→ Needs\u00a0decision')
   })
 })
 
 describe('titleSegments', () => {
-  it('cuts a long token after . / _ - and ::, and rejoins to the original', () => {
-    const text = 'test_checkout_flow.spec/handles::retry'
-    expect(titleSegments(text)).toEqual([
-      'test_',
-      'checkout_',
-      'flow.',
-      'spec/',
-      'handles::',
-      'retry',
+  const texts = (input: string) => titleSegments(input).map((s) => s.text)
+  const rejoined = (input: string) => texts(input).join('')
+
+  it('cuts a long token after . / _ - and ::, marking each cut as a break', () => {
+    const input = 'test_checkout_flow.spec/handles::retry'
+    expect(texts(input)).toEqual(['test_', 'checkout_', 'flow.', 'spec/', 'handles::', 'retry'])
+    expect(titleSegments(input).map((s) => s.breakBefore)).toEqual([
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
     ])
-    expect(titleSegments(text).join('')).toBe(text)
+    expect(rejoined(input)).toBe(input)
   })
-  it('leaves ordinary words, short tokens and spaces whole', () => {
-    expect(titleSegments('Fix a well-known flaky bug in v1.2')).toEqual([
-      'Fix',
-      ' ',
-      'a',
-      ' ',
-      'well-known',
-      ' ',
-      'flaky',
-      ' ',
-      'bug',
-      ' ',
-      'in',
-      ' ',
-      'v1.2',
+  it('leaves a 13-character token whole and cuts a 14-character one', () => {
+    expect(texts('abcdef_ghijkl')).toEqual(['abcdef_ghijkl']) // 13
+    expect(texts('abcdef_ghijklm')).toEqual(['abcdef_', 'ghijklm']) // 14
+  })
+  it('breaks after `::` but not after a single `:`', () => {
+    expect(texts('suite_name::case_name')).toEqual(['suite_', 'name::', 'case_', 'name'])
+    expect(texts('suite_name:case_name')).toEqual(['suite_', 'name:case_', 'name'])
+  })
+  it('cuts after the last of repeated separators, never between them (foo--bar)', () => {
+    expect(texts('long_prefix_foo--bar')).toEqual(['long_', 'prefix_', 'foo--', 'bar'])
+  })
+  it('keeps a leading ./ whole: no cut between its `.` and `/`', () => {
+    expect(texts('./src/some/long/path.ts')).toEqual([
+      './',
+      'src/',
+      'some/',
+      'long/',
+      'path.',
+      'ts',
     ])
   })
-  it('never cuts a trailing separator off', () => {
-    expect(titleSegments('some_long_identifier_name_')).toEqual([
-      'some_',
-      'long_',
-      'identifier_',
-      'name_',
-    ])
+  it('never breaks across whitespace and leaves ordinary text whole', () => {
+    const input = 'Fix a well-known flaky bug in v1.2'
+    expect(titleSegments(input).every((s) => !s.breakBefore)).toBe(true)
+    expect(rejoined(input)).toBe(input)
+  })
+  it('returns nothing for an empty string', () => {
+    expect(titleSegments('')).toEqual([])
   })
 })
