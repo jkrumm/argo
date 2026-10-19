@@ -253,3 +253,4 @@ Follow-up (w30-r2):
 ### Wave 41 round
 
 - Fixed (argo): the ratings footer names its noun and keeps the count glued to it: `community mean 4.2 ★ on 4 books` (`on`, the count and `books` joined by NBSP; `1 book` singular). The comma and `of them` are gone, so at 390 the line breaks only before `on 4 books` as a unit. Same two facts, the mean and its base. No lost fact.
+- **Re-score (`w41-r1`):** pass. The footer reads on one line at 1440 and `community mean 4.2 ★` / `on 4 books` at 390 in both schemes — the count stays with its noun. No regression vs `w40-r4`, no lost fact. Open (argo): none. Basalt (carried, P3): the 390 pace readout hanging below the card. Against Keel: holds up.

@@ -576,3 +576,12 @@ New basalt rows the round surfaced — argo works around none of them:
 Still open from earlier rounds (re-confirmed in `w40-r4`): info bubbles over a card's own headline, detached `Meter` end figures, the
 strip qualifier alone after `·`, the `Sparkline` `PR` label at 390, `Sept` beside `Sep`, `Lines` end-label overprint (`7 d mean`),
 `$0` / `0 M` tooltip rows, the band under the tokens plot, hover crops identical to rest.
+
+### Wave 41 — the argo items 2.26 left (#190–#193) and the `w41-r1` live re-score
+
+No basalt change this wave (still 2.26.0); the § "Wave 40" rows are basalt's to close. Re-confirmed in `w41-r1` (Home, Usage, Reading,
+Garmin, WalkingPad, Agents): Garmin's load meter still drops `Caution` at 390 (P1, also inside the joined strip), Agents' oldest-wait
+meter still drops `abandoned at 7 d`, the zone-only `+N` fold, the fitness readout over its line, the activities tooltip leaving its
+card, the reading pace readout below its card, info bubbles over headlines, hover crops identical to rest. One refinement to the
+§ "Wave 40" `Meter` zone names at 1440 row: in dark the collision also cuts `Optimal` to `Optima` under `Caution` (home ACWR meter) —
+a clipped word, not only a missing gap. Nothing new.

@@ -2322,17 +2322,54 @@ without a fact is a defect, and a fix that turns a passing page into a failing o
 "Wave 40 round" (the last bullet is the latest). Basalt rows (`UPSTREAM.md` § "Wave 28"–"Wave 40"): no local workaround. The question
 rung stays frozen. A state is declared only where production renders it.
 
-- [ ] Usage (argo, P2): the health card's latency line draws the partial leading day the strip's `slowest day` excludes — apply the
-      Wave 39 `windowDays` split there too.
+- [x] Usage (argo, P2): the health card's latency line draws the partial leading day the strip's `slowest day` excludes — apply the
+      Wave 39 `windowDays` split there too. **Done:** #192.
 - [ ] The argo P3s: Home's recovery footer ending on `·` at 390 and decision-card-3's evidence `50` / `GB floor?` split; Garmin's 390
       basis line leaving `only` alone; WalkingPad's record header wrapping after `·` at 390; Reading's 390 ratings footer `… on` /
-      `4 of them` (no noun); Agents' long `Now` title ellipsizing at 1440.
+      `4 of them` (no noun); Agents' long `Now` title ellipsizing at 1440. **Done:** #190, #191, #192, #193.
 - [ ] If the orchestrator announces a basalt-ui release, bump it in its own commit, adopt what closes the `UPSTREAM.md` § "Wave 40" rows,
       delete the matching local code.
-- [ ] Re-shoot the changed pages live and re-score (all pages after a bump); any page still below the bar gets a Wave 42 in this shape.
-      The loop ends only when a fresh scorer and the owner find nothing worth improving.
+- [x] Re-shoot the changed pages live and re-score (all pages after a bump); any page still below the bar gets a Wave 42 in this shape.
+      The loop ends only when a fresh scorer and the owner find nothing worth improving. **Done (argo pass):** `w41-r1`, six pages.
+      After a bump the all-page re-shoot reopens with the bump step.
 
 **Left behind:**
+
+**Stopped (orchestrated): the argo steps are closed, the bump step is open — no basalt-ui release was announced during this wave.**
+Wave 41 stays `active`; no Wave 42 is authored (no argo item is left to put in it). When the orchestrator announces the release: bump
+in its own commit, adopt what closes `UPSTREAM.md` § "Wave 40" (Garmin load `Caution` at 390, Agents `abandoned at 7 d`, zone names at
+1440 incl. dark `Optima`, hue-only zone folds, the fitness readout, the activities tooltip, the reading readout, the root export),
+delete the matching local code (none known), re-shoot all 13 routes + both m365 presets, re-score, then flip this wave.
+
+- **basalt-ui:** 2.26.0 throughout (no release announced).
+- **Landed (master, deployed, `/api/health` = `cc6a62f4`, Deploy + check green):** #190 Agents (project card `Now` / `Waiting` title
+  wraps instead of ellipsizing; `nowValue` — `min-width: 0; overflow-wrap: anywhere` — in `project-cards.module.css`); #191 Garmin +
+  WalkingPad (basis line glues `only`; the record header joins facts/stats with the shared `FACT_SEPARATOR`); #192 Usage + Reading (the
+  health card draws window days only via `rangeWindowDays` in `model.ts`, `windowDays` takes an explicit span — `STRIP_WINDOW_DAYS` at
+  the strip — and `hasCalls` reads the windowed rate buckets; ratings footer `community mean 4.2 ★ on 4 books`); #193 Home + shared
+  DecisionCard (`FACT_SEPARATOR` moved to `lib/text-breaks.ts` and used by the recovery footer; `glueNumberUnits` glues number→unit on
+  the evidence line at render time). Fan-out of four workers (`rd fan`), two independent agent-gateway reviews per PR, two rounds then
+  scope frozen, the lead reading every diff, CI `check` green on each PR head, `rd merge`. `make check` green on master.
+- **Caught by the lead before merge:** the WalkingPad worker wrote a second copy of the ` ·NBSP` joint (`joinFacts`) — rebased onto #193
+  and switched to `FACT_SEPARATOR`, then the wrapper removed (round-2 review); the Agents title without `truncate` would have
+  overflowed on a long unbroken token (flex item, `min-width: auto`) — `overflow-wrap: anywhere` added.
+- **Declined with reasons:** consolidating the range→days tables across features, renaming `windowDays`, the `useNow` tick, moving
+  the evidence glue into the producers (the card already does render-time identifier breaking), deriving units from `format.ts` (no unit
+  list there), renaming `text-breaks.ts`, moving `recoveryFooter`'s join to the renderer (every footer is a model-built string), exporting
+  walking-pad's `plural`, extracting `liveWalkFacts`, every fallow complexity refactor (scope frozen).
+- **Verdicts (`w41-r1`, six fresh reviewers, each given the w40-r4 shots, the Keel shots and `README.md`):** **pass** — Home (95), Usage
+  (97, the P2 closed: line opens ~45 s, peak matches `slowest day 65.3 s`), Reading (99), WalkingPad (100), Agents (93). **Fail on basalt
+  only** — Garmin (49: load meter `Caution` at 390 P1 and the carried rows; argo clean). No argo P1/P2/P3 left except the accepted
+  ones (Home's `No snapshot yet from …` body, Agents' `ago` alone at 1440). No regression, no lost fact. Pages not re-shot keep their
+  `w40-r4` verdicts. Against Keel: close everywhere, Reading holds up. Detail: `docs/design/<page>.md` § "Wave 41 round";
+  `UPSTREAM.md` § "Wave 41".
+- **Not verified (data-dependent):** a wrapping `Now` / `Waiting` title and `overflow-wrap` on a lone token (no live title long enough),
+  the evidence-line unit glue at a wrap, the live-walk row, the other Garmin basis branches, usage week grain / `all`.
+- **Shots:** `.design-shots/w41-r1-{a,b}` (gitignored; 0 failed, `detect` clean). Shot after `/api/health` matched `cc6a62f4`. The
+  `argo-auth` seed is zustand's persisted JSON `{"state":{"token":…},"version":0}`, built inside the shoot script from `secrets-run read
+  op://common/api/SECRET` into `--local-storage argo-auth=@env:ARGO_AUTH` (never printed or written) — a bare token seeds nothing and
+  every page shoots the login screen (`no data-shot anchors`). Two parallel 3-route batches took ~6 min.
+- **Cleanup:** worktrees and fan tabs reclaimed with `rd fan --clean`; no background task left running.
 
 # Part 1, continued
 

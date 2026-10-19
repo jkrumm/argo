@@ -230,4 +230,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 41 round
 
-- **Fixed (argo):** the record header's facts and stats lines join with `joinFacts` (` ·{NBSP}`, the rule Warden's facts line settled in Wave 40): the one break is before the dot, so a 390 wrap opens a line on `· {fact}` and never ends on `·` (`… 1 h 30 min ·` / `4.2 km/h`). Applied to the live and last-walk rows, facts and stats. No lost fact.
+- **Fixed (argo):** the record header's facts and stats lines join with the shared `FACT_SEPARATOR` (` ·{NBSP}`, `lib/text-breaks.ts` — the rule Warden's facts line settled in Wave 40): the one break is before the dot, so a 390 wrap opens a line on `· {fact}` and never ends on `·` (`… 1 h 30 min ·` / `4.2 km/h`). Applied to the live and last-walk rows, facts and stats. No lost fact.
+- **Re-score (`w41-r1`):** pass. At 390 in both schemes the last-walk line wraps `last walk 31 Jul · 6.3 km · 1 h 30 min` / `· 4.2 km/h` — no trailing `·`; one line at 1440. No regression vs `w40-r4`, no lost fact. Open (argo): none. Unverified: the live-walk row (data showed `Not walking`), loading / error (not declared). Against Keel: close.
