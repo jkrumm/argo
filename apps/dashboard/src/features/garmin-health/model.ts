@@ -15,6 +15,10 @@ const EM_DASH = '—'
 export const FITNESS_DAYS = 14
 export const VO2_DAYS = 180
 
+/** Fitness slope thresholds per day — mirror `FITNESS_*_SLOPE_THRESHOLD` in `garmin-formulas.ts`. */
+export const FITNESS_RHR_SLOPE_THRESHOLD = 0.05
+export const FITNESS_HRV_SLOPE_THRESHOLD = 0.1
+
 /** Daily activity target in MET-min — mirrors `ACTIVITY_TARGET_SCORE` in `garmin-formulas.ts`. */
 export const ACTIVITY_TARGET_SCORE = 600
 
@@ -550,6 +554,33 @@ export function missingInputs(components: Components): RecoveryInput[] {
     ...(components.sleep === null ? (['sleep'] as const) : []),
     ...(components.rhr === null ? (['RHR'] as const) : []),
   ]
+}
+
+/**
+ * The basis of a scored recovery cell that lacks contributors: the API re-weights the score over the
+ * components it has (`recoveryScore` in `garmin-formulas.ts`), so the line names what is missing and
+ * what the score stands on. `null` when all three contributed.
+ */
+export function recoveryBasis(components: Components): string | null {
+  const missing = missingInputs(components)
+  if (missing.length === 0) return null
+  const present = (['HRV', 'sleep', 'RHR'] as const).filter((i) => !missing.includes(i))
+  const join = (xs: readonly string[]): string => xs.join(' and ')
+  return `${join(missing)} not scored — score from ${present.length > 0 ? join(present) : 'nothing'} only`
+}
+
+/**
+ * The change the fitness label is computed from: the fitted slope across the window's points, not
+ * last minus first. `neutral` when the slope sits inside its threshold (the label ignores it too).
+ */
+export function fittedChange(input: {
+  slope: number | null | undefined
+  points: number
+  threshold: number
+}): { value: number; neutral: boolean } | null {
+  const { slope, points, threshold } = input
+  if (slope === null || slope === undefined || points < 2) return null
+  return { value: slope * (points - 1), neutral: Math.abs(slope) <= threshold }
 }
 
 /** Contributor rows as points of their weight. A component that did not measure is left out. */

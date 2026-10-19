@@ -14,6 +14,8 @@ import {
   windowSpan,
   bodyBatteryFact,
   contributorItems,
+  fittedChange,
+  recoveryBasis,
   countWhere,
   dayLabel,
   divergenceFact,
@@ -223,6 +225,37 @@ describe('contributorItems', () => {
       { label: 'HRV', value: 31.2, max: 40, key: 'HRV' },
       { label: 'RHR', value: 20, max: 25, key: 'RHR' },
     ])
+  })
+})
+
+describe('recoveryBasis', () => {
+  test('three contributors need no basis', () => {
+    expect(recoveryBasis({ hrv: 1, sleep: 2, rhr: 3 })).toBeNull()
+  })
+  test('each missing contributor is named and the score names what it stands on', () => {
+    expect(recoveryBasis({ hrv: null, sleep: null, rhr: 20 })).toBe(
+      'HRV and sleep not scored — score from RHR only',
+    )
+    expect(recoveryBasis({ hrv: 30, sleep: null, rhr: 20 })).toBe(
+      'sleep not scored — score from HRV and RHR only',
+    )
+  })
+})
+
+describe('fittedChange', () => {
+  test('is slope times the steps between points', () => {
+    expect(fittedChange({ slope: -0.2, points: 14, threshold: 0.05 })).toEqual({
+      value: -0.2 * 13,
+      neutral: false,
+    })
+  })
+  test('a slope inside its threshold is neutral, at it too', () => {
+    expect(fittedChange({ slope: 0.05, points: 14, threshold: 0.05 })?.neutral).toBe(true)
+    expect(fittedChange({ slope: -0.03, points: 14, threshold: 0.05 })?.neutral).toBe(true)
+  })
+  test('no slope or under two points is no change', () => {
+    expect(fittedChange({ slope: null, points: 14, threshold: 0.05 })).toBeNull()
+    expect(fittedChange({ slope: 0.3, points: 1, threshold: 0.05 })).toBeNull()
   })
 })
 
