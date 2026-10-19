@@ -552,6 +552,17 @@ const COMPONENT_KEY: Record<RecoveryInput, keyof Components> = {
   RHR: 'rhr',
 }
 
+/**
+ * The fitness cell's qualifier: the direction label and what it summarises. `/fitness-direction`
+ * derives the label from the RHR and HRV slopes only (`fitnessDirection` in the API's
+ * `garmin-formulas.ts`), never VO2max, so the basis text must change with it. A missing label
+ * drops the basis and prints the bare `—`.
+ */
+export function fitnessQualifier(label: string | null | undefined): string {
+  if (!label) return '—'
+  return `${label} · RHR/HRV${NBSP}slope · ${withUnit(FITNESS_DAYS, 'd')}`
+}
+
 /** The recovery inputs a day did not measure, in the order the cell lists them. */
 export function missingInputs(components: Components): RecoveryInput[] {
   return RECOVERY_INPUTS.filter((i) => components[COMPONENT_KEY[i]] === null)
@@ -570,6 +581,7 @@ export function recoveryBasis(components: Components): string | null {
   const present = RECOVERY_INPUTS.filter((i) => !missing.includes(i))
   if (present.length === 0) return null
   const lead = join(missing)
+  // NBSP before the dash keeps a wrapped line from opening on it.
   return `${lead.charAt(0).toUpperCase()}${lead.slice(1)} not scored${NBSP}— score from ${join(present)} only`
 }
 
