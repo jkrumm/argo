@@ -321,11 +321,11 @@ export function recoveryCell(
   /** Which form of the Garmin gap this cell prints: the screen's one full form goes to the first gapped surface. */
   form: GapForm,
 ): StatStripCell {
-  // A pre-sync gap still has a previous score and a trend to show; only a cell with none of them is empty.
+  // A figure is today's score or, in the pre-sync gap, the last scored day's; a trend or mean alone cannot show one.
   const shown = reading === null ? null : (reading.score ?? reading.last?.value ?? null)
-  const hasTrend = reading !== null && reading.trend.length > 1
-  if (reading === null || (shown === null && !hasTrend && reading.mean === null)) {
-    const line = gapLine(noScoreCellGap(reading, loading, series), form)
+  const gap = noScoreCellGap(reading, loading, series)
+  if (reading === null || shown === null) {
+    const line = gapLine(gap, form)
     return {
       key: 'recovery',
       caption: 'Recovery · today',
@@ -336,35 +336,26 @@ export function recoveryCell(
     }
   }
   const { score, trend } = reading
-  const gap = noScoreCellGap(reading, loading, series)
-  // No figure to show (trend or mean only): the gap line takes the value's place, so the cell is never blank.
-  const figureless = shown === null
+  const hasTrend = trend.length > 1
   // The tile already prints the last score and its day: only the cadence is left to say.
-  const showsLastScore = score === null && reading.last !== null && gap.full !== null
   const footerGap =
     score !== null
       ? undefined
-      : figureless
-        ? ''
-        : showsLastScore
-          ? form === 'full'
-            ? cadenceGap.short
-            : ''
-          : gapLine(gap, form)
+      : reading.last !== null && gap.full !== null
+        ? cadenceGap.short
+        : gapLine(gap, form)
   return {
     key: 'recovery',
     caption: recoveryCaption(reading),
-    value: shown === null ? gapLine(gap, form) : String(Math.round(shown)),
-    ...(shown !== null && { unit: '/100' }),
+    value: String(Math.round(shown)),
+    unit: '/100',
     visual: (
       <Box className={classes.composite}>
-        {shown === null ? null : (
-          <Meter
-            {...recoveryMeterProps(shown)}
-            value={Math.round(shown)}
-            format={(v) => String(Math.round(v))}
-          />
-        )}
+        <Meter
+          {...recoveryMeterProps(shown)}
+          value={Math.round(shown)}
+          format={(v) => String(Math.round(v))}
+        />
         {hasTrend ? (
           <Sparkline
             ariaLabel={`Recovery over the last ${trend.length} observed days`}
