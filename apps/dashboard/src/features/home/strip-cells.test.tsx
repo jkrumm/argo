@@ -452,7 +452,9 @@ describe('budget footer entries', () => {
   const poller = { name: 'loop', ageMin: 4, stale: false }
 
   it('keeps the poller fact under the budget cell while it shows its reason', () => {
-    expect(budgetFooterEntries(undefined, poller, 'ready')).toMatchObject([{ under: 'budget' }])
+    expect(budgetFooterEntries(undefined, poller, 'ready')).toMatchObject([
+      { under: 'budget', shotAbsent: ['empty'] },
+    ])
     expect(budgetCell(undefined, poller, 'ready').state).toMatchObject({ kind: 'empty' })
   })
 

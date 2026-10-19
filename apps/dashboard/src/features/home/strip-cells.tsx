@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
+import type { ComponentProps } from 'react'
 import { NBSP, glue, withUnit } from '../../lib/format'
 import { Box, Text } from '@mantine/core'
 import { DayAxis } from './strip-visuals'
-import { Meter, type StatStripCell } from 'basalt-ui'
+import { Meter, type StatGroup, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { OverviewSummary } from '../../lib/queries/agents'
@@ -123,6 +123,11 @@ const pollerFact = (poller: Poller) => (
   </Text>
 )
 
+/** basalt-ui's root exports no `StatStripFooterEntry`; derive it from `StatGroup`'s strip footer. */
+type StripFooterEntry = NonNullable<
+  Extract<ComponentProps<typeof StatGroup>, { variant: 'strip' }>['footer']
+>[number]
+
 /**
  * A cell in `state` draws no `footer` of its own, so the poller's freshness fact a budget-less cell
  * would lose rides the strip's footer, under that cell.
@@ -131,10 +136,13 @@ export function budgetFooterEntries(
   budget: WardenBudget | undefined,
   poller: Poller,
   feed: WardenFeed,
-): { key: string; under: string; content: ReactNode }[] {
+): StripFooterEntry[] {
   if (feed === 'no-snapshot' || !budgetIsEmpty(budget, feed)) return []
   if (poller === undefined && budget === undefined) return []
-  return [{ key: 'budget-poller', under: 'budget', content: pollerFact(poller) }]
+  // Production never renders this entry under the strip's empty state, so `shot` must not expect it there.
+  return [
+    { key: 'budget-poller', under: 'budget', content: pollerFact(poller), shotAbsent: ['empty'] },
+  ]
 }
 
 export function budgetCell(
