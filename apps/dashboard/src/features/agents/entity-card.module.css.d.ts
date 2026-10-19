@@ -14,7 +14,6 @@ declare const classes: {
   readonly unit: string
   readonly visual: string
   readonly now: string
-  readonly nowValue: string
   readonly note: string
 }
 export default classes

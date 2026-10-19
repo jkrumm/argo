@@ -8,5 +8,6 @@ declare const classes: {
   readonly quietBox: string
   readonly quietRow: string
   readonly quietAge: string
+  readonly nowValue: string
 }
 export default classes
