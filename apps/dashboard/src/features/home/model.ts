@@ -9,6 +9,7 @@ import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { applyVisibilityFilter } from '../garmin-health/visibility'
 import { leadOf, subjectOf } from '../../lib/question-copy'
 import { CANCELLED_PREFIX } from '../calendar/derive'
+import { FACT_SEPARATOR } from '../../lib/text-breaks'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
@@ -308,7 +309,7 @@ export function recoveryFooter(
         ? `${days}/${withUnit(RECOVERY_DAYS, 'd')} observed`
         : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`),
   ]
-  return parts.filter(Boolean).join(' · ')
+  return parts.filter(Boolean).join(FACT_SEPARATOR)
 }
 
 export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
