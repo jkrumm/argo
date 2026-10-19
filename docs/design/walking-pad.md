@@ -227,3 +227,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Declined:** the w39 P3 "Pace and Totals empty sentence repeats the reason" — `README.md` § "One form for a repeated gap" requires the short form to be the leading clause verbatim, and the empty-state title is that clause (`emptyWindowShort`). A shorter `No walks` was built and reverted.
 - **Re-score (`w40-r1`):** pass, both changes verified live at 390, no lost fact. Unverified: the loading footer (no declared loading state). Open (argo, P3): the record header's last-walk line wraps after a trailing `·` at 390 (`… 1 h 30 min ·` / `4.2 km/h`). Against Keel: close.
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass, no regression vs `w40-r1`, no lost fact. Open (argo, P3, carried): the record header's last-walk line wrapping after `·` at 390. Unverified: loading (not declared).
+
+### Wave 41 round
+
+- **Fixed (argo):** the record header's facts and stats lines join with `joinFacts` (` ·{NBSP}`, the rule Warden's facts line settled in Wave 40): the one break is before the dot, so a 390 wrap opens a line on `· {fact}` and never ends on `·` (`… 1 h 30 min ·` / `4.2 km/h`). Applied to the live and last-walk rows, facts and stats. No lost fact.

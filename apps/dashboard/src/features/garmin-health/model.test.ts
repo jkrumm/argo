@@ -254,10 +254,13 @@ describe('recoveryBasis', () => {
   })
   test('each missing contributor is named and the score names what it stands on', () => {
     expect(recoveryBasis({ hrv: null, sleep: null, rhr: 20 })).toBe(
-      'HRV and sleep not scored\u00a0— score from RHR only',
+      'HRV and sleep not scored\u00a0— score from RHR\u00a0only',
     )
     expect(recoveryBasis({ hrv: 30, sleep: null, rhr: 20 })).toBe(
-      'Sleep not scored\u00a0— score from HRV and RHR only',
+      'Sleep not scored\u00a0— score from HRV and RHR\u00a0only',
+    )
+    expect(recoveryBasis({ hrv: 30, sleep: 40, rhr: null })).toBe(
+      'RHR not scored\u00a0— score from HRV and sleep\u00a0only',
     )
   })
 })
