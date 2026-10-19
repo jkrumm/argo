@@ -133,7 +133,11 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   // The cell shows its line only without a score and once the summary has settled.
   const showsGap = score === null && !summary.isPending
   const form = useGapForm(GAP_ORDER.recovery, showsGap ? gap : null)
-  const basis = score === null || !data ? null : recoveryBasis(data.components)
+  const scored = score !== null && data !== undefined
+  const basis =
+    scored && !summary.isPending && !summary.isPlaceholderData
+      ? recoveryBasis(data.components)
+      : null
   return {
     key: 'recovery',
     caption: 'Recovery',
