@@ -505,6 +505,18 @@ describe('day-count sentences', () => {
     expect(windowDays(days, NOW).map((d) => d.value)).toEqual([1, 5])
     expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1])
   })
+  it('windowDays takes the span from the range, 30 d by default', () => {
+    const days = [
+      { date: new Date(2025, 10, 20), value: 1 },
+      { date: new Date(2025, 11, 20), value: 2 },
+      { date: new Date(2026, 0, 8), value: 3 },
+    ]
+    expect(windowDays(days, NOW, 7).map((d) => d.value)).toEqual([3])
+    expect(windowDays(days, NOW, 90).map((d) => d.value)).toEqual([1, 2, 3])
+    expect(windowDays(days, NOW).map((d) => d.value)).toEqual(
+      windowDays(days, NOW, 30).map((d) => d.value),
+    )
+  })
   it('takes the mean and the peak day over full days only', () => {
     const days = [
       { date: new Date(2025, 11, 11), value: 90 },

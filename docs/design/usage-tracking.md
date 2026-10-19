@@ -257,3 +257,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 40 round
 
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass. Closed: the errors band legend one line per label at 1440 and 390, the p95 readout `21.7 s · 4 Oct` on its reserved line, tooltips inside their card. New (argo, P2, data-dependent): the health card's latency line starts at ~155 s on 20 Sep while the strip says `slowest day 65.3 s` — the health card draws the partial leading day the strip excludes (the `windowDays` split was applied to the sparklines in Wave 39, not to the health card). Carried (basalt, P3): `19 Sept` band ticks vs `20 Sep`, `$0` / `0 M` tooltip rows, the band under the tokens plot. No regression, no lost fact. Against Keel: close.
+
+### Wave 41 round
+
+- Fixed (argo): the health card draws window days only. At day grain the p95 line and the per-day error bars both drop the partial leading day of the range's rolling window (`windowDays`, now taking an optional `spanDays`, default 30, so the strip's call sites are unchanged), so the two halves share one x extent and the line's first point is the first day that began inside the window. `p95 latest` is the last bucket, unchanged; the empty and two-point states are unchanged. The `all` range has no window start and week grain keeps its buckets as returned (a week bucket is not day-aligned to the window start, so no clean rule exists). The error-event total follows the drawn bars. No lost fact.
