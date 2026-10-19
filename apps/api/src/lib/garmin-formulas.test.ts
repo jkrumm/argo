@@ -241,19 +241,15 @@ describe('fitnessDirection', () => {
   })
 })
 
-describe('fitnessDirection change + flat', () => {
-  const series = (
-    n: number,
-    rhr: (i: number) => number | null,
-    hrv: (i: number) => number | null,
-  ) =>
-    Array.from({ length: n }, (_, i) => ({
-      date: `2025-01-${String(i + 1).padStart(2, '0')}`,
-      restingHr: rhr(i),
-      hrv: hrv(i),
-      vo2Max: null,
-    }))
+const series = (n: number, rhr: (i: number) => number | null, hrv: (i: number) => number | null) =>
+  Array.from({ length: n }, (_, i) => ({
+    date: `2025-01-${String(i + 1).padStart(2, '0')}`,
+    restingHr: rhr(i),
+    hrv: hrv(i),
+    vo2Max: null,
+  }))
 
+describe('fitnessDirection change + flat', () => {
   it('change is the slope times the span of the slice', () => {
     const r = fitnessDirection(
       series(
