@@ -2425,19 +2425,28 @@ scope beyond these steps. Basalt rows get no local workaround.
 - **Shots:** `.design-shots/w43-{a,b}` (0 failed; gitignored), plus the discarded `w43-bump`. No token written; no background task left.
 
 
-## Wave 43 — Re-score round 22: basalt-ui 2.27.2 <!-- status: active -->
+## Wave 43 — Re-score round 22: basalt-ui 2.27.2 <!-- status: done -->
 
 basalt-ui 2.27.2 (basalt Wave 41, argo friction VI) is a patch with nothing to migrate: #461/#463 open the info bubble below
 the card's header block so it never covers the headline facts (Garmin ACWR, Recovery, Activity score); #462 keeps the slotted
 `Bars` chip clear of the plot's focus ring and swatch, with one home for the chart ring (Reading's pace tile). This is the last
 wave before a pause for the owner's weekly limit: one round, no scope beyond these steps. Basalt rows get no local workaround.
 
-- [ ] Bump basalt-ui to 2.27.2 in its own commit.
-- [ ] Once the served dashboard bundle carries the bump: re-shoot Garmin and Reading (1440 / 390, both schemes) with
+- [x] Bump basalt-ui to 2.27.2 in its own commit.
+- [x] Once the served dashboard bundle carries the bump: re-shoot Garmin and Reading (1440 / 390, both schemes) with
       `basalt-ui shot` (only its out dirs feed the scorer) and re-score them with fresh `basalt-design-reviewer`s given the
       w43 shots + Keel.
-- [ ] Re-check the `UPSTREAM.md` § "Wave 42 bump" rows these fixes close; record any regression as a basalt row.
+- [x] Re-check the `UPSTREAM.md` § "Wave 42 bump" rows these fixes close; record any regression as a basalt row.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 43 is `done`; no Wave 44 is authored.**
+
+- **basalt-ui 2.27.2:** bumped in its own commit `eaff7a7b`; `sync` refreshed the managed block, nothing to adopt. `make check` green (609 tests). Deploy run succeeded and `/api/health` = `eaff7a7b` before shooting (the bundle carries no version string; deploy success is the evidence).
+- **Verdicts (`w44-a`, `w44-b`, fresh reviewers, each given the w43 shots):** **pass** — Reading 94 (#462 closed: pace chip clear of the ring, unclipped). **Fail on basalt/carried only** — Garmin 82 (up from 55): the info-popover P1 is closed on ACWR, Recovery and Activity score; ACWR still draws its date axis twice (P1, carried). No regression, no lost fact. Rows: `UPSTREAM.md` § "Wave 43 bump".
+- **Argo items (not fixed, scope frozen):** Garmin card titles carry no period (P2 copy); orphaned `· ` when a headline wraps at 390 (P3).
+- **Not verified:** Keel captures not opened by either reviewer; Reading's non-pace anchors and Garmin's light-mobile/dark-desktop page shots were read from metrics only; no `detect.json` run.
+- **Shots:** `.design-shots/w44-{a,b}` (0 failed; gitignored), shot with `--base https://argo.jkrumm.com`, auth seeded via env from `secrets-run`, never printed or written. No background task left.
+
 
 # Part 1, continued
 

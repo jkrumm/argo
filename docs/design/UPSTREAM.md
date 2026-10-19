@@ -630,3 +630,18 @@ Reading live (`.design-shots/w43-a`, `w43-b`, gitignored) against the § "Wave 4
 Carried, unchanged: Garmin ACWR draws its date axis twice (line and delta bars); Meter end labels (`0`, `2.0`) detached from the track;
 hover crops identical to rest. No regression on a passing page.
 
+
+### Wave 43 bump — basalt-ui 2.27.2 and the `w44` re-score
+
+argo moved to 2.27.2 in its own commit (`eaff7a7b`, patch, nothing to migrate). Re-shot Garmin and Reading live with `basalt-ui shot --base`
+(`.design-shots/w44-a`, `w44-b`, gitignored) against the § "Wave 42 bump" rows:
+
+| Row | Status on 2.27.2 | Evidence |
+|-|-|-|
+| `Bars` readout chip touching its focus ring (Reading pace) | **closed** | chip fully legible, 20–30 px clear of the plot ring, one ring, all four focus crops |
+| info popover over headline facts (Garmin ACWR, Recovery, Activity score) | **closed** | headline row visible, popover opens below it, both schemes and viewports |
+
+Open, carried: Garmin ACWR draws its date axis twice (P1); Meter end labels (`0`, `2.0`, `100`) on their own row; `Caution` zone label wraps at 390.
+New, P3 (basalt, unconfirmed): the Reading pace chip's left edge sits ~8 px outside the card's text inset, ~2 px under the readout line; the
+focus ring reads thinner and square-cornered. Argo: Garmin card titles carry no period (P2, copy); orphaned `· ` at a wrapped headline (P3).
+Hover crops still identical to rest (tooltips undeclared on Reading pace/ratings). No regression, no lost fact.
