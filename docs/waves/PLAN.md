@@ -2313,7 +2313,7 @@ renders it.
   `unchanged` / plain branches, the WalkingPad loading footer.
 - **Cleanup:** all worktrees and fan tabs reclaimed with `rd fan --clean`; no background task left running.
 
-## Wave 41 — Re-score round 20: the argo items 2.26 left <!-- status: active -->
+## Wave 41 — Re-score round 20: the argo items 2.26 left <!-- status: done -->
 
 Same shape as Wave 40 (fan-out on disjoint page files, two independent reviews per PR, two rounds then scope frozen, CI `check` green on
 the PR head before the merge, live re-shoot once the served bundle carries the change, fresh `basalt-design-reviewer`s given the latest
@@ -2324,18 +2324,43 @@ rung stays frozen. A state is declared only where production renders it.
 
 - [x] Usage (argo, P2): the health card's latency line draws the partial leading day the strip's `slowest day` excludes — apply the
       Wave 39 `windowDays` split there too. **Done:** #192.
-- [ ] The argo P3s: Home's recovery footer ending on `·` at 390 and decision-card-3's evidence `50` / `GB floor?` split; Garmin's 390
+- [x] The argo P3s: Home's recovery footer ending on `·` at 390 and decision-card-3's evidence `50` / `GB floor?` split; Garmin's 390
       basis line leaving `only` alone; WalkingPad's record header wrapping after `·` at 390; Reading's 390 ratings footer `… on` /
       `4 of them` (no noun); Agents' long `Now` title ellipsizing at 1440. **Done:** #190, #191, #192, #193.
-- [ ] If the orchestrator announces a basalt-ui release, bump it in its own commit, adopt what closes the `UPSTREAM.md` § "Wave 40" rows,
-      delete the matching local code.
+- [x] If the orchestrator announces a basalt-ui release, bump it in its own commit, adopt what closes the `UPSTREAM.md` § "Wave 40" rows,
+      delete the matching local code. **Done:** basalt-ui 2.27.0, `52054469`; nothing to adopt, no local code to delete.
 - [x] Re-shoot the changed pages live and re-score (all pages after a bump); any page still below the bar gets a Wave 42 in this shape.
       The loop ends only when a fresh scorer and the owner find nothing worth improving. **Done (argo pass):** `w41-r1`, six pages.
       After a bump the all-page re-shoot reopens with the bump step.
 
 **Left behind:**
 
-**Stopped (orchestrated): the argo steps are closed, the bump step is open — no basalt-ui release was announced during this wave.**
+**Closed out (orchestrated, bump pass): Wave 41 is `done`; no Wave 42 is authored — the open items are basalt's.**
+
+- **basalt-ui 2.27.0:** bump in its own commit `52054469`; `sync` refreshed the managed block, MIGRATING § 2.27.0 needed nothing from argo
+  (no `foldLegend` / `+N` code, no facts card needing the new `state` gate, no local code made redundant). Landed on master and deployed
+  (`/api/health` = `4e3840a2`, served bundle hash changed before each shoot). `make check` green on each commit.
+- **argo-owned find, fixed:** the Map tab's legends sat under MapLibre's expanded attribution strip at 390 and lost their last lines
+  (`4e3840a2`, `bottom` 8 → 44 on `LpLegend` / `WeatherLegends`; first try `32` still clipped `(2025)`). Re-shot `w42-r3-map`: clean at
+  390 and 1440. The Map tab had no earlier round, so this is not a 2.27 effect.
+- **Verdicts (`w42`, 12 fresh reviewers, each given the previous round's shots, Keel and `README.md`):** **pass** — Home 93, Agents 92,
+  Warden 92, WalkingPad 100, Calendar 97, Body composition 96, Reading 99, Usage 95, Strength 90 (reviewer read 4 of 13 sheets; treat as
+  provisional), Hermes 98, astro Tonight 94 + Forecast 94 + Map (fail 87 on the legend, fixed and verified above), m365 detail 94 +
+  labeled 93. **Fail on basalt only** — Garmin 71: the fitness readout lands on the HRV row's line at 390 (P1, Fitness cell and joined
+  strip). No argo P1/P2 left except Home's next-meeting footer ellipsizing the title (P2, argo, data-dependent — the title is long;
+  not changed this wave). No regression on a passing page, no lost fact. Against Keel: close everywhere, unchanged.
+- **UPSTREAM § "Wave 40" re-check** (table in `docs/design/UPSTREAM.md` § "Wave 41 bump"): **closed** — Garmin `Caution` at 390, Agents
+  `abandoned at 7 d`, zone names at 1440 incl. dark `Optima`, hue-only zone folds, the activities tooltip, the reading readout, strip
+  footer alignment. **Open** — the fitness readout (worse at 390), info bubbles over headlines, hover = rest, stranded `·` qualifier,
+  `PR` label, `Sept` / `Sep`, `$0` rows. **New basalt P3s:** `warn at 24 h` / `abandoned at 7 d` stacked nearly touching; the Bars chip
+  touching its focus ring; the activities tooltip covering the headline facts.
+- **Shots:** `.design-shots/w42-{a,b,c,d,e}`, `w42-m-{detail,labeled}`, `w42-r{2,3}-map` (gitignored, 0 failed). The default m365 pane was
+  not re-shot as its own preset. Boards not copied to the MacBook.
+- **Not verified:** the m365 default pane at 390, hover / tooltip states of the 2.27 hosted Sparkline readout on Usage and Walking (no
+  crop declares them), a wrapping `Now` title.
+- **Cleanup:** no worktree, tab or background task left; no token written anywhere.
+
+**Stopped earlier (orchestrated): the argo steps were closed, the bump step was open — no basalt-ui release was announced during this wave.**
 Wave 41 stays `active`; no Wave 42 is authored (no argo item is left to put in it). When the orchestrator announces the release: bump
 in its own commit, adopt what closes `UPSTREAM.md` § "Wave 40" (Garmin load `Caution` at 390, Agents `abandoned at 7 d`, zone names at
 1440 incl. dark `Optima`, hue-only zone folds, the fitness readout, the activities tooltip, the reading readout, the root export),
