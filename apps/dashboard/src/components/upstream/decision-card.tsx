@@ -28,7 +28,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { IconChevronDown, IconDots } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
-import { NBSP } from '../../lib/format'
+import { FACT_SEPARATOR, glueNumberUnits } from '../../lib/text-breaks'
 import { identifierRuns } from './identifier-runs'
 import classes from './decision-card.module.css'
 import { VX } from 'basalt-ui/tokens'
@@ -42,9 +42,6 @@ import {
 } from './decision-card-model'
 
 export type { DecisionCardAction, DecisionCardFact } from './decision-card-model'
-
-/** A breakable space before the dot, a no-break space after it: a wrapped line opens on `· {fact}`, never ends on a bare `·`. */
-const FACT_SEPARATOR = ` ·${NBSP}`
 
 export type DecisionCardProps = {
   /** The headline, written as the question the owner answers. Wraps; never truncated. */
@@ -235,7 +232,7 @@ export function DecisionCard({
           )}
           {isRenderable(evidenceLine) && (
             <Text size="sm" className={classes.wrap}>
-              {evidenceLine}
+              {glueNumberUnits(evidenceLine ?? '')}
             </Text>
           )}
           {previewPlacement === 'inline' && isRenderable(preview) && (

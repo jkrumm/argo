@@ -156,10 +156,10 @@ describe('recovery cell window wording', () => {
 })
 
 describe('recovery footer breaks', () => {
-  it('glues only number and unit, so the break falls between phrases', () => {
+  it('glues only number and unit and the dot to the fact after it, so the break falls before the dot', () => {
     const footer = recoveryFooter(reading({ mean: 60, days: 5, isToday: true }))
     // Every regular space sits between phrases or words; no digit is stranded from its unit.
-    expect(footer.split(' ')).toEqual(['7\u00a0d', 'mean\u00a060', '·', '5/7\u00a0d', 'observed'])
+    expect(footer.split(' ')).toEqual(['7\u00a0d', 'mean\u00a060', '·\u00a05/7\u00a0d', 'observed'])
   })
 })
 
@@ -250,7 +250,7 @@ describe('strip cells with no reading', () => {
     )
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
     expect((cell.footer as ReactElement<{ children: string }>).props.children).toBe(
-      '7\u00a0d mean\u00a065 · today fills after the next Garmin sync (every 6\u00a0h)',
+      '7\u00a0d mean\u00a065 ·\u00a0today fills after the next Garmin sync (every 6\u00a0h)',
     )
   })
 
@@ -367,10 +367,10 @@ describe('recoveryFooter', () => {
   const NB = '\u00a0'
   it('keeps the mean in every branch where there is one', () => {
     expect(recoveryFooter(reading({ isToday: true }))).toBe(
-      `7${NB}d mean${NB}60 · 7/7${NB}d observed`,
+      `7${NB}d mean${NB}60 ·${NB}7/7${NB}d observed`,
     )
     expect(recoveryFooter(reading({ isToday: false }))).toBe(
-      `7${NB}d mean${NB}60 · today fills after the next Garmin sync (every 6${NB}h)`,
+      `7${NB}d mean${NB}60 ·${NB}today fills after the next Garmin sync (every 6${NB}h)`,
     )
   })
 
@@ -384,7 +384,9 @@ describe('recoveryFooter', () => {
   })
 
   it('singular day', () => {
-    expect(recoveryFooter(reading({ days: 1 }))).toBe(`7${NB}d mean${NB}60 · 1/7${NB}d observed`)
+    expect(recoveryFooter(reading({ days: 1 }))).toBe(
+      `7${NB}d mean${NB}60 ·${NB}1/7${NB}d observed`,
+    )
   })
 })
 
@@ -406,10 +408,10 @@ describe('recovery cell in the pre-sync gap', () => {
     expect(cell.value).toBe('62')
     expect(cell.visual).toBeDefined()
     expect(said(cell)).toBe(
-      '7\u00a0d mean\u00a060 · No\u00a0score\u00a0for\u00a0today\u00a0yet — Garmin syncs every 6\u00a0h',
+      '7\u00a0d mean\u00a060 ·\u00a0No\u00a0score\u00a0for\u00a0today\u00a0yet — Garmin syncs every 6\u00a0h',
     )
     expect(said(recoveryCell(preSync, false, SETTLED, 'short'))).toBe(
-      '7\u00a0d mean\u00a060 · No\u00a0score\u00a0for\u00a0today\u00a0yet — Garmin syncs every 6\u00a0h',
+      '7\u00a0d mean\u00a060 ·\u00a0No\u00a0score\u00a0for\u00a0today\u00a0yet — Garmin syncs every 6\u00a0h',
     )
   })
 
