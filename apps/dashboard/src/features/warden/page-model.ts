@@ -1,5 +1,5 @@
 import { NO_SNAPSHOT_SHORT } from '../agents/model'
-import { ARROW, NBSP, formatAgoWhole, formatDuration, glue, withUnit } from '../../lib/format'
+import { NBSP, formatAgoWhole, formatDuration, glue, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -763,11 +763,16 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionHisto
 
 // ── History preview ─────────────────────────────────────────────────────────
 
-/** `Needs decision → Working`; a creation row reads `Created` (or `Created → <state>`). */
+/**
+ * `Needs decision → Working`; a creation row reads `Created` (or `Created → <state>`). Each state
+ * name is one unbreakable unit and the arrow stays with the word before it, so a wrapped line
+ * breaks only after the arrow, never inside a state name.
+ */
 export function transitionText({ from, to }: TransitionLine): string {
-  const target = sentenceCase(to) ?? to
-  if (from === null) return to === 'new' ? 'Created' : `Created${ARROW}${target}`
-  return `${sentenceCase(from) ?? from}${ARROW}${target}`
+  const target = glue(sentenceCase(to) ?? to)
+  const arrow = `${NBSP}→ `
+  if (from === null) return to === 'new' ? 'Created' : `Created${arrow}${target}`
+  return `${glue(sentenceCase(from) ?? from)}${arrow}${target}`
 }
 
 /** `{n} min ago` as one unbreakable unit (`ago` glued to its duration); `—` for an unreadable time. */

@@ -23,6 +23,8 @@ export type ScheduleRowProps = {
   action?: ReactNode
   /** Dims a row that already ended. */
   past?: boolean
+  /** Title lines before the ellipsis. Default 1; a surface with room for a long title opts into 2. */
+  titleLines?: 1 | 2
 }
 
 export function ScheduleRow({
@@ -33,6 +35,7 @@ export function ScheduleRow({
   pill,
   action,
   past = false,
+  titleLines = 1,
 }: ScheduleRowProps) {
   const metaTitle = typeof meta === 'string' ? meta : undefined
   return (
@@ -43,7 +46,10 @@ export function ScheduleRow({
           <span className={classes.duration}>{formatMinutes(durationMin)}</span>
         </div>
         <div className={classes.body}>
-          <div className={classes.title} title={title}>
+          <div
+            className={`${classes.title}${titleLines === 2 ? ` ${classes.titleTwoLines}` : ''}`}
+            title={title}
+          >
             {title}
           </div>
           {meta !== undefined && meta !== null && (

@@ -217,3 +217,4 @@ No new basalt rows.
 ### Wave 38 round
 
 - **Tasks-due empty names its whole scope:** the card is scoped `Overdue or due within 7 days`, so its empty line reads `Nothing overdue or due within 7 days.` (was `Nothing due in the next 7 days.`) — the subtitle's wording verbatim. Closes the Wave 37 carried P3. No lost fact.
+- **Rows keep one line (`w38-schedule-clamp-optin`):** the shared `ScheduleRow` title is back to the one-line ellipsis (`titleLines` defaults to 1), so Today / Next 7 days again satisfy "at 390 no row wraps"; only Home's meetings card opts into two lines. Fixes the w38-r3 P1 regression from #175. No lost fact.

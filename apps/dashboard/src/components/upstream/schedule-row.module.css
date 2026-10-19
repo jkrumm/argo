@@ -43,17 +43,24 @@
   min-width: 0;
 }
 
-/* Up to two lines, then the ellipsis; `break-word` splits only a word wider than the column. */
+/* One line, then the ellipsis. */
 .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--vx-text-sm);
+  line-height: 1.3;
+  color: var(--vx-ink);
+}
+
+/* Opt-in (`titleLines={2}`): up to two lines, then the ellipsis; `break-word` splits only a word wider than the column. */
+.titleTwoLines {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
-  overflow: hidden;
+  white-space: normal;
   overflow-wrap: break-word;
-  font-size: var(--vx-text-sm);
-  line-height: 1.3;
-  color: var(--vx-ink);
 }
 
 .meta {
