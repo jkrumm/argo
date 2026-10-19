@@ -47,7 +47,9 @@ export function ScheduleRow({
         </div>
         <div className={classes.body}>
           <div
-            className={`${classes.title}${titleLines === 2 ? ` ${classes.titleTwoLines}` : ''}`}
+            className={
+              titleLines === 2 ? `${classes.title} ${classes.titleTwoLines}` : classes.title
+            }
             title={title}
           >
             {title}

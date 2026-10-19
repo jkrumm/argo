@@ -763,6 +763,9 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionHisto
 
 // ── History preview ─────────────────────────────────────────────────────────
 
+/** The arrow glued to the word before it; the space after it is the only break point in a transition. */
+const HISTORY_ARROW = `${NBSP}→ `
+
 /**
  * `Needs decision → Working`; a creation row reads `Created` (or `Created → <state>`). Each state
  * name is one unbreakable unit and the arrow stays with the word before it, so a wrapped line
@@ -770,9 +773,8 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionHisto
  */
 export function transitionText({ from, to }: TransitionLine): string {
   const target = glue(sentenceCase(to) ?? to)
-  const arrow = `${NBSP}→ `
-  if (from === null) return to === 'new' ? 'Created' : `Created${arrow}${target}`
-  return `${glue(sentenceCase(from) ?? from)}${arrow}${target}`
+  if (from === null) return to === 'new' ? 'Created' : `Created${HISTORY_ARROW}${target}`
+  return `${glue(sentenceCase(from) ?? from)}${HISTORY_ARROW}${target}`
 }
 
 /** `{n} min ago` as one unbreakable unit (`ago` glued to its duration); `—` for an unreadable time. */
