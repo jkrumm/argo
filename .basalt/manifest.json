@@ -27,7 +27,7 @@
     ".claude/skills/basalt-design/references/stat-tile.md": "799fd2da858106621efdc366b52b7251e6d476dc833605e712ff18bc89f7f18b",
     ".claude/skills/basalt-design/references/states.md": "f417ebb78ca7e0cd212d50bf1293a4568be0ddbe6bb040fa682d5d56a426d9ce"
   },
-  "basaltVersion": "2.26.0",
+  "basaltVersion": "2.27.0",
   "spacingScale": {
     "xs": 8,
     "sm": 12,
