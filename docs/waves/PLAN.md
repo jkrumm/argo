@@ -2425,6 +2425,20 @@ scope beyond these steps. Basalt rows get no local workaround.
 - **Shots:** `.design-shots/w43-{a,b}` (0 failed; gitignored), plus the discarded `w43-bump`. No token written; no background task left.
 
 
+## Wave 43 — Re-score round 22: basalt-ui 2.27.2 <!-- status: active -->
+
+basalt-ui 2.27.2 (basalt Wave 41, argo friction VI) is a patch with nothing to migrate: #461/#463 open the info bubble below
+the card's header block so it never covers the headline facts (Garmin ACWR, Recovery, Activity score); #462 keeps the slotted
+`Bars` chip clear of the plot's focus ring and swatch, with one home for the chart ring (Reading's pace tile). This is the last
+wave before a pause for the owner's weekly limit: one round, no scope beyond these steps. Basalt rows get no local workaround.
+
+- [ ] Bump basalt-ui to 2.27.2 in its own commit.
+- [ ] Once the served dashboard bundle carries the bump: re-shoot Garmin and Reading (1440 / 390, both schemes) with
+      `basalt-ui shot` (only its out dirs feed the scorer) and re-score them with fresh `basalt-design-reviewer`s given the
+      w43 shots + Keel.
+- [ ] Re-check the `UPSTREAM.md` § "Wave 42 bump" rows these fixes close; record any regression as a basalt row.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
