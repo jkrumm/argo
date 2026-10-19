@@ -43,8 +43,11 @@ import {
 
 export type { DecisionCardAction, DecisionCardFact } from './decision-card-model'
 
-/** ` · ` with the dot glued to both neighbours, so a wrapped facts line never ends or starts on a bare `·`. */
-const FACT_SEPARATOR = `${NBSP}·${NBSP}`
+/**
+ * ` · ` glued to the fact after it: each fact is one unbreakable unit, so the only break is before the
+ * dot and a wrapped line opens on `· {fact}`, never ends on a bare `·` (Home's `→` rule).
+ */
+const FACT_SEPARATOR = ` ·${NBSP}`
 
 export type DecisionCardProps = {
   /** The headline, written as the question the owner answers. Wraps; never truncated. */
