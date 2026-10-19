@@ -2080,7 +2080,7 @@ owner-approved backlog item in warden and agent-gateway — add nothing for it. 
 - **Cleanup:** all worktrees and tabs removed with `rd fan --clean`; no in-session background task left running (the board copy is a
   detached process).
 
-## Wave 38 — Re-score round 17: adopt the basalt release, the last argo P3s <!-- status: active -->
+## Wave 38 — Re-score round 17: adopt the basalt release, the last argo P3s <!-- status: done -->
 
 Same shape as Wave 37 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before the merge,
 live re-shoot incl. the m365 pane presets — seeded with the `{v:1, value:{…}}` envelope — once the served bundle carries the change,
@@ -2091,13 +2091,80 @@ form for a repeated gap". Basalt rows (`UPSTREAM.md` § "Wave 28"–"Wave 37"): 
 authored producer `question` is an owner-approved backlog item in warden and agent-gateway — add nothing for it. A state is declared
 only where production renders it.
 
-- [ ] When the orchestrator announces the basalt-ui release (basalt Wave 38: `ViewTabs` / `Code` radius, the body-composition 390
+- [x] When the orchestrator announces the basalt-ui release (basalt Wave 38: `ViewTabs` / `Code` radius, the body-composition 390
       qualifier, the one-row compact chart legend), bump it in its own commit; in that adoption commit delete Garmin's three
       `compact && { legend: false }` lines; re-shoot every page and re-check every row it closes.
-- [ ] The argo P3s: Calendar's `Nothing due in the next 7 days.` under the `overdue or due` scope; Agents' 390 running value sharing a
+- [x] The argo P3s: Calendar's `Nothing due in the next 7 days.` under the `overdue or due` scope; Agents' 390 running value sharing a
       line with `agent · longest {d}`; Home's decision wait through `lib/decisions.ts` on the one-clock rule Warden uses.
-- [ ] If basalt ships an axis-less `Bars` slot: Reading's pace tile as the catalogue's slot distribution (concept in `reading.md`).
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 39 in this shape. The loop ends only when a
+- [x] If basalt ships an axis-less `Bars` slot: Reading's pace tile as the catalogue's slot distribution (concept in `reading.md`).
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 39 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 39 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **basalt-ui:** 2.23.0 → **2.24.0** (`d8f08ecc`, its own commit; adoption `0c88e404` deleted Garmin's three `compact && { legend:
+  false }` lines) → **2.25.0** (`407f04da`, its own commit, nothing to migrate). Adopted: 2.24's strip cell `state: { kind: 'empty',
+  reason }` on Garmin, Body composition, Home and Agents (the null `Meter` that only carried a reason deleted); `ZoneSpec.legend` on
+  recovery and stress (recovery's always-`null` legend-only series deleted; ACWR keeps its keys — `Threshold` has no `legend`); the
+  documented `--basalt-spark-readout-lift: 0` on Home's Meter-above-Sparkline cells; 2.25's slotted `Bars` for Reading's pace tile and
+  `ChartCard placeholderHeight="content"` on Usage's list cards. Closed UPSTREAM rows are marked in place; the new rows are in
+  `UPSTREAM.md` § "Wave 38" — three are **2.24 regressions** on pages that passed in w37 (the compact-legend `+N` fold hiding series
+  names, the `Section` subtitle at 11 px, the `BandStrip` legend wrap), plus `StatStripFooterEntry` lacking `shotAbsent`.
+- **Landed (master, deployed, `/api/health` = `697b77af`, Deploy + check green):** thirteen PRs, #168–#180, each with two independent
+  agent-gateway reviews, scope frozen after round 2, the lead reading every fix diff, CI `check` green on the PR head before `rd merge`.
+  The three P3s (#168 Home's wait on Warden's one clock, #169 Calendar's tasks scope + Agents' `longest {d}` line); the w38-r1 fixes
+  (#170 astro timeline keeps a high moon's peak, #171 body comp / walking pad / strength, #172 garmin formula text, band legends, empty
+  cells); #173 Home after the 2.24 regression; #174 / #177 the 2.25 adoption and Reading / Usage fixes; #175 / #176 schedule titles and
+  history glue; #178 / #179 / #180 the w38-r3 / r4 regressions. `make check` green and `fallow audit` clean on master at close-out.
+- **Regressions caused and closed inside the wave:** #173 collapsed Home's recovery cell at rest and dropped the budget's poller fact
+  (fixed #178); #175's shared two-line title clamp broke Calendar's no-wrap criterion (reverted to opt-in, #176); #175's separator glue
+  moved Warden's break into a state name (#176); #179 reverted the stress zone legend and lost the band names at 1440 (restored #180).
+  Caught by the lead before merge: a worker reporting a strength change its diff did not contain (#171), the sun widening the astro
+  axis (#170), the train failing after a rebase onto a new lockfile (the worktree had not reinstalled — `bun install` before `rd merge`).
+- **Declined with reasons:** a width-gated stress legend (the 390 fold is basalt's row — no local workaround; the trade-off is recorded
+  in `garmin-health.md`); restoring the activity-score `≈86/day` / weekly WHO wording (the 600 target is per day; that fact was false);
+  `overflow-wrap: anywhere` on schedule titles (it splits ordinary words); the review's refactors (shared helpers, model moves, fallow
+  complexity) — scope frozen.
+- **Rounds:** `w38-r1` (all pages + both m365 presets on 2.24.0), `w38-r2` (Home, Agents, Warden, Calendar after #168 / #169),
+  `w38-r3` (all pages + presets on 2.25.0 after #170–#175), `w38-r4` (Home, Agents, Garmin, Warden, Calendar, Reading, Usage after
+  #176–#179), `w38-r5` (Garmin after #180). 0 failed shots except w38-r4's four `strip-footer-budget-poller` `empty` errors (basalt row).
+  `basalt-ui shot --base https://argo.jkrumm.com`, `argo-auth` seeded from `secrets-run read op://common/api/SECRET` via env, never
+  printed or written. Boards `.design-shots/w38-r{1..5}-*` (gitignored). Twenty-one fresh `basalt-design-reviewer`s, each given the
+  previous round's shots plus a Keel side-by-side; verdicts in `docs/design/<page>.md` § "Wave 38 round".
+- **Reviewer verdict, stated plainly (latest round per page):** **pass** — Home (back from two w38 regressions), Agents, Warden,
+  Calendar (100, first pass since w35), Body composition, WalkingPad, astro Tonight and Forecast, Hermes, m365 (default + both
+  presets), Usage. **Fail on basalt only** — Strength (four `Section` sizes, the `+N` fold), Reading (the backlog's 11 px subtitle).
+  **Fail with an argo item** — Garmin: a scored recovery cell listing one of three contributors (P1, data-dependent) and the fitness
+  `Improving` qualifier without a basis (P2), beside two basalt P1s.
+- **Against Keel:** close on every page; Reading now **holds up** (the pace tile carries its visual — the last "does not yet").
+- **Not verified:** a low astro night after #170 (only a high-moon night was live), the agent-wait `<1 min` wording, the budget with a
+  known count but no cap, the API's cancelled flag without a title prefix, a rest-day tooltip hover.
+- **Boards to the MacBook:** **iumac unreachable for the whole wave** (`ssh … port 2222: Operation timed out`). A detached resumable
+  copy retries every 2 min for ~3 h (log `/tmp/argo-boards-w38.fUwIcn`) for `w38-*` into `w38/` and re-syncs `w37-*` / `w36-*`. If it
+  gives up: `rsync -a --partial .design-shots/w38-* iumac:Downloads/argo-design-review/w38/` and the same for `w37-*` / `w36-*`.
+- **Cleanup:** all worktrees and tabs removed with `rd fan --clean`; no in-session background task left running (the board copy is a
+  detached process).
+
+## Wave 39 — Re-score round 18: Garmin's argo items, the w38 P3s <!-- status: active -->
+
+Same shape as Wave 38 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before the merge
+— `bun install` in each worktree after its rebase, live re-shoot once the served bundle carries the change, fresh
+`basalt-design-reviewer`s given the latest w38 shots + a Keel side-by-side). **Subtract before you add**; a removal that leaves a reader
+without a fact is a defect, and a fix that turns a passing page into a failing one is reverted. Page detail: `docs/design/<page>.md` §
+"Wave 38 round" (the last bullet is the latest). Basalt rows (`UPSTREAM.md` § "Wave 28"–"Wave 38"): no local workaround. The question
+rung stays frozen. A state is declared only where production renders it.
+
+- [ ] Garmin (argo): a scored recovery cell lists one of its three contributors with no reason for the missing two (P1, seen after a
+      sync mid-run — make the cell state each missing contributor's gap, or the score's basis); the fitness qualifier `Improving`
+      over two bad-coloured deltas with no stated basis (P2).
+- [ ] The w38 argo P3s: Home's recovery footer no longer says today is unscored, `Latest changes` ending a line on a bare `→`, the
+      meeting footer ending on `·` at 390; Usage's p95 sparkline drawing the partial leading day its footer excludes (P2); Reading's
+      `Book {i} of {n}` naming no title; Warden's mid-token title break; m365's unstable member order.
+- [ ] If the orchestrator announces a basalt-ui release, bump it in its own commit, adopt what closes `UPSTREAM.md` § "Wave 38" rows
+      (the `+N` fold keeping series, the `Section` subtitle at 12, footer-entry `shotAbsent`), delete the matching local code.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 40 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**
