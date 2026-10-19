@@ -43,6 +43,11 @@ function useWeekCell(): StatStripCell {
   const isDefault = walkingLocal.field.weeklyTargetKm.isDefault(targetKm)
   const week = query.data === undefined ? null : weekSummary(query.data.points, now)
   const km = week === null ? null : week.distanceM / 1000
+  const footerText = query.isPending
+    ? null
+    : week === null
+      ? 'this week not reported'
+      : weekTargetLine(week.sessions, km ?? 0, targetKm)
   return {
     key: 'week',
     caption: 'This week',
@@ -75,17 +80,11 @@ function useWeekCell(): StatStripCell {
         emptyText="No data this week"
       />
     ),
-    // `StatStripCell` has no caption-line action slot, so the target control rides the footer.
+    // `StatStripCell` has no caption-line action slot: the target control rides the footer, inline and NBSP-glued to its text so a wrap never strands it.
     footer: (
       <Box>
-        {query.isPending ? null : week === null ? (
-          'this week not reported'
-        ) : (
-          <>
-            {weekTargetLine(week.sessions, km ?? 0, targetKm)}
-            {NBSP}
-          </>
-        )}
+        {footerText}
+        {footerText !== null && NBSP}
         <TargetPopover />
       </Box>
     ),
