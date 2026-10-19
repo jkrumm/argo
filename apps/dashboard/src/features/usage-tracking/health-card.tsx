@@ -29,19 +29,12 @@ import {
   periodNoun,
   fmtSeconds,
   secondsQuantity,
-  windowDays,
+  rangeWindowDays,
   shortDay,
   ERROR_OK_LABEL,
 } from './model'
 import type { BillingValue, WorkspaceValue } from './types'
 import classes from './usage.module.css'
-
-const RANGE_DAYS: Record<Range, number | undefined> = {
-  '7d': 7,
-  '30d': 30,
-  '90d': 90,
-  all: undefined,
-}
 
 type ErrorBucket = { date: Date; count: number; state: ErrorDayState }
 type P95Point = { date: Date; v: number }
@@ -96,16 +89,13 @@ export default function HealthCard({
   const rates = emptyShot ? { ...ratesQ.data, buckets: [] } : ratesQ.data
 
   const now = useNow()
-  // Day grain draws window days only: the rolling window's partial leading day is left out of both
-  // halves, as in the strip. `all` has no window start; week buckets are not day-aligned to it.
-  const spanDays = RANGE_DAYS[range]
-  const inWindow = <T extends { date: Date }>(rows: T[]): T[] =>
-    grain === 'day' && spanDays !== undefined ? windowDays(rows, now, spanDays) : rows
-  const p95: P95Point[] = inWindow(
+  // Window days only: the rolling window's partial leading day is left out of both halves, as in the strip.
+  const p95: P95Point[] = rangeWindowDays(
     latency.buckets.flatMap((b) => {
       const v = b.groups['value']
       return v === null || v === undefined ? [] : [{ date: dayToDate(b.bucket), v }]
     }),
+    { range, grain, now },
   )
   const rateByDay = new Map(
     rates.buckets.map((b) => [dayToDate(b.bucket).getTime(), b.groups['value'] ?? null]),
@@ -125,7 +115,10 @@ export default function HealthCard({
   const last = p95.at(-1)
   const lastQty = secondsQuantity(last?.v)
   const folded = foldTopN(
-    inWindow(errors.buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups }))),
+    rangeWindowDays(
+      errors.buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups })),
+      { range, grain, now },
+    ),
     errors.groupKeys,
     ERROR_FOLD_TOP_N,
   )

@@ -640,16 +640,37 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/** Window days: days that began inside the rolling window, 30 d unless `spanDays` says otherwise (the partial leading day is left out; the running day is `useDaily`'s to drop). */
+/** The strip's rolling window, in days. */
+export const STRIP_WINDOW_DAYS = 30
+
+/** Window days: days that began inside the rolling `spanDays` window (the partial leading day is left out; the running day is `useDaily`'s to drop). */
 export const windowDays = <T extends { date: Date }>(
   days: readonly T[],
   now: number,
-  spanDays = 30,
+  spanDays: number,
 ): T[] => days.filter((d) => bucketStartMs(d.date) >= now - spanDays * DAY_MS)
+
+const RANGE_SPAN_DAYS: Record<'7d' | '30d' | '90d', number> = { '7d': 7, '30d': 30, '90d': 90 }
+
+/**
+ * A range's rows cut to the days that began inside its rolling window. Only day grain is cut: a week
+ * bucket is not day-aligned to the window start, and `all` has no window start, so both pass through.
+ */
+export function rangeWindowDays<T extends { date: Date }>(
+  rows: readonly T[],
+  {
+    range,
+    grain,
+    now,
+  }: { range: '7d' | '30d' | '90d' | 'all'; grain: 'day' | 'week'; now: number },
+): T[] {
+  if (grain !== 'day' || range === 'all') return [...rows]
+  return windowDays(rows, now, RANGE_SPAN_DAYS[range])
+}
 
 /** Full days: the window days that are closed (today, still running, is left out too). */
 export const fullDays = <T extends { date: Date }>(days: readonly T[], now: number): T[] =>
-  windowDays(days, now).filter((d) => isClosedDay(d.date, now))
+  windowDays(days, now, STRIP_WINDOW_DAYS).filter((d) => isClosedDay(d.date, now))
 
 const fullDayValues = (days: readonly Daily[], now: number): (number | null)[] =>
   fullDays(days, now).map((d) => d.value)
