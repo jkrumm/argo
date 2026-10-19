@@ -645,3 +645,7 @@ Open, carried: Garmin ACWR draws its date axis twice (P1); Meter end labels (`0`
 New, P3 (basalt, unconfirmed): the Reading pace chip's left edge sits ~8 px outside the card's text inset, ~2 px under the readout line; the
 focus ring reads thinner and square-cornered. Argo: Garmin card titles carry no period (P2, copy); orphaned `· ` at a wrapped headline (P3).
 Hover crops still identical to rest (tooltips undeclared on Reading pace/ratings). No regression, no lost fact.
+
+### Wave 45 — Strength complete re-score on 2.27.2
+
+Full read (13 sheets, `w45-strength`): pass 68, no new basalt row. Carried, still open: bench sparkline through its `PR` label at 390 (P2); `Sept` beside `Sep` and mixed date-tick formats; INOL tooltip over the headline; target band as the faintest ink; hover crops identical to rest (tooltips undeclared); strip-card `padding-bottom` 0 with the footer flush on the edge (P3); collapsible section chevron on its own row at 390 (P3). Closed since w40: zone-only `+N` legend folds at 390.

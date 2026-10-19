@@ -2469,15 +2469,22 @@ This is argo's composition, not a basalt row. Last wave before the owner's weekl
 - **Not verified:** the previous w44 shots were not opened by the reviewer (comparison rests on the prior verdict); no `detect.json` run.
 - **Shots:** `apps/dashboard/.design-shots/w45` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
-## Wave 45 — Strength: a complete re-score <!-- status: active -->
+## Wave 45 — Strength: a complete re-score <!-- status: done -->
 
 Strength's pass (90, w42) is provisional: its reviewer read 4 of 13 sheets. No code change is planned; this wave makes the
 14-of-14 verdict real. Budget is tight (the owner's weekly limit): one round.
 
-- [ ] Re-shoot Strength with `basalt-ui shot` (1440 / 390, both schemes) on the live 2.27.2 bundle and re-score it with a fresh
+- [x] Re-shoot Strength with `basalt-ui shot` (1440 / 390, both schemes) on the live 2.27.2 bundle and re-score it with a fresh
       `basalt-design-reviewer` told to read EVERY sheet and given the w42 shots + Keel. Record the verdict per component in
       `docs/design/strength.md`. A basalt finding is an `UPSTREAM.md` row; an argo P1/P2 is named in Left behind, not fixed here.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 45 is `done`; no Wave 46 is authored.**
+
+- **Verdict:** Strength **pass, 68** from a fresh reviewer that read all 13 sheets + 4 page shots (`apps/dashboard/.design-shots/w45-strength`, 0 failed, gitignored). No P0/P1; every component pass. The 90 → 68 drop is coverage and carried items now counted, not a regression. Argo is 14 of 14 on a complete read. Recorded in `docs/design/strength-tracker.md` (the plan said `strength.md`; that file does not exist) and `UPSTREAM.md`.
+- **Argo items (named, not fixed, no code this wave):** P2 — Estimated 1RM unlegended dashed companion line and dot; scan folds Volume/INOL at 390 (lost fact); "Balance" title scope; accent on the selected timer preset; dark Warm-up bars low contrast; scan/Log/Timer/Recent and expanded diagnostics/alignment have no anchor. P3 — "90-day norm" vs "all time" caption, scan title period, duplicated "Daily 62"/"Garmin Recovery 62" and unitless "Fatigue debt".
+- **Not verified:** Keel not read, no `detect.json`; the w42 shots are gone from disk, so the comparison is to the recorded verdict; ~90 single crops judged from their sheets.
+- **Shots:** auth seeded via env from `secrets-run` (zustand `argo-auth` JSON), never printed or written. No background task left.
 
 # Part 1, continued
 
