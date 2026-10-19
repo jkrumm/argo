@@ -7,7 +7,15 @@ import { usageQueries, type Range } from '../../lib/queries/usage'
 import { useUsageHeadline } from './use-headline'
 import classes from './usage.module.css'
 import type { BillingValue, WorkspaceValue } from './types'
-import { EM_DASH, isFiltered, noUsageWindow, fmtShare, fmtUsdWhole, periodNoun } from './model'
+import {
+  EM_DASH,
+  footerTotal,
+  isFiltered,
+  noUsageWindow,
+  fmtShare,
+  fmtUsdWhole,
+  periodNoun,
+} from './model'
 
 export default function TopProjects({
   range,
@@ -44,7 +52,12 @@ export default function TopProjects({
   // The strip owns the unfiltered 30 d total: when this card does not print its own, its footer
   // reads that same figure, so the two never round different sums.
   const headline = useUsageHeadline().data
-  const total = !printTotal && headline !== undefined ? headline.costUsd30d : data.total
+  const total = footerTotal({
+    printTotal,
+    headlineCostUsd30d: headline?.costUsd30d,
+    breakdownTotal: data.total,
+    rowsShown: data.rows.length,
+  })
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
   const rest = Math.max(0, total - shown)
 

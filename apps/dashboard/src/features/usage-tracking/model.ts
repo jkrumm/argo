@@ -640,10 +640,7 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/**
- * The days of the rolling 30 d window that are complete at `now`: the running day has not ended and
- * the leading bucket began before the window did, so both hold only part of a day.
- */
+/** Full days: closed days that began inside the rolling 30 d window (the running and the partial leading day are left out). */
 export const fullDays = <T extends { date: Date }>(days: readonly T[], now: number): T[] =>
   days.filter((d) => isClosedDay(d.date, now) && bucketStartMs(d.date) >= now - 30 * DAY_MS)
 
@@ -652,7 +649,7 @@ const fullDayValues = (days: readonly Daily[], now: number): (number | null)[] =
 
 /**
  * `{n} of {m} full days slower than the 30 d p95`, or `null` without a window p95 or any full day.
- * Today is still running and is not counted, so `{m}` is the closed days only.
+ * Full days are closed days that began inside the window, so `{m}` leaves out today and the partial leading day.
  */
 export function slowerDaysLine(
   days: readonly Daily[],
@@ -666,7 +663,7 @@ export function slowerDaysLine(
     : `${slower.count} of ${slower.of} full days slower than the ${D30} p95`
 }
 
-/** `{n} of {m} full days under it` (the target), or `null` without a full day; today is not counted. */
+/** `{n} of {m} full days under it` (the target), or `null` without a full day; full days are closed days that began inside the window. */
 export function cacheUnderLine(days: readonly Daily[], now: number): string | null {
   const under = countAgainst(fullDayValues(days, now), CACHE_HIT_TARGET, 'below')
   return under.of === 0 ? null : `${under.count} of ${under.of} full days under it`
@@ -683,4 +680,21 @@ export function printTotal(input: {
 }): boolean {
   if (input.filtered) return true
   return input.range !== '30d'
+}
+
+/**
+ * The total a card's footer prints. The strip's headline figure when the card does not print its own
+ * total (`printTotal` false), so both round one sum; otherwise, or while the headline is unloaded or
+ * the card has no rows (nothing to compare against), the breakdown's own total.
+ */
+export function footerTotal(input: {
+  printTotal: boolean
+  headlineCostUsd30d: number | undefined
+  breakdownTotal: number
+  rowsShown: number
+}): number {
+  if (input.printTotal || input.headlineCostUsd30d === undefined || input.rowsShown === 0) {
+    return input.breakdownTotal
+  }
+  return input.headlineCostUsd30d
 }

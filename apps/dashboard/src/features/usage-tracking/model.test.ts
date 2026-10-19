@@ -35,6 +35,7 @@ import {
   fullDays,
   periodNoun,
   printTotal,
+  footerTotal,
   prepareFolded,
   FOLD_MAX_N,
   slowerDaysLine,
@@ -419,6 +420,18 @@ describe('dropPartialBucket', () => {
     expect(
       values(dropPartialBucket([...two, at(2026, 0, 19)], Date.UTC(2026, 0, 19, 12), 'day')),
     ).toEqual([17, 18])
+  })
+})
+
+describe('footerTotal', () => {
+  const base = { printTotal: false, headlineCostUsd30d: 101, breakdownTotal: 100, rowsShown: 3 }
+  it('reads the headline when the card prints no total of its own', () => {
+    expect(footerTotal(base)).toBe(101)
+  })
+  it('reads the breakdown when the card prints its total, the headline is unloaded or there are no rows', () => {
+    expect(footerTotal({ ...base, printTotal: true })).toBe(100)
+    expect(footerTotal({ ...base, headlineCostUsd30d: undefined })).toBe(100)
+    expect(footerTotal({ ...base, rowsShown: 0 })).toBe(100)
   })
 })
 
