@@ -7,6 +7,7 @@ import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { Decision } from '../../lib/decisions'
 import { allUnknown, needsYouEmptyTitle, restLabel, unknownPhrase, unknownSentence } from './model'
 import { StatusChip } from '../agents/status-chip'
+import { BreakableTitle } from '../warden/breakable-title'
 import { HistoryPreview } from '../warden/history-preview'
 import { historyView } from '../warden/page-model'
 
@@ -56,7 +57,7 @@ function Card({ decision }: { decision: Decision }) {
       question={decision.headline}
       facts={decision.facts}
       evidenceLine={decision.evidenceLine}
-      subject={decision.entity}
+      subject={decision.entity ? <BreakableTitle text={decision.entity} /> : null}
       {...(view !== null && { preview: <HistoryPreview view={view} /> })}
       {...(view?.layout === 'inline' && { previewPlacement: 'inline' as const })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}

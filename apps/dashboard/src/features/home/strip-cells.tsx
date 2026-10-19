@@ -316,6 +316,17 @@ export function recoveryCaption({
 /** The pre-sync fact the tile's figures cannot state: they show a previous day, and today has no score yet. */
 const TODAY_UNSCORED = glue('No score for today yet')
 
+/** The gap clause for the recovery footer: none with today's score; in the pre-sync gap the tile already prints the last score and its day, so only "today is unscored" and the cadence are left to say. */
+function recoveryFooterGap(
+  reading: RecoveryReading,
+  gap: ReturnType<typeof noScoreCellGap>,
+  form: GapForm,
+): string | undefined {
+  if (reading.score !== null) return undefined
+  if (reading.last !== null && gap.full !== null) return `${TODAY_UNSCORED} — ${cadenceGap.short}`
+  return gapLine(gap, form)
+}
+
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(
   reading: RecoveryReading | null,
@@ -338,15 +349,9 @@ export function recoveryCell(
         : { state: { kind: 'empty' as const, reason: line } }),
     }
   }
-  const { score, trend } = reading
+  const { trend } = reading
   const hasTrend = trend.length > 1
-  // The tile already prints the last score and its day: only the cadence is left to say.
-  const footerGap =
-    score !== null
-      ? undefined
-      : reading.last !== null && gap.full !== null
-        ? `${TODAY_UNSCORED} — ${cadenceGap.short}`
-        : gapLine(gap, form)
+  const footerGap = recoveryFooterGap(reading, gap, form)
   return {
     key: 'recovery',
     caption: recoveryCaption(reading),
