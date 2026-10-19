@@ -585,3 +585,30 @@ meter still drops `abandoned at 7 d`, the zone-only `+N` fold, the fitness reado
 card, the reading pace readout below its card, info bubbles over headlines, hover crops identical to rest. One refinement to the
 § "Wave 40" `Meter` zone names at 1440 row: in dark the collision also cuts `Optimal` to `Optima` under `Caution` (home ACWR meter) —
 a clipped word, not only a missing gap. Nothing new.
+
+### Wave 41 bump — basalt-ui 2.27.0 and the `w42` all-page re-score
+
+argo moved to 2.27.0 in its own commit (`52054469`; `sync` refreshed the managed block, nothing to migrate). Nothing adopted and no
+local code deleted: argo carried no `+N`-fold, `foldLegend` or `[data-legend-more]` code, passes no `state` to a facts card that needs the
+new gate, and keeps the `overflow-wrap: anywhere` tooltip opt-out unneeded. Re-checked live, all 13 routes + both m365 presets
+(`.design-shots/w42-*`, gitignored), against the § "Wave 40" rows:
+
+| § "Wave 40" row | Status on 2.27.0 | Evidence |
+|-|-|-|
+| `Meter` zone name `Caution` dropped at 390 (Garmin load) | **closed** | `Caution` on a second row |
+| `Meter` tick `abandoned at 7 d` dropped (Agents) | **closed** | drawn at 390; now stacked under `warn at 24 h`, nearly touching (P3, new) |
+| zone names at 1440, incl. dark `Optima` | **closed** | Home ACWR: `Low Optimal Caution Danger`, whole, both schemes |
+| hue-only zone folds / compact legend `+N` | **closed** | Strength INOL / readiness, Garmin ACWR / recovery / stress, astro night timeline all name every key |
+| activities tooltip leaving its card | **closed** | stays inside; now covers the headline facts (P3) |
+| reading pace readout below its card | **closed** | one-line chip inside the cell; touches the Bars focus ring (P3, new) |
+| strip footers ragged across cells | **closed** (Usage) | Cost / Tokens / Errors / P95 footers on one baseline |
+| fitness `Sparkline` readout over its line | **open, worse at 390** | desktop clear; at 390 the `44 bpm · 19 Oct` chip lands on the HRV row's line (P1, Garmin strip and Fitness cell) |
+| root export of `StatStripFooterEntry` | **open** | not re-checked as a type; argo keeps the derivation |
+
+Still open, unchanged: info bubbles over headlines, hover crops identical to rest, strip qualifier stranded after `·`, `Sparkline` `PR`
+label at 390, `Sept` beside `Sep`, `$0` tooltip rows, the band under the tokens plot, Meter end figure `0` detached. No regression on a
+passing page.
+
+argo-owned find: the Map tab's legends sat under MapLibre's expanded compact attribution at 390 (the strip opens expanded until the first
+interaction), cutting the legend's last lines. Fixed locally (`bottom` 8 → 44 on `LpLegend` and `WeatherLegends`; `4e3840a2`), verified
+in `w42-r3-map` at 390 and 1440. Not a 2.27 effect — the Map tab had no earlier round.

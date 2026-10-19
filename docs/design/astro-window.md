@@ -275,3 +275,7 @@ Follow-up (w30-r2):
 ### Wave 40 round
 
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`, both tabs):** pass. Closed: legend order (`Galactic core` leads, references after), the sky panorama names all seven entries at 390, no entry wraps inside itself. New (basalt, P2): at 390 the night timeline folds its two references (`Sun altitude`, `Core gate 8.0°`) into `+2`, which w39 named — the gate value stays in the Core cell and the panorama header, so no lost fact. Pre-existing, kept by decision: `night-timeline` declares no `data-shot-states` (detect P2). Carried (basalt): 390 info bubbles over headlines, shade-only budget greys, stacked `High` / `Mid` end labels. Against Keel: close.
+
+### Wave 41 bump round
+
+- **Re-score on basalt-ui 2.27.0 (`w42-d`, `w42-r3-map`):** Tonight pass (94), Forecast pass (94), Map pass after the fix. Closed (basalt): the night-timeline legend names all four keys at 390. Fixed (argo): the Map legends sat under the expanded attribution strip at 390 and lost their last lines — `bottom` 8 → 44, verified at 390 and 1440. Carried: night-anatomy footers out of line, annual-budget greys differ by shade only, info bubbles at 390, no declared states on the timeline.
