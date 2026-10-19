@@ -61,30 +61,21 @@ import { applyVisibilityFilter } from './visibility'
 function ContributorRows({
   label,
   rows,
-  basis,
   loading,
 }: {
   label: string
   rows: ReturnType<typeof contributorItems>
-  basis: string | null
   loading: boolean
 }) {
   if (loading) return <Meter label={label} loading />
   return (
-    <>
-      <BarList
-        label={label}
-        variant="thin"
-        items={rows}
-        format={(v, part) => (part === 'max' ? `${v} pts` : v.toFixed(1))}
-        emptyText="No contributors measured"
-      />
-      {basis !== null && (
-        <Text size="xs" c="dimmed">
-          {basis}
-        </Text>
-      )}
-    </>
+    <BarList
+      label={label}
+      variant="thin"
+      items={rows}
+      format={(v, part) => (part === 'max' ? `${v} pts` : v.toFixed(1))}
+      emptyText="No contributors measured"
+    />
   )
 }
 
@@ -142,6 +133,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   // The cell shows its line only without a score and once the summary has settled.
   const showsGap = score === null && !summary.isPending
   const form = useGapForm(GAP_ORDER.recovery, showsGap ? gap : null)
+  const basis = score === null || !data ? null : recoveryBasis(data.components)
   return {
     key: 'recovery',
     caption: 'Recovery',
@@ -150,6 +142,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
+    ...(basis !== null && { footer: basis }),
     ...(recoveryCellBranch({ showsGap, gap }) === 'empty' && gap !== null
       ? { state: { kind: 'empty', reason: gapLine(gap, form) } as const }
       : {
@@ -163,7 +156,6 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
               <ContributorRows
                 label="Recovery contributors, points of their weight"
                 rows={contributorItems(data?.components ?? NO_COMPONENTS)}
-                basis={score === null || !data ? null : recoveryBasis(data.components)}
                 loading={summary.isPending}
               />
             </>
