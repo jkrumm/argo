@@ -954,7 +954,7 @@ const LP_SITE_BAND_INDEX = LP_RAMP.findIndex((row) => row.stop === LP_SITE_BAND)
 function LpLegend({ year, range }: { year: number; range: readonly [number, number] }) {
   const remappedSiteBand = remapLpRampStops(range)[LP_SITE_BAND_INDEX] ?? LP_SITE_BAND
   return (
-    <Box pos="absolute" bottom={8} left={8}>
+    <Box pos="absolute" bottom={32} left={8}>
       <Paper>
         <Stack gap={4} w={148}>
           <Box
@@ -1011,7 +1011,7 @@ function WeatherLegends({
     )
   if (active.length === 0) return null
   return (
-    <Box pos="absolute" bottom={8} right={8}>
+    <Box pos="absolute" bottom={32} right={8}>
       <Stack gap="xs" align="stretch">
         {active.map((entry) => (
           <WeatherLegendCard key={entry.id} entry={entry} fontColor={fontColor} />
