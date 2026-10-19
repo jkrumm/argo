@@ -474,7 +474,7 @@ describe('cardFacts glue', () => {
   })
   it('the waiting fact and the history age share one duration spelling', () => {
     const waiting = cardFacts(row({ ageDays: 0.1 }))[1]
-    expect(waiting).toBe(`waiting ${formatDuration(0.1 * 86_400_000)}`)
+    expect(waiting).toBe(`waiting\u00a0${formatDuration(0.1 * 86_400_000)}`)
     expect(historyAge(new Date(0).toISOString(), 0.1 * 86_400_000)).toBe(
       `${formatDuration(0.1 * 86_400_000)}\u00a0ago`,
     )
@@ -491,13 +491,13 @@ describe('cardFacts waiting boundaries', () => {
     expect(waitingAt(0, 59_000)).toBe('waiting <\u00a01\u00a0min')
   })
   it('a minute and past reads the duration', () => {
-    expect(waitingAt(0, MIN)).toBe('waiting 1\u00a0min')
-    expect(waitingAt(0, 5 * MIN)).toBe('waiting 5\u00a0min')
+    expect(waitingAt(0, MIN)).toBe('waiting\u00a01\u00a0min')
+    expect(waitingAt(0, 5 * MIN)).toBe('waiting\u00a05\u00a0min')
   })
   it('ageDays 0 carried by the time since the push', () => {
     const receivedAt = new Date(1_000_000).toISOString()
     expect(waitingAt(0, sinceSnapshotMs(receivedAt, 1_000_000 + 3 * MIN))).toBe(
-      'waiting 3\u00a0min',
+      'waiting\u00a03\u00a0min',
     )
   })
   it('is never shorter than the history line beside it', () => {
@@ -508,16 +508,16 @@ describe('cardFacts waiting boundaries', () => {
       now,
     )
     // The push arrived after the transition: age_days 0, elapsed 10 s, yet the history says 3 min.
-    expect(waitingAt(0, 10_000, historyAgeMs)).toBe('waiting 3\u00a0min')
+    expect(waitingAt(0, 10_000, historyAgeMs)).toBe('waiting\u00a03\u00a0min')
     expect(historyAge(transitionAt, now)).toBe('3\u00a0min\u00a0ago')
   })
   it('a wait within age_days rounding of the history line prints the duration of the history line', () => {
     const historyAgeMs = 22 * 60 * MIN + 53 * MIN
-    expect(waitingAt(1, 0, historyAgeMs)).toBe('waiting 22\u00a0h\u00a053\u00a0min')
+    expect(waitingAt(1, 0, historyAgeMs)).toBe('waiting\u00a022\u00a0h\u00a053\u00a0min')
     expect(formatDuration(historyAgeMs)).toBe('22\u00a0h\u00a053\u00a0min')
   })
   it('a history line far from age_days leaves the longer wait standing', () => {
-    expect(waitingAt(3, 0, 2 * 60 * MIN)).toEqual({ text: 'waiting 3\u00a0d', tone: 'warn' })
+    expect(waitingAt(3, 0, 2 * 60 * MIN)).toEqual({ text: 'waiting\u00a03\u00a0d', tone: 'warn' })
   })
   it('resolveWaitMs: no history keeps the age_days wait', () => {
     expect(resolveWaitMs(0.04, 0, 0)).toBe(0.04 * DAY)
@@ -534,12 +534,15 @@ describe('cardFacts waiting boundaries', () => {
     expect(latestHistoryAgeMs([{ from: null, to: 'new', at: 'nope' }], 10)).toBe(0)
   })
   it('the warn tone follows the displayed wait', () => {
-    expect(waitingAt(2)).toBe('waiting 2\u00a0d')
+    expect(waitingAt(2)).toBe('waiting\u00a02\u00a0d')
     expect(waitingAt(2, 0, 2 * DAY + 60 * MIN)).toEqual({
-      text: 'waiting 2\u00a0d\u00a01\u00a0h',
+      text: 'waiting\u00a02\u00a0d\u00a01\u00a0h',
       tone: 'warn',
     })
-    expect(waitingAt(2, 60 * MIN)).toEqual({ text: 'waiting 2\u00a0d\u00a01\u00a0h', tone: 'warn' })
+    expect(waitingAt(2, 60 * MIN)).toEqual({
+      text: 'waiting\u00a02\u00a0d\u00a01\u00a0h',
+      tone: 'warn',
+    })
   })
   it('sinceSnapshotMs is 0 for an unknown or future receipt', () => {
     expect(sinceSnapshotMs(null, 10)).toBe(0)
@@ -552,7 +555,7 @@ describe('cardFacts', () => {
   it('leads with repo, then age, then how often the item was retried and revised', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1\u00a0d\u00a04\u00a0h',
+      'waiting\u00a01\u00a0d\u00a04\u00a0h',
       'retried\u00a02\u00a0times, revised\u00a01\u00a0time',
     ])
   })
@@ -563,16 +566,16 @@ describe('cardFacts', () => {
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1\u00a0d\u00a04\u00a0h',
+      'waiting\u00a01\u00a0d\u00a04\u00a0h',
     ])
   })
 
   it('tones a wait past two days as a warning', () => {
     expect(cardFacts(row({ ageDays: 2.4 }))[1]).toEqual({
-      text: 'waiting 2\u00a0d\u00a09\u00a0h',
+      text: 'waiting\u00a02\u00a0d\u00a09\u00a0h',
       tone: 'warn',
     })
-    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1\u00a0d\u00a012\u00a0h')
+    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting\u00a01\u00a0d\u00a012\u00a0h')
   })
 
   it('omits what warden did not report', () => {

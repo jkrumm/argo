@@ -595,7 +595,7 @@ export function latestHistoryAgeMs(history: readonly TransitionLine[], now: numb
 
 /** The one wording of a wait: `waiting <1 min` under a minute, else `waiting {d} d {h} h`. */
 export function waitingText(ms: number): string {
-  return ms < MINUTE_MS ? WAITING_UNDER_A_MINUTE : `waiting ${formatDuration(ms)}`
+  return ms < MINUTE_MS ? WAITING_UNDER_A_MINUTE : `waiting${NBSP}${formatDuration(ms)}`
 }
 
 /** What a card's wait is measured against, beyond the snapshot's own `age_days`. */
