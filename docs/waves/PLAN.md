@@ -2147,7 +2147,7 @@ only where production renders it.
 - **Cleanup:** all worktrees and tabs removed with `rd fan --clean`; no in-session background task left running (the board copy is a
   detached process).
 
-## Wave 39 — Re-score round 18: Garmin's argo items, the w38 P3s <!-- status: active -->
+## Wave 39 — Re-score round 18: Garmin's argo items, the w38 P3s <!-- status: done -->
 
 Same shape as Wave 38 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before the merge
 — `bun install` in each worktree after its rebase, live re-shoot once the served bundle carries the change, fresh
@@ -2156,15 +2156,87 @@ without a fact is a defect, and a fix that turns a passing page into a failing o
 "Wave 38 round" (the last bullet is the latest). Basalt rows (`UPSTREAM.md` § "Wave 28"–"Wave 38"): no local workaround. The question
 rung stays frozen. A state is declared only where production renders it.
 
-- [ ] Garmin (argo): a scored recovery cell lists one of its three contributors with no reason for the missing two (P1, seen after a
+- [x] Garmin (argo): a scored recovery cell lists one of its three contributors with no reason for the missing two (P1, seen after a
       sync mid-run — make the cell state each missing contributor's gap, or the score's basis); the fitness qualifier `Improving`
       over two bad-coloured deltas with no stated basis (P2).
-- [ ] The w38 argo P3s: Home's recovery footer no longer says today is unscored, `Latest changes` ending a line on a bare `→`, the
+- [x] The w38 argo P3s: Home's recovery footer no longer says today is unscored, `Latest changes` ending a line on a bare `→`, the
       meeting footer ending on `·` at 390; Usage's p95 sparkline drawing the partial leading day its footer excludes (P2); Reading's
       `Book {i} of {n}` naming no title; Warden's mid-token title break; m365's unstable member order.
-- [ ] If the orchestrator announces a basalt-ui release, bump it in its own commit, adopt what closes `UPSTREAM.md` § "Wave 38" rows
+- [x] If the orchestrator announces a basalt-ui release, bump it in its own commit, adopt what closes `UPSTREAM.md` § "Wave 38" rows
       (the `+N` fold keeping series, the `Section` subtitle at 12, footer-entry `shotAbsent`), delete the matching local code.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 40 in this shape. The loop ends only when a
+      **Not triggered:** no release was announced during the wave; still on 2.25.0, carried to Wave 40.
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 40 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 40 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **basalt-ui:** unchanged at **2.25.0** — no release announced during the wave (basalt Wave 38 was still in flight).
+- **Landed (master, deployed, `/api/health` = `7c42aa06`, Deploy + check green):** four PRs, #181–#184, each with two independent
+  agent-gateway reviews per round, two rounds then scope frozen, the lead reading every fix diff, CI `check` green on the PR head before
+  `rd merge`. #181 Garmin: a scored recovery cell names its missing contributors and the score's basis (`recoveryBasis`); the API owns
+  the fitness fit — `/fitness-direction` adds `rhrChange`/`hrvChange` (unrounded slope × index span) and `rhrFlat`/`hrvFlat` (the
+  label's own threshold comparison), the rows render them (`flat · {change}` dimmed, last-minus-first fallback under 3 readings), the
+  mirrored thresholds are gone. #182 Usage sparklines and the errors band draw `windowDays` (no partial leading day), footers keep
+  `fullDays`; Reading's pace readout names the book (`shortTitle`, code-point safe, one `BookPace` cohort); m365 member names sort with
+  a tie-break. #183 Home: the pre-sync recovery footer says today is unscored, `Latest changes` breaks before `→`
+  (`transitionText(…, 'leading')`), the meeting footer's `·` is glued; Warden: `<wbr>` at identifier boundaries in board titles, the
+  timeline header and decision-card subjects (`titleSegments` / `BreakableTitle`), Home's subjects too. #184 (round-2 fix): Garmin's
+  basis line moves to the cell `footer` (four type sizes → three, a regression #181 caused, caught by `w39-r1`); Home's recovery
+  series keeps a scored today (`recoveryWindow`), so the trend and `7 d mean` end on the headline's day. `make check` green on master.
+- **Caught by the lead before merge:** the first usage fix dropped the running day from the sparklines (`fullDays`, a lost fact) —
+  replaced by `windowDays`; Home's arrow first became one unbreakable `A → B · age` unit (overflow risk at 390) — moved to break before
+  `→`; zero-width spaces in titles (copy/search pollution) — replaced by `<wbr>`; the client reconstructing the fitness fit from its
+  own row count — moved into the API (both reviews, blocking).
+- **Declined with reasons:** the regression fitting row index rather than calendar day (pre-existing, it drives the label too, so the
+  rows agree with it — recorded as an open API item in `garmin-health.md`); the Garmin scorer's ten "empty has no next step" P1s (they
+  contradict `docs/design/README.md` § "One form for a repeated gap": the step appears once per screen — the scorer was not given
+  that rule; future scorer briefs must include it); the reviews' refactors (module moves to `lib/`, structured history parts, fallow
+  complexity, an m365 `+N more` hint, colliding pace labels) — scope frozen; the shared `DecisionCard` `question` break (frozen-rung
+  component, Wave 40 candidate).
+- **Rounds:** `w39-r1` (all 13 routes + both m365 pane presets after #181–#183), `w39-r2` (Home, Garmin after #184). 0 failed shots
+  except the four known `strip-footer-budget-poller` `empty` errors per Home round (basalt row). `basalt-ui shot --base
+  https://argo.jkrumm.com`, `argo-auth` seeded from `secrets-run read op://common/api/SECRET` via env, never printed or written; shot
+  only after the served bundle hash changed post-deploy. Boards `.design-shots/w39-r{1,2}-*` (gitignored). Sixteen fresh
+  `basalt-design-reviewer`s with the previous round's shots + a Keel side-by-side (nine of them through a Workflow run, which this
+  session should not have used without an explicit opt-in — same agents and cost as nine Agent calls); verdicts in
+  `docs/design/<page>.md` § "Wave 39 round".
+- **Reviewer verdict, stated plainly (latest round per page):** **pass** — Agents, Warden, Calendar, Body composition, WalkingPad,
+  astro Tonight + Forecast, Hermes, m365 (default + both presets), Usage; Home passes on every component and fails only on the four
+  harness error shots. **Fail on basalt only** — Strength (`+N` fold, `BandStrip` wrap, `Section` sizes), Reading (the 11 px `Section`
+  subtitle). **Garmin** — fails on basalt rows plus the declined empty-state finding; its argo items from Wave 38 are closed and verified
+  live.
+- **Against Keel:** close on every page; Reading **holds up**.
+- **Not verified (data-dependent):** Home's pre-sync `No score for today yet` caption (production was scored), the `flat` /
+  `unchanged` / plain fitness branches, `<wbr>` in board-card titles and the timeline header (no board item or open timeline), a
+  long-identifier subject that needs the break.
+- **Boards to the MacBook:** **iumac unreachable again** (`ssh … port 2222: Operation timed out`). A detached resumable copy retries
+  every 2 min for ~3 h (log `/tmp/argo-boards-w39.b02yaH`) for `w39-*` into `w39/` and re-syncs `w38-*`. If it gives up:
+  `rsync -a --partial .design-shots/w39-* iumac:Downloads/argo-design-review/w39/`.
+- **Cleanup:** all worktrees and tabs removed with `rd fan --clean`; no in-session background task left running (the board copy is a
+  detached process).
+
+## Wave 40 — Re-score round 19: the basalt release, the w39 P3s <!-- status: active -->
+
+Same shape as Wave 39 (fan-out on disjoint page files, two independent reviews per PR, two rounds then scope frozen, CI `check` green on
+the PR head before the merge — `bun install` in each worktree after its rebase, live re-shoot once the served bundle carries the change,
+fresh `basalt-design-reviewer`s given the latest w39 shots + a Keel side-by-side **and `docs/design/README.md`'s settled rules**).
+**Subtract before you add**; a removal that leaves a reader without a fact is a defect, and a fix that turns a passing page into a
+failing one is reverted. Page detail: `docs/design/<page>.md` § "Wave 39 round" (the last bullet is the latest). Basalt rows
+(`UPSTREAM.md` § "Wave 28"–"Wave 38"): no local workaround. The question rung stays frozen. A state is declared only where production
+renders it.
+
+- [ ] When the orchestrator announces the basalt-ui release (basalt Wave 38: the `+N` fold keeping series names, the `Section`
+      subtitle at 12, the `BandStrip` wrap, footer-entry `shotAbsent`), bump it in its own commit, adopt what closes the `UPSTREAM.md`
+      § "Wave 38" rows, delete the matching local code, re-shoot every page and re-check every row it closes.
+- [ ] The w39 argo P3s: Garmin's fitness qualifier naming its subject beside a declining VO2max row, the 390 basis line breaking before
+      its `—`; Home's wrapped history row leaving its `from` state alone (reads as its own entry), the needs-you empty body repeating
+      its title; Warden's facts line wrapping after a trailing `·`; WalkingPad's 390 week footer stranding its target icon, the week
+      meter label repeating the hero, the Pace/Totals empty sentence repeating the reason; Agents' `ago` alone at 1440.
+- [ ] Owner decision, then build or drop: the shared `DecisionCard` `question` (`components/upstream/decision-card`) breaking a long
+      identifier mid-token at 1440 — its `identifierRuns` keeps identifiers whole, which is the rung's own copy rule.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 41 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**
