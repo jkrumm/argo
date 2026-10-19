@@ -84,14 +84,14 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                 />
               )}
               {pair.ratio === null ? (
-                <Text size="xs" c="dimmed">
+                <Text size="sm" c="dimmed">
                   {`${bandRange(pair.range)} band · need both lifts`}
                 </Text>
               ) : (
-                <Text size="xs" c="dimmed">
+                <Text size="sm" c="dimmed">
                   <Text
                     span
-                    size="xs"
+                    size="sm"
                     c={isBorderline(pair.status, offset) ? 'dimmed' : statusInk(pair.status)}
                   >
                     {statusWord(pair.status, offset)}
