@@ -530,7 +530,7 @@ export function lastWalkLabel(input: {
 /**
  * The week cell's footer: walks so far and how much of the weekly target the distance is. The dot
  * is glued to both neighbours and the percent figure to its sign, so a wrap can only fall before
- * `of target` and no line starts or ends on the dot.
+ * `of target` (the one plain space, intended) and no line starts or ends on the dot.
  */
 export function weekTargetLine(sessions: number, km: number, targetKm: number): string {
   const percent = Math.round((km / targetKm) * 100)

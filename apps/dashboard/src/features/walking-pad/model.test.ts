@@ -561,5 +561,6 @@ describe('weekTargetLine', () => {
     expect(weekTargetLine(0, 0, 20)).toBe(`0 walks${nb}·${nb}0${nb}% of${nb}target`)
     expect(weekTargetLine(1, 5, 20)).toBe(`1 walk${nb}·${nb}25${nb}% of${nb}target`)
     expect(weekTargetLine(4, 25, 20)).toBe(`4 walks${nb}·${nb}125${nb}% of${nb}target`)
+    expect(weekTargetLine(2, 5.01, 15)).toBe(`2 walks${nb}·${nb}33${nb}% of${nb}target`)
   })
 })
