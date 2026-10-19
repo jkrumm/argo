@@ -186,6 +186,10 @@ export function DecisionCard({
   meta,
 }: DecisionCardProps) {
   const shown = visibleFacts(facts)
+  const evidenceText =
+    typeof evidenceLine === 'string' && isRenderable(evidenceLine)
+      ? glueNumberUnits(evidenceLine)
+      : null
   return (
     <Card>
       <Group align="stretch" gap="md" wrap="wrap">
@@ -230,9 +234,9 @@ export function DecisionCard({
               )}
             </Group>
           )}
-          {isRenderable(evidenceLine) && (
+          {evidenceText !== null && (
             <Text size="sm" className={classes.wrap}>
-              {glueNumberUnits(evidenceLine ?? '')}
+              {evidenceText}
             </Text>
           )}
           {previewPlacement === 'inline' && isRenderable(preview) && (
