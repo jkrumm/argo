@@ -342,13 +342,15 @@ export function recoveryCell(
   // The tile already prints the last score and its day: only the cadence is left to say.
   const showsLastScore = score === null && reading.last !== null && gap.full !== null
   const footerGap =
-    score !== null || figureless
+    score !== null
       ? undefined
-      : showsLastScore
-        ? form === 'full'
-          ? cadenceGap.short
-          : ''
-        : gapLine(gap, form)
+      : figureless
+        ? ''
+        : showsLastScore
+          ? form === 'full'
+            ? cadenceGap.short
+            : ''
+          : gapLine(gap, form)
   return {
     key: 'recovery',
     caption: recoveryCaption(reading),
