@@ -663,12 +663,10 @@ export function needsYouEmptyTitle(s: SourceState): string {
 }
 
 /**
- * The empty needs-you body: only what the title does not already say. All-clear, all-loading and
- * all-without-snapshot titles say it whole (`null`); a partial or mixed list names the sources
- * that failed, are loading or have no snapshot.
+ * The empty needs-you body: which sources failed, are loading or have no snapshot, since no title
+ * names them. `null` only when every source answered (the all-clear title says it whole).
  */
 export function needsYouEmptyBody(s: SourceState): string | null {
-  if (allUnknown(s) && unknownKind(s) !== 'cant-tell') return null
   const phrase = unknownPhrase(s.unavailable, s.loading, s.noSnapshot)
   return phrase === '' ? null : `${unknownSentence(phrase)}.`
 }

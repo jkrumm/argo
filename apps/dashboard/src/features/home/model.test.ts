@@ -885,10 +885,19 @@ describe('laterMeeting', () => {
 
 describe('needsYouEmptyBody', () => {
   const ok = { unavailable: [], loading: [] }
-  it('is null when the title already says it', () => {
+  it('is null only when every source answered', () => {
     expect(needsYouEmptyBody(ok)).toBeNull()
-    expect(needsYouEmptyBody({ unavailable: [], loading: ['Warden', 'Agents'] })).toBeNull()
-    expect(needsYouEmptyBody({ ...ok, noSnapshot: ['Warden', 'Agents'] })).toBeNull()
+  })
+  it('names the sources when all are unknown, which no title does', () => {
+    expect(needsYouEmptyBody({ unavailable: [], loading: ['Warden', 'Agents'] })).toBe(
+      'Warden and Agents loading.',
+    )
+    expect(needsYouEmptyBody({ ...ok, noSnapshot: ['Warden', 'Agents'] })).toBe(
+      'No snapshot yet from Warden and Agents.',
+    )
+    expect(needsYouEmptyBody({ unavailable: ['Warden', 'Agents'], loading: [] })).toBe(
+      'Warden and Agents failed to load.',
+    )
   })
   it('names the sources a partial list is missing', () => {
     expect(needsYouEmptyBody({ unavailable: ['Agents'], loading: [] })).toBe(
