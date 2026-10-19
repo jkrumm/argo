@@ -341,9 +341,24 @@ export type FitnessDirectionResult = {
   color: string
   rhrSlope: number | null
   hrvSlope: number | null
+  /** Fitted change over the slice: unrounded slope × (last valid x − first valid x). Null without a slope. */
+  rhrChange: number | null
+  hrvChange: number | null
+  /** The slope sits inside its threshold — the same comparison the label uses. Null without a slope. */
+  rhrFlat: boolean | null
+  hrvFlat: boolean | null
+  /** Last valid reading minus first valid reading in the slice. */
   rhrDelta: number | null
   hrvDelta: number | null
   vo2max: number | null
+}
+
+/** Slope × the span between the first and last valid reading (x = index in the slice). */
+function fittedChange(values: (number | null)[], slope: number | null): number | null {
+  if (slope === null) return null
+  const first = values.findIndex((v) => v !== null)
+  const last = values.findLastIndex((v) => v !== null)
+  return slope * (last - first)
 }
 
 export function fitnessDirection(rows: FitnessDirectionInputRow[]): FitnessDirectionResult {
@@ -361,6 +376,9 @@ export function fitnessDirection(rows: FitnessDirectionInputRow[]): FitnessDirec
   const rhrNegative = rhrSlope !== null && rhrSlope > FITNESS_RHR_SLOPE_THRESHOLD
   const hrvPositive = hrvSlope !== null && hrvSlope > FITNESS_HRV_SLOPE_THRESHOLD
   const hrvNegative = hrvSlope !== null && hrvSlope < -FITNESS_HRV_SLOPE_THRESHOLD
+
+  const rhrChange = fittedChange(rhrValues, rhrSlope)
+  const hrvChange = fittedChange(hrvValues, hrvSlope)
 
   let signal: FitnessDirectionSignal
   let label: string
@@ -402,6 +420,10 @@ export function fitnessDirection(rows: FitnessDirectionInputRow[]): FitnessDirec
     color,
     rhrSlope: rhrSlope !== null ? Math.round(rhrSlope * 1000) / 1000 : null,
     hrvSlope: hrvSlope !== null ? Math.round(hrvSlope * 1000) / 1000 : null,
+    rhrChange: rhrChange !== null ? Math.round(rhrChange * 10) / 10 : null,
+    hrvChange: hrvChange !== null ? Math.round(hrvChange * 10) / 10 : null,
+    rhrFlat: rhrSlope !== null ? !(rhrPositive || rhrNegative) : null,
+    hrvFlat: hrvSlope !== null ? !(hrvPositive || hrvNegative) : null,
     rhrDelta: rhrDelta !== null ? Math.round(rhrDelta * 10) / 10 : null,
     hrvDelta: hrvDelta !== null ? Math.round(hrvDelta * 10) / 10 : null,
     vo2max: vo2max !== null ? Math.round(vo2max * 10) / 10 : null,

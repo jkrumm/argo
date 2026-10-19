@@ -14,7 +14,8 @@ import {
   windowSpan,
   bodyBatteryFact,
   contributorItems,
-  fittedChange,
+  fitnessRowDelta,
+  moveDelta,
   recoveryBasis,
   countWhere,
   dayLabel,
@@ -242,25 +243,34 @@ describe('recoveryBasis', () => {
       'HRV and sleep not scored — score from RHR only',
     )
     expect(recoveryBasis({ hrv: 30, sleep: null, rhr: 20 })).toBe(
-      'sleep not scored — score from HRV and RHR only',
+      'Sleep not scored — score from HRV and RHR only',
     )
   })
 })
 
-describe('fittedChange', () => {
-  test('is slope times the steps between points', () => {
-    expect(fittedChange({ slope: -0.2, points: 14, threshold: 0.05 })).toEqual({
-      value: -0.2 * 13,
-      neutral: false,
+describe('fitness row delta', () => {
+  test('a fit prints the API change, coloured unless flat', () => {
+    expect(fitnessRowDelta({ change: -6.5, flat: false, delta: -3 })).toEqual({
+      kind: 'move',
+      value: -6.5,
     })
+    expect(fitnessRowDelta({ change: 0.4, flat: true, delta: 2 })).toEqual({ kind: 'flat' })
   })
-  test('a slope inside its threshold is neutral, at it too', () => {
-    expect(fittedChange({ slope: 0.05, points: 14, threshold: 0.05 })?.neutral).toBe(true)
-    expect(fittedChange({ slope: -0.03, points: 14, threshold: 0.05 })?.neutral).toBe(true)
+  test('a zero change reads unchanged, flat or not', () => {
+    expect(fitnessRowDelta({ change: 0, flat: true, delta: 0 })).toEqual({ kind: 'unchanged' })
   })
-  test('no slope or under two points is no change', () => {
-    expect(fittedChange({ slope: null, points: 14, threshold: 0.05 })).toBeNull()
-    expect(fittedChange({ slope: 0.3, points: 1, threshold: 0.05 })).toBeNull()
+  test('without a fit the last-minus-first delta prints plain, never lost', () => {
+    expect(fitnessRowDelta({ change: null, flat: null, delta: 1 })).toEqual({
+      kind: 'plain',
+      value: 1,
+    })
+    expect(fitnessRowDelta({ change: null, flat: null, delta: 0 })).toEqual({ kind: 'unchanged' })
+    expect(fitnessRowDelta({ change: null, flat: null, delta: null })).toEqual({ kind: 'none' })
+  })
+  test('moveDelta: none, unchanged, move', () => {
+    expect(moveDelta(null)).toEqual({ kind: 'none' })
+    expect(moveDelta(0)).toEqual({ kind: 'unchanged' })
+    expect(moveDelta(0.7)).toEqual({ kind: 'move', value: 0.7 })
   })
 })
 

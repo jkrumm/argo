@@ -15,10 +15,6 @@ const EM_DASH = '—'
 export const FITNESS_DAYS = 14
 export const VO2_DAYS = 180
 
-/** Fitness slope thresholds per day — mirror `FITNESS_*_SLOPE_THRESHOLD` in `garmin-formulas.ts`. */
-export const FITNESS_RHR_SLOPE_THRESHOLD = 0.05
-export const FITNESS_HRV_SLOPE_THRESHOLD = 0.1
-
 /** Daily activity target in MET-min — mirrors `ACTIVITY_TARGET_SCORE` in `garmin-formulas.ts`. */
 export const ACTIVITY_TARGET_SCORE = 600
 
@@ -558,30 +554,58 @@ export function missingInputs(components: Components): RecoveryInput[] {
 
 const join = (xs: readonly string[]): string => xs.join(' and ')
 
+/** The three recovery inputs, in the order the cell lists them. */
+const RECOVERY_INPUTS = ['HRV', 'sleep', 'RHR'] as const
+
 /**
  * The basis of a scored recovery cell that lacks contributors: the API re-weights the score over the
  * components it has (`recoveryScore` in `garmin-formulas.ts`), so the line names what is missing and
- * what the score stands on. `null` when all three contributed.
+ * what the score stands on. A scored cell has at least one contributor, so `present` is never empty.
+ * `null` when all three contributed.
  */
 export function recoveryBasis(components: Components): string | null {
   const missing = missingInputs(components)
   if (missing.length === 0) return null
-  const present = (['HRV', 'sleep', 'RHR'] as const).filter((i) => !missing.includes(i))
-  return `${join(missing)} not scored — score from ${present.length > 0 ? join(present) : 'nothing'} only`
+  const present = RECOVERY_INPUTS.filter((i) => !missing.includes(i))
+  const lead = join(missing)
+  return `${lead.charAt(0).toUpperCase()}${lead.slice(1)} not scored — score from ${join(present)} only`
+}
+
+/** What a fitness row prints in its delta column. */
+export type RowDelta =
+  | { kind: 'none' }
+  | { kind: 'unchanged' }
+  /** The slope is inside its threshold: no good or bad reading. */
+  | { kind: 'flat' }
+  /** A reading-to-reading difference with no fit behind it: printed plain, not coloured. */
+  | { kind: 'plain'; value: number }
+  | { kind: 'move'; value: number }
+
+/** A measured change: nothing without one, `unchanged` at zero, else a coloured move. */
+export function moveDelta(value: number | null): RowDelta {
+  if (value === null) return { kind: 'none' }
+  if (value === 0) return { kind: 'unchanged' }
+  return { kind: 'move', value }
 }
 
 /**
- * The change the fitness label is computed from: the fitted slope across the window's points, not
- * last minus first. `neutral` when the slope sits inside its threshold (the label ignores it too).
+ * The delta for an RHR/HRV row from the API's own fit: `change`/`flat` are what the label is
+ * computed from. Without a fit (fewer than 3 readings) the last-minus-first `delta` is all there is,
+ * so it prints plain rather than losing the fact.
  */
-export function fittedChange(input: {
-  slope: number | null | undefined
-  points: number
-  threshold: number
-}): { value: number; neutral: boolean } | null {
-  const { slope, points, threshold } = input
-  if (slope === null || slope === undefined || points < 2) return null
-  return { value: slope * (points - 1), neutral: Math.abs(slope) <= threshold }
+export function fitnessRowDelta(input: {
+  change: number | null
+  flat: boolean | null
+  delta: number | null
+}): RowDelta {
+  const { change, flat, delta } = input
+  if (change === null || flat === null) {
+    if (delta === null) return { kind: 'none' }
+    return delta === 0 ? { kind: 'unchanged' } : { kind: 'plain', value: delta }
+  }
+  if (change === 0) return { kind: 'unchanged' }
+  if (flat) return { kind: 'flat' }
+  return { kind: 'move', value: change }
 }
 
 /** Contributor rows as points of their weight. A component that did not measure is left out. */
