@@ -482,11 +482,11 @@ describe('ratingsFooter', () => {
       book({ rating: 3, communityRating: 4 }),
       book({ rating: 5 }),
     ]
-    expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8\u00a0★, on 2 of them')
+    expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8\u00a0★ on\u00a02\u00a0books')
   })
   test('a single community rating', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 4, communityRating: 3.8 })]))).toBe(
-      'community mean 3.8\u00a0★, on 1 of them',
+      'community mean 3.8\u00a0★ on\u00a01\u00a0book',
     )
   })
   test('says nothing about binning, and nothing without a community rating', () => {

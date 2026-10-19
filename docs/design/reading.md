@@ -221,7 +221,6 @@ Follow-up (w30-r2):
 - **Why:** with a handful of books a histogram of pace bins would be mostly empty bars; ticks show every book and its spread, and the median says where the figure sits inside it.
 - **Keel pattern:** a stat cell whose micro-visual is fitted to its data (`stat-cell`), as the shelf Meter and the ratings histogram already are.
 
-
 ### Wave 37 round 16 fixes (`w37-r2`)
 
 - **Rating axis (`w37-r3`):** one axis row, each column labelled at its centre by its star (`1`…`5`); column N holds `N − 0.5` and `N` (kept in the column's `title` and the aria-label), so a 3-star book stands in the column labelled `3`. The mean marker sits on the same scale, at `(mean − 0.5) / 5` of the track, gap-aware (clamped to the first and last column centre). Each column's count rides above its bar as a mono figure (a zero column shows none but keeps its slot); the separate count row and the `0`–`5` edge ticks are gone — the edge ticks put a whole-star rating left of its own tick. No lost fact.
@@ -249,3 +248,7 @@ Follow-up (w30-r2):
 ### Wave 40 round
 
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass. Closed: the backlog shell at three sizes (`[12, 13, 15]` — the "11 px subtitle" was the class-sized summary line), the dark pace chip opaque, the 390 pace readout inside the card's sides with labels whole. New (basalt, P3): at 390 the pace readout hangs ~18 px below the card's bottom edge. Open (argo, P3): the 390 ratings footer `community mean 4.2 ★, on` / `4 of them` (`of them` names no noun). No regression, no lost fact. Against Keel: holds up.
+
+### Wave 41 round
+
+- Fixed (argo): the ratings footer names its noun and keeps the count glued to it: `community mean 4.2 ★ on 4 books` (`on`, the count and `books` joined by NBSP; `1 book` singular). The comma and `of them` are gone, so at 390 the line breaks only before `on 4 books` as a unit. Same two facts, the mean and its base. No lost fact.

@@ -6,6 +6,7 @@ import { useSuspenseQueries } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
 import { Bars, ChartCard, Lines } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
+import { useNow } from '../../lib/use-now'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
 import { dayToDate } from './constants'
@@ -28,11 +29,19 @@ import {
   periodNoun,
   fmtSeconds,
   secondsQuantity,
+  windowDays,
   shortDay,
   ERROR_OK_LABEL,
 } from './model'
 import type { BillingValue, WorkspaceValue } from './types'
 import classes from './usage.module.css'
+
+const RANGE_DAYS: Record<Range, number | undefined> = {
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+  all: undefined,
+}
 
 type ErrorBucket = { date: Date; count: number; state: ErrorDayState }
 type P95Point = { date: Date; v: number }
@@ -86,10 +95,18 @@ export default function HealthCard({
   const errors = emptyShot ? { ...errorsQ.data, buckets: [] } : errorsQ.data
   const rates = emptyShot ? { ...ratesQ.data, buckets: [] } : ratesQ.data
 
-  const p95: P95Point[] = latency.buckets.flatMap((b) => {
-    const v = b.groups['value']
-    return v === null || v === undefined ? [] : [{ date: dayToDate(b.bucket), v }]
-  })
+  const now = useNow()
+  // Day grain draws window days only: the rolling window's partial leading day is left out of both
+  // halves, as in the strip. `all` has no window start; week buckets are not day-aligned to it.
+  const spanDays = RANGE_DAYS[range]
+  const inWindow = <T extends { date: Date }>(rows: T[]): T[] =>
+    grain === 'day' && spanDays !== undefined ? windowDays(rows, now, spanDays) : rows
+  const p95: P95Point[] = inWindow(
+    latency.buckets.flatMap((b) => {
+      const v = b.groups['value']
+      return v === null || v === undefined ? [] : [{ date: dayToDate(b.bucket), v }]
+    }),
+  )
   const rateByDay = new Map(
     rates.buckets.map((b) => [dayToDate(b.bucket).getTime(), b.groups['value'] ?? null]),
   )
@@ -108,7 +125,7 @@ export default function HealthCard({
   const last = p95.at(-1)
   const lastQty = secondsQuantity(last?.v)
   const folded = foldTopN(
-    errors.buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups })),
+    inWindow(errors.buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups }))),
     errors.groupKeys,
     ERROR_FOLD_TOP_N,
   )

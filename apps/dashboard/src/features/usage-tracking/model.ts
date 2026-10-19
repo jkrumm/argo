@@ -640,9 +640,12 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/** Window days: days that began inside the rolling 30 d window (the partial leading day is left out; the running day is `useDaily`'s to drop). */
-export const windowDays = <T extends { date: Date }>(days: readonly T[], now: number): T[] =>
-  days.filter((d) => bucketStartMs(d.date) >= now - 30 * DAY_MS)
+/** Window days: days that began inside the rolling window, 30 d unless `spanDays` says otherwise (the partial leading day is left out; the running day is `useDaily`'s to drop). */
+export const windowDays = <T extends { date: Date }>(
+  days: readonly T[],
+  now: number,
+  spanDays = 30,
+): T[] => days.filter((d) => bucketStartMs(d.date) >= now - spanDays * DAY_MS)
 
 /** Full days: the window days that are closed (today, still running, is left out too). */
 export const fullDays = <T extends { date: Date }>(days: readonly T[], now: number): T[] =>
