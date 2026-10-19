@@ -8,6 +8,7 @@ import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/querie
 import { walkingStore } from '../../lib/window-stores'
 import { walkingLocal } from './local-store'
 import {
+  emptyWindowShort,
   fmtDuration,
   fmtKm,
   fmtKmh,
@@ -230,8 +231,7 @@ function EmptyStrip({ params }: { params: WalkingPadWindowParams }) {
   const { window: preset } = walkingStore.useValues()
   const week = useWeekCell()
   const streak = useStreakCell(params)
-  // The window is in each cell's qualifier; the full sentence is the empty state's title.
-  const state = { kind: 'empty', reason: 'No walks' } as const
+  const state = { kind: 'empty', reason: emptyWindowShort(preset) } as const
   const cells: StatStripCell[] = [
     week,
     { key: 'pace', caption: 'Pace', qualifier: `avg ${windowQualifier(preset)}`, state },
