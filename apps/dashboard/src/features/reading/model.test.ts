@@ -8,6 +8,7 @@ import {
   finishedFooter,
   finishCohort,
   paceBars,
+  shortTitle,
   paceLabel,
   paceRange,
   backlog,
@@ -84,7 +85,14 @@ describe('readingPace', () => {
       book({ statusId: 2, stats: stats(40, 0) }), // excluded: no time
       book({ statusId: 2 }), // excluded: no stats
     ]
-    expect(readingPace(shelf)).toEqual({ median: 100, paces: [50, 150] })
+    expect(readingPace(shelf)).toEqual({
+      median: 100,
+      paces: [50, 150],
+      books: [
+        { title: '{title}', pace: 50 },
+        { title: '{title}', pace: 150 },
+      ],
+    })
   })
 
   test('a median that rounds to 0 is null, not a 0 pages/h pace', () => {
@@ -506,19 +514,37 @@ describe('lastReadFact', () => {
 })
 
 describe('paceBars', () => {
-  test('draws one bar per book, slowest first', () => {
-    expect(paceBars([20, 35, 40])).toEqual([
-      { book: 1, pace: 20 },
-      { book: 2, pace: 35 },
-      { book: 3, pace: 40 },
+  const b = (title: string, pace: number) => ({ title, pace })
+  test('draws one bar per book, slowest first, carrying its title', () => {
+    expect(paceBars([b('A', 20), b('B', 35), b('C', 40)])).toEqual([
+      { book: 1, title: 'A', pace: 20 },
+      { book: 2, title: 'B', pace: 35 },
+      { book: 3, title: 'C', pace: 40 },
     ])
   })
-  test('sorts unsorted input ascending', () => {
-    expect(paceBars([40, 20, 35]).map((b) => b.pace)).toEqual([20, 35, 40])
+  test('sorts unsorted input ascending, titles following their pace', () => {
+    expect(paceBars([b('C', 40), b('A', 20), b('B', 35)]).map((x) => x.title)).toEqual([
+      'A',
+      'B',
+      'C',
+    ])
   })
   test('draws nothing below two books', () => {
     expect(paceBars([])).toEqual([])
-    expect(paceBars([30])).toEqual([])
+    expect(paceBars([b('A', 30)])).toEqual([])
+  })
+})
+
+describe('shortTitle', () => {
+  test('keeps a short title whole', () => {
+    expect(shortTitle('Dune')).toBe('Dune')
+  })
+  test('cuts a long title at a word with an ellipsis', () => {
+    const out = shortTitle('The Hitchhiker’s Guide to the Galaxy: The Complete Collection')
+    expect(out).toBe('The Hitchhiker’s Guide to the…')
+  })
+  test('hard-cuts a long unbroken title', () => {
+    expect(shortTitle('x'.repeat(50))).toBe(`${'x'.repeat(32)}…`)
   })
 })
 

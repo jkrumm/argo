@@ -162,7 +162,7 @@ function costCell({ h, loading, now }: Ctx, cost: Series): StatStripCell {
     visual: (
       <Trend
         label="Cost per day over the last 30 days"
-        days={cost.days}
+        days={full}
         loading={cost.loading}
         format={fmtUsdWhole}
       />
@@ -201,7 +201,7 @@ function tokensCell({ h, loading, now }: Ctx, tokens: Series): StatStripCell {
     visual: (
       <Trend
         label="Tokens per day over the last 30 days"
-        days={tokens.days}
+        days={full}
         loading={tokens.loading}
         format={fmtTokensDay}
       />
@@ -256,7 +256,8 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
 
 function p95Cell({ h, loading, now }: Ctx, p95: Series): StatStripCell {
   const qty = secondsQuantity(h?.p95Ms30d)
-  const worst = peakOf(fullDays(p95.days, now))
+  const full = fullDays(p95.days, now)
+  const worst = peakOf(full)
   const p95Window = h?.p95Ms30d ?? null
   const vs = compare({
     h,
@@ -278,7 +279,7 @@ function p95Cell({ h, loading, now }: Ctx, p95: Series): StatStripCell {
     visual: (
       <Trend
         label="p95 latency per day over the last 30 days"
-        days={p95.days}
+        days={full}
         loading={p95.loading}
         format={fmtSeconds}
         reference={p95Window ?? undefined}

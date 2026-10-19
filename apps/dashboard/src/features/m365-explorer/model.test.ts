@@ -2,6 +2,7 @@ import { NBSP } from '../../lib/format'
 import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
+  chatTitle,
   emptyGap,
   detailGap,
   withStep,
@@ -482,5 +483,17 @@ describe('gap predicates', () => {
     expect(leader).toBe('labeled')
     expect(emptyGap(leader, 'chats')).toBe(NO_SOURCES)
     expect(emptyGap(leader, 'teams')).toBe(NO_SOURCES)
+  })
+})
+
+describe('chatTitle member order', () => {
+  const chat = (names: string[]) => ({ topic: null, members: names.map((name) => ({ name })) })
+  test('names read the same whatever order the members arrive in', () => {
+    expect(chatTitle(chat(['Zoe', 'Anna', 'Max']))).toBe('Anna, Max, Zoe')
+    expect(chatTitle(chat(['Max', 'Zoe', 'Anna']))).toBe('Anna, Max, Zoe')
+  })
+  test('a topic still wins and empty names are skipped', () => {
+    expect(chatTitle({ topic: 'Plan', members: [{ name: 'B' }] })).toBe('Plan')
+    expect(chatTitle(chat(['', 'B', 'A']))).toBe('A, B')
   })
 })

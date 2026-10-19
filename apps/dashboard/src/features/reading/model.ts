@@ -53,22 +53,26 @@ export type Pace = {
   median: number | null
   /** Per-book paces of the cohort (pagesRead > 0 and totalReadSeconds > 0), ascending. */
   paces: number[]
+  /** The same cohort with each book's title, ascending by pace (ties keep shelf order). */
+  books: { title: string; pace: number }[]
 }
 
 /** Cohort: in-progress and finished books that report device reading time. */
 export function readingPace(shelf: readonly ShelfItem[]): Pace {
-  const paces: number[] = []
+  const books: { title: string; pace: number }[] = []
   for (const book of shelf) {
     const stats = book.stats
     if (book.statusId !== STATUS.reading && book.statusId !== STATUS.read) continue
     if (stats === null || stats.pagesRead <= 0 || stats.totalReadSeconds <= 0) continue
-    paces.push(stats.pagesRead / (stats.totalReadSeconds / 3600))
+    books.push({ title: book.title, pace: stats.pagesRead / (stats.totalReadSeconds / 3600) })
   }
-  const mid = median(paces)
+  const sorted = books.toSorted((a, b) => a.pace - b.pace)
+  const mid = median(sorted.map((b) => b.pace))
   return {
     // A median that rounds to 0 pages/h is no usable pace.
     median: mid === null || Math.round(mid) <= 0 ? null : Math.round(mid),
-    paces: paces.toSorted((a, b) => a - b).map(Math.round),
+    paces: sorted.map((b) => Math.round(b.pace)),
+    books: sorted.map((b) => ({ title: b.title, pace: Math.round(b.pace) })),
   }
 }
 
@@ -446,9 +450,22 @@ const paceEndpoint = (v: number): string => (v < 1 ? '< 1' : String(v))
 export const paceLabel = (v: number): string => withUnit(paceEndpoint(v), 'pages/h')
 
 /** One bar per book for the pace cell's slot, slowest first (sorted here, not trusted); none below two books (no spread to draw). */
-export function paceBars(paces: readonly number[]): { book: number; pace: number }[] {
-  if (paces.length < 2) return []
-  return paces.toSorted((a, b) => a - b).map((pace, i) => ({ book: i + 1, pace }))
+export function paceBars(
+  books: readonly { title: string; pace: number }[],
+): { book: number; title: string; pace: number }[] {
+  if (books.length < 2) return []
+  return books.toSorted((a, b) => a.pace - b.pace).map((b, i) => ({ book: i + 1, ...b }))
+}
+
+const BOOK_TITLE_MAX = 32
+
+/** A book title for the bar readout: whole when it fits, else cut at a word and closed with `…`. */
+export function shortTitle(title: string): string {
+  const t = title.trim()
+  if (t.length <= BOOK_TITLE_MAX) return t
+  const cut = t.slice(0, BOOK_TITLE_MAX)
+  const at = cut.lastIndexOf(' ')
+  return `${(at >= BOOK_TITLE_MAX / 2 ? cut.slice(0, at) : cut).trimEnd()}…`
 }
 
 /** `slowest 20, fastest 40 pages/h`; an endpoint that rounds to 0 reads `< 1`. Null with no paces. */
