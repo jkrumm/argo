@@ -43,6 +43,7 @@ import {
   slowerDaysLine,
   dropPartialBucket,
   fullDays,
+  STRIP_WINDOW_DAYS,
   windowDays,
   D7,
   secondsDelta,
@@ -163,7 +164,7 @@ function costCell({ h, loading, now }: Ctx, cost: Series): StatStripCell {
     visual: (
       <Trend
         label="Cost per day over the last 30 days"
-        days={windowDays(cost.days, now)}
+        days={windowDays(cost.days, now, STRIP_WINDOW_DAYS)}
         loading={cost.loading}
         format={fmtUsdWhole}
       />
@@ -202,7 +203,7 @@ function tokensCell({ h, loading, now }: Ctx, tokens: Series): StatStripCell {
     visual: (
       <Trend
         label="Tokens per day over the last 30 days"
-        days={windowDays(tokens.days, now)}
+        days={windowDays(tokens.days, now, STRIP_WINDOW_DAYS)}
         loading={tokens.loading}
         format={fmtTokensDay}
       />
@@ -237,7 +238,7 @@ function errorsCell({ h, loading, now }: Ctx, errors: Series): StatStripCell {
     loading,
     visual:
       errors.days.length > 0 ? (
-        <ErrorBand days={windowDays(errors.days, now)} />
+        <ErrorBand days={windowDays(errors.days, now, STRIP_WINDOW_DAYS)} />
       ) : (
         <Text size="sm" c="dimmed">
           {errors.loading
@@ -280,7 +281,7 @@ function p95Cell({ h, loading, now }: Ctx, p95: Series): StatStripCell {
     visual: (
       <Trend
         label="p95 latency per day over the last 30 days"
-        days={windowDays(p95.days, now)}
+        days={windowDays(p95.days, now, STRIP_WINDOW_DAYS)}
         loading={p95.loading}
         format={fmtSeconds}
         reference={p95Window ?? undefined}
@@ -322,7 +323,7 @@ function cacheCell({ h, loading, now }: Ctx, cache: Series): StatStripCell {
       ratio === null ? undefined : (
         <Trend
           label="Cache hit ratio per day over the last 30 days"
-          days={windowDays(cache.days, now)}
+          days={windowDays(cache.days, now, STRIP_WINDOW_DAYS)}
           loading={cache.loading}
           format={(v) => fmtPct(v)}
           reference={CACHE_HIT_TARGET}

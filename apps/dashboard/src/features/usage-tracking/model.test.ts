@@ -33,6 +33,8 @@ import {
   barStateOf,
   dropPartialBucket,
   fullDays,
+  rangeWindowDays,
+  STRIP_WINDOW_DAYS,
   windowDays,
   periodNoun,
   printTotal,
@@ -505,17 +507,20 @@ describe('day-count sentences', () => {
     expect(windowDays(days, NOW).map((d) => d.value)).toEqual([1, 5])
     expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1])
   })
-  it('windowDays takes the span from the range, 30 d by default', () => {
+  it('rangeWindowDays cuts day grain to the range span and passes week grain and all through', () => {
     const days = [
       { date: new Date(2025, 10, 20), value: 1 },
       { date: new Date(2025, 11, 20), value: 2 },
       { date: new Date(2026, 0, 8), value: 3 },
     ]
-    expect(windowDays(days, NOW, 7).map((d) => d.value)).toEqual([3])
-    expect(windowDays(days, NOW, 90).map((d) => d.value)).toEqual([1, 2, 3])
-    expect(windowDays(days, NOW).map((d) => d.value)).toEqual(
-      windowDays(days, NOW, 30).map((d) => d.value),
-    )
+    const cut = (range: '7d' | '30d' | '90d' | 'all', grain: 'day' | 'week') =>
+      rangeWindowDays(days, { range, grain, now: NOW }).map((d) => d.value)
+    expect(cut('7d', 'day')).toEqual([3])
+    expect(cut('30d', 'day')).toEqual([2, 3])
+    expect(cut('90d', 'day')).toEqual([1, 2, 3])
+    expect(cut('7d', 'week')).toEqual([1, 2, 3])
+    expect(cut('all', 'day')).toEqual([1, 2, 3])
+    expect(windowDays(days, NOW, STRIP_WINDOW_DAYS).map((d) => d.value)).toEqual([2, 3])
   })
   it('takes the mean and the peak day over full days only', () => {
     const days = [

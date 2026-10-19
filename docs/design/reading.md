@@ -221,6 +221,7 @@ Follow-up (w30-r2):
 - **Why:** with a handful of books a histogram of pace bins would be mostly empty bars; ticks show every book and its spread, and the median says where the figure sits inside it.
 - **Keel pattern:** a stat cell whose micro-visual is fitted to its data (`stat-cell`), as the shelf Meter and the ratings histogram already are.
 
+
 ### Wave 37 round 16 fixes (`w37-r2`)
 
 - **Rating axis (`w37-r3`):** one axis row, each column labelled at its centre by its star (`1`…`5`); column N holds `N − 0.5` and `N` (kept in the column's `title` and the aria-label), so a 3-star book stands in the column labelled `3`. The mean marker sits on the same scale, at `(mean − 0.5) / 5` of the track, gap-aware (clamped to the first and last column centre). Each column's count rides above its bar as a mono figure (a zero column shows none but keeps its slot); the separate count row and the `0`–`5` edge ticks are gone — the edge ticks put a whole-star rating left of its own tick. No lost fact.

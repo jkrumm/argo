@@ -328,9 +328,10 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
 
 /** The ratings cell's footer fact: the community mean over the same books, when any has one. */
 export function ratingsFooter(shape: RatingShape): string | undefined {
-  return shape.community === null
-    ? undefined
-    : `community mean ${withUnit(shape.community.mean.toFixed(1), '★')} on\u00a0${shape.community.n}\u00a0${shape.community.n === 1 ? 'book' : 'books'}`
+  if (shape.community === null) return undefined
+  const { mean, n } = shape.community
+  const noun = n === 1 ? 'book' : 'books'
+  return `community mean ${withUnit(mean.toFixed(1), '★')} on\u00a0${n}\u00a0${noun}`
 }
 
 // ── Shelf counts: the one source of every repeated figure ───────────────────────────────────
