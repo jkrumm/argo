@@ -231,6 +231,7 @@ export async function aiComplete(
         total_tokens?: number
         prompt_tokens_details?: { cached_tokens?: number }
         completion_tokens_details?: { reasoning_tokens?: number }
+        cost?: number
       }
       model?: string
     }
@@ -254,6 +255,7 @@ export async function aiComplete(
             ...(json.usage.completion_tokens_details?.reasoning_tokens !== undefined
               ? { reasoning_tokens: json.usage.completion_tokens_details.reasoning_tokens }
               : {}),
+            ...(json.usage.cost !== undefined ? { cost: json.usage.cost } : {}),
           },
           ...(opts.sub_tool !== undefined ? { subTool: opts.sub_tool } : {}),
           startedAt,

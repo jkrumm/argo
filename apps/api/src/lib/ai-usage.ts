@@ -10,6 +10,8 @@ export interface AiUsageData {
   cached_tokens?: number
   /** `completion_tokens_details.reasoning_tokens`, when the upstream reports it. */
   reasoning_tokens?: number
+  /** `usage.cost` (USD), when the upstream reports it. Requesty-routed models do; IU's Bedrock/LiteLLM routes do not. */
+  cost?: number
 }
 
 /** Matches the domain accepted by the ingest side (`routes/usage.ts`'s `BillingEnum`). */
@@ -46,13 +48,15 @@ const DEEPSEEK_RATES: Record<string, { input: number; output: number; cachedInpu
   // was wrong — OpenAI cut this model 80% on 2026-07-30 and $0.20/$1.20 is the
   // post-cut rate; $0.10/$0.60 is the *batch* tier (50% off), not a later cut —
   // do not "correct" these down to it. Still not confirmed as IU's actual billed
-  // rate: IU no longer returns a `cost` field on any route.
+  // rate: IU's Bedrock/LiteLLM routes do not return `usage.cost`, so reported
+  // cost is only available for Requesty-routed models (see computeCost).
   'gpt-5.6-luna': { input: 0.2, output: 1.2, cachedInput: 0.02 },
   // The general AI gateway's current model (DEEPSEEK_MODEL) — see
-  // modelpick/docs/decisions/model-configs.md. Measured 2026-09-13 against the
-  // IU unified endpoint's own reported `usage.cost` (supersedes the earlier
-  // $0.30/$1.20 estimate).
-  'deepseek-v4.1-flash': { input: 0.5, output: 1.5, cachedInput: 0.05 },
+  // modelpick/docs/decisions/model-configs.md. Plain `deepseek-v4.1-flash` is
+  // forwarded to DeepSeek's first-party route (not Requesty's Lyceum EU host,
+  // which is $0.50/$1.50), verified 2026-10-19 via the `x-middleware-forwarded-model`
+  // header and Requesty's public price list; matches usage-tracker/src/pricing.ts.
+  'deepseek-v4.1-flash': { input: 0.3, output: 1.2, cachedInput: 0.006 },
   // Measured 2026-09-13 against the IU unified endpoint's own reported `usage.cost`.
   'glm-5.3-flash': { input: 0.15, output: 0.5, cachedInput: 0.03 },
 }
@@ -71,13 +75,18 @@ export function normalizeDeepseekModel(raw: string): string {
  * `uncachedTokens` and `cachedTokens` must already be split (see `recordAiUsage`) —
  * this only prices them. Cached tokens fall back to the full input rate when a
  * model has no `cachedInput` entry (i.e. no cache discount is known for it).
+ * A `reportedCost` that is a finite number >= 0 wins over the table and is tagged 'reported'.
  */
 export function computeCost(
   modelNorm: string,
   uncachedTokens: number,
   cachedTokens: number,
   completionTokens: number,
+  reportedCost?: number,
 ): { cost_usd: number | null; cost_source: string } {
+  if (reportedCost !== undefined && Number.isFinite(reportedCost) && reportedCost >= 0) {
+    return { cost_usd: reportedCost, cost_source: 'reported' }
+  }
   const rates = DEEPSEEK_RATES[modelNorm]
   if (!rates) {
     // Audio models (gemini*tts, gpt-4o*-transcribe) are billed per audio-second /
@@ -116,6 +125,7 @@ export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
     uncachedTokens,
     cachedTokens,
     params.usage.completion_tokens,
+    params.usage.cost,
   )
   const now = new Date().toISOString()
   try {
