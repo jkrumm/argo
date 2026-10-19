@@ -287,7 +287,7 @@ export function recoveryFooter(
         ? `${days}/${withUnit(RECOVERY_DAYS, 'd')} observed`
         : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`),
   ]
-  return parts.join(' · ')
+  return parts.filter(Boolean).join(' · ')
 }
 
 export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'

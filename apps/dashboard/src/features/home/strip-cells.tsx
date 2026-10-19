@@ -132,7 +132,8 @@ export function budgetFooterEntries(
   poller: Poller,
   feed: WardenFeed,
 ): { key: string; under: string; content: ReactNode }[] {
-  if (!budgetIsEmpty(budget, feed) || (poller === undefined && budget === undefined)) return []
+  if (feed === 'no-snapshot' || !budgetIsEmpty(budget, feed)) return []
+  if (poller === undefined && budget === undefined) return []
   return [{ key: 'budget-poller', under: 'budget', content: pollerFact(poller) }]
 }
 
@@ -297,6 +298,21 @@ export const recoveryCellGap = (
 ): Gap | null =>
   reading !== null && reading.score !== null ? null : noScoreCellGap(reading, loading, series)
 
+/** `today` only for today's own score; a previous figure names its own day, a figureless cell none. */
+export function recoveryCaption({
+  score,
+  isToday,
+  date,
+  last,
+}: Pick<RecoveryReading, 'score' | 'isToday' | 'date' | 'last'>): string {
+  if (score !== null) {
+    if (isToday) return 'Recovery · today'
+    return `Recovery · ${recoveryDay(date)}`
+  }
+  if (last !== null) return `Recovery · ${recoveryDay(last.date)}`
+  return 'Recovery'
+}
+
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(
   reading: RecoveryReading | null,
@@ -319,19 +335,24 @@ export function recoveryCell(
         : { state: { kind: 'empty' as const, reason: line } }),
     }
   }
-  const { score, trend, date, isToday, last } = reading
-  // The caption names the day the figure belongs to: today's score, else the last scored day's.
-  const figureDay = score === null ? (last?.date ?? null) : date
-  const gap = score === null ? gapLine(noScoreCellGap(reading, loading, series), form) : undefined
+  const { score, trend } = reading
+  const gap = noScoreCellGap(reading, loading, series)
+  // No figure to show (trend or mean only): the gap line takes the value's place, so the cell is never blank.
+  const figureless = shown === null
+  // The tile already prints the last score and its day: only the cadence is left to say.
+  const showsLastScore = score === null && reading.last !== null && gap.full !== null
+  const footerGap =
+    score !== null || figureless
+      ? undefined
+      : showsLastScore
+        ? form === 'full'
+          ? cadenceGap.short
+          : ''
+        : gapLine(gap, form)
   return {
     key: 'recovery',
-    caption:
-      score !== null && isToday
-        ? 'Recovery · today'
-        : figureDay === null
-          ? 'Recovery · today'
-          : `Recovery · ${recoveryDay(figureDay)}`,
-    value: shown === null ? null : String(Math.round(shown)),
+    caption: recoveryCaption(reading),
+    value: shown === null ? gapLine(gap, form) : String(Math.round(shown)),
     ...(shown !== null && { unit: '/100' }),
     visual: (
       <Box className={classes.composite}>
@@ -354,7 +375,7 @@ export function recoveryCell(
       </Box>
     ),
     // Broken evenly, so the narrow footer splits between its phrases and never strands a word.
-    footer: <span className={classes.balanced}>{recoveryFooter(reading, gap)}</span>,
+    footer: <span className={classes.balanced}>{recoveryFooter(reading, footerGap)}</span>,
   }
 }
 
