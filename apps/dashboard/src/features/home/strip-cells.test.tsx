@@ -406,19 +406,19 @@ describe('recovery cell in the pre-sync gap', () => {
     expect(cell.value).toBe('62')
     expect(cell.visual).toBeDefined()
     expect(said(cell)).toBe('7\u00a0d mean\u00a060 · Garmin syncs every 6\u00a0h')
-    expect(said(recoveryCell(preSync, false, SETTLED, 'short'))).toBe('7\u00a0d mean\u00a060')
+    expect(said(recoveryCell(preSync, false, SETTLED, 'short'))).toBe(
+      '7\u00a0d mean\u00a060 · Garmin syncs every 6\u00a0h',
+    )
   })
 
-  it('puts the gap line in the value slot when there is a trend but no figure', () => {
+  it('takes the empty state with the gap line when only a trend and mean exist', () => {
     const cell = recoveryCell({ ...preSync, last: null }, false, SETTLED, 'short')
-    expect(cell.state).toBeUndefined()
-    expect(cell.caption).toBe('Recovery')
-    expect(cell.value).toBe('No recovery score in this window')
-    expect(cell.visual).toBeDefined()
-    expect(said(cell)).toBe('7\u00a0d mean\u00a060')
+    expect(cell.value).toBeNull()
+    expect(cell.visual).toBeUndefined()
+    expect(cell.state).toEqual({ kind: 'empty', reason: 'No recovery score in this window' })
   })
 
-  it('falls back to the empty state only with no score, trend or mean', () => {
+  it('takes the empty state with nothing at all', () => {
     const none = reading({ score: null, mean: null, days: 0, trend: [], last: null })
     expect(recoveryCell(none, false, SETTLED, 'full').state).toMatchObject({ kind: 'empty' })
   })
