@@ -238,3 +238,4 @@ Follow-up (w30-r2):
 ### Wave 38 round
 
 - Pace cell: the slot distribution returns on basalt-ui 2.25.0 as `Bars` (axis-less in the strip `visual` slot) — one neutral `VX.line` bar per book, slowest first (`paceBars`, tested). The median hero, `{n} books` caption and `slowest {x}, fastest {y} pages/h` footer are unchanged; one book or no pace draws no visual, as before. No lost fact.
+- Pace bars (r3 fixes): the readout title names the book (`Book {i} of {n}`, the slowest is 1) through `formatX`, and the bars take the ratings histogram's neutral (`alpha(VX.muted, 0.35)`) instead of `VX.line`, so dark no longer draws near-white slabs louder than the hero. Finished month heads gain the `·` between the month and its count. No lost fact.

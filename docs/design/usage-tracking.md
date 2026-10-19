@@ -246,3 +246,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 38 round
 
 - The cost/tokens list cards and the top-projects card pass `placeholderHeight="content"` (basalt-ui 2.25.0): their empty message ends at the list's content instead of the upper third of a chart-height box. These bodies never enter a pending state (suspense query), so no body-drawn loading is needed. Plot cards unchanged. No lost fact.
+- Full days (r3 fixes): a full day is closed and begins inside the rolling 30 d window (`fullDays`), so the partial leading day leaves `{n} of {m} full days` and the `slowest day` fact, which no longer drifts between renders. Top projects' footer total reads the headline's `costUsd30d` when the strip owns the figure (one total, rounded once at print). The errors band names its clear state with the health legend's label (`Under 1 % of calls`). No lost fact.

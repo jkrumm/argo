@@ -114,11 +114,12 @@ function paceCell(pace: Pace): StatStripCell {
               data={bars}
               height={28}
               x={(d) => d.book}
+              formatX={(i) => `Book ${i} of ${bars.length}`}
               bars={[
                 {
                   key: 'pace',
                   label: 'Pace',
-                  color: VX.line,
+                  color: alpha(VX.muted, 0.35),
                   getValue: (d) => d.pace,
                   formatValue: (v) => paceLabel(Math.round(v)),
                 },
