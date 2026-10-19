@@ -65,7 +65,9 @@ export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longes
           value: needsYou === null ? null : String(needsYou),
           ...(needsYou !== null && { unit: `${itemNoun(needsYou)} waiting` }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
-          footer: hasSnapshot ? split || undefined : NO_SNAPSHOT_SHORT,
+          ...(hasSnapshot
+            ? { footer: split || undefined }
+            : { state: { kind: 'empty' as const, reason: NO_SNAPSHOT_SHORT } }),
         },
         {
           key: 'oldest-wait',
@@ -73,13 +75,14 @@ export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longes
           value: oldest === null ? null : formatDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
           footer: oldestWaitFooter(hasSnapshot, oldest),
-          // No snapshot: the waiting line is the footer (as in the needs-you cell), so no empty meter.
-          // A snapshot with no wait to plot says why in the value's place.
-          ...(hasSnapshot &&
-            needsYou !== null &&
-            oldest === null && {
-              state: { kind: 'empty' as const, reason: oldestWaitEmptyText(needsYou) },
-            }),
+          // No snapshot: the same short reason as the other two cells, in the value's place.
+          // A snapshot with no wait to plot says why there instead.
+          ...(!hasSnapshot
+            ? { state: { kind: 'empty' as const, reason: NO_SNAPSHOT_SHORT } }
+            : needsYou !== null &&
+              oldest === null && {
+                state: { kind: 'empty' as const, reason: oldestWaitEmptyText(needsYou) },
+              }),
           visual:
             needsYou === null || oldest === null ? undefined : (
               <Meter

@@ -1,4 +1,5 @@
-import { withUnit } from '../../lib/format'
+import type { ReactNode } from 'react'
+import { NBSP, withUnit } from '../../lib/format'
 import { Box, Text } from '@mantine/core'
 import { DayAxis } from './strip-visuals'
 import { Meter, type StatStripCell } from 'basalt-ui'
@@ -110,9 +111,34 @@ const budgetGap = (feed: WardenFeed): string =>
         ? 'Loading'
         : BUDGET_MISSING.short
 
+type Poller = { name: string; ageMin: number; stale: boolean } | undefined
+
+/** The cell shows its worded reason in the value's place: no count to show and the feed is not still loading. */
+const budgetIsEmpty = (budget: WardenBudget | undefined, feed: WardenFeed): boolean =>
+  (deriveBudget(budget)[0]?.used ?? null) === null && feed !== 'loading'
+
+const pollerFact = (poller: Poller) => (
+  <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
+    {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
+  </Text>
+)
+
+/**
+ * A cell in `state` draws no `footer` of its own, so the poller's freshness fact a budget-less cell
+ * would lose rides the strip's footer, under that cell.
+ */
+export function budgetFooterEntries(
+  budget: WardenBudget | undefined,
+  poller: Poller,
+  feed: WardenFeed,
+): { key: string; under: string; content: ReactNode }[] {
+  if (!budgetIsEmpty(budget, feed) || (poller === undefined && budget === undefined)) return []
+  return [{ key: 'budget-poller', under: 'budget', content: pollerFact(poller) }]
+}
+
 export function budgetCell(
   budget: WardenBudget | undefined,
-  poller: { name: string; ageMin: number; stale: boolean } | undefined,
+  poller: Poller,
   feed: WardenFeed,
 ): StatStripCell {
   const dispatch = deriveBudget(budget)[0]
@@ -123,10 +149,9 @@ export function budgetCell(
     caption: 'Dispatch · today',
     value: used === null ? null : String(used),
     ...(max !== null && { unit: `/ ${max}` }),
-    ...(used === null &&
-      feed !== 'loading' && {
-        state: { kind: 'empty' as const, reason: budgetGap(feed) },
-      }),
+    ...(budgetIsEmpty(budget, feed) && {
+      state: { kind: 'empty' as const, reason: budgetGap(feed) },
+    }),
     visual:
       used !== null && max !== null && max > 0 ? (
         <Meter
@@ -146,20 +171,19 @@ export function budgetCell(
       ) : undefined,
     // With no budget and no poller there is no snapshot: the cell's line already says what to wait for.
     // A known count with no usable cap keeps its value and says the cap is missing.
-    ...((poller !== undefined || budget !== undefined) && {
-      footer: (
-        <>
-          {used !== null && !(max !== null && max > 0) ? (
-            <Text span size="sm" c="dimmed">
-              {BUDGET_MISSING.short}{' '}
-            </Text>
-          ) : null}
-          <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
-            {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
-          </Text>
-        </>
-      ),
-    }),
+    ...((poller !== undefined || budget !== undefined) &&
+      !budgetIsEmpty(budget, feed) && {
+        footer: (
+          <>
+            {used !== null && !(max !== null && max > 0) ? (
+              <Text span size="sm" c="dimmed">
+                {BUDGET_MISSING.short}{' '}
+              </Text>
+            ) : null}
+            {pollerFact(poller)}
+          </>
+        ),
+      }),
   }
 }
 
@@ -203,8 +227,8 @@ export function meetingCell(
         kind: 'empty',
         reason:
           agenda.unavailable.length === 0
-            ? 'none in 7 days'
-            : `none today · ${classLabels(agenda.unavailable)} unavailable`,
+            ? 'None in 7 days'
+            : `None today · ${classLabels(agenda.unavailable)} unavailable`,
       },
     }
   }
@@ -221,7 +245,7 @@ export function meetingCell(
         ? current === undefined
           ? 'no more meetings today'
           : `in a meeting until ${clockOf(current.endMs)}`
-        : withName(next.title, `${remaining} remaining`),
+        : withName(next.title, `${remaining}${NBSP}remaining`),
   }
 }
 
@@ -281,7 +305,10 @@ export function recoveryCell(
   /** Which form of the Garmin gap this cell prints: the screen's one full form goes to the first gapped surface. */
   form: GapForm,
 ): StatStripCell {
-  if (reading === null || reading.score === null) {
+  // A pre-sync gap still has a previous score and a trend to show; only a cell with none of them is empty.
+  const shown = reading === null ? null : (reading.score ?? reading.last?.value ?? null)
+  const hasTrend = reading !== null && reading.trend.length > 1
+  if (reading === null || (shown === null && !hasTrend && reading.mean === null)) {
     const line = gapLine(noScoreCellGap(reading, loading, series), form)
     return {
       key: 'recovery',
@@ -292,20 +319,30 @@ export function recoveryCell(
         : { state: { kind: 'empty' as const, reason: line } }),
     }
   }
-  const { score, trend, date, isToday } = reading
+  const { score, trend, date, isToday, last } = reading
+  // The caption names the day the figure belongs to: today's score, else the last scored day's.
+  const figureDay = score === null ? (last?.date ?? null) : date
+  const gap = score === null ? gapLine(noScoreCellGap(reading, loading, series), form) : undefined
   return {
     key: 'recovery',
-    caption: isToday ? 'Recovery · today' : `Recovery · ${recoveryDay(date)}`,
-    value: String(Math.round(score)),
-    unit: '/100',
+    caption:
+      score !== null && isToday
+        ? 'Recovery · today'
+        : figureDay === null
+          ? 'Recovery · today'
+          : `Recovery · ${recoveryDay(figureDay)}`,
+    value: shown === null ? null : String(Math.round(shown)),
+    ...(shown !== null && { unit: '/100' }),
     visual: (
       <Box className={classes.composite}>
-        <Meter
-          {...recoveryMeterProps(score)}
-          value={Math.round(score)}
-          format={(v) => String(Math.round(v))}
-        />
-        {trend.length > 1 ? (
+        {shown === null ? null : (
+          <Meter
+            {...recoveryMeterProps(shown)}
+            value={Math.round(shown)}
+            format={(v) => String(Math.round(v))}
+          />
+        )}
+        {hasTrend ? (
           <Sparkline
             ariaLabel={`Recovery over the last ${trend.length} observed days`}
             data={trend}
@@ -317,7 +354,7 @@ export function recoveryCell(
       </Box>
     ),
     // Broken evenly, so the narrow footer splits between its phrases and never strands a word.
-    footer: <span className={classes.balanced}>{recoveryFooter(reading)}</span>,
+    footer: <span className={classes.balanced}>{recoveryFooter(reading, gap)}</span>,
   }
 }
 
