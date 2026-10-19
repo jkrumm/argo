@@ -504,7 +504,7 @@ describe('day-count sentences', () => {
       { date: new Date(2025, 11, 12), value: 1 },
       reading(10, 5),
     ]
-    expect(windowDays(days, NOW).map((d) => d.value)).toEqual([1, 5])
+    expect(windowDays(days, NOW, STRIP_WINDOW_DAYS).map((d) => d.value)).toEqual([1, 5])
     expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1])
   })
   it('rangeWindowDays cuts day grain to the range span and passes week grain and all through', () => {
