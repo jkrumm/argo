@@ -79,18 +79,17 @@ describe('median', () => {
 describe('readingPace', () => {
   test('median over the cohort with pages and time only', () => {
     const shelf = [
-      book({ statusId: 2, stats: stats(100, 2) }), // 50
-      book({ statusId: 2, stats: stats(300, 2) }), // 150
+      book({ title: 'Fast', statusId: 2, stats: stats(300, 2) }), // 150
+      book({ title: 'Slow', statusId: 2, stats: stats(100, 2) }), // 50
       book({ statusId: 2, stats: stats(0, 5) }), // excluded: no pages
       book({ statusId: 2, stats: stats(40, 0) }), // excluded: no time
       book({ statusId: 2 }), // excluded: no stats
     ]
     expect(readingPace(shelf)).toEqual({
       median: 100,
-      paces: [50, 150],
       books: [
-        { title: '{title}', pace: 50 },
-        { title: '{title}', pace: 150 },
+        { title: 'Slow', pace: 50 },
+        { title: 'Fast', pace: 150 },
       ],
     })
   })
@@ -374,10 +373,11 @@ describe('finishedFooter', () => {
 
 describe('paceRange', () => {
   test('min and max whatever the order; an endpoint that rounds to 0 reads < 1', () => {
-    expect(paceRange([40, 20, 30])).toBe('slowest 20, fastest 40\u00a0pages/h')
-    expect(paceRange([0, 30])).toBe('slowest < 1, fastest 30\u00a0pages/h')
-    expect(paceRange([30])).toBeNull()
-    expect(paceRange([])).toBeNull()
+    const r = (...paces: number[]) => paceRange(paces.map((pace) => ({ title: 'x', pace })))
+    expect(r(40, 20, 30)).toBe('slowest 20, fastest 40\u00a0pages/h')
+    expect(r(0, 30)).toBe('slowest < 1, fastest 30\u00a0pages/h')
+    expect(r(30)).toBeNull()
+    expect(r()).toBeNull()
   })
 })
 
@@ -411,7 +411,7 @@ describe('one source for every repeated figure', () => {
 
   test('the pace cohort ignores backlog time', () => {
     const withBacklogTime = [...shelf, book({ statusId: 1, stats: stats(50, 9) })]
-    expect(readingPace(withBacklogTime).paces).toEqual(readingPace(shelf).paces)
+    expect(readingPace(withBacklogTime).books).toEqual(readingPace(shelf).books)
   })
 })
 
@@ -515,19 +515,23 @@ describe('lastReadFact', () => {
 
 describe('paceBars', () => {
   const b = (title: string, pace: number) => ({ title, pace })
-  test('draws one bar per book, slowest first, carrying its title', () => {
+  test('draws one bar per book, slowest first, each with its title and label', () => {
     expect(paceBars([b('A', 20), b('B', 35), b('C', 40)])).toEqual([
-      { book: 1, title: 'A', pace: 20 },
-      { book: 2, title: 'B', pace: 35 },
-      { book: 3, title: 'C', pace: 40 },
+      { book: 1, title: 'A', label: 'A', pace: 20 },
+      { book: 2, title: 'B', label: 'B', pace: 35 },
+      { book: 3, title: 'C', label: 'C', pace: 40 },
     ])
   })
   test('sorts unsorted input ascending, titles following their pace', () => {
-    expect(paceBars([b('C', 40), b('A', 20), b('B', 35)]).map((x) => x.title)).toEqual([
-      'A',
-      'B',
-      'C',
+    expect(paceBars([b('C', 40), b('A', 20), b('B', 35)]).map((x) => [x.title, x.pace])).toEqual([
+      ['A', 20],
+      ['B', 35],
+      ['C', 40],
     ])
+  })
+  test('the label is the shortened title', () => {
+    const long = 'The Hitchhiker’s Guide to the Galaxy: The Complete Collection'
+    expect(paceBars([b(long, 20), b('B', 35)])[0]?.label).toBe(shortTitle(long))
   })
   test('draws nothing below two books', () => {
     expect(paceBars([])).toEqual([])
@@ -545,6 +549,17 @@ describe('shortTitle', () => {
   })
   test('hard-cuts a long unbroken title', () => {
     expect(shortTitle('x'.repeat(50))).toBe(`${'x'.repeat(32)}…`)
+  })
+  test('never splits a surrogate pair at the cut', () => {
+    const out = shortTitle(`${'x'.repeat(31)}😀${'y'.repeat(10)}`)
+    expect(out).toBe(`${'x'.repeat(31)}😀…`)
+    expect(out).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/)
+  })
+  test('breaks at any whitespace, a no-break space included', () => {
+    expect(shortTitle(`${'a'.repeat(20)}\u00a0${'b'.repeat(20)}`)).toBe(`${'a'.repeat(20)}…`)
+  })
+  test('a break before the midpoint is ignored and the cut is hard', () => {
+    expect(shortTitle(`ab cd${'z'.repeat(40)}`)).toBe(`ab cd${'z'.repeat(27)}…`)
   })
 })
 

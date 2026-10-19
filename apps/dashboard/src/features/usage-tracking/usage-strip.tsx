@@ -322,7 +322,7 @@ function cacheCell({ h, loading, now }: Ctx, cache: Series): StatStripCell {
       ratio === null ? undefined : (
         <Trend
           label="Cache hit ratio per day over the last 30 days"
-          days={cache.days}
+          days={windowDays(cache.days, now)}
           loading={cache.loading}
           format={(v) => fmtPct(v)}
           reference={CACHE_HIT_TARGET}
