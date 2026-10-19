@@ -213,7 +213,7 @@ describe('strip cells with no reading', () => {
           'full',
         ),
       ),
-    ).toBe('Garmin syncs every 6\u00a0h')
+    ).toBe('No\u00a0score\u00a0for\u00a0today\u00a0yet — Garmin syncs every 6\u00a0h')
     // The gap waits for the series: unsettled names only the cadence, a failed read says so.
     const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
     expect(said(recoveryCell(unscored, false, { settled: false, failed: false }, 'full'))).toBe(
@@ -311,7 +311,7 @@ describe('strip cells with no reading', () => {
       NOW,
     )
     expect(cell.value).toBe('Mon 09:30')
-    expect(cell.footer).toStartWith('{meeting} · in ')
+    expect(cell.footer).toStartWith('{meeting}\u00a0·\u00a0in ')
   })
 
   it('names which meeting is next, in its shortest form', () => {
@@ -329,12 +329,12 @@ describe('strip cells with no reading', () => {
       const m = meeting(title)
       return meetingCell({ meetings: [m], loaded: ['work'], unavailable: [] }, m, null, NOW)
     }
-    expect(cell('{meeting}').footer).toBe('{meeting} · 1\u00a0remaining')
+    expect(cell('{meeting}').footer).toBe('{meeting}\u00a0·\u00a01\u00a0remaining')
     expect(cell('Sprint planning — team {name} and the whole extended crew').footer).toBe(
-      'Sprint planning · 1\u00a0remaining',
+      'Sprint planning\u00a0·\u00a01\u00a0remaining',
     )
     expect(cell('A very long meeting name without any clause break at all').footer).toBe(
-      'A very long meeting… · 1\u00a0remaining',
+      'A very long meeting…\u00a0·\u00a01\u00a0remaining',
     )
   })
 })
@@ -399,15 +399,17 @@ describe('recovery cell in the pre-sync gap', () => {
     last: { value: 62, date: '2026-01-13' },
   })
 
-  it('keeps the previous score, its trend and the mean; the footer says only the cadence', () => {
+  it('keeps the previous score, its trend and the mean; the footer says today is unscored plus the cadence', () => {
     const cell = recoveryCell(preSync, false, SETTLED, 'full')
     expect(cell.state).toBeUndefined()
     expect(cell.caption).toBe('Recovery · Tue 13 Jan')
     expect(cell.value).toBe('62')
     expect(cell.visual).toBeDefined()
-    expect(said(cell)).toBe('7\u00a0d mean\u00a060 · Garmin syncs every 6\u00a0h')
+    expect(said(cell)).toBe(
+      '7\u00a0d mean\u00a060 · No\u00a0score\u00a0for\u00a0today\u00a0yet — Garmin syncs every 6\u00a0h',
+    )
     expect(said(recoveryCell(preSync, false, SETTLED, 'short'))).toBe(
-      '7\u00a0d mean\u00a060 · Garmin syncs every 6\u00a0h',
+      '7\u00a0d mean\u00a060 · No\u00a0score\u00a0for\u00a0today\u00a0yet — Garmin syncs every 6\u00a0h',
     )
   })
 

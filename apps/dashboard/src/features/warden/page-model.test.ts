@@ -4,6 +4,8 @@ import { capFacts } from '../../components/upstream/decision-card-model'
 import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
 import { formatDuration } from '../../lib/format'
 import {
+  breakableTitle,
+  gluedArrow,
   cardFacts,
   resolveWaitMs,
   latestHistoryAgeMs,
@@ -1290,5 +1292,35 @@ describe('resolveQueueAsks', () => {
 
   it('leaves a lone line alone', () => {
     expect(resolveQueueAsks([entry(1, 'Disk full', 'Note.')])[0]!.copy.evidenceLine).toBe('Note.')
+  })
+})
+
+describe('gluedArrow', () => {
+  it('glues the space after the arrow, so a transition is one unit', () => {
+    expect(
+      gluedArrow(transitionText({ from: 'working', to: 'needs_decision', at: null })),
+    ).not.toContain(' ')
+  })
+  it('leaves the default transition breaking after its arrow', () => {
+    expect(transitionText({ from: 'working', to: 'done', at: null })).toContain('\u00a0→ ')
+  })
+})
+
+describe('breakableTitle', () => {
+  const Z = '\u200b'
+  it('opens break points after . / _ - and :: in a long token', () => {
+    expect(breakableTitle('test_checkout_flow.spec/handles::retry')).toBe(
+      `test_${Z}checkout_${Z}flow.${Z}spec/${Z}handles::${Z}retry`,
+    )
+  })
+  it('leaves ordinary words, short tokens and spaces alone', () => {
+    expect(breakableTitle('Fix a well-known flaky bug in v1.2')).toBe(
+      'Fix a well-known flaky bug in v1.2',
+    )
+  })
+  it('never breaks a trailing separator', () => {
+    expect(breakableTitle('some_long_identifier_name_')).toBe(
+      `some_${Z}long_${Z}identifier_${Z}name_`,
+    )
   })
 })

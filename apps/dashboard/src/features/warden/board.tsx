@@ -11,6 +11,7 @@ import { Ago } from './ago'
 import classes from './board.module.css'
 import { boardStore } from './board-store'
 import {
+  breakableTitle,
   deferralOf,
   emptyColumnText,
   originKind,
@@ -74,7 +75,7 @@ function BoardCard({
           ta="left"
         >
           <Text size="sm" lineClamp={2} className={classes.text}>
-            {cleanTitle || '—'}
+            {cleanTitle ? breakableTitle(cleanTitle) : '—'}
           </Text>
         </UnstyledButton>
         {showState ? (

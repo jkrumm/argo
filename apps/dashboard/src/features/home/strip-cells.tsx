@@ -191,7 +191,7 @@ export function budgetCell(
 /** `{name} · {fact}`: which meeting the cell is about, in its shortest form; the fact alone with no name. */
 const withName = (title: string, fact: string): string => {
   const name = shortMeetingName(title)
-  return name === null ? fact : `${name} · ${fact}`
+  return name === null ? fact : `${name}${NBSP}·${NBSP}${fact}`
 }
 
 // ── Next meeting ─────────────────────────────────────────────────────────────────────────────
@@ -313,6 +313,9 @@ export function recoveryCaption({
   return 'Recovery'
 }
 
+/** The pre-sync fact the tile's figures cannot state: they show a previous day, and today has no score yet. */
+export const TODAY_UNSCORED = `No score for today yet`.replaceAll(' ', NBSP)
+
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(
   reading: RecoveryReading | null,
@@ -342,7 +345,7 @@ export function recoveryCell(
     score !== null
       ? undefined
       : reading.last !== null && gap.full !== null
-        ? cadenceGap.short
+        ? `${TODAY_UNSCORED} — ${cadenceGap.short}`
         : gapLine(gap, form)
   return {
     key: 'recovery',

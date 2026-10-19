@@ -82,7 +82,9 @@ describe('todayAgenda cancelled meetings', () => {
     expect(agenda.meetings.map((m) => m.key)).toEqual(['live'])
     const next = nextMeeting(agenda.meetings, NOW_T)
     expect(next?.key).toBe('live')
-    expect(meetingCell(agenda, next, null, NOW_T).footer).toBe('{live} · 1\u00a0remaining')
+    expect(meetingCell(agenda, next, null, NOW_T).footer).toBe(
+      '{live}\u00a0·\u00a01\u00a0remaining',
+    )
   })
 
   it('trusts the API flag over the title: isCancelled without a prefix is excluded, false with one stays', () => {
