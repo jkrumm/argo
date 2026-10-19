@@ -220,3 +220,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 39 round
 
 - **Re-score (`w39-r1`, no argo change):** pass. Crops identical to `w38-r4`; harness P3s only. Against Keel: close.
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass, no regression vs `w39-r1`, no lost fact. Carried (harness, P3): the toolbar hover crop lands on the active chip. Against Keel: close.

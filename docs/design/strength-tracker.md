@@ -233,3 +233,7 @@ Follow-up (w30-r1):
 ### Wave 39 round
 
 - **Re-score (`w39-r1`, no argo change):** fail on basalt only — the 2.24 compact-legend `+N` fold, the `BandStrip` wrap and the `Section` type sizes; unchanged from `w38-r4`. Against Keel: close at 1440, short at 390 (the folded legends).
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4` fail → `w40-r5` fail on basalt only):** closed by 2.26: every series named at 390 (ACWR lifts, weekly volume, relative progression, readiness), entries on one line (`Push (≥70)`), the strength / load shells at three sizes (`ChartCard` action captions at 11). `w40-r4` still found `sec-balance` at four sizes (11/12/13/15): the fourth was argo's own — the strength-ratios card's status lines at `xs` — now `sm` dimmed (`8599a7f5`); `w40-r5` measures 11/13/15 in all four combinations, hierarchy kept by ink, no lost fact. Carried (basalt): zone-only `+N` folds at 390 (INOL `+3`, readiness `+2`) read by hue, the INOL info tooltip over the headline, the sparkline through `PR` at 390, `Sept` beside `Sep`, the sticky bar over section crops (harness). Against Keel: close at 1440; short at 390 on the zone folds.

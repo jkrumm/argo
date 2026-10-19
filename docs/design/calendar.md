@@ -223,3 +223,7 @@ No new basalt rows.
 ### Wave 39 round
 
 - **Re-score (`w39-r1`, no argo change):** pass. No lost fact, no new wrap at 390. Basalt (carried): the 2.24 `Section` subtitle at 11 px, four type sizes in the `Section` shell, the mono count chip. Against Keel: close.
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass, no regression vs `w39-r1`, no lost fact. Carried (P3): the free-block loading skeleton drops its range line (~60 px vs ~90 px loaded). Against Keel: close.

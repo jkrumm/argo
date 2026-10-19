@@ -236,3 +236,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 39 round
 
 - **Re-score (`w39-r1`, no argo change):** pass. Crops identical to `w38-r4` (expected: no change on this route). Basalt (carried): the weight line through the `7 d mean` end label at 1440, the unnamed Maintenance zone at 390, the info bubble near the net-change figure. Against Keel: close.
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass. Closed by 2.26: the 390 rate meter names all three zones (`Cut`, `Maintenance`, `Bulk`); the weight chart holds three sizes at 390. Carried (basalt, P3): the `7 d mean` end-label overprint, the info bubble over the net change, `Set a goal` hover = rest. No regression, no lost fact. Against Keel: close.

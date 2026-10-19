@@ -271,3 +271,7 @@ Follow-up (w30-r2):
 ### Wave 39 round
 
 - **Re-score (`w39-r1`, Tonight + Forecast, no argo change):** pass. Basalt (carried): the 2.24 legend fold and entry wrap on the sky panorama at 390. Against Keel: close.
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4`, both tabs):** pass. Closed: legend order (`Galactic core` leads, references after), the sky panorama names all seven entries at 390, no entry wraps inside itself. New (basalt, P2): at 390 the night timeline folds its two references (`Sun altitude`, `Core gate 8.0°`) into `+2`, which w39 named — the gate value stays in the Core cell and the panorama header, so no lost fact. Pre-existing, kept by decision: `night-timeline` declares no `data-shot-states` (detect P2). Carried (basalt): 390 info bubbles over headlines, shade-only budget greys, stacked `High` / `Mid` end labels. Against Keel: close.

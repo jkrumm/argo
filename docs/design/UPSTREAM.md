@@ -540,3 +540,39 @@ detached `Meter` end figures, `Lines` end-label overprint (body composition `7 d
 its distribution (#174) — the last "does not yet" against Keel; `ChartCard placeholderHeight="content"` (#428) ends the usage list
 cards' empty states at their content (the `ChartCard` top-set empties row, usage half; Strength's ratios card keeps its numeric
 height); `shot detect` flags off-scale nested radii (#430).
+
+### Wave 40 — basalt-ui 2.26.0 adoption and the `w40-r4` / `w40-r5` all-page re-score
+
+argo moved to basalt-ui 2.26.0 in its own commit (`36079dc0`) and adopted it in `87aa9d2f`: Home's `budget-poller` strip footer entry
+declares `shotAbsent: ['empty']` (`StatStripFooterEntry` is not exported from the package root, so argo derives the type from
+`StatGroup`'s strip props — see the new row below). No local code was made redundant: argo worked around none of the § "Wave 38" rows,
+and Home's `--basalt-spark-readout-lift: 0` stays (MIGRATING keeps it as the opt-out). Re-checked live on every page (13 routes + both
+m365 pane presets, `w40-r4`), each § "Wave 38" row:
+
+| § "Wave 38" row | Status on 2.26.0 | Evidence |
+|-|-|-|
+| compact legend `+N` fold hiding series | **closed** | every series named at 390 — strength ACWR / weekly volume / relative progression / readiness, garmin ACWR / stress, astro sky panorama (all seven entries); only zones and references fold |
+| compact legend entry wrap | **closed** | `Low (< 0.8)`, `Push (≥ 70)` on one line (garmin, strength) |
+| `Section` subtitle size | **closed** | reading backlog `[12, 13, 15]`; strength strength / load `11/13/15`. Strength balance kept a fourth size from argo's own `xs` status lines — fixed in `8599a7f5`, three sizes in `w40-r5` |
+| `BandStrip` legend wrap | **closed** | usage errors band: `Under 1 % of calls` on one line at 1440 and 390 |
+| `Sparkline` hosted focus readout | **partly closed** | usage p95 `21.7 s · 4 Oct` on its reserved line; garmin fitness strip still stacks `48 bpm` over `19 Oct` on the plotted line, pixel-identical to `w40-r1` |
+| legend order, references first | **closed** | astro night timeline leads with `Galactic core` (both tabs, 1440) |
+| `Meter` zone-name fit at 390 | **partly closed** | Home ACWR names `Caution` at 390, body-composition rate names all three zones; Garmin's load meter still drops `Caution` at 390 (P1, lost fact); Agents' oldest-wait meter still drops `abandoned at 7 d` |
+| chart tooltip at the first point / `…` labels | **closed** | garmin stress first-point tooltip inside its card; `Mistborn: The Final Empire` / `48 pages/h` whole on reading's pace slot |
+| slotted `Bars` readout (dark) | **closed** | reading pace chip opaque in dark |
+| `StatStripFooterEntry` `shotAbsent` | **closed** | Home's 4 `empty` error shots now `absent`; `detect` clean for the first time since Wave 38 |
+
+New basalt rows the round surfaced — argo works around none of them:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatStripFooterEntry` root export | the type is declared in `dashboard/stat-strip` but missing from the root barrel, so a footer-entry builder must derive it from `StatGroup`'s props | home `budgetFooterEntries` | `NonNullable<Extract<ComponentProps<typeof StatGroup>, { variant: 'strip' }>['footer']>[number]` (a type derivation, not a workaround) |
+| compact legend reference fold (2.26) | at 390 the night timeline folds both references (`Sun altitude`, `Core gate 8.0°`) into `+2`, which w39 named (wrapped); the fold now frees a line by unnaming the two lines the gate reading depends on | astro night timeline, both tabs | as rendered; the gate value is still in the Core cell and the panorama header |
+| zone-only `+N` fold | zones that fold are told apart by hue alone at 390 | strength INOL (`+3`) and readiness (`+2`); garmin ACWR / recovery / stress | as rendered |
+| `Meter` zone names at 1440 | four zone names run together without a gap (`OptimalCaution Danger`) | home ACWR meter | as rendered |
+| tooltip label wrap (2.26) | the wrapped tooltip grows taller and now leaves the card's top edge, covering the section heading; `Load` / `7)` breaks inside a parenthesis | garmin activities chart at 1440 | as rendered |
+| hosted readout at 390 | the pace readout hangs ~18 px below the card's bottom edge over the footer | reading pace tile | as rendered |
+
+Still open from earlier rounds (re-confirmed in `w40-r4`): info bubbles over a card's own headline, detached `Meter` end figures, the
+strip qualifier alone after `·`, the `Sparkline` `PR` label at 390, `Sept` beside `Sep`, `Lines` end-label overprint (`7 d mean`),
+`$0` / `0 M` tooltip rows, the band under the tokens plot, hover crops identical to rest.

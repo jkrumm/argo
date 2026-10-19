@@ -268,3 +268,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - Fixed (argo): a topic-less chat's name sorts its member names (`localeCompare`) before taking the first three, with a code-unit tie-break for locale-equal names, so it reads the same on every load. No lost fact.
 - **Re-score (`w39-r1`, default + both pane presets):** pass. The sorted order is visible and stable. Open (argo, P3): chat names ellipsize at 390; sorted names mix `Last, First` and bare formats (source data). Against Keel: close.
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4`, default + both pane presets):** pass, no regression vs `w39-r1`, no lost fact; the labeled preset now opens the Labeled pane at 390 (the `basalt:m365-explorer` seed `{"v":1,"value":{"pane":"labeled"}}`). Carried: chat names ellipsize at 390 (argo, P3), tag-chip hover on the active chip (harness), the 390 detail pane with a source open not captured, the ~600 px band under the panes at 1440. Against Keel: close.

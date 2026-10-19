@@ -245,3 +245,7 @@ Follow-up (w30-r2):
 
 - Fixed (argo): the pace bars' readout names the book (`shortTitle` — whole up to 32 code points, else cut at a word with `…`, never inside a surrogate pair) instead of `Book {i} of {n}`; slowest-first order and the pages/h value are unchanged. `Pace.books` (`BookPace`) is now the single cohort the count, median and `slowest/fastest` range derive from; `paces` is gone. The Bars `ariaLabel` names each bar `{title} {pace} pages/h`. No lost fact.
 - **Re-score (`w39-r1`):** fail on basalt only — the 2.24 `Section` subtitle at 11 px on the backlog (four type sizes). The readout names the book; the `Book {i} of {n}` P3 is closed with no lost fact. Unverified: the dark readout chip (no dark hover readout in the crops). Against Keel: **holds up**.
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass. Closed: the backlog shell at three sizes (`[12, 13, 15]` — the "11 px subtitle" was the class-sized summary line), the dark pace chip opaque, the 390 pace readout inside the card's sides with labels whole. New (basalt, P3): at 390 the pace readout hangs ~18 px below the card's bottom edge. Open (argo, P3): the 390 ratings footer `community mean 4.2 ★, on` / `4 of them` (`of them` names no noun). No regression, no lost fact. Against Keel: holds up.

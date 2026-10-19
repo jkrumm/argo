@@ -253,3 +253,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - Fixed (argo): the cost, tokens, p95 and cache sparklines draw `windowDays(...)` — days that began inside the rolling 30 d window — so the partial leading day no longer shows while the footers (`fullDays`) leave it out. `useDaily` already drops the running day, so today never showed in these visuals. Footers keep `fullDays`. `health-card.tsx` has no such pairing and is unchanged. The errors band follows the same split: the band draws `windowDays`, its error-day count reads `fullDays`. No lost fact.
 - **Re-score (`w39-r1`):** pass. The partial-leading-day spark is closed and nothing regressed. Open: basalt — `BandStrip` hue-only days and its wrapped legend (the 2.24 row); argo P3 slack under the tokens and latency cards (optional). Against Keel: close.
+
+### Wave 40 round
+
+- **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass. Closed: the errors band legend one line per label at 1440 and 390, the p95 readout `21.7 s · 4 Oct` on its reserved line, tooltips inside their card. New (argo, P2, data-dependent): the health card's latency line starts at ~155 s on 20 Sep while the strip says `slowest day 65.3 s` — the health card draws the partial leading day the strip excludes (the `windowDays` split was applied to the sparklines in Wave 39, not to the health card). Carried (basalt, P3): `19 Sept` band ticks vs `20 Sep`, `$0` / `0 M` tooltip rows, the band under the tokens plot. No regression, no lost fact. Against Keel: close.
