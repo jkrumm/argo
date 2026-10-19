@@ -64,6 +64,8 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
   if (live.data) {
     const s = live.data
     const paused = s.state === 'paused'
+    const pauses =
+      s.pause_count > 0 ? [`${s.pause_count}\u00a0${s.pause_count === 1 ? 'pause' : 'pauses'}`] : []
     return (
       <Row
         dot={paused ? 'idle' : 'live'}
@@ -74,13 +76,7 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
           `${withKmh(paused ? 0 : s.current_speed_kmh)} now`,
           `avg ${withKmh(s.avg_speed_kmh)}`,
         ])}
-        stats={joinFacts([
-          withSteps(s.steps),
-          `${withKcal(s.kcal)}, this walk`,
-          ...(s.pause_count > 0
-            ? [`${s.pause_count}\u00a0${s.pause_count === 1 ? 'pause' : 'pauses'}`]
-            : []),
-        ])}
+        stats={joinFacts([withSteps(s.steps), `${withKcal(s.kcal)}, this walk`, ...pauses])}
       />
     )
   }
