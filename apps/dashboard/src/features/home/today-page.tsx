@@ -26,6 +26,7 @@ import {
   laterMeeting,
   nextMeeting,
   recoveryReading,
+  recoveryWindow,
   classifySources,
   homeSummaryParts,
   sourceStatus,
@@ -161,9 +162,11 @@ export function TodayPage() {
   // The series is the source of the trend and of the last scored day: one flag for both and for the cell.
   const seriesSettled = recoverySeries.isSuccess && !recoverySeries.isPlaceholderData
   const recoverySnapshot = shotEmpty ? undefined : recoveryNow.data
-  const recoveryPoints = applyVisibilityFilter(
-    shotEmpty ? [] : (recoverySeries.data?.points ?? []),
-    (p) => p.date,
+  const rawRecovery = shotEmpty ? [] : (recoverySeries.data?.points ?? [])
+  const recoveryPoints = recoveryWindow(
+    rawRecovery,
+    applyVisibilityFilter(rawRecovery, (p) => p.date),
+    now,
   )
   const recovery =
     recoverySnapshot || shotEmpty
