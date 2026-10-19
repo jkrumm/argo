@@ -74,7 +74,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longes
           caption: 'Oldest wait',
           value: oldest === null ? null : formatDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
-          footer: oldestWaitFooter(hasSnapshot, oldest),
+          ...(hasSnapshot && { footer: oldestWaitFooter(oldest) }),
           // No snapshot: the same short reason as the other two cells, in the value's place.
           // A snapshot with no wait to plot says why there instead.
           ...(!hasSnapshot

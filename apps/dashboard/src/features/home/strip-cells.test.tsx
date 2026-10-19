@@ -1,6 +1,6 @@
 import { BUDGET_MISSING } from '../warden/page-model'
 import { describe, expect, it } from 'bun:test'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import type { StatStripCell } from 'basalt-ui'
 import { RECOVERY_VERDICT_NAME, allocateForms, recoveryVerdict } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
@@ -14,15 +14,24 @@ import {
   budgetCell,
   budgetFooterEntries,
   meetingCell,
+  recoveryCaption,
   recoveryCell,
   type SeriesState,
 } from './strip-cells'
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
 
+/** The text a node renders, flattened through its elements. */
+const textOf = (node: ReactNode): string => {
+  if (node === null || node === undefined || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join('')
+  return textOf((node as ReactElement<{ children?: ReactNode }>).props.children)
+}
+
 /** What a cell says without a reading: its empty-state reason, else its footer. */
 const said = (cell: StatStripCell) =>
-  cell.state?.kind === 'empty' ? cell.state.reason : cell.footer
+  cell.state?.kind === 'empty' ? cell.state.reason : textOf(cell.footer)
 
 const SETTLED: SeriesState = { settled: true, failed: false }
 
@@ -63,7 +72,7 @@ describe('budget cell gap per Warden feed', () => {
     expect(cell.value).toBe('3')
     expect(cell.state).toBeUndefined()
     expect(cell.visual).toBeUndefined()
-    expect(JSON.stringify(cell.footer)).toContain(BUDGET_MISSING.short)
+    expect(textOf(cell.footer)).toContain(BUDGET_MISSING.short)
   })
 
   it('keeps the budget-missing wording for a snapshot that omits the budget', () => {
@@ -188,7 +197,7 @@ describe('strip cells with no reading', () => {
     })
     // The pre-sync gap names the last score and its day, in Garmin Health's wording.
     expect(
-      JSON.stringify(
+      said(
         recoveryCell(
           reading({
             score: null,
@@ -202,9 +211,9 @@ describe('strip cells with no reading', () => {
           false,
           SETTLED,
           'full',
-        ).footer,
+        ),
       ),
-    ).toContain('Last scored 62/100 on 13\u00a0Jan — Garmin syncs every 6\u00a0h')
+    ).toBe('Garmin syncs every 6\u00a0h')
     // The gap waits for the series: unsettled names only the cadence, a failed read says so.
     const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
     expect(said(recoveryCell(unscored, false, { settled: false, failed: false }, 'full'))).toBe(
@@ -390,27 +399,50 @@ describe('recovery cell in the pre-sync gap', () => {
     last: { value: 62, date: '2026-01-13' },
   })
 
-  it('keeps the previous score, its trend and the mean beside the gap line, captioned with its own day', () => {
+  it('keeps the previous score, its trend and the mean; the footer says only the cadence', () => {
     const cell = recoveryCell(preSync, false, SETTLED, 'full')
     expect(cell.state).toBeUndefined()
     expect(cell.caption).toBe('Recovery · Tue 13 Jan')
     expect(cell.value).toBe('62')
     expect(cell.visual).toBeDefined()
-    expect(JSON.stringify(cell.footer)).toContain('Last scored 62/100 on 13\u00a0Jan')
-    expect(JSON.stringify(cell.footer)).toContain('mean\u00a060')
+    expect(said(cell)).toBe('7\u00a0d mean\u00a060 · Garmin syncs every 6\u00a0h')
+    expect(said(recoveryCell(preSync, false, SETTLED, 'short'))).toBe('7\u00a0d mean\u00a060')
   })
 
-  it('shows the trend and mean without a figure when no previous score exists', () => {
+  it('puts the gap line in the value slot when there is a trend but no figure', () => {
     const cell = recoveryCell({ ...preSync, last: null }, false, SETTLED, 'short')
     expect(cell.state).toBeUndefined()
-    expect(cell.value).toBeNull()
-    expect(cell.caption).toBe('Recovery · today')
+    expect(cell.caption).toBe('Recovery')
+    expect(cell.value).toBe('No recovery score in this window')
     expect(cell.visual).toBeDefined()
+    expect(said(cell)).toBe('7\u00a0d mean\u00a060')
   })
 
   it('falls back to the empty state only with no score, trend or mean', () => {
     const none = reading({ score: null, mean: null, days: 0, trend: [], last: null })
     expect(recoveryCell(none, false, SETTLED, 'full').state).toMatchObject({ kind: 'empty' })
+  })
+})
+
+describe('recoveryCaption', () => {
+  const base = { score: 70, isToday: true, date: '2026-01-15', last: null }
+  it('says today only for today’s own score', () => {
+    expect(recoveryCaption(base)).toBe('Recovery · today')
+    expect(recoveryCaption({ ...base, isToday: false, date: '2026-01-14' })).toBe(
+      'Recovery · Wed 14 Jan',
+    )
+  })
+  it('reads the last scored day form for an undated score', () => {
+    expect(recoveryCaption({ ...base, isToday: false, date: null })).toBe(
+      'Recovery · last scored day',
+    )
+  })
+  it('names the previous score’s own day, else stays plain', () => {
+    const noScore = { ...base, score: null, isToday: false }
+    expect(recoveryCaption({ ...noScore, last: { value: 62, date: '2026-01-13' } })).toBe(
+      'Recovery · Tue 13 Jan',
+    )
+    expect(recoveryCaption(noScore)).toBe('Recovery')
   })
 })
 
@@ -425,5 +457,6 @@ describe('budget footer entries', () => {
   it('adds nothing when the cell draws its own footer or has no snapshot', () => {
     expect(budgetFooterEntries(undefined, poller, 'loading')).toEqual([])
     expect(budgetFooterEntries(undefined, undefined, 'no-snapshot')).toEqual([])
+    expect(budgetFooterEntries(undefined, poller, 'no-snapshot')).toEqual([])
   })
 })

@@ -648,14 +648,9 @@ export function oldestWait(
   return agent
 }
 
-/** The oldest-wait cell's footer: the waiting line before any snapshot, else the project it is in. */
-export const oldestWaitFooter = (
-  hasSnapshot: boolean,
-  oldest: OldestWait | null,
-): string | undefined => {
-  if (!hasSnapshot) return NO_SNAPSHOT_SHORT
-  return oldest === null ? undefined : `in ${oldest.project}`
-}
+/** The oldest-wait cell's footer (a snapshot exists): the project the wait is in. */
+export const oldestWaitFooter = (oldest: OldestWait | null): string | undefined =>
+  oldest === null ? undefined : `in ${oldest.project}`
 
 /** What the oldest-wait meter says when it has no wait to plot: none, or waiting without a clock. */
 export function oldestWaitEmptyText(needsYou: number): string {
