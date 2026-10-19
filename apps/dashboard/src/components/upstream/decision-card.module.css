@@ -33,3 +33,9 @@
 .identifier {
   white-space: nowrap;
 }
+
+/* A wrapped row reads as one entry: continuation lines hang one step in from the first. */
+.hanging {
+  padding-inline-start: var(--vx-space-stack-md, 0.75rem);
+  text-indent: calc(-1 * var(--vx-space-stack-md, 0.75rem));
+}

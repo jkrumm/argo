@@ -16,8 +16,9 @@
  *                    then sits under the facts as plain text, with no well and no box
  * `cardCopy` (lib/question-copy) derives 1, 2 + 4 from an ask; callers pass its `question`,
  * `evidenceLine` and `detail` (as `disclosure.content`). `evidence` (the inset) is the older,
- * heavier slot for multi-line evidence and still works unchanged. Long identifiers and URLs wrap
- * at any character (`overflow-wrap: anywhere`) rather than overflow.
+ * heavier slot for multi-line evidence and still works unchanged. A long identifier in the question
+ * breaks only at its joints; anything else unbreakable wraps at any character
+ * (`overflow-wrap: anywhere`) rather than overflow.
  *
  * Prototype of the shared decision-card recipe (docs/design/UPSTREAM.md); props stay close to that row
  * so basalt-ui can promote it.
@@ -27,6 +28,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { IconChevronDown, IconDots } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
+import { NBSP } from '../../lib/format'
 import { identifierRuns } from './identifier-runs'
 import classes from './decision-card.module.css'
 import { VX } from 'basalt-ui/tokens'
@@ -40,6 +42,9 @@ import {
 } from './decision-card-model'
 
 export type { DecisionCardAction, DecisionCardFact } from './decision-card-model'
+
+/** ` · ` with the dot glued to both neighbours, so a wrapped facts line never ends or starts on a bare `·`. */
+const FACT_SEPARATOR = `${NBSP}·${NBSP}`
 
 export type DecisionCardProps = {
   /** The headline, written as the question the owner answers. Wraps; never truncated. */
@@ -186,7 +191,16 @@ export function DecisionCard({
                   {run.text}
                 </Box>
               ) : (
-                <Fragment key={index}>{run.text}</Fragment>
+                <Fragment key={index}>
+                  {run.parts === undefined
+                    ? run.text
+                    : run.parts.map((piece, i) => (
+                        <Fragment key={i}>
+                          {i > 0 ? <wbr /> : null}
+                          {piece}
+                        </Fragment>
+                      ))}
+                </Fragment>
               ),
             )}
           </Text>
@@ -202,7 +216,7 @@ export function DecisionCard({
                 <Text size="xs" c="dimmed" miw={0} className={classes.wrap}>
                   {shown.map((fact, index) => (
                     <Fragment key={`${index}-${fact.text}`}>
-                      {index > 0 ? ' · ' : null}
+                      {index > 0 ? FACT_SEPARATOR : null}
                       {fact.tone === undefined ? (
                         fact.text
                       ) : (

@@ -1,4 +1,5 @@
 import { NO_SNAPSHOT_SHORT } from '../agents/model'
+import { TOKEN_BOUNDARY } from '../../components/upstream/identifier-runs'
 import { NBSP, formatAgoWhole, formatDuration, glue, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
@@ -788,9 +789,6 @@ export function transitionText(
 
 /** Tokens shorter than this are ordinary words and never get break points. */
 const BREAK_TOKEN_MIN = 14
-
-/** A boundary inside an identifier-like token: after `.` `/` `_` `-` or `::`, before a non-separator. */
-const TOKEN_BOUNDARY = /(?<=::|[./_-])(?=[^\s./_:-])/
 
 export type TitleSegment = { text: string; breakBefore: boolean }
 
