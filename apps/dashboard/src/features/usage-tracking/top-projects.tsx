@@ -4,6 +4,7 @@ import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
+import { useUsageHeadline } from './use-headline'
 import classes from './usage.module.css'
 import type { BillingValue, WorkspaceValue } from './types'
 import { EM_DASH, isFiltered, noUsageWindow, fmtShare, fmtUsdWhole, periodNoun } from './model'
@@ -40,8 +41,12 @@ export default function TopProjects({
     leading: false,
     range,
   })
+  // The strip owns the unfiltered 30 d total: when this card does not print its own, its footer
+  // reads that same figure, so the two never round different sums.
+  const headline = useUsageHeadline().data
+  const total = !printTotal && headline !== undefined ? headline.costUsd30d : data.total
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
-  const rest = Math.max(0, data.total - shown)
+  const rest = Math.max(0, total - shown)
 
   return (
     <ChartCard
@@ -64,7 +69,7 @@ export default function TopProjects({
       {rest > 0.5 && (
         <Text size="sm" c="dimmed">
           {fmtUsdWhole(rest)}
-          {printTotal ? '' : ` of ${fmtUsdWhole(data.total)}`} in projects below the top{' '}
+          {printTotal ? '' : ` of ${fmtUsdWhole(total)}`} in projects below the top{' '}
           {data.rows.length}
         </Text>
       )}

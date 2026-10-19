@@ -1,7 +1,7 @@
 import { BandStrip, Sparkline } from 'basalt-ui/charts'
 import type { BandSpan } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { errorDayState, shortDay } from './model'
+import { ERROR_OK_LABEL, errorDayState, shortDay } from './model'
 
 const SPARK_HEIGHT = 36
 
@@ -39,7 +39,7 @@ export function Trend({
 }
 
 const BAND_STATES = [
-  { key: 'ok', label: 'ok', color: alpha(VX.muted, 0.2) },
+  { key: 'ok', label: ERROR_OK_LABEL, color: alpha(VX.muted, 0.2) },
   { key: 'warn', label: 'warn', color: VX.warnSolid, glyph: '!' },
   { key: 'bad', label: 'bad', color: VX.badSolid, glyph: '×' },
   { key: 'none', label: 'no calls', color: alpha(VX.muted, 0.06) },

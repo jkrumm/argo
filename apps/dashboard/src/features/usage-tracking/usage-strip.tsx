@@ -42,6 +42,7 @@ import {
   PRIOR_30D,
   slowerDaysLine,
   dropPartialBucket,
+  fullDays,
   D7,
   secondsDelta,
   secondsQuantity,
@@ -253,7 +254,7 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
 
 function p95Cell({ h, loading, now }: Ctx, p95: Series): StatStripCell {
   const qty = secondsQuantity(h?.p95Ms30d)
-  const worst = peakOf(p95.days)
+  const worst = peakOf(fullDays(p95.days, now))
   const p95Window = h?.p95Ms30d ?? null
   const vs = compare({
     h,

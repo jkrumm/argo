@@ -47,6 +47,7 @@ export function Finished({
             <section key={group.label} aria-label={group.label}>
               <Text className={classes.groupHeading}>
                 {group.label}
+                <span aria-hidden>·</span>
                 <span>
                   {withUnit(group.rows.length, group.rows.length === 1 ? 'book' : 'books')}
                 </span>

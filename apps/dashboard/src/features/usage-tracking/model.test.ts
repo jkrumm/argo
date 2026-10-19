@@ -32,6 +32,7 @@ import {
   countAgainst,
   barStateOf,
   dropPartialBucket,
+  fullDays,
   periodNoun,
   printTotal,
   prepareFolded,
@@ -470,6 +471,16 @@ describe('day-count sentences', () => {
     const days = [reading(1, 0.5), reading(2, 0.7), reading(3, 0.59), reading(4, null)]
     expect(cacheUnderLine(days, NOW)).toBe('2 of 3 full days under it')
     expect(cacheUnderLine([], NOW)).toBeNull()
+  })
+  it('leaves a partial leading day out of the count and the base', () => {
+    // now = 10 Jan 12:00: the window opens 11 Dec 12:00, so 11 Dec is partial and 12 Dec is the first full day
+    const days = [
+      { date: new Date(2025, 11, 11), value: 9 },
+      { date: new Date(2025, 11, 12), value: 1 },
+      reading(9, 9),
+    ]
+    expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1, 9])
+    expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')
   })
   it('leaves the running day out of the count and the base', () => {
     const days = [reading(8, 9), reading(9, 1), reading(10, 9)]

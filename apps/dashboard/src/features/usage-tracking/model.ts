@@ -434,6 +434,9 @@ export function foldTopN(
 
 // ── Error days ───────────────────────────────────────────────────────────────────────────────
 
+/** The ok state's name, as the health legend and the errors band both print it. */
+export const ERROR_OK_LABEL = `Under ${fmtPct(ERROR_WARN_FROM, 0)} of calls`
+
 export type ErrorDayState = 'ok' | 'warn' | 'bad' | 'none'
 
 /** `none` for a day with no calls; `bad` strictly above 3 %, `warn` from 1 %. */
@@ -637,9 +640,15 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/** The values of the days that have closed at `now`; the running day is not a full day. */
+/**
+ * The days of the rolling 30 d window that are complete at `now`: the running day has not ended and
+ * the leading bucket began before the window did, so both hold only part of a day.
+ */
+export const fullDays = <T extends { date: Date }>(days: readonly T[], now: number): T[] =>
+  days.filter((d) => isClosedDay(d.date, now) && bucketStartMs(d.date) >= now - 30 * DAY_MS)
+
 const fullDayValues = (days: readonly Daily[], now: number): (number | null)[] =>
-  days.filter((d) => isClosedDay(d.date, now)).map((d) => d.value)
+  fullDays(days, now).map((d) => d.value)
 
 /**
  * `{n} of {m} full days slower than the 30 d p95`, or `null` without a window p95 or any full day.
