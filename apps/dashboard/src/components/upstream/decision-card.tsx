@@ -43,10 +43,7 @@ import {
 
 export type { DecisionCardAction, DecisionCardFact } from './decision-card-model'
 
-/**
- * ` · ` glued to the fact after it: each fact is one unbreakable unit, so the only break is before the
- * dot and a wrapped line opens on `· {fact}`, never ends on a bare `·` (Home's `→` rule).
- */
+/** A breakable space before the dot, a no-break space after it: a wrapped line opens on `· {fact}`, never ends on a bare `·`. */
 const FACT_SEPARATOR = ` ·${NBSP}`
 
 export type DecisionCardProps = {
