@@ -4,6 +4,7 @@
  */
 import { format as formatDate } from 'date-fns'
 import { NBSP, withUnit } from '../../lib/format'
+import type { Grain, Range } from '../../lib/queries/usage'
 import type { CostGroupBy, TimePoint, TokensGroupBy } from './types'
 import type { Daily } from './usage-visuals'
 
@@ -650,7 +651,7 @@ export const windowDays = <T extends { date: Date }>(
   spanDays: number,
 ): T[] => days.filter((d) => bucketStartMs(d.date) >= now - spanDays * DAY_MS)
 
-const RANGE_SPAN_DAYS: Record<'7d' | '30d' | '90d', number> = { '7d': 7, '30d': 30, '90d': 90 }
+const RANGE_SPAN_DAYS: Record<Exclude<Range, 'all'>, number> = { '7d': 7, '30d': 30, '90d': 90 }
 
 /**
  * A range's rows cut to the days that began inside its rolling window. Only day grain is cut: a week
@@ -658,11 +659,7 @@ const RANGE_SPAN_DAYS: Record<'7d' | '30d' | '90d', number> = { '7d': 7, '30d': 
  */
 export function rangeWindowDays<T extends { date: Date }>(
   rows: readonly T[],
-  {
-    range,
-    grain,
-    now,
-  }: { range: '7d' | '30d' | '90d' | 'all'; grain: 'day' | 'week'; now: number },
+  { range, grain, now }: { range: Range; grain: Grain; now: number },
 ): T[] {
   if (grain !== 'day' || range === 'all') return [...rows]
   return windowDays(rows, now, RANGE_SPAN_DAYS[range])

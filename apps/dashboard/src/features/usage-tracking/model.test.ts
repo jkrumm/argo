@@ -520,6 +520,9 @@ describe('day-count sentences', () => {
     expect(cut('90d', 'day')).toEqual([1, 2, 3])
     expect(cut('7d', 'week')).toEqual([1, 2, 3])
     expect(cut('all', 'day')).toEqual([1, 2, 3])
+    // A range whose only calls fall in the excluded leading day has no windowed reading.
+    const lone = [{ date: new Date(2025, 11, 5), rate: 0.5 }]
+    expect(rangeWindowDays(lone, { range: '30d', grain: 'day', now: NOW })).toEqual([])
     expect(windowDays(days, NOW, STRIP_WINDOW_DAYS).map((d) => d.value)).toEqual([2, 3])
   })
   it('takes the mean and the peak day over full days only', () => {
