@@ -10,6 +10,7 @@ import {
   STRESS_HIGH_FROM,
   STRESS_MODERATE_FROM,
   STRESS_REST_BELOW,
+  STRESS_ZONE_LEGEND,
   STRESS_ZONE_NAME,
   stressZone,
   type StressZone,
@@ -79,21 +80,25 @@ const STRESS_ZONES = [
     from: 0,
     to: STRESS_REST_BELOW,
     fill: ZONE_FILL.good,
+    legend: { label: STRESS_ZONE_LEGEND.rest, color: STRESS_ZONE_COLOR.rest },
   },
   {
     from: STRESS_REST_BELOW,
     to: STRESS_MODERATE_FROM,
     fill: ZONE_FILL.good,
+    legend: { label: STRESS_ZONE_LEGEND.low, color: STRESS_ZONE_COLOR.low },
   },
   {
     from: STRESS_MODERATE_FROM,
     to: STRESS_HIGH_FROM,
     fill: ZONE_FILL.warn,
+    legend: { label: STRESS_ZONE_LEGEND.moderate, color: STRESS_ZONE_COLOR.moderate },
   },
   {
     from: STRESS_HIGH_FROM,
     to: 100,
     fill: ZONE_FILL.bad,
+    legend: { label: STRESS_ZONE_LEGEND.high, color: STRESS_ZONE_COLOR.high },
   },
 ]
 

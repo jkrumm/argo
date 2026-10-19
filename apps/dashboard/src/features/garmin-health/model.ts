@@ -87,6 +87,14 @@ export const STRESS_ZONE_NAME = {
   high: 'High',
 } as const satisfies Record<StressZone, string>
 
+/** Legend labels carry the inclusive integer range, so adjacent bands never share a bound. */
+export const STRESS_ZONE_LEGEND = {
+  rest: `${STRESS_ZONE_NAME.rest} (< ${STRESS_REST_BELOW})`,
+  low: `${STRESS_ZONE_NAME.low} (${STRESS_REST_BELOW}–${STRESS_MODERATE_FROM - 1})`,
+  moderate: `${STRESS_ZONE_NAME.moderate} (${STRESS_MODERATE_FROM}–${STRESS_HIGH_FROM - 1})`,
+  high: `${STRESS_ZONE_NAME.high} (≥ ${STRESS_HIGH_FROM})`,
+} as const satisfies Record<StressZone, string>
+
 export function stressZone(v: number): StressZone {
   if (v >= STRESS_HIGH_FROM) return 'high'
   if (v >= STRESS_MODERATE_FROM) return 'moderate'
