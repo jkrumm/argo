@@ -2469,6 +2469,16 @@ This is argo's composition, not a basalt row. Last wave before the owner's weekl
 - **Not verified:** the previous w44 shots were not opened by the reviewer (comparison rests on the prior verdict); no `detect.json` run.
 - **Shots:** `apps/dashboard/.design-shots/w45` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 45 — Strength: a complete re-score <!-- status: active -->
+
+Strength's pass (90, w42) is provisional: its reviewer read 4 of 13 sheets. No code change is planned; this wave makes the
+14-of-14 verdict real. Budget is tight (the owner's weekly limit): one round.
+
+- [ ] Re-shoot Strength with `basalt-ui shot` (1440 / 390, both schemes) on the live 2.27.2 bundle and re-score it with a fresh
+      `basalt-design-reviewer` told to read EVERY sheet and given the w42 shots + Keel. Record the verdict per component in
+      `docs/design/strength.md`. A basalt finding is an `UPSTREAM.md` row; an argo P1/P2 is named in Left behind, not fixed here.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
