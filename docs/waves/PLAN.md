@@ -2230,16 +2230,62 @@ renders it.
 - [ ] When the orchestrator announces the basalt-ui release (basalt Wave 38: the `+N` fold keeping series names, the `Section`
       subtitle at 12, the `BandStrip` wrap, footer-entry `shotAbsent`), bump it in its own commit, adopt what closes the `UPSTREAM.md`
       § "Wave 38" rows, delete the matching local code, re-shoot every page and re-check every row it closes.
-- [ ] The w39 argo P3s: Garmin's fitness qualifier naming its subject beside a declining VO2max row, the 390 basis line breaking before
+- [x] The w39 argo P3s: Garmin's fitness qualifier naming its subject beside a declining VO2max row, the 390 basis line breaking before
       its `—`; Home's wrapped history row leaving its `from` state alone (reads as its own entry), the needs-you empty body repeating
       its title; Warden's facts line wrapping after a trailing `·`; WalkingPad's 390 week footer stranding its target icon, the week
       meter label repeating the hero, the Pace/Totals empty sentence repeating the reason; Agents' `ago` alone at 1440.
-- [ ] Owner decision, then build or drop: the shared `DecisionCard` `question` (`components/upstream/decision-card`) breaking a long
+- [x] Owner decision, then build or drop: the shared `DecisionCard` `question` (`components/upstream/decision-card`) breaking a long
       identifier mid-token at 1440 — its `identifierRuns` keeps identifiers whole, which is the rung's own copy rule.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 41 in this shape. The loop ends only when a
-      fresh scorer and the owner find nothing worth improving.
+      **Orchestrator: BUILD** (a defect fix inside the frozen rung; nothing else added) — shipped in #186.
+- [ ] Re-shoot all pages live and re-score; **partly done:** the five changed pages (Home, Garmin, Warden, WalkingPad, Agents) are
+      re-scored over `w40-r1`–`w40-r3`; the all-page re-shoot waits for the bump, which touches every page; any page still below
+      the bar gets a Wave 41 in this shape. The loop ends only when a fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**
+
+**Stopped (orchestrated): the P3s and the DecisionCard step are closed and committed; the wave stays `active` on the bump step.**
+No basalt-ui release was announced during the wave (basalt Wave 38 still landing the 2.24 regression fixes), so the bump step and the
+all-page re-shoot after it are open. Next: when the orchestrator announces the release, run step 1 (own commit), then step 4 over all
+13 routes + both m365 presets. No Wave 41 is added yet: whether one is needed depends on that re-score.
+
+- **basalt-ui:** unchanged at **2.25.0**.
+- **Landed (master, deployed, `/api/health` = `db5ed43c`, Deploy + check green):** #185 Garmin (`fitnessQualifier`: `{label} · RHR/HRV
+  slope · 14 d`; the basis line's `—` glued to the word before it); #186 Home + Warden + shared DecisionCard (Home's wrapped
+  `Latest changes` rows hang their continuation; `needsYouEmptyBody` — no body under the all-clear, otherwise only the sources that
+  failed / are loading / have no snapshot; question identifiers whole, long ones broken only at joints via `<wbr>`, one joint set in
+  `lib/text-breaks.ts`, `TextRun` a discriminated union); #187 WalkingPad + Agents (week footer: target control inline and glued, `·`
+  glued, nothing while loading; the meter's `so far` start caption dropped; quiet-list age glued); #188 (round-1 fixes from the live
+  re-score: the project card's `Last activity` back on the breakable `formatAgo`, `waiting` glued to its duration in all three wait
+  wordings); #189 (round-2 fix: the facts separator breaks before its `·`). Two independent agent-gateway reviews per PR per round, two
+  rounds then scope frozen, the lead reading every diff, CI `check` green on each PR head before the merge. `make check` green on master.
+- **Caught by the lead / the re-score before it stuck:** the WalkingPad worker shortened the Pace/Totals empty reason to `No walks`,
+  breaking the settled verbatim short-form rule — reverted before merge and the w39 P3 declined; the first `needsYouEmptyBody` dropped
+  which sources were loading / had no snapshot (round-2 review); `formatAgoWhole` on the project card truncated `Last activity` at 1440
+  (`w40-r1`, P1, a passing page turned failing — reverted, the w39 `ago` P3 accepted); the both-sides `·` glue split `waiting` from its
+  duration (`w40-r1`) and then, with every Warden fact already glued, left the whole facts line unbreakable so `times` split mid-word
+  at 1440 (`w40-r2`, P1) — fixed by breaking before the dot (`w40-r3` clean).
+- **Declined with reasons:** the w39 WalkingPad "Pace/Totals repeat the reason" P3 (`README.md` § "One form for a repeated gap"); an API
+  `basis` field for the fitness qualifier (API change; the helper names its source); restoring `so far` (the cell says `This week` with a
+  `to Mon` delta); dropping `overflow-wrap: anywhere` on the facts line (it only splits a word when a line has no other break); gluing
+  Home/Agents fact internals in `lib/decisions.ts`, the agents `waiting 0 min` floor, `WARDEN_PUSH_MIN`'s export, the fallow complexity
+  refactors, the touch-target size (all pre-existing, scope frozen).
+- **Rounds:** `w40-r1` (Home, Garmin, Warden, WalkingPad, Agents after #185–#187), `w40-r2` (Agents, Warden after #188), `w40-r3`
+  (Warden, Home after #189). 0 failed shots except the four known `strip-footer-budget-poller` `empty` errors per Home round. `basalt-ui
+  shot --base https://argo.jkrumm.com` from the repo root (`--out` must sit inside the project), `argo-auth` seeded from `secrets-run read
+  op://common/api/SECRET` via env, never printed or written; each round shot only after the served `index-*.js` hash changed post-deploy.
+  A five-route run exceeds 10 min — shoot in batches of two or three, in the background. Boards `.design-shots/w40-r{1,2,3}-*`
+  (gitignored). Nine fresh `basalt-design-reviewer`s (Agent calls, no Workflow), each given the previous round's shots, a Keel
+  side-by-side and `README.md`'s settled rules; verdicts in `docs/design/<page>.md` § "Wave 40 round".
+- **Reviewer verdict, stated plainly (latest round per page):** **pass** — Agents (`w40-r2`), WalkingPad (`w40-r1`). **Fail on
+  basalt/harness only** — Home (`w40-r3`, the poller harness row), Warden (`w40-r3`, hover = rest, tooltips over cells, the strip
+  qualifier after `·`), Garmin (`w40-r1`, the carried basalt rows). Pages not re-shot this wave keep their `Wave 39 round` verdicts.
+- **Open argo P3s (Wave 41 candidates if the post-bump re-score keeps them):** Home — the `No snapshot yet from …` body opening with the
+  title's words (accepted: only place the sources appear), decision-card-3's evidence `50` / `GB floor?` split at 390, the recovery
+  footer ending on `·` at 390; Garmin — the 390 basis line leaving `only` alone; WalkingPad — the record header's last-walk line wrapping
+  after a trailing `·` at 390.
+- **Not verified (data-dependent):** a Home/Agents facts line that wraps, the agents-card `waiting` wording, the fitness `flat` /
+  `unchanged` / plain branches, the WalkingPad loading footer.
+- **Cleanup:** all worktrees and fan tabs reclaimed with `rd fan --clean`; no background task left running.
 
 # Part 1, continued
 
