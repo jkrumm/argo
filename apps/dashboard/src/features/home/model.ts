@@ -273,14 +273,19 @@ export function recoveryReading(
 }
 
 /** The tile's footer: the window mean (whenever there is one) plus the day-fill fact for this reading. */
-export function recoveryFooter({ mean, days, isToday }: RecoveryReading): string {
+export function recoveryFooter(
+  { mean, days, isToday }: RecoveryReading,
+  /** The pre-sync gap line, which stands in for the day-fill fact when today has no score. */
+  gap?: string,
+): string {
   const parts = [
     ...(mean === null ? [] : [`${withUnit(RECOVERY_DAYS, 'd')} mean${NBSP}${Math.round(mean)}`]),
     // `{n}/{total} d` is one unit-bound figure and the only break left falls before `observed`,
     // so a narrow footer breaks between phrases, never inside the fill fact.
-    isToday
-      ? `${days}/${withUnit(RECOVERY_DAYS, 'd')} observed`
-      : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`,
+    gap ??
+      (isToday
+        ? `${days}/${withUnit(RECOVERY_DAYS, 'd')} observed`
+        : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`),
   ]
   return parts.join(' · ')
 }

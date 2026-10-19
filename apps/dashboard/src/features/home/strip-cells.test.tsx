@@ -12,6 +12,7 @@ import {
   recoveryCellGap,
   agentsCell,
   budgetCell,
+  budgetFooterEntries,
   meetingCell,
   recoveryCell,
   type SeriesState,
@@ -165,7 +166,7 @@ describe('strip cells with no reading', () => {
       meetingCell({ meetings: [], loaded: ['work', 'personal'], unavailable: [] }, null, null, NOW),
     ).toMatchObject({
       value: null,
-      state: { kind: 'empty', reason: 'none in 7 days' },
+      state: { kind: 'empty', reason: 'None in 7 days' },
     })
     expect(recoveryCell(null, false, SETTLED, 'full')).toMatchObject({
       value: null,
@@ -187,7 +188,7 @@ describe('strip cells with no reading', () => {
     })
     // The pre-sync gap names the last score and its day, in Garmin Health's wording.
     expect(
-      said(
+      JSON.stringify(
         recoveryCell(
           reading({
             score: null,
@@ -201,9 +202,9 @@ describe('strip cells with no reading', () => {
           false,
           SETTLED,
           'full',
-        ),
+        ).footer,
       ),
-    ).toBe('Last scored 62/100 on 13\u00a0Jan — Garmin syncs every 6\u00a0h')
+    ).toContain('Last scored 62/100 on 13\u00a0Jan — Garmin syncs every 6\u00a0h')
     // The gap waits for the series: unsettled names only the cadence, a failed read says so.
     const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
     expect(said(recoveryCell(unscored, false, { settled: false, failed: false }, 'full'))).toBe(
@@ -260,10 +261,10 @@ describe('strip cells with no reading', () => {
   })
 
   it('drops the poller line when there is no budget and no poller to date', () => {
-    expect(budgetCell(undefined, undefined, 'ready')).not.toHaveProperty('footer')
+    expect(budgetFooterEntries(undefined, undefined, 'ready')).toEqual([])
     expect(
-      budgetCell(undefined, { name: 'loop', ageMin: 4, stale: false }, 'ready'),
-    ).toHaveProperty('footer')
+      budgetFooterEntries(undefined, { name: 'loop', ageMin: 4, stale: false }, 'ready'),
+    ).toHaveLength(1)
   })
 
   it('names the reading day in the ACWR footer only when it is not today', () => {
@@ -289,7 +290,7 @@ describe('strip cells with no reading', () => {
   it('says which calendar is missing when the empty day is partial', () => {
     expect(
       meetingCell({ meetings: [], loaded: ['work'], unavailable: ['personal'] }, null, null, NOW),
-    ).toMatchObject({ state: { reason: 'none today · Personal unavailable' } })
+    ).toMatchObject({ state: { reason: 'None today · Personal unavailable' } })
   })
 
   it('names the next meeting after today when today is empty', () => {
@@ -319,12 +320,12 @@ describe('strip cells with no reading', () => {
       const m = meeting(title)
       return meetingCell({ meetings: [m], loaded: ['work'], unavailable: [] }, m, null, NOW)
     }
-    expect(cell('{meeting}').footer).toBe('{meeting} · 1 remaining')
+    expect(cell('{meeting}').footer).toBe('{meeting} · 1\u00a0remaining')
     expect(cell('Sprint planning — team {name} and the whole extended crew').footer).toBe(
-      'Sprint planning · 1 remaining',
+      'Sprint planning · 1\u00a0remaining',
     )
     expect(cell('A very long meeting name without any clause break at all').footer).toBe(
-      'A very long meeting… · 1 remaining',
+      'A very long meeting… · 1\u00a0remaining',
     )
   })
 })
@@ -375,5 +376,54 @@ describe('recoveryFooter', () => {
 
   it('singular day', () => {
     expect(recoveryFooter(reading({ days: 1 }))).toBe(`7${NB}d mean${NB}60 · 1/7${NB}d observed`)
+  })
+})
+
+describe('recovery cell in the pre-sync gap', () => {
+  const preSync = reading({
+    score: null,
+    mean: 60,
+    days: 5,
+    trend: [58, 62, 60],
+    date: '2026-01-15',
+    isToday: false,
+    last: { value: 62, date: '2026-01-13' },
+  })
+
+  it('keeps the previous score, its trend and the mean beside the gap line, captioned with its own day', () => {
+    const cell = recoveryCell(preSync, false, SETTLED, 'full')
+    expect(cell.state).toBeUndefined()
+    expect(cell.caption).toBe('Recovery · Tue 13 Jan')
+    expect(cell.value).toBe('62')
+    expect(cell.visual).toBeDefined()
+    expect(JSON.stringify(cell.footer)).toContain('Last scored 62/100 on 13\u00a0Jan')
+    expect(JSON.stringify(cell.footer)).toContain('mean\u00a060')
+  })
+
+  it('shows the trend and mean without a figure when no previous score exists', () => {
+    const cell = recoveryCell({ ...preSync, last: null }, false, SETTLED, 'short')
+    expect(cell.state).toBeUndefined()
+    expect(cell.value).toBeNull()
+    expect(cell.caption).toBe('Recovery · today')
+    expect(cell.visual).toBeDefined()
+  })
+
+  it('falls back to the empty state only with no score, trend or mean', () => {
+    const none = reading({ score: null, mean: null, days: 0, trend: [], last: null })
+    expect(recoveryCell(none, false, SETTLED, 'full').state).toMatchObject({ kind: 'empty' })
+  })
+})
+
+describe('budget footer entries', () => {
+  const poller = { name: 'loop', ageMin: 4, stale: false }
+
+  it('keeps the poller fact under the budget cell while it shows its reason', () => {
+    expect(budgetFooterEntries(undefined, poller, 'ready')).toMatchObject([{ under: 'budget' }])
+    expect(budgetCell(undefined, poller, 'ready').state).toMatchObject({ kind: 'empty' })
+  })
+
+  it('adds nothing when the cell draws its own footer or has no snapshot', () => {
+    expect(budgetFooterEntries(undefined, poller, 'loading')).toEqual([])
+    expect(budgetFooterEntries(undefined, undefined, 'no-snapshot')).toEqual([])
   })
 })
