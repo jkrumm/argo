@@ -110,7 +110,7 @@ function paceCell(pace: Pace): StatStripCell {
       : {
           visual: (
             <Bars
-              ariaLabel={`Reading pace per book in pages per hour, slowest to fastest: ${pace.paces.join(', ')}`}
+              ariaLabel={`Reading pace per book, slowest to fastest: ${bars.map((b) => paceLabel(b.pace)).join(', ')}`}
               data={bars}
               height={28}
               x={(d) => d.book}
