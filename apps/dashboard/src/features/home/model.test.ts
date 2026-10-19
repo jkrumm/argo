@@ -13,6 +13,7 @@ import {
   wardenEvents,
   nextMeeting,
   recoveryReading,
+  recoveryWindow,
   restLabel,
   staleFeeds,
   feedEmptyLine,
@@ -345,6 +346,29 @@ describe('taskCounts', () => {
       NOW,
     )
     expect(counts).toEqual({ overdue: 1, dueSoon: 2, open: 5 })
+  })
+})
+
+describe('recoveryWindow', () => {
+  const y = { date: '2026-01-14', recovery: 60 }
+  const scored = { date: '2026-01-15', recovery: 70 }
+  const unscored = { date: '2026-01-15', recovery: null }
+
+  it('keeps a scored today the visibility filter hid', () => {
+    expect(recoveryWindow([y, scored], [y], NOW)).toEqual([y, scored])
+  })
+  it('drops an unscored today: the pre-sync window is unchanged', () => {
+    expect(recoveryWindow([y, unscored], [y], NOW)).toEqual([y])
+  })
+  it('leaves a window that already shows today alone', () => {
+    expect(recoveryWindow([y, scored], [y, scored], NOW)).toEqual([y, scored])
+  })
+  it('ends trend, mean and last scored day on the headline day', () => {
+    const win = recoveryWindow([y, scored], [y], NOW)
+    const r = recoveryReading({ recovery: 70, ceiling: null, date: '2026-01-15' }, win, NOW)
+    expect(r.trend).toEqual([60, 70])
+    expect(r.mean).toBe(65)
+    expect(r.isToday).toBe(true)
   })
 })
 

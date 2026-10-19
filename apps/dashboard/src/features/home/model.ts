@@ -253,6 +253,22 @@ export type RecoveryReading = {
   last: { value: number; date: string } | null
 }
 
+/**
+ * Home's recovery series: the visibility-filtered window (default `hideToday` rule), plus today's
+ * row when it carries a score. Recovery locks overnight, so a scored today must end the trend on
+ * the headline's day; an unscored today is dropped, which leaves the pre-sync gap's window as is.
+ */
+export function recoveryWindow<T extends { date: string; recovery: number | null }>(
+  points: readonly T[],
+  visible: readonly T[],
+  now: number,
+): T[] {
+  const today = localKey(now)
+  if (visible.some((p) => p.date === today)) return [...visible]
+  const scoredToday = points.find((p) => p.date === today && isNum(p.recovery))
+  return scoredToday ? [...visible, scoredToday] : [...visible]
+}
+
 export function recoveryReading(
   snapshot: { recovery: number | null; ceiling: number | null; date?: string | null } | undefined,
   points: readonly { recovery: number | null }[] | undefined,
