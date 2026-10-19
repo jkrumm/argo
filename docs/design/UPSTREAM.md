@@ -612,3 +612,21 @@ passing page.
 argo-owned find: the Map tab's legends sat under MapLibre's expanded compact attribution at 390 (the strip opens expanded until the first
 interaction), cutting the legend's last lines. Fixed locally (`bottom` 8 → 44 on `LpLegend` and `WeatherLegends`; `4e3840a2`), verified
 in `w42-r3-map` at 390 and 1440. Not a 2.27 effect — the Map tab had no earlier round.
+
+### Wave 42 bump — basalt-ui 2.27.1 and the `w43` re-score
+
+argo moved to 2.27.1 in its own commit (`01f0c1d9`, patch, nothing to migrate, no local code deleted). Re-shot Garmin, Home, Agents and
+Reading live (`.design-shots/w43-a`, `w43-b`, gitignored) against the § "Wave 41 bump" rows:
+
+| Row | Status on 2.27.1 | Evidence |
+|-|-|-|
+| fitness `Sparkline` readout on the HRV row's line at 390 | **closed** | `44 bpm · 19 Oct` on its own row above RHR, both schemes |
+| stacked `Meter` caption rows nearly touching (Agents `warn at 24 h` / `abandoned at 7 d`, Home Recovery / ACWR, Garmin load / recovery) | **closed** | visible gap at 1440 and 390 |
+| Home ACWR zone names run together | **closed** | four separate words |
+| `Bars` readout chip touching its focus ring (Reading pace) | **open** | focus crop unchanged from w42; chip still flush on the ring and its lower half cut |
+| info popover over headline facts (Garmin ACWR, Recovery, Activity score) | **open, unchanged** | pixel-identical to w42 |
+| activities tooltip covering headline facts (Agents activity strip focus readout) | **open, unchanged** | covers legend and footer |
+
+Carried, unchanged: Garmin ACWR draws its date axis twice (line and delta bars); Meter end labels (`0`, `2.0`) detached from the track;
+hover crops identical to rest. No regression on a passing page.
+

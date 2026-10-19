@@ -2396,18 +2396,34 @@ delete the matching local code (none known), re-shoot all 13 routes + both m365 
   every page shoots the login screen (`no data-shot anchors`). Two parallel 3-route batches took ~6 min.
 - **Cleanup:** worktrees and fan tabs reclaimed with `rd fan --clean`; no background task left running.
 
-## Wave 42 — Re-score round 21: basalt-ui 2.27.1 <!-- status: active -->
+## Wave 42 — Re-score round 21: basalt-ui 2.27.1 <!-- status: done -->
 
 basalt-ui 2.27.1 (basalt Wave 40) is a patch with nothing to migrate: #458 keeps a strip-row `Sparkline` hosted readout on one
 line inside its own row at 390 (Garmin's fitness P1); #457 puts a gap between stacked `Meter` caption rows, keeps the slotted
 `Bars` chip clear of its focus ring and keeps chart tooltips off the card's headline facts. Budget is tight: one round, no
 scope beyond these steps. Basalt rows get no local workaround.
 
-- [ ] Bump basalt-ui to 2.27.1 in its own commit.
-- [ ] Once the served dashboard bundle carries the bump: re-shoot Garmin, Home, Agents and Reading (1440 / 390, both schemes)
+- [x] Bump basalt-ui to 2.27.1 in its own commit.
+- [x] Once the served dashboard bundle carries the bump: re-shoot Garmin, Home, Agents and Reading (1440 / 390, both schemes)
       and re-score them with fresh `basalt-design-reviewer`s given the w42 shots + Keel.
-- [ ] Re-check the `UPSTREAM.md` § "Wave 41 bump" rows these fixes close; record any regression as a basalt row.
+- [x] Re-check the `UPSTREAM.md` § "Wave 41 bump" rows these fixes close; record any regression as a basalt row.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 42 is `done`; no Wave 43 is authored — the open items are basalt's.**
+
+- **basalt-ui 2.27.1:** bumped in its own commit `01f0c1d9`; `sync` refreshed the managed block, nothing to adopt or delete. Deployed
+  (`/api/health` = `01f0c1d9`) before shooting. `make check` green (609 tests).
+- **Verdicts (`w43-a`, `w43-b`, fresh reviewers, each given the w42 shots):** **pass** — Home 97, Agents 92, Reading 90 (basalt P1: the
+  pace `Bars` chip still touches its focus ring and is clipped; `#457`'s chip fix did not land in the shot). Garmin 55 (**fail on basalt
+  only**): the fitness readout P1 is closed, but the info popover still covers the headline on ACWR, Recovery and Activity score (P1,
+  unchanged from w42) and ACWR draws its date axis twice (carried). No regression, no lost fact. Rows: `UPSTREAM.md` § "Wave 42 bump".
+- **Closed by 2.27.1:** fitness readout at 390, Meter caption gaps (Agents, Home, Garmin), Home ACWR zone names. **Still open:** the
+  Reading chip/ring, info popovers over headlines, the activity-strip focus readout over its footer.
+- **Process note:** a first `make design-shot` round was scored by reviewers and rejected (no `metrics.json`; that harness is not the
+  reviewer's input). Only `basalt-ui shot` out dirs feed the scorer; the verdicts above are from those.
+- **Not verified:** Garmin dark mobile crops one by one; hover/tooltip states for Home (none declared).
+- **Shots:** `.design-shots/w43-{a,b}` (0 failed; gitignored), plus the discarded `w43-bump`. No token written; no background task left.
+
 
 # Part 1, continued
 
