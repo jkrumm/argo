@@ -7,6 +7,7 @@ import {
   lastWalkLabel,
   toLastWalk,
   fmtDuration,
+  joinFacts,
   withKcal,
   withKm,
   withKmh,
@@ -67,8 +68,19 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
       <Row
         dot={paused ? 'idle' : 'live'}
         status={paused ? 'Paused' : 'Walking now'}
-        facts={`${durationClock(s.duration_s)} · ${withKm(s.distance_m)} · ${withKmh(paused ? 0 : s.current_speed_kmh)} now · avg ${withKmh(s.avg_speed_kmh)}`}
-        stats={`${withSteps(s.steps)} · ${withKcal(s.kcal)}, this walk${s.pause_count > 0 ? ` · ${s.pause_count}\u00a0${s.pause_count === 1 ? 'pause' : 'pauses'}` : ''}`}
+        facts={joinFacts([
+          durationClock(s.duration_s),
+          withKm(s.distance_m),
+          `${withKmh(paused ? 0 : s.current_speed_kmh)} now`,
+          `avg ${withKmh(s.avg_speed_kmh)}`,
+        ])}
+        stats={joinFacts([
+          withSteps(s.steps),
+          `${withKcal(s.kcal)}, this walk`,
+          ...(s.pause_count > 0
+            ? [`${s.pause_count}\u00a0${s.pause_count === 1 ? 'pause' : 'pauses'}`]
+            : []),
+        ])}
       />
     )
   }
@@ -95,8 +107,13 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
     <Row
       dot="idle"
       status={status}
-      facts={`${label} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
-      stats={`${withSteps(walk.steps)} · ${withKcal(walk.kcal)}`}
+      facts={joinFacts([
+        label,
+        withKm(walk.distance_m),
+        fmtDuration(walk.duration_s),
+        withKmh(walk.avg_speed_kmh),
+      ])}
+      stats={joinFacts([withSteps(walk.steps), withKcal(walk.kcal)])}
     />
   )
 }
