@@ -2396,6 +2396,19 @@ delete the matching local code (none known), re-shoot all 13 routes + both m365 
   every page shoots the login screen (`no data-shot anchors`). Two parallel 3-route batches took ~6 min.
 - **Cleanup:** worktrees and fan tabs reclaimed with `rd fan --clean`; no background task left running.
 
+## Wave 42 — Re-score round 21: basalt-ui 2.27.1 <!-- status: active -->
+
+basalt-ui 2.27.1 (basalt Wave 40) is a patch with nothing to migrate: #458 keeps a strip-row `Sparkline` hosted readout on one
+line inside its own row at 390 (Garmin's fitness P1); #457 puts a gap between stacked `Meter` caption rows, keeps the slotted
+`Bars` chip clear of its focus ring and keeps chart tooltips off the card's headline facts. Budget is tight: one round, no
+scope beyond these steps. Basalt rows get no local workaround.
+
+- [ ] Bump basalt-ui to 2.27.1 in its own commit.
+- [ ] Once the served dashboard bundle carries the bump: re-shoot Garmin, Home, Agents and Reading (1440 / 390, both schemes)
+      and re-score them with fresh `basalt-design-reviewer`s given the w42 shots + Keel.
+- [ ] Re-check the `UPSTREAM.md` § "Wave 41 bump" rows these fixes close; record any regression as a basalt row.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
