@@ -35,3 +35,9 @@
 .quietBox {
   container-type: inline-size;
 }
+
+/* The live title wraps; a lone long token (path, branch) splits only when its line has no other break. */
+.nowValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
