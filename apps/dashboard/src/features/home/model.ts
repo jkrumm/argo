@@ -663,6 +663,17 @@ export function needsYouEmptyTitle(s: SourceState): string {
 }
 
 /**
+ * The empty needs-you body: only what the title does not already say. All-clear, all-loading and
+ * all-without-snapshot titles say it whole (`null`); a partial or mixed list names the sources
+ * that failed, are loading or have no snapshot.
+ */
+export function needsYouEmptyBody(s: SourceState): string | null {
+  if (allUnknown(s) && unknownKind(s) !== 'cant-tell') return null
+  const phrase = unknownPhrase(s.unavailable, s.loading, s.noSnapshot)
+  return phrase === '' ? null : `${unknownSentence(phrase)}.`
+}
+
+/**
  * The headline (count + oldest wait, or why it can't be told) and one fact under it: where the
  * waiting items sit. The fleet, the next meeting and recovery each have a strip cell of their own,
  * so the summary does not print them a second time.

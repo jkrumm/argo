@@ -5,7 +5,13 @@ import { IconCircleCheck, IconCircleDashed } from '@tabler/icons-react'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { Decision } from '../../lib/decisions'
-import { allUnknown, needsYouEmptyTitle, restLabel, unknownPhrase, unknownSentence } from './model'
+import {
+  allUnknown,
+  needsYouEmptyBody,
+  needsYouEmptyTitle,
+  restLabel,
+  unknownPhrase,
+} from './model'
 import { StatusChip } from '../agents/status-chip'
 import { BreakableTitle } from '../warden/breakable-title'
 import { HistoryPreview } from '../warden/history-preview'
@@ -82,6 +88,7 @@ export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props)
   const sources = { unavailable, loading, noSnapshot }
   const unknown = allUnknown(sources)
   const phrase = unknownPhrase(unavailable, loading, noSnapshot)
+  const emptyBody = needsYouEmptyBody(sources)
   const restBy = (href: Decision['href']) => rest.filter((d) => d.href === href).length
   return (
     <Section title="Needs you" {...(unknown ? { value: '—' } : { count: decisions.length })}>
@@ -92,8 +99,7 @@ export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props)
             // A check is an all-clear; with the list unknown there is none to give.
             icon={unknown ? <IconCircleDashed size={28} /> : <IconCircleCheck size={28} />}
             title={needsYouEmptyTitle(sources)}
-            // The title already says nothing needs you / can't tell; the body names only what failed to load.
-            {...(phrase !== '' && { description: unknownSentence(phrase) + '.' })}
+            {...(emptyBody !== null && { description: emptyBody })}
           />
         ) : (
           shown.map((decision, i) => (

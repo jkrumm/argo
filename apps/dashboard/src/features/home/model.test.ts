@@ -20,6 +20,7 @@ import {
   feedEmptyLine,
   homeSummaryParts,
   classifySources,
+  needsYouEmptyBody,
   needsYouEmptyTitle,
   sourceStatus,
   unknownSentence,
@@ -879,5 +880,28 @@ describe('laterMeeting', () => {
 
   it('is null when nothing follows today', () => {
     expect(laterMeeting([{ sourceClass: 'work', events: [] }], NOW)).toBeNull()
+  })
+})
+
+describe('needsYouEmptyBody', () => {
+  const ok = { unavailable: [], loading: [] }
+  it('is null when the title already says it', () => {
+    expect(needsYouEmptyBody(ok)).toBeNull()
+    expect(needsYouEmptyBody({ unavailable: [], loading: ['Warden', 'Agents'] })).toBeNull()
+    expect(needsYouEmptyBody({ ...ok, noSnapshot: ['Warden', 'Agents'] })).toBeNull()
+  })
+  it('names the sources a partial list is missing', () => {
+    expect(needsYouEmptyBody({ unavailable: ['Agents'], loading: [] })).toBe(
+      'Agents failed to load.',
+    )
+    expect(needsYouEmptyBody({ unavailable: [], loading: ['Warden'] })).toBe('Warden loading.')
+    expect(needsYouEmptyBody({ ...ok, noSnapshot: ['Agents'] })).toBe(
+      'No snapshot yet from Agents.',
+    )
+  })
+  it('spells out a mix the "Can\'t tell" title cannot', () => {
+    expect(needsYouEmptyBody({ unavailable: ['Warden'], loading: ['Agents'] })).toBe(
+      'Warden failed to load, Agents loading.',
+    )
   })
 })
