@@ -292,3 +292,7 @@ No basalt gaps this round.
 - **Shared DecisionCard (see `home.md` / `warden.md` § "Wave 40 round"):** identifiers whole in questions, `waiting` glued to its duration (the agents card's own wording too), facts line breaking only before its `·`.
 - **Re-score (`w40-r1` fail → `w40-r2` pass):** `w40-r2` pass, no truncation at either width, quiet list whole. Unverified: the glued `waiting` (every card on screen was a human-queue ask). Basalt (carried): the activity-strip focus readout over its legend, the 390 oldest-wait meter dropping `abandoned at 7 d`, hover identical to rest. Against Keel: close — Keel's inner cells each carry a micro-visual, ours are text readings.
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** fail on basalt only (all P2/P3). No regression vs `w40-r2`, no truncation; `ago` wraps alone on project-card-4 at 1440 (the accepted trade-off). New (argo, P3): a long live `Now` title ellipsizes at 1440 (whole at 390). Carried (basalt): the activity-strip focus readout over its legend, the 390 oldest-wait meter dropping `abandoned at 7 d` (2.26's zone-name fit did not reach it), hover = rest.
+
+### Wave 41 round
+
+- **Fixed (argo):** the project card's `Now` / `Waiting` title wraps instead of ellipsizing (dropped `truncate`). The `.now` row is a flex row, so the label stays on the first line and a wrapped title hangs under itself; no `lineClamp`, nothing else on the page uses one. No lost fact.

@@ -61,7 +61,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           <Text size="sm" c="dimmed" span>
             {waiting > 0 && running === 0 ? 'Waiting' : 'Now'}
           </Text>
-          <Text size="sm" span truncate>
+          <Text size="sm" span>
             {group.now ?? (waiting > 0 ? 'on you' : 'working')}
           </Text>
         </>
