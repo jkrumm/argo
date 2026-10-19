@@ -957,6 +957,6 @@ describe('recordAiUsage() — DB integration', () => {
     expect(row.output_tokens).toBe(200)
     expect(row.reasoning_tokens).toBe(50)
     // 700 uncached @ $0.50 + 300 cached @ $0.05 + 200 output @ $1.50, per 1M tokens
-    expect(row.cost_usd).toBeCloseTo((700 * 0.5 + 300 * 0.05 + 200 * 1.5) / 1_000_000, 10)
+    expect(row.cost_usd).toBeCloseTo((700 * 0.3 + 300 * 0.006 + 200 * 1.2) / 1_000_000, 10)
   })
 })
