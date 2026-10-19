@@ -232,7 +232,7 @@ export function windowDayCount(
 
 /**
  * The window's first and last day keys: an open start runs from `first` (the earliest point), a
- * start before `floor` is clipped; the end is `dateTo` (open: `lastVisible`) but never past
+ * start before `floor` is clipped (open or not) and never passes the end; the end is `dateTo` (open: `lastVisible`) but never past
  * `lastVisible`, so a hidden or future day is never drawn as an empty one.
  */
 export function windowSpan(
@@ -241,9 +241,10 @@ export function windowSpan(
   first: string,
   lastVisible: string,
 ): { from: string; to: string } {
-  const from =
-    range.dateFrom === undefined ? first : range.dateFrom > floor ? range.dateFrom : floor
   const to = range.dateTo === undefined || range.dateTo > lastVisible ? lastVisible : range.dateTo
+  const start = range.dateFrom ?? first
+  const clipped = start > floor ? start : floor
+  const from = clipped > to ? to : clipped
   return { from, to }
 }
 

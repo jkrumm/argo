@@ -737,6 +737,27 @@ describe('windowSpan', () => {
     ).toEqual({ from: '2026-04-15', to: '2026-04-20' })
   })
 
+  test('the open-start branch clips at the floor too', () => {
+    expect(windowSpan({}, '2026-04-15', '2026-04-01', last).from).toBe('2026-04-15')
+  })
+
+  test('from never passes to: a custom start after the last visible day collapses onto it', () => {
+    expect(windowSpan({ dateFrom: '2026-10-18' }, '2026-04-15', '2026-09-02', last)).toEqual({
+      from: last,
+      to: last,
+    })
+  })
+
+  test('the day count follows the clamped span, before the cutoff and with a future dateTo', () => {
+    const count = (range: { dateFrom?: string; dateTo?: string }, lastVisible: string) => {
+      const { from, to } = windowSpan(range, '2026-04-15', '2026-10-01', lastVisible)
+      return dayKeysBetween(from, to).length
+    }
+    // Before 22:00 on the 18th the axis ends on the 17th: Oct 11–17 is 7 days, not 8.
+    expect(count({ dateFrom: '2026-10-11' }, lastVisibleDay(new Date(2026, 9, 18, 9)))).toBe(7)
+    expect(count({ dateFrom: '2026-10-11', dateTo: '2099-01-01' }, last)).toBe(7)
+  })
+
   test('the end never passes the last visible day, even for a far-future dateTo', () => {
     expect(windowSpan({ dateTo: '9999-12-31' }, '2026-04-15', '2026-09-02', last).to).toBe(last)
   })
