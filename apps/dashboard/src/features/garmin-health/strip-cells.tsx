@@ -31,6 +31,10 @@ import {
   vo2Hero,
   contributorItems,
   firstToLast,
+  fittedChange,
+  FITNESS_HRV_SLOPE_THRESHOLD,
+  FITNESS_RHR_SLOPE_THRESHOLD,
+  recoveryBasis,
   lastScored,
   missingInputs,
   recoveryGap,
@@ -57,21 +61,30 @@ import { applyVisibilityFilter } from './visibility'
 function ContributorRows({
   label,
   rows,
+  basis,
   loading,
 }: {
   label: string
   rows: ReturnType<typeof contributorItems>
+  basis: string | null
   loading: boolean
 }) {
   if (loading) return <Meter label={label} loading />
   return (
-    <BarList
-      label={label}
-      variant="thin"
-      items={rows}
-      format={(v, part) => (part === 'max' ? `${v} pts` : v.toFixed(1))}
-      emptyText="No contributors measured"
-    />
+    <>
+      <BarList
+        label={label}
+        variant="thin"
+        items={rows}
+        format={(v, part) => (part === 'max' ? `${v} pts` : v.toFixed(1))}
+        emptyText="No contributors measured"
+      />
+      {basis !== null && (
+        <Text size="xs" c="dimmed">
+          {basis}
+        </Text>
+      )}
+    </>
   )
 }
 
@@ -148,6 +161,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
               <ContributorRows
                 label="Recovery contributors, points of their weight"
                 rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
+                basis={score === null || !data ? null : recoveryBasis(data.components)}
                 loading={summary.isPending}
               />
             </>
@@ -235,8 +249,10 @@ type SignalSpec = {
   period: string
   /** The hero already shows the reading, so the value column names the span instead. */
   hideValue?: boolean
-  /** The API's 14 d delta when it has one, else last minus first of the same window. */
+  /** The change the row prints: the fitted slope change for RHR/HRV, last minus first for VO2max. */
   delta: number | null
+  /** A change inside its threshold: printed plain, not as a good or bad move. */
+  neutral?: boolean
 }
 
 /** One reading with its unit kept together; a missing day (null or the sparkline's NaN gap) is `—`. */
@@ -271,9 +287,13 @@ function signalRow(spec: SignalSpec): StatStripRow {
         </Text>
       ),
     delta:
-      spec.delta === null || spec.delta === 0 ? (
+      spec.delta === null || spec.delta === 0 || spec.neutral === true ? (
         <Text size="xs" c="dimmed">
-          {spec.delta === 0 ? 'unchanged' : '—'}
+          {spec.delta === null
+            ? '—'
+            : spec.delta === 0
+              ? 'unchanged'
+              : `${signed(spec.delta, spec.digits)} ${spec.deltaUnit} · flat`}
         </Text>
       ) : (
         <DeltaBadge
@@ -326,6 +346,17 @@ function useFitnessCell(): StatStripCell {
   }, [seriesData])
 
   const d = empty ? undefined : direction.data
+  // The label is computed from the fitted slopes, so the rows print the change they fit.
+  const rhrFit = fittedChange({
+    slope: d?.rhrSlope,
+    points: rows.dates.length,
+    threshold: FITNESS_RHR_SLOPE_THRESHOLD,
+  })
+  const hrvFit = fittedChange({
+    slope: d?.hrvSlope,
+    points: rows.dates.length,
+    threshold: FITNESS_HRV_SLOPE_THRESHOLD,
+  })
   // No reading in any read: one line with cause and next step (the neighbours' wording), not a hero,
   // a qualifier and three rows of dashes. A pending or placeholder read is not a gap.
   const reads = [direction, series, history]
@@ -367,7 +398,8 @@ function useFitnessCell(): StatStripCell {
         period: slope(FITNESS_DAYS),
         values: rows.rhr,
         dates: rows.dates,
-        delta: d?.rhrDelta ?? null,
+        delta: rhrFit?.value ?? null,
+        neutral: rhrFit?.neutral ?? false,
       }),
       signalRow({
         label: 'HRV',
@@ -378,7 +410,8 @@ function useFitnessCell(): StatStripCell {
         period: slope(FITNESS_DAYS),
         values: rows.hrv,
         dates: rows.dates,
-        delta: d?.hrvDelta ?? null,
+        delta: hrvFit?.value ?? null,
+        neutral: hrvFit?.neutral ?? false,
       }),
       signalRow({
         label: 'VO2max',
