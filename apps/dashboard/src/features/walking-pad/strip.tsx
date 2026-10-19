@@ -80,14 +80,16 @@ function useWeekCell(): StatStripCell {
         emptyText="No data this week"
       />
     ),
-    // `StatStripCell` has no caption-line action slot: the target control rides the footer, inline and NBSP-glued to its text so a wrap never strands it.
-    footer: (
-      <Box>
-        {footerText}
-        {footerText !== null && NBSP}
-        <TargetPopover />
-      </Box>
-    ),
+    // `StatStripCell` has no caption-line action slot: the target control rides the footer,
+    // inline and NBSP-glued to its text so a wrap never strands it.
+    footer:
+      footerText === null ? null : (
+        <Box>
+          {footerText}
+          {NBSP}
+          <TargetPopover />
+        </Box>
+      ),
   }
 }
 
