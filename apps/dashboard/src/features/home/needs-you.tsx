@@ -50,14 +50,14 @@ function Card({ decision }: { decision: Decision }) {
   }
   const copy = useCopyAction(COPY_LABEL[decision.source], decision.evidence)
   const actions = actionsFor(decision.source, open, copy)
-  const view = historyView(decision.history)
+  const view = historyView(decision.history, 'leading')
   return (
     <DecisionCard
       question={decision.headline}
       facts={decision.facts}
       evidenceLine={decision.evidenceLine}
       subject={decision.entity}
-      {...(view !== null && { preview: <HistoryPreview view={view} leadingArrow /> })}
+      {...(view !== null && { preview: <HistoryPreview view={view} /> })}
       {...(view?.layout === 'inline' && { previewPlacement: 'inline' as const })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(decision.detail !== null && {

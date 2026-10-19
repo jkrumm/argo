@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { NBSP, withUnit } from '../../lib/format'
+import { NBSP, glue, withUnit } from '../../lib/format'
 import { Box, Text } from '@mantine/core'
 import { DayAxis } from './strip-visuals'
 import { Meter, type StatStripCell } from 'basalt-ui'
@@ -314,7 +314,7 @@ export function recoveryCaption({
 }
 
 /** The pre-sync fact the tile's figures cannot state: they show a previous day, and today has no score yet. */
-export const TODAY_UNSCORED = `No score for today yet`.replaceAll(' ', NBSP)
+const TODAY_UNSCORED = glue('No score for today yet')
 
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(

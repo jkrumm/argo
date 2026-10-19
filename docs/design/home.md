@@ -227,5 +227,5 @@ Follow-up (w30-r1):
 ### Wave 39 round
 
 - **Fixed (argo):** the recovery cell in the pre-sync gap states `No score for today yet — Garmin syncs every 6 h` again (one clause from the shared `Garmin syncs every …` cadence, which is not repeated); the figure still names its own day. No lost fact.
-- **Fixed (argo):** Home's `Latest changes` row moves the break in front of the arrow (`HistoryPreview leadingArrow`: `A → B`), so a wrapped line starts with `→ B` and never ends on a bare `→`; Warden's own history still breaks only after `→` or before `· {age}`. No lost fact.
+- **Fixed (argo):** Home's `Latest changes` row moves the break in front of the arrow (`historyView(history, 'leading')`: `A → B`), so a wrapped line starts with `→ B` and never ends on a bare `→`; Warden's own history still breaks only after `→` or before `· {age}`. No lost fact.
 - **Fixed (argo):** the meeting cell footer glues `·` to both neighbours with NBSP, so no line ends or starts on it at 390. No lost fact.
