@@ -581,7 +581,8 @@ export function recoveryBasis(components: Components): string | null {
   const present = RECOVERY_INPUTS.filter((i) => !missing.includes(i))
   if (present.length === 0) return null
   const lead = join(missing)
-  // NBSP before the dash keeps a wrapped line from opening on it; NBSP before `only` keeps it off a line of its own.
+  // NBSP before the dash keeps a wrapped line from opening on it;
+  // NBSP before `only` keeps it off a line of its own.
   return `${lead.charAt(0).toUpperCase()}${lead.slice(1)} not scored${NBSP}— score from ${join(present)}${NBSP}only`
 }
 

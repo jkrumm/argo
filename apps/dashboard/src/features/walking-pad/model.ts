@@ -77,10 +77,7 @@ export function fmtDuration(seconds: number): string {
   return `${h}${NBSP}h${NBSP}${String(m).padStart(2, '0')}${NBSP}min`
 }
 
-/**
- * Facts joined by `·` that break only BEFORE the dot: the dot is glued to the fact after it, so a
- * wrapped line opens on `· {fact}` and never ends on a bare `·` (the rule Warden's facts line settled).
- */
+/** Facts joined by `·` that break only before the dot: it is glued to the fact after it, so no line ends on `·`. */
 export const joinFacts = (facts: readonly string[]): string => facts.join(` ·${NBSP}`)
 
 const plural = (n: number, one: string, many = `${one}s`): string => (n === 1 ? one : many)
