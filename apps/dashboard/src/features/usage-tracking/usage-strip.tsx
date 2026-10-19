@@ -140,8 +140,9 @@ function compare({
   }
 }
 
-function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
-  const mean = meanOf(cost.days.map((d) => d.value))
+function costCell({ h, loading, now }: Ctx, cost: Series): StatStripCell {
+  const full = fullDays(cost.days, now)
+  const mean = meanOf(full.map((d) => d.value))
   const vs = compare({
     h,
     current: h?.costUsd30d,
@@ -168,17 +169,18 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
     ),
     footer: footerOf([
       meanLine(mean === null ? null : `${fmtUsdWhole(mean)} a day`),
-      peakLine(cost.days, fmtUsdWhole),
+      peakLine(full, fmtUsdWhole),
       vs.note,
     ]),
   }
 }
 
-function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
+function tokensCell({ h, loading, now }: Ctx, tokens: Series): StatStripCell {
   const qty = tokensQuantity(h?.tokens30d)
-  const mean = meanOf(tokens.days.map((d) => d.value))
+  const full = fullDays(tokens.days, now)
+  const mean = meanOf(full.map((d) => d.value))
   // Mean and peak are compared by eye: one magnitude, taken from the larger of the two.
-  const perDay = tokensFormatterFor(Math.max(mean ?? 0, peakOf(tokens.days)?.value ?? 0))
+  const perDay = tokensFormatterFor(Math.max(mean ?? 0, peakOf(full)?.value ?? 0))
   const vs = compare({
     h,
     current: h?.tokens30d,
@@ -206,7 +208,7 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
     ),
     footer: footerOf([
       meanLine(mean === null ? null : `${perDay(mean)} a day`),
-      peakLine(tokens.days, perDay),
+      peakLine(full, perDay),
       vs.note,
     ]),
   }
