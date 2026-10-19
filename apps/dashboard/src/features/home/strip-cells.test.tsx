@@ -156,7 +156,7 @@ describe('recovery cell window wording', () => {
 })
 
 describe('recovery footer breaks', () => {
-  it('glues only number and unit and the dot to the fact after it, so the break falls before the dot', () => {
+  it('glues the footer dot to the following fact', () => {
     const footer = recoveryFooter(reading({ mean: 60, days: 5, isToday: true }))
     // Every regular space sits between phrases or words; no digit is stranded from its unit.
     expect(footer.split(' ')).toEqual(['7\u00a0d', 'mean\u00a060', '·\u00a05/7\u00a0d', 'observed'])

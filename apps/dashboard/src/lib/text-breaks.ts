@@ -1,3 +1,7 @@
+/**
+ * Line-break rules for rendered copy, in three groups: identifier boundaries (where a long token may
+ * break), the fact separator (`·` breaks before the dot, never after), and number→unit glue.
+ */
 import { NBSP } from './format'
 
 /** The characters that join the parts of an identifier-like token (`a.b`, `a/b`, `a_b`, `a-b`); `::` joins too. */
