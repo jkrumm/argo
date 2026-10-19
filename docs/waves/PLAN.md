@@ -2448,6 +2448,19 @@ wave before a pause for the owner's weekly limit: one round, no scope beyond the
 - **Shots:** `.design-shots/w44-{a,b}` (0 failed; gitignored), shot with `--base https://argo.jkrumm.com`, auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 
+## Wave 44 — Garmin: one date axis on ACWR <!-- status: active -->
+
+The last open P1 on the last failing page: Garmin's ACWR card draws its date axis twice, because the ratio line chart is
+stacked over the delta bars and both carry `xTicks` (`apps/dashboard/src/features/garmin-health/charts/acwr-chart.tsx`, the
+two `xTicks={xTicks}` props). The basalt lead's reading (basalt `mother.md`): the upper chart drops its axis with `xTicks={[]}`.
+This is argo's composition, not a basalt row. Last wave before the owner's weekly-limit pause: one change, one round.
+
+- [ ] Keep one date axis on the ACWR card (the lower chart, the one at the card's bottom edge), confirm the two plots still
+      share the x domain so the days line up, and add a test if the chart module has one. Check/test green, direct to master.
+- [ ] Once the served bundle carries it (and not before): re-shoot Garmin with `basalt-ui shot` (1440 / 390, both schemes)
+      and re-score it with a fresh `basalt-design-reviewer` given the w44 shots + Keel. A pass makes argo 14 of 14.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
