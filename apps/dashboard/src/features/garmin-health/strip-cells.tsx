@@ -31,10 +31,10 @@ import {
   vo2Hero,
   contributorItems,
   firstToLast,
-  fittedChange,
-  FITNESS_HRV_SLOPE_THRESHOLD,
-  FITNESS_RHR_SLOPE_THRESHOLD,
+  fitnessRowDelta,
+  moveDelta,
   recoveryBasis,
+  type RowDelta,
   lastScored,
   missingInputs,
   recoveryGap,
@@ -109,6 +109,8 @@ function LoadRows({
   )
 }
 
+const NO_COMPONENTS = { hrv: null, sleep: null, rhr: null }
+
 function useRecoveryCell(params: SummaryParams): StatStripCell {
   const summary = useQuery(recoveryQueries.summary(params))
   const series = useQuery(recoveryQueries.series(params))
@@ -160,7 +162,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
               />
               <ContributorRows
                 label="Recovery contributors, points of their weight"
-                rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
+                rows={contributorItems(data?.components ?? NO_COMPONENTS)}
                 basis={score === null || !data ? null : recoveryBasis(data.components)}
                 loading={summary.isPending}
               />
@@ -249,15 +251,41 @@ type SignalSpec = {
   period: string
   /** The hero already shows the reading, so the value column names the span instead. */
   hideValue?: boolean
-  /** The change the row prints: the fitted slope change for RHR/HRV, last minus first for VO2max. */
-  delta: number | null
-  /** A change inside its threshold: printed plain, not as a good or bad move. */
-  neutral?: boolean
+  /** What the delta column prints; built by `fitnessRowDelta` / `moveDelta`. */
+  delta: RowDelta
 }
 
 /** One reading with its unit kept together; a missing day (null or the sparkline's NaN gap) is `—`. */
 function reading(spec: Pick<SignalSpec, 'digits' | 'unit'>, v: number | null): string {
   return v === null || !Number.isFinite(v) ? '—' : withUnit(v.toFixed(spec.digits), spec.unit)
+}
+
+function deltaCell(spec: SignalSpec): StatStripRow['delta'] {
+  const { delta } = spec
+  if (delta.kind === 'move') {
+    return (
+      <DeltaBadge
+        value={delta.value}
+        polarity={spec.polarity}
+        format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
+        withGlyph
+        period={spec.period}
+        periodPrefix=""
+      />
+    )
+  }
+  const text = {
+    none: '—',
+    unchanged: 'unchanged',
+    flat: 'flat',
+    plain:
+      delta.kind === 'plain' ? `${signed(delta.value, spec.digits)} ${spec.deltaUnit}`.trim() : '',
+  }[delta.kind]
+  return (
+    <Text size="xs" c="dimmed">
+      {text}
+    </Text>
+  )
 }
 
 function signalRow(spec: SignalSpec): StatStripRow {
@@ -286,25 +314,7 @@ function signalRow(spec: SignalSpec): StatStripRow {
           {present.length > 1 ? 'unchanged' : '—'}
         </Text>
       ),
-    delta:
-      spec.delta === null || spec.delta === 0 || spec.neutral === true ? (
-        <Text size="xs" c="dimmed">
-          {spec.delta === null
-            ? '—'
-            : spec.delta === 0
-              ? 'unchanged'
-              : `${signed(spec.delta, spec.digits)} ${spec.deltaUnit} · flat`}
-        </Text>
-      ) : (
-        <DeltaBadge
-          value={spec.delta}
-          polarity={spec.polarity}
-          format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
-          withGlyph
-          period={spec.period}
-          periodPrefix=""
-        />
-      ),
+    delta: deltaCell(spec),
   }
 }
 
@@ -346,17 +356,6 @@ function useFitnessCell(): StatStripCell {
   }, [seriesData])
 
   const d = empty ? undefined : direction.data
-  // The label is computed from the fitted slopes, so the rows print the change they fit.
-  const rhrFit = fittedChange({
-    slope: d?.rhrSlope,
-    points: rows.dates.length,
-    threshold: FITNESS_RHR_SLOPE_THRESHOLD,
-  })
-  const hrvFit = fittedChange({
-    slope: d?.hrvSlope,
-    points: rows.dates.length,
-    threshold: FITNESS_HRV_SLOPE_THRESHOLD,
-  })
   // No reading in any read: one line with cause and next step (the neighbours' wording), not a hero,
   // a qualifier and three rows of dashes. A pending or placeholder read is not a gap.
   const reads = [direction, series, history]
@@ -398,8 +397,11 @@ function useFitnessCell(): StatStripCell {
         period: slope(FITNESS_DAYS),
         values: rows.rhr,
         dates: rows.dates,
-        delta: rhrFit?.value ?? null,
-        neutral: rhrFit?.neutral ?? false,
+        delta: fitnessRowDelta({
+          change: d?.rhrChange ?? null,
+          flat: d?.rhrFlat ?? null,
+          delta: d?.rhrDelta ?? null,
+        }),
       }),
       signalRow({
         label: 'HRV',
@@ -410,8 +412,11 @@ function useFitnessCell(): StatStripCell {
         period: slope(FITNESS_DAYS),
         values: rows.hrv,
         dates: rows.dates,
-        delta: hrvFit?.value ?? null,
-        neutral: hrvFit?.neutral ?? false,
+        delta: fitnessRowDelta({
+          change: d?.hrvChange ?? null,
+          flat: d?.hrvFlat ?? null,
+          delta: d?.hrvDelta ?? null,
+        }),
       }),
       signalRow({
         label: 'VO2max',
@@ -423,7 +428,7 @@ function useFitnessCell(): StatStripCell {
         hideValue: true,
         values: vo2.values,
         dates: vo2.dates,
-        delta: firstToLast(vo2.values),
+        delta: moveDelta(firstToLast(vo2.values)),
       }),
     ],
   }

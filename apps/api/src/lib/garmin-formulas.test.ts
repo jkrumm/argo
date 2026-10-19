@@ -241,6 +241,142 @@ describe('fitnessDirection', () => {
   })
 })
 
+describe('fitnessDirection change + flat', () => {
+  const series = (
+    n: number,
+    rhr: (i: number) => number | null,
+    hrv: (i: number) => number | null,
+  ) =>
+    Array.from({ length: n }, (_, i) => ({
+      date: `2025-01-${String(i + 1).padStart(2, '0')}`,
+      restingHr: rhr(i),
+      hrv: hrv(i),
+      vo2Max: null,
+    }))
+
+  it('change is the slope times the span of the slice', () => {
+    const r = fitnessDirection(
+      series(
+        14,
+        (i) => 60 - i * 0.5,
+        (i) => 30 + i * 2,
+      ),
+    )
+    expect(r.rhrChange).toBe(-6.5)
+    expect(r.hrvChange).toBe(26)
+    expect(r.rhrFlat).toBe(false)
+    expect(r.hrvFlat).toBe(false)
+  })
+
+  it('flat follows the label comparison at the RHR threshold (0.05 bpm/d)', () => {
+    expect(
+      fitnessDirection(
+        series(
+          14,
+          (i) => 60 + i * 0.05,
+          () => 50,
+        ),
+      ).rhrFlat,
+    ).toBe(true)
+    expect(
+      fitnessDirection(
+        series(
+          14,
+          (i) => 60 + i * 0.0501,
+          () => 50,
+        ),
+      ).rhrFlat,
+    ).toBe(false)
+    expect(
+      fitnessDirection(
+        series(
+          14,
+          (i) => 60 - i * 0.0501,
+          () => 50,
+        ),
+      ).rhrFlat,
+    ).toBe(false)
+    expect(
+      fitnessDirection(
+        series(
+          14,
+          (i) => 60 - i * 0.05,
+          () => 50,
+        ),
+      ).rhrFlat,
+    ).toBe(true)
+  })
+
+  it('flat follows the label comparison at the HRV threshold (0.1 ms/d)', () => {
+    expect(
+      fitnessDirection(
+        series(
+          14,
+          () => 55,
+          (i) => 50 + i * 0.1,
+        ),
+      ).hrvFlat,
+    ).toBe(true)
+    expect(
+      fitnessDirection(
+        series(
+          14,
+          () => 55,
+          (i) => 50 + i * 0.1001,
+        ),
+      ).hrvFlat,
+    ).toBe(false)
+    expect(
+      fitnessDirection(
+        series(
+          14,
+          () => 55,
+          (i) => 50 - i * 0.1001,
+        ),
+      ).hrvFlat,
+    ).toBe(false)
+  })
+
+  it('a flat slope agrees with a Stable label', () => {
+    const r = fitnessDirection(
+      series(
+        14,
+        (i) => 60 + i * 0.04,
+        (i) => 50 + i * 0.05,
+      ),
+    )
+    expect(r.rhrFlat).toBe(true)
+    expect(r.hrvFlat).toBe(true)
+    expect(r.signal).toBe('stable')
+  })
+
+  it('a gappy slice spans first to last valid reading, not the slice length', () => {
+    // Valid on days 2..11 only (x = 2..11): slope -1 → change -9, not -13.
+    const r = fitnessDirection(
+      series(
+        14,
+        (i) => (i >= 2 && i <= 11 ? 60 - (i - 2) : null),
+        () => null,
+      ),
+    )
+    expect(r.rhrChange).toBe(-9)
+    expect(r.rhrDelta).toBe(-9)
+  })
+
+  it('under 3 readings: no change, no flat, delta stays', () => {
+    const r = fitnessDirection(
+      series(
+        14,
+        (i) => (i < 2 ? 60 + i : null),
+        () => null,
+      ),
+    )
+    expect(r.rhrChange).toBeNull()
+    expect(r.rhrFlat).toBeNull()
+    expect(r.rhrDelta).toBe(1)
+  })
+})
+
 describe('helpers', () => {
   it('percentile (nearest-rank)', () => {
     expect(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.9)).toBe(9)

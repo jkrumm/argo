@@ -13,8 +13,40 @@ const FitnessDirectionResponseSchema = z.object({
   color: z.string(),
   rhrSlope: z.number().nullable(),
   hrvSlope: z.number().nullable(),
-  rhrDelta: z.number().nullable(),
-  hrvDelta: z.number().nullable(),
+  rhrChange: z
+    .number()
+    .nullable()
+    .describe(
+      'Fitted RHR change in bpm over the span of the 14-day slice (slope × days between first and last reading); the change the label is computed from. Null with fewer than 3 readings.',
+    ),
+  hrvChange: z
+    .number()
+    .nullable()
+    .describe(
+      'Fitted HRV change in ms over the span of the 14-day slice (slope × days between first and last reading); the change the label is computed from. Null with fewer than 3 readings.',
+    ),
+  rhrFlat: z
+    .boolean()
+    .nullable()
+    .describe(
+      'True when the RHR slope is inside ±0.05 bpm/day and so does not move the label. Null with fewer than 3 readings.',
+    ),
+  hrvFlat: z
+    .boolean()
+    .nullable()
+    .describe(
+      'True when the HRV slope is inside ±0.10 ms/day and so does not move the label. Null with fewer than 3 readings.',
+    ),
+  rhrDelta: z
+    .number()
+    .nullable()
+    .describe(
+      'Last valid RHR reading minus the first in the slice, in bpm. Not the fitted change.',
+    ),
+  hrvDelta: z
+    .number()
+    .nullable()
+    .describe('Last valid HRV reading minus the first in the slice, in ms. Not the fitted change.'),
   vo2max: z.number().nullable(),
 })
 
