@@ -6,6 +6,7 @@ import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
+import { applyVisibilityFilter } from '../garmin-health/visibility'
 import { leadOf, subjectOf } from '../../lib/question-copy'
 import { CANCELLED_PREFIX } from '../calendar/derive'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
@@ -254,19 +255,23 @@ export type RecoveryReading = {
 }
 
 /**
- * Home's recovery series: the visibility-filtered window (default `hideToday` rule), plus today's
- * row when it carries a score. Recovery locks overnight, so a scored today must end the trend on
- * the headline's day; an unscored today is dropped, which leaves the pre-sync gap's window as is.
+ * Home's recovery series from date-ascending `points`: the visibility-filtered window (default
+ * `hideToday` rule) with an unscored today dropped, plus today's row appended when it carries a
+ * score the filter hid. Recovery locks overnight, so a scored today ends the trend on the
+ * headline's day; the pre-sync gap's window is otherwise unchanged.
  */
 export function recoveryWindow<T extends { date: string; recovery: number | null }>(
   points: readonly T[],
-  visible: readonly T[],
   now: number,
 ): T[] {
   const today = localKey(now)
-  if (visible.some((p) => p.date === today)) return [...visible]
-  const scoredToday = points.find((p) => p.date === today && isNum(p.recovery))
-  return scoredToday ? [...visible, scoredToday] : [...visible]
+  const visible = applyVisibilityFilter(points, (p) => p.date).filter(
+    (p) => p.date !== today || isNum(p.recovery),
+  )
+  const hidden = visible.some((p) => p.date === today)
+    ? undefined
+    : points.find((p) => p.date === today && isNum(p.recovery))
+  return hidden ? [...visible, hidden] : visible
 }
 
 export function recoveryReading(

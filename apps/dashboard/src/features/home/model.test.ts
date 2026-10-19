@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, setSystemTime } from 'bun:test'
 
 // A zone with DST, so the day-boundary tests exercise a 23 h day whatever the machine's own zone.
 process.env.TZ = 'Europe/Berlin'
+import { lastScored } from '../garmin-health/model'
 import {
   acwrReading,
   countdownLabel,
@@ -350,25 +351,49 @@ describe('taskCounts', () => {
 })
 
 describe('recoveryWindow', () => {
-  const y = { date: '2026-01-14', recovery: 60 }
-  const scored = { date: '2026-01-15', recovery: 70 }
-  const unscored = { date: '2026-01-15', recovery: null }
+  // The visibility filter reads the clock itself: noon is before the hide-today cutoff, 23:00 after.
+  const REAL_NOW = Date.now()
+  const EARLY = new Date(2026, 5, 15, 12, 0)
+  const LATE = new Date(2026, 5, 15, 23, 0)
+  const y = { date: '2026-06-14', recovery: 60 }
+  const scored = { date: '2026-06-15', recovery: 70 }
+  const unscored = { date: '2026-06-15', recovery: null }
+  const early = EARLY.getTime()
 
-  it('keeps a scored today the visibility filter hid', () => {
-    expect(recoveryWindow([y, scored], [y], NOW)).toEqual([y, scored])
+  beforeEach(() => setSystemTime(EARLY))
+  afterEach(() => setSystemTime(new Date(REAL_NOW)))
+
+  it('appends a scored today the filter hid, last', () => {
+    expect(recoveryWindow([y, scored], early)).toEqual([y, scored])
   })
-  it('drops an unscored today: the pre-sync window is unchanged', () => {
-    expect(recoveryWindow([y, unscored], [y], NOW)).toEqual([y])
+  it('drops an unscored today', () => {
+    expect(recoveryWindow([y, unscored], early)).toEqual([y])
+    setSystemTime(LATE)
+    expect(recoveryWindow([y, unscored], LATE.getTime())).toEqual([y])
   })
-  it('leaves a window that already shows today alone', () => {
-    expect(recoveryWindow([y, scored], [y, scored], NOW)).toEqual([y, scored])
+  it('keeps a visible scored today once', () => {
+    setSystemTime(LATE)
+    expect(recoveryWindow([y, scored], LATE.getTime())).toEqual([y, scored])
+  })
+  it('keeps a recovery of 0', () => {
+    const zero = { date: '2026-06-15', recovery: 0 }
+    expect(recoveryWindow([y, zero], early)).toEqual([y, zero])
+  })
+  it('returns [today] when only today is scored and hidden', () => {
+    expect(recoveryWindow([scored], early)).toEqual([scored])
   })
   it('ends trend, mean and last scored day on the headline day', () => {
-    const win = recoveryWindow([y, scored], [y], NOW)
-    const r = recoveryReading({ recovery: 70, ceiling: null, date: '2026-01-15' }, win, NOW)
+    const win = recoveryWindow([y, scored], early)
+    const r = recoveryReading(
+      { recovery: 70, ceiling: null, date: '2026-06-15' },
+      win,
+      early,
+      lastScored(win),
+    )
     expect(r.trend).toEqual([60, 70])
     expect(r.mean).toBe(65)
     expect(r.isToday).toBe(true)
+    expect(r.last).toEqual({ value: 70, date: '2026-06-15' })
   })
 })
 
