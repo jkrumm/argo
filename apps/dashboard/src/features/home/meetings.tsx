@@ -34,6 +34,7 @@ function MeetingRow({ meeting, now }: { meeting: Meeting; now: number }) {
       start={clock(meeting.startMs)}
       durationMin={meeting.durationMin}
       title={meeting.title}
+      titleLines={2}
       meta={meta(meeting)}
       past={state === 'past'}
       {...(pill !== undefined && { pill })}

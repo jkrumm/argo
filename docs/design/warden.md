@@ -283,3 +283,7 @@ Follow-up (w30-r2):
 - **Reviewer (`w37-r1`):** fail on basalt only (the `no-snapshot` `Code` radius 3). New (argo, P3, data-dependent): a card read `waiting 1 d` beside its own history line `{22} h {53} min ago` — fixed in #163. Harness: the 1440 and 390 board shots were taken on different live data. Carried (basalt): info tooltips over neighbouring cells, the stranded `all time`, decision-card hover identical to rest.
 - **Re-score `w37-r2` (after #163):** fail on basalt only. Fixed (confirmed): every decision and failed card's `waiting …` matches its history line in one form at 1440 and 390. Carried (argo / harness, P3): at 390 the board crop shows only `No item being worked on.` while 1440 has items in Merging; the column selector sits outside the anchor. No regression, no lost fact.
 - **Against Keel:** close — Keel's Needs-your-call anatomy; the remaining gap is the frozen question rung (titles are a verb prefix plus a raw alert key).
+
+### Wave 38 round (`w38-schedule-clamp-optin`)
+
+- **History breaks between states:** each state name in a history line is one unbreakable unit (`Needs decision` glued with NBSP) and the arrow stays with the word before it, so a wrapped line breaks only after `→` or before the glued `· {age}`, never inside a state name (`Merging →` / `Needs decision · 2 d 1 h ago`). Fixes the w38-r3 P3 left by #175. No lost fact.

@@ -1009,8 +1009,11 @@ describe('historyLineWithAge', () => {
 describe('transitionText and historyView', () => {
   it('names a creation row and a move whole', () => {
     expect(transitionText({ from: null, to: 'new', at: null })).toBe('Created')
+    expect(transitionText({ from: null, to: 'needs_decision', at: null })).toBe(
+      'Created\u00a0→ Needs\u00a0decision',
+    )
     expect(transitionText({ from: 'needs_decision', to: 'working', at: null })).toBe(
-      'Needs decision\u00a0→\u00a0Working',
+      'Needs\u00a0decision\u00a0→ Working',
     )
   })
 
@@ -1030,10 +1033,7 @@ describe('transitionText and historyView', () => {
     )
     const view = historyView(many)
     expect(view?.layout).toBe('well')
-    expect(view?.lines.map((l) => l.text)).toEqual([
-      'Triaged\u00a0→\u00a0Working',
-      'New\u00a0→\u00a0Triaged',
-    ])
+    expect(view?.lines.map((l) => l.text)).toEqual(['Triaged\u00a0→ Working', 'New\u00a0→ Triaged'])
     expect(view?.earlier).toBe(3)
   })
 

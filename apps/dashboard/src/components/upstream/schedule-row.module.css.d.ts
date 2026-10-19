@@ -10,6 +10,7 @@ declare const classes: {
   readonly duration: string
   readonly body: string
   readonly title: string
+  readonly titleTwoLines: string
   readonly meta: string
   readonly trailing: string
   readonly pill: string
