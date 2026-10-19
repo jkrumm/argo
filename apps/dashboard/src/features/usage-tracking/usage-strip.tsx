@@ -215,7 +215,7 @@ function tokensCell({ h, loading, now }: Ctx, tokens: Series): StatStripCell {
   }
 }
 
-function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
+function errorsCell({ h, loading, now }: Ctx, errors: Series): StatStripCell {
   const vs =
     h === undefined
       ? { value: null, note: EM_DASH }
@@ -237,7 +237,7 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
     loading,
     visual:
       errors.days.length > 0 ? (
-        <ErrorBand days={errors.days} />
+        <ErrorBand days={windowDays(errors.days, now)} />
       ) : (
         <Text size="sm" c="dimmed">
           {errors.loading
@@ -250,7 +250,7 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
     footer: footerOf(
       errors.days.length === 0
         ? [vs.note]
-        : [errorDaysLine(errors.days.map((d) => d.value)), vs.note],
+        : [errorDaysLine(fullDays(errors.days, now).map((d) => d.value)), vs.note],
     ),
   }
 }

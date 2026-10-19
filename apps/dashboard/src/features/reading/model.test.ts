@@ -517,13 +517,13 @@ describe('paceBars', () => {
   const b = (title: string, pace: number) => ({ title, pace })
   test('draws one bar per book, slowest first, each with its title and label', () => {
     expect(paceBars([b('A', 20), b('B', 35), b('C', 40)])).toEqual([
-      { book: 1, title: 'A', label: 'A', pace: 20 },
-      { book: 2, title: 'B', label: 'B', pace: 35 },
-      { book: 3, title: 'C', label: 'C', pace: 40 },
+      { book: 1, label: 'A', pace: 20 },
+      { book: 2, label: 'B', pace: 35 },
+      { book: 3, label: 'C', pace: 40 },
     ])
   })
   test('sorts unsorted input ascending, titles following their pace', () => {
-    expect(paceBars([b('C', 40), b('A', 20), b('B', 35)]).map((x) => [x.title, x.pace])).toEqual([
+    expect(paceBars([b('C', 40), b('A', 20), b('B', 35)]).map((x) => [x.label, x.pace])).toEqual([
       ['A', 20],
       ['B', 35],
       ['C', 40],

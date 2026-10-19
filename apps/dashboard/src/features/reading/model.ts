@@ -452,11 +452,11 @@ export const paceLabel = (v: number): string => withUnit(paceEndpoint(v), 'pages
 /** One bar per book for the pace cell's slot, slowest first (sorted here, not trusted); none below two books (no spread to draw). */
 export function paceBars(
   books: readonly BookPace[],
-): { book: number; title: string; label: string; pace: number }[] {
+): { book: number; label: string; pace: number }[] {
   if (books.length < 2) return []
   return books
     .toSorted((a, b) => a.pace - b.pace)
-    .map((b, i) => ({ book: i + 1, title: b.title, label: shortTitle(b.title), pace: b.pace }))
+    .map((b, i) => ({ book: i + 1, label: shortTitle(b.title), pace: b.pace }))
 }
 
 const BOOK_TITLE_MAX = 32
