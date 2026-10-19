@@ -231,3 +231,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 38 round
 
 - **Empty cells (`w38-r1`, P3):** the weight and rate cells under no entries use the 2.24 strip `state: { kind: 'empty', reason }` — the reason in the value's place, no `—` above it, no null Meter; the reason text is unchanged. A pending or failed rate keeps its meter line.
+- **Re-score (`w38-r1`, `w38-r3`):** **pass** in both. Closed: the 390 rate qualifier wraps whole (2.24); empty weight / rate cells state their reason in the value's place with no `—`, and a goalless no-entries cell keeps `Set a goal` as a strip footer entry (#171). Open (basalt): the unnamed middle zone at 390, the weight line through its end labels, the info bubble over the net change. Against Keel: close.

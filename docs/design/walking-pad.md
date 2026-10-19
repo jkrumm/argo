@@ -214,3 +214,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 38 round
 
 - **Empty reason (`w38-r1`, P3):** `No walks in the last 30 days` glues the figure to its unit with a non-breaking space where `windowPhrase` builds it, so at 390 it wraps before `30`, never between `30` and `days`.
+- **Re-score (`w38-r1`, `w38-r3`):** **pass** in both. Closed: the `—` above an empty cell's reason (2.24), the stranded short qualifier (2.24), `30 days` never splits (#171). Open (P3): the week meter label repeats the hero. Against Keel: close.

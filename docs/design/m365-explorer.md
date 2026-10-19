@@ -259,3 +259,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (`w37-r1`):** **pass**, default run and both phone presets. Fixed (confirmed): on the both-empty screen every surface — Labeled cell (the one full sentence with its step), Chats cell, Channels cell, the source list, the desktop Labeled pane, the phone Labeled pane and the phone Detail line — names the gap with `No chats or channels came back`; none still says `No chats came back`, none shows both forms. Harness: the first preset run seeded the store without its `{v, value}` envelope and the phone panes did not render; re-shot with the envelope and re-scored. Not shot: the chats-only gap (channels present). Carried (P3): chat names ellipsize at 390 (argo); the strip-cell `—` above its reason (basalt); the sticky tabs over the phone focus ring, the desktop detail crop identical to the labeled pane, the ~640 px band under the panes, the chip hover crop (harness). No lost fact.
 - **Against Keel:** close — one gap, one sentence; Keel's rows still carry real columns.
+
+### Wave 38 round
+
+- **Re-score (`w38-r1`, `w38-r3`, basalt-ui 2.24 → 2.25, no argo change, default + both pane presets):** **pass** in both. Closed by 2.24: the strip-cell `—` above its reason. Open (P3): chat names ellipsize at 390 and direct-chat member order varies between loads (argo); harness crops as before. Against Keel: close.

@@ -460,14 +460,14 @@ gap on astro Tonight (fires on the stateful anchor only).
 
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
-| `StatCard` / strip qualifier under 240 px | the qualifier's own line truncates (`… maintain ±…`) — a lost fact when the qualifier is the only place a band is stated | body-composition rate cell at 390 | as rendered |
+| `StatCard` / strip qualifier under 240 px | the qualifier's own line truncates (`… maintain ±…`) — a lost fact when the qualifier is the only place a band is stated | body-composition rate cell at 390 | **Closed — 2.24.0** (`w38-r1`: wraps whole, `maintain ±{band}` kept) |
 | `StatGroup variant="strip"` footers | 2.23's deliberate "footers follow their cell" law leaves ragged footer tops across a row (Home, m365, usage, astro anatomy); a strip whose cells each carry a footer reads unaligned | home, m365, usage, astro night anatomy | as rendered (the `footer[]` pin is for one shared footer, not per-cell) |
-| `Code` in `Alert`, `ViewTabs` indicator radius | the nested step now passes, but the inner radius is 3 — off the radius scale (2/4/5/6/10) | agents / warden no-snapshot alert, usage cost / tokens tabs | as rendered |
-| `Meter` null reading | no `No data` caption, but a stray `—` under every empty track (three dashes per row, doubled row height under loading / error) | calendar week strip | as rendered |
+| `Code` in `Alert`, `ViewTabs` indicator radius | the nested step now passes, but the inner radius is 3 — off the radius scale (2/4/5/6/10) | agents / warden no-snapshot alert, usage cost / tokens tabs | **Closed — 2.24.0** (`w38-r2`: radius 2 under the 6 px Alert / control, on the scale) |
+| `Meter` null reading | no `No data` caption, but a stray `—` under every empty track (three dashes per row, doubled row height under loading / error) | calendar week strip | **Closed — 2.24.0** (`w38-r2`: blank caption line, no glyph) |
 | `Sparkline` `referenceLabel` | at 390 the series line runs through the label | strength bench strip | as rendered |
 | `Lines` end labels | inside the plot now, but a label can collide with another series' line (`High` over the falling `Low`) | astro cloud layers | as rendered |
 | date ticks | one component spells the month two ways (`Sept` on band ticks, `Sep` in the readout); a duration axis steps by 50 min and ends `0m` | usage errors band, strength load, garmin activities | as rendered |
-| strip qualifier | a short qualifier (`all time`) stranded on its own line | warden verdicts / fixes | as rendered |
+| strip qualifier | a short qualifier (`all time`) stranded on its own line | warden verdicts / fixes | **Still open on 2.24.0** (`w38-r2`: `all time` still alone on its line) |
 | `MeterZone tone: 'muted'` | the flat muted fill is darker than the in-band zone, so the target band is the lightest ink on the track | strength ratio meters | as rendered |
 | `shot` desktop hover | the fine-pointer launch does not change decision-card button crops (identical to rest), and chip hover crops land on the active chip | home / agents / warden decision cards, hermes and m365 chips | as rendered |
 
@@ -483,10 +483,10 @@ No basalt-ui release this wave (2.23.0 stays). New basalt rows the round surface
 
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
-| `StatGroup variant="strip"` cell `state: { kind: 'empty', reason }` | the value slot always prints `—` above the reason, so a cell that states its gap in words still shows the bare dash the repeated-gap rule bans; an empty state needs no placeholder glyph when its reason is set | walking pad Pace / Totals under an empty window, body composition weight / rate under `empty` | as rendered |
-| `Sparkline` focus readout | the readout is cut inside its focus box (`{v} bpm · {dd} …`), losing the date | garmin fitness strip cell | as rendered |
-| chart legend at 390 | the narrow-width legend drop now hides the zones / series on three charts (ACWR, recovery, stress), so they read by hue alone | garmin health | as rendered |
-| `shot` `emptyRatio` | Mantine `Skeleton` bars count as empty space, so a loading card filled with skeleton rows measures 0.86 empty and fails `craft-3` while the crop is visually full | calendar Today under `loading` | as rendered |
+| `StatGroup variant="strip"` cell `state: { kind: 'empty', reason }` | the value slot always prints `—` above the reason, so a cell that states its gap in words still shows the bare dash the repeated-gap rule bans; an empty state needs no placeholder glyph when its reason is set | walking pad Pace / Totals under an empty window, body composition weight / rate under `empty` | **Closed — 2.24.0**; argo adopted `state: { kind: 'empty', reason }` on Garmin, Body composition, Home and Agents in Wave 38 |
+| `Sparkline` focus readout | the readout is cut inside its focus box (`{v} bpm · {dd} …`), losing the date | garmin fitness strip cell | **Partly closed — 2.24.0**: the date is no longer cut, but see the Wave 38 readout row |
+| chart legend at 390 | the narrow-width legend drop now hides the zones / series on three charts (ACWR, recovery, stress), so they read by hue alone | garmin health | **Closed — 2.24.0** (one-row compact legend) |
+| `shot` `emptyRatio` | Mantine `Skeleton` bars count as empty space, so a loading card filled with skeleton rows measures 0.86 empty and fails `craft-3` while the crop is visually full | calendar Today under `loading` | **Closed — 2.24.0** (`w38-r2`: Today 0.065) |
 
 `w36-r1` / `w36-r2` re-confirmed open rows: the `Code` / `ViewTabs` radius 3 and the body-composition 390 rate qualifier (both in basalt
 Wave 38), four type sizes in `Section` shells, the `Meter` zone-name fit (`Caution` / `Caut.`), detached `Meter`
@@ -501,8 +501,42 @@ No basalt-ui release this wave (2.23.0 stays). New basalt rows the round surface
 
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
-| `Bars` (`basalt-ui/charts`) | an axis-less slot mode (no x / y axes, no gutters) so the catalogue's "distribution as a slot micro-visual" row can be built — today `AxisConfig` only exposes ticks / grid, not removal | reading pace tile (per-book pages/h, small n) | the tile has no visual: median hero + `slowest {x}, fastest {y} pages/h` footer; a local tick strip was tried in #161 and reverted in #165 as a catalogue-banned hand-roll |
-| chart compact legend | the one-row compact legend default (basalt Wave 38) | garmin ACWR, recovery, stress at 390 | `compact && { legend: false }` in `acwr-chart.tsx`, `recovery-trend-chart.tsx`, `stress-chart.tsx` stays until the release; the bump/adoption commit deletes those three lines |
-| `shot detect` | flag an off-scale NESTED radius the metrics already record (`Code` / `ViewTabs` radius 3) | agents / warden `no-snapshot`, usage `cost-chart` / `tokens-chart` | the reviewer scores it from `metrics.json` |
+| `Bars` (`basalt-ui/charts`) | an axis-less slot mode (no x / y axes, no gutters) so the catalogue's "distribution as a slot micro-visual" row can be built — today `AxisConfig` only exposes ticks / grid, not removal | reading pace tile (per-book pages/h, small n) | **Closed — 2.25.0** (#431): a `Bars` in the strip cell `visual` slot renders axis-less; the pace tile adopts it in #174 |
+| chart compact legend | the one-row compact legend default (basalt Wave 38) | garmin ACWR, recovery, stress at 390 | **Closed — 2.24.0**: the three lines deleted in `0c88e404` |
+| `shot detect` | flag an off-scale NESTED radius the metrics already record (`Code` / `ViewTabs` radius 3) | agents / warden `no-snapshot`, usage `cost-chart` / `tokens-chart` | **Closed — 2.25.0** (#430): `shot detect` flags an off-scale nested radius as P1 |
 
 `w37-r1` / `w37-r2` re-confirmed open rows: the `Code` / `ViewTabs` radius 3 and the body-composition 390 rate qualifier (basalt Wave 38), four type sizes in `Section` shells, the `Meter` zone-name fit (`Caut.`), the sparkline focus readout cut before its date, the 390 chart legends, the strip-cell `—` above a worded reason, the `shot` `emptyRatio` counting skeleton bars (calendar Today), info tooltips over headlines / neighbours, detached `Meter` end figures, `Sept` beside `Sep`, `Lines` end-label collisions, the budget's shade-only greys, `BandStrip` hue-only days, `$0` / `<$1` tooltip rows, ragged strip footers, the `all time` qualifier, sticky bars over section crops, and hover crops identical to rest.
+
+### Wave 38 — basalt-ui 2.24.0 adoption and the `w38-r1` / `w38-r2` live re-score
+
+argo moved to basalt-ui 2.24.0 in its own commit (`d8f08ecc`) and adopted it in `0c88e404` (Garmin's three `compact && { legend:
+false }` lines deleted) and in the Wave 38 fan-outs: the strip cell `state: { kind: 'empty', reason }` replaces the null `Meter` that
+only carried a reason on Garmin, Body composition, Home and Agents; `ZoneSpec.legend` names the recovery bands (the
+recovery chart's always-`null` legend-only series are deleted — ACWR keeps its keys because `Threshold` has no `legend`); Home sets
+`--basalt-spark-readout-lift: 0` on its Meter-above-Sparkline cells, the composite opt-out MIGRATING names. **Closed by 2.24.0**
+(marked in the tables above): the 390 chart legends, the body-composition 390 qualifier, the `ViewTabs` / `Code` radius, the `Meter`
+null `—`, the strip-cell `—` above a worded reason, the `shot` `emptyRatio` on skeleton bars, the sparkline readout cutting its date.
+New basalt rows the round surfaced — three are **regressions from 2.24.0** on pages that passed in w37; argo works around none of them:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| chart compact legend `+N` fold (**2.24 regression**) | the fold hides SERIES names, not only zone/reference entries, so at 390 several lines are told apart by hue alone — a lost fact; MIGRATING's premise ("the title and tooltip name the series") does not hold for multi-line charts | strength ACWR lifts and weekly volume (`+5` / `+3`), relative progression (`+2`), readiness (`+1`); astro sky panorama (`+3` folds skyglow, moon, core — all seven showed in w37); garmin stress (four named zones folded `Avg Stress` / `Overnight` into `+2` in `w38-r3`) | as rendered; garmin stress reverted its zone legend in #179 so the series stay named — its bands are named by the tooltip only until the fold keeps series |
+| chart compact legend entry wrap | one entry wraps inside itself (`Low (< 0.8)` over three lines, `Push` / `(≥70)`), splitting a threshold from its name | garmin ACWR, strength readiness and relative progression at 390 | as rendered |
+| `Section` subtitle size (**2.24 regression**) | the subtitle measures 11 px, not the 12 (`xs`) MIGRATING promises, so a shell that held three sizes now holds four (11/12/13/15) | reading backlog (passed in w37); strength strength / load / balance sections still at four | as rendered |
+| `BandStrip` legend wrap (**2.24 regression**) | each legend label wraps to two lines (`Under 1 % of` / `calls`) inside equal thirds with room to spare | usage errors band at 1440 and 390 | as rendered |
+| `Sparkline` hosted focus readout | the readout prints `{v} bpm{dd} {Mon}` — the `·` and space are gone — and sits over the plotted line instead of the reserved line | garmin fitness strip cell | as rendered |
+| legend order, references first | `Sun altitude` (a reference) now leads `Galactic core`, the series the chart is about | astro night timeline (both tabs) | as rendered |
+| `Meter` zone-name fit at 390 | the load meter drops the Caution name entirely (three names for four zones); `Caut.` at 1440 | garmin and home ACWR meter | as rendered |
+| chart tooltip at the first point | opens past the card's left edge over the neighbouring card; series labels end in `…` inside a figure (`(HR {a}/{b}…`) | garmin stress, sleep, activities; reading pace slot at 390 | as rendered |
+| slotted `Bars` readout (2.25) | in dark the readout chip is see-through — the footer text ghosts behind it | reading pace tile | as rendered |
+| `StatStripFooterEntry` `shotAbsent` | a footer entry `under` a cell derives its own anchor (`strip-footer-<key>`) but cannot declare the shot states production omits it in, so `shot` records an `error` ("anchor absent in this state") for an entry that is correctly absent | home budget poller line under `empty` (no snapshot → no poller fact) | as rendered; the reviewer discounts the 4 error shots |
+
+`w38-r1` / `w38-r2` re-confirmed open rows: the info bubble over the card's own headline facts (2.24 only stopped the flip into the
+card above), the stranded `all time` qualifier, the `Sparkline` `PR` label at 390, `Sept` beside `Sep`, `BandStrip` hue-only warn/bad
+days, `$0` / `<$1` tooltip rows, the tokens `fill` band, `ChartCard` top-set empties, ragged strip footers (by design since 2.24),
+detached `Meter` end figures, `Lines` end-label overprint (body composition `7 d mean`), and hover crops identical to rest.
+
+**basalt-ui 2.25.0** (bumped in its own commit `407f04da`, nothing to migrate): the `Bars` slot mode (#431) gives the Reading pace tile
+its distribution (#174) — the last "does not yet" against Keel; `ChartCard placeholderHeight="content"` (#428) ends the usage list
+cards' empty states at their content (the `ChartCard` top-set empties row, usage half; Strength's ratios card keeps its numeric
+height); `shot detect` flags off-scale nested radii (#430).

@@ -212,3 +212,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (`w37-r1`):** **pass.** The composer now sits right under the `First thread {date}` line at both widths; the band between the last row and the composer is gone and the list ends in its entry form. The unused space falls below the composer, read as the page's end rather than a gap inside it. Harness: the composer is no `data-shot` anchor (its hover / focus are unshot); the chip hover lands on the active chip. No lost fact: counts, rows, the untitled fold, the `First thread` line and the composer hint all match w36.
 - **Against Keel:** **close** (w36: does not yet) — Keel's `timeline-event` pattern: day-grouped rows ending in the entry form, nothing between them.
+
+### Wave 38 round
+
+- **Re-score (`w38-r1`, `w38-r3`, basalt-ui 2.24 → 2.25, no argo change):** **pass** in both, no regression from either bump. Open (harness): chip hover lands on the active chip, the composer has no anchor, the open-thread view is never shot. Against Keel: close.
