@@ -556,6 +556,8 @@ export function missingInputs(components: Components): RecoveryInput[] {
   ]
 }
 
+const join = (xs: readonly string[]): string => xs.join(' and ')
+
 /**
  * The basis of a scored recovery cell that lacks contributors: the API re-weights the score over the
  * components it has (`recoveryScore` in `garmin-formulas.ts`), so the line names what is missing and
@@ -565,7 +567,6 @@ export function recoveryBasis(components: Components): string | null {
   const missing = missingInputs(components)
   if (missing.length === 0) return null
   const present = (['HRV', 'sleep', 'RHR'] as const).filter((i) => !missing.includes(i))
-  const join = (xs: readonly string[]): string => xs.join(' and ')
   return `${join(missing)} not scored — score from ${present.length > 0 ? join(present) : 'nothing'} only`
 }
 
