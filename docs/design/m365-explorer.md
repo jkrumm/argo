@@ -263,3 +263,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 38 round
 
 - **Re-score (`w38-r1`, `w38-r3`, basalt-ui 2.24 → 2.25, no argo change, default + both pane presets):** **pass** in both. Closed by 2.24: the strip-cell `—` above its reason. Open (P3): chat names ellipsize at 390 and direct-chat member order varies between loads (argo); harness crops as before. Against Keel: close.
+
+### Wave 39 round
+
+- Fixed (argo): a topic-less chat's name sorts its member names (`localeCompare`) before taking the first three, so it reads the same on every load. No lost fact.
