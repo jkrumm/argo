@@ -8,10 +8,10 @@ import type { WardenBoardItem } from '../../lib/queries/warden'
 import { stripShortcodes } from '../../lib/text'
 import { isSafeHttpUrl, issueRefLabel } from './model'
 import { Ago } from './ago'
+import { BreakableTitle } from './breakable-title'
 import classes from './board.module.css'
 import { boardStore } from './board-store'
 import {
-  breakableTitle,
   deferralOf,
   emptyColumnText,
   originKind,
@@ -75,7 +75,7 @@ function BoardCard({
           ta="left"
         >
           <Text size="sm" lineClamp={2} className={classes.text}>
-            {cleanTitle ? breakableTitle(cleanTitle) : '—'}
+            {cleanTitle ? <BreakableTitle text={cleanTitle} /> : '—'}
           </Text>
         </UnstyledButton>
         {showState ? (

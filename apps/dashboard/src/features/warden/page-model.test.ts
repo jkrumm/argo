@@ -4,8 +4,8 @@ import { capFacts } from '../../components/upstream/decision-card-model'
 import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
 import { formatDuration } from '../../lib/format'
 import {
-  breakableTitle,
-  gluedArrow,
+  leadingArrow,
+  titleSegments,
   cardFacts,
   resolveWaitMs,
   latestHistoryAgeMs,
@@ -1295,32 +1295,52 @@ describe('resolveQueueAsks', () => {
   })
 })
 
-describe('gluedArrow', () => {
-  it('glues the space after the arrow, so a transition is one unit', () => {
-    expect(
-      gluedArrow(transitionText({ from: 'working', to: 'needs_decision', at: null })),
-    ).not.toContain(' ')
+describe('leadingArrow', () => {
+  it('moves the break in front of the arrow: a line starts with `→ B`, never ends on `→`', () => {
+    const text = leadingArrow(transitionText({ from: 'working', to: 'needs_decision', at: null }))
+    expect(text).toBe('Working →\u00a0Needs\u00a0decision')
   })
   it('leaves the default transition breaking after its arrow', () => {
     expect(transitionText({ from: 'working', to: 'done', at: null })).toContain('\u00a0→ ')
   })
 })
 
-describe('breakableTitle', () => {
-  const Z = '\u200b'
-  it('opens break points after . / _ - and :: in a long token', () => {
-    expect(breakableTitle('test_checkout_flow.spec/handles::retry')).toBe(
-      `test_${Z}checkout_${Z}flow.${Z}spec/${Z}handles::${Z}retry`,
-    )
+describe('titleSegments', () => {
+  it('cuts a long token after . / _ - and ::, and rejoins to the original', () => {
+    const text = 'test_checkout_flow.spec/handles::retry'
+    expect(titleSegments(text)).toEqual([
+      'test_',
+      'checkout_',
+      'flow.',
+      'spec/',
+      'handles::',
+      'retry',
+    ])
+    expect(titleSegments(text).join('')).toBe(text)
   })
-  it('leaves ordinary words, short tokens and spaces alone', () => {
-    expect(breakableTitle('Fix a well-known flaky bug in v1.2')).toBe(
-      'Fix a well-known flaky bug in v1.2',
-    )
+  it('leaves ordinary words, short tokens and spaces whole', () => {
+    expect(titleSegments('Fix a well-known flaky bug in v1.2')).toEqual([
+      'Fix',
+      ' ',
+      'a',
+      ' ',
+      'well-known',
+      ' ',
+      'flaky',
+      ' ',
+      'bug',
+      ' ',
+      'in',
+      ' ',
+      'v1.2',
+    ])
   })
-  it('never breaks a trailing separator', () => {
-    expect(breakableTitle('some_long_identifier_name_')).toBe(
-      `some_${Z}long_${Z}identifier_${Z}name_`,
-    )
+  it('never cuts a trailing separator off', () => {
+    expect(titleSegments('some_long_identifier_name_')).toEqual([
+      'some_',
+      'long_',
+      'identifier_',
+      'name_',
+    ])
   })
 })
