@@ -3,7 +3,11 @@ import { z } from 'zod'
 import { and, asc, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics } from '../db/schema.js'
-import { fitnessDirection } from '../lib/garmin-formulas.js'
+import {
+  FITNESS_HRV_SLOPE_THRESHOLD,
+  FITNESS_RHR_SLOPE_THRESHOLD,
+  fitnessDirection,
+} from '../lib/garmin-formulas.js'
 import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
 const FitnessDirectionResponseSchema = z.object({
@@ -17,25 +21,25 @@ const FitnessDirectionResponseSchema = z.object({
     .number()
     .nullable()
     .describe(
-      'Fitted RHR change in bpm over the span of the 14-day slice (slope × days between first and last reading); the change the label is computed from. Null with fewer than 3 readings.',
+      'Fitted RHR change in bpm: the regression slope × the index span of the 14-row slice between its first and last reading (rows, not calendar days — the same fit the label uses). Rounded to 3 decimals. Null with fewer than 3 readings.',
     ),
   hrvChange: z
     .number()
     .nullable()
     .describe(
-      'Fitted HRV change in ms over the span of the 14-day slice (slope × days between first and last reading); the change the label is computed from. Null with fewer than 3 readings.',
+      'Fitted HRV change in ms: the regression slope × the index span of the 14-row slice between its first and last reading (rows, not calendar days — the same fit the label uses). Rounded to 3 decimals. Null with fewer than 3 readings.',
     ),
   rhrFlat: z
     .boolean()
     .nullable()
     .describe(
-      'True when the RHR slope is inside ±0.05 bpm/day and so does not move the label. Null with fewer than 3 readings.',
+      `True when the RHR slope is inside ±${FITNESS_RHR_SLOPE_THRESHOLD} bpm/row and so does not move the label. Null with fewer than 3 readings.`,
     ),
   hrvFlat: z
     .boolean()
     .nullable()
     .describe(
-      'True when the HRV slope is inside ±0.10 ms/day and so does not move the label. Null with fewer than 3 readings.',
+      `True when the HRV slope is inside ±${FITNESS_HRV_SLOPE_THRESHOLD} ms/row and so does not move the label. Null with fewer than 3 readings.`,
     ),
   rhrDelta: z
     .number()
@@ -80,6 +84,7 @@ export const fitnessDirectionRoutes = new Elysia({ prefix: '/fitness-direction' 
         'Computes linear-regression slope over the most recent 14 days of resting HR and HRV. ' +
         'RHR slope < −0.05 bpm/day → improving (RHR going down); HRV slope > +0.10 ms/day → improving. ' +
         'Combines into Improving / Stable / Declining signal with symbol + color. ' +
+        '`rhrChange` / `hrvChange` are the fitted change over the slice (slope × index span) and `rhrFlat` / `hrvFlat` say whether that slope is inside its threshold — the same fit and comparison the label uses; `rhrDelta` / `hrvDelta` are last minus first reading. ' +
         'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD` (slice trims to last 14 days).',
       security: [{ BearerAuth: [] }],
     },

@@ -242,6 +242,8 @@ type SignalSpec = {
   /** Unit printed after the delta; empty when the value's unit is too long to repeat. */
   deltaUnit: string
   digits: number
+  /** Decimals of the delta column: a fitted change under 0.5 must not print as `0`. */
+  deltaDigits: number
   /** Which way is good: RHR falling is good, HRV and VO2max rising are. */
   polarity: 'up-good' | 'up-bad'
   values: readonly (number | null)[]
@@ -262,28 +264,36 @@ function reading(spec: Pick<SignalSpec, 'digits' | 'unit'>, v: number | null): s
 
 function deltaCell(spec: SignalSpec): StatStripRow['delta'] {
   const { delta } = spec
-  if (delta.kind === 'move') {
-    return (
-      <DeltaBadge
-        value={delta.value}
-        polarity={spec.polarity}
-        format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
-        withGlyph
-        period={spec.period}
-        periodPrefix=""
-      />
-    )
+  const change = (v: number): string => `${signed(v, spec.deltaDigits)} ${spec.deltaUnit}`.trim()
+  switch (delta.kind) {
+    case 'move':
+      return (
+        <DeltaBadge
+          value={delta.value}
+          polarity={spec.polarity}
+          format={change}
+          withGlyph
+          period={spec.period}
+          periodPrefix=""
+        />
+      )
+    case 'none':
+      return <DimText>—</DimText>
+    case 'unchanged':
+      return <DimText>unchanged</DimText>
+    case 'flat':
+      return <DimText>{`flat · ${change(delta.value)}`}</DimText>
+    case 'plain':
+      return <DimText>{change(delta.value)}</DimText>
+    default:
+      return delta satisfies never
   }
-  const text = {
-    none: '—',
-    unchanged: 'unchanged',
-    flat: 'flat',
-    plain:
-      delta.kind === 'plain' ? `${signed(delta.value, spec.digits)} ${spec.deltaUnit}`.trim() : '',
-  }[delta.kind]
+}
+
+function DimText({ children }: { children: string }) {
   return (
     <Text size="xs" c="dimmed">
-      {text}
+      {children}
     </Text>
   )
 }
@@ -393,6 +403,7 @@ function useFitnessCell(): StatStripCell {
         unit: 'bpm',
         deltaUnit: 'bpm',
         digits: 0,
+        deltaDigits: 1,
         polarity: 'up-bad',
         period: slope(FITNESS_DAYS),
         values: rows.rhr,
@@ -408,6 +419,7 @@ function useFitnessCell(): StatStripCell {
         unit: 'ms',
         deltaUnit: 'ms',
         digits: 0,
+        deltaDigits: 1,
         polarity: 'up-good',
         period: slope(FITNESS_DAYS),
         values: rows.hrv,
@@ -423,6 +435,7 @@ function useFitnessCell(): StatStripCell {
         unit: 'ml/kg/min',
         deltaUnit: 'ml/kg/min',
         digits: 1,
+        deltaDigits: 1,
         polarity: 'up-good',
         period: slope(vo2.spanDays),
         hideValue: true,

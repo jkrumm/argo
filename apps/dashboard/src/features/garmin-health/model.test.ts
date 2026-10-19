@@ -238,6 +238,9 @@ describe('recoveryBasis', () => {
   test('three contributors need no basis', () => {
     expect(recoveryBasis({ hrv: 1, sleep: 2, rhr: 3 })).toBeNull()
   })
+  test('no contributor at all has no basis to state', () => {
+    expect(recoveryBasis({ hrv: null, sleep: null, rhr: null })).toBeNull()
+  })
   test('each missing contributor is named and the score names what it stands on', () => {
     expect(recoveryBasis({ hrv: null, sleep: null, rhr: 20 })).toBe(
       'HRV and sleep not scored — score from RHR only',
@@ -254,10 +257,14 @@ describe('fitness row delta', () => {
       kind: 'move',
       value: -6.5,
     })
-    expect(fitnessRowDelta({ change: 0.4, flat: true, delta: 2 })).toEqual({ kind: 'flat' })
+    expect(fitnessRowDelta({ change: -0.3, flat: true, delta: 2 })).toEqual({
+      kind: 'flat',
+      value: -0.3,
+    })
   })
-  test('a zero change reads unchanged, flat or not', () => {
-    expect(fitnessRowDelta({ change: 0, flat: true, delta: 0 })).toEqual({ kind: 'unchanged' })
+  test('flat is checked before unchanged; a zero change that is not flat reads unchanged', () => {
+    expect(fitnessRowDelta({ change: 0, flat: true, delta: 0 })).toEqual({ kind: 'flat', value: 0 })
+    expect(fitnessRowDelta({ change: 0, flat: false, delta: 0 })).toEqual({ kind: 'unchanged' })
   })
   test('without a fit the last-minus-first delta prints plain, never lost', () => {
     expect(fitnessRowDelta({ change: null, flat: null, delta: 1 })).toEqual({
