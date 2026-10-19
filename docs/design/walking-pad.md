@@ -219,3 +219,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 39 round
 
 - **Re-score (`w39-r1`, no argo change):** pass. Open (argo, P3): the week footer `{n} walks · {n} % of target` wraps at 390 with the target icon stranded; the week meter label repeats the hero; the Pace and Totals empty sentence repeats the empty-state reason. Against Keel: close.
+
+### Wave 40 round
+
+- **Fixed (argo):** the week footer keeps the target control inline and NBSP-glued to its text, and `·` is glued both sides (`weekTargetLine`; the one breakable space is before `of target`), so at 390 neither the icon nor the dot is stranded; the footer renders nothing while the week is loading. No lost fact.
+- **Fixed (argo):** the week meter drops its `so far` start caption and `0.0 km` start figure, which repeated the hero; the target mark stays. The in-progress fact stays in the cell (`This week`, `vs last week to Mon`).
+- **Declined:** the w39 P3 "Pace and Totals empty sentence repeats the reason" — `README.md` § "One form for a repeated gap" requires the short form to be the leading clause verbatim, and the empty-state title is that clause (`emptyWindowShort`). A shorter `No walks` was built and reverted.
+- **Re-score (`w40-r1`):** pass, both changes verified live at 390, no lost fact. Unverified: the loading footer (no declared loading state). Open (argo, P3): the record header's last-walk line wraps after a trailing `·` at 390 (`… 1 h 30 min ·` / `4.2 km/h`). Against Keel: close.

@@ -284,3 +284,10 @@ No basalt gaps this round.
 ### Wave 39 round
 
 - **Re-score (`w39-r1`, no argo change; regression check after the shared Warden history/title helpers):** pass. No regression, no lost fact. Open (argo, P3): a project card's `{h} h {m} min ago` can wrap with `ago` alone at 1440 (data-dependent, `ago` breakable by the w30 rule). Basalt (carried): the 390 oldest-wait meter drops `abandoned at 7 d`, the activity-strip focus readout over its legend, hover identical to rest. Harness: the two schemes' 390 crops caught different live data. Against Keel: close — Keel's inner cells each carry a micro-visual, ours are text readings.
+
+### Wave 40 round
+
+- **Fixed (argo):** the quiet list's age keeps `ago` glued to its duration (`formatAgoWhole`). No lost fact.
+- **Reverted (argo, `w40-r1` → `w40-r2`):** the project card's `Last activity` took the same glued form in #187 and `w40-r1` caught it truncated at 1440 (`11 h 44 min a…`, P1 — a passing page turned failing). It is back on the breakable `formatAgo` (#188); the w39 P3 (`ago` alone at 1440) is accepted as the trade-off over truncation. No lost fact.
+- **Shared DecisionCard (see `home.md` / `warden.md` § "Wave 40 round"):** identifiers whole in questions, `waiting` glued to its duration (the agents card's own wording too), facts line breaking only before its `·`.
+- **Re-score (`w40-r1` fail → `w40-r2` pass):** `w40-r2` pass, no truncation at either width, quiet list whole. Unverified: the glued `waiting` (every card on screen was a human-queue ask). Basalt (carried): the activity-strip focus readout over its legend, the 390 oldest-wait meter dropping `abandoned at 7 d`, hover identical to rest. Against Keel: close — Keel's inner cells each carry a micro-visual, ours are text readings.
