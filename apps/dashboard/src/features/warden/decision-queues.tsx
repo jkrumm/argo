@@ -141,7 +141,7 @@ function QueueCard({
           cardFacts(row, repo, { elapsedMs, historyAgeMs: latestHistoryAgeMs(history, now) }),
         )}
         status={status}
-        subject={copy.entity === null ? null : <BreakableTitle text={copy.entity} />}
+        subject={copy.entity ? <BreakableTitle text={copy.entity} /> : null}
         evidenceLine={copy.evidenceLine}
         {...(copy.detail !== null
           ? { disclosure: { label: 'Full reason', content: <FullAsk text={copy.detail} /> } }
