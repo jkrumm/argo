@@ -36,6 +36,8 @@
 
 /* A wrapped row reads as one entry: continuation lines hang one step in from the first. */
 .hanging {
-  padding-inline-start: var(--vx-space-stack-md, 0.75rem);
-  text-indent: calc(-1 * var(--vx-space-stack-md, 0.75rem));
+  --hanging-indent: var(--vx-space-stack-md, 0.75rem);
+
+  padding-inline-start: var(--hanging-indent);
+  text-indent: calc(-1 * var(--hanging-indent));
 }

@@ -96,6 +96,16 @@ function ActionButton({
   )
 }
 
+/** A long identifier: a break opportunity (`<wbr>`) between its parts, none inside them; copy sees the plain token. */
+function BreakableRun({ parts }: { parts: readonly string[] }) {
+  return parts.map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 ? <wbr /> : null}
+      {part}
+    </Fragment>
+  ))
+}
+
 function ActionRow({
   question,
   primary,
@@ -186,21 +196,14 @@ export function DecisionCard({
           <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
             {/* Render-only: identifiers stay on one line; the copy model, rung and aria-label stay raw. */}
             {identifierRuns(question).map((run, index) =>
-              run.identifier ? (
+              run.kind === 'identifier' ? (
                 <Box key={index} component="span" className={classes.identifier}>
                   {run.text}
                 </Box>
+              ) : run.kind === 'breakable' ? (
+                <BreakableRun key={index} parts={run.parts} />
               ) : (
-                <Fragment key={index}>
-                  {run.parts === undefined
-                    ? run.text
-                    : run.parts.map((piece, i) => (
-                        <Fragment key={i}>
-                          {i > 0 ? <wbr /> : null}
-                          {piece}
-                        </Fragment>
-                      ))}
-                </Fragment>
+                <Fragment key={index}>{run.text}</Fragment>
               ),
             )}
           </Text>

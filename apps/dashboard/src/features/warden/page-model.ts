@@ -1,5 +1,5 @@
 import { NO_SNAPSHOT_SHORT } from '../agents/model'
-import { TOKEN_BOUNDARY } from '../../components/upstream/identifier-runs'
+import { TOKEN_BOUNDARY } from '../../lib/text-breaks'
 import { NBSP, formatAgoWhole, formatDuration, glue, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
