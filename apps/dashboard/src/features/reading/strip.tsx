@@ -4,7 +4,6 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceBars,
-  shortTitle,
   paceLabel,
   paceRange,
   gapsBeforePosition,
@@ -99,7 +98,7 @@ function paceCell(pace: Pace): StatStripCell {
   if (pace.median === null || pace.median <= 0) {
     return { key: 'pace', caption: 'Reading pace', value: null, footer: NO_PACE_REASON }
   }
-  const books = `${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`
+  const books = `${pace.books.length} ${pace.books.length === 1 ? 'book' : 'books'}`
   const bars = paceBars(pace.books)
   return {
     key: 'pace',
@@ -115,7 +114,7 @@ function paceCell(pace: Pace): StatStripCell {
               data={bars}
               height={28}
               x={(d) => d.book}
-              formatX={(i) => shortTitle(bars[i - 1]?.title ?? `Book ${i}`)}
+              formatX={(i) => bars.find((b) => b.book === i)?.label ?? ''}
               bars={[
                 {
                   key: 'pace',
@@ -129,7 +128,7 @@ function paceCell(pace: Pace): StatStripCell {
             />
           ),
         }),
-    footer: paceRange(pace.paces) ?? 'one book has reading time so far',
+    footer: paceRange(pace.books) ?? 'one book has reading time so far',
   }
 }
 

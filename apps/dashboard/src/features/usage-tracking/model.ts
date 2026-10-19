@@ -640,7 +640,7 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/** Window days: days that began inside the rolling 30 d window (the running day kept, the partial leading day left out). */
+/** Window days: days that began inside the rolling 30 d window (the partial leading day is left out; the running day is `useDaily`'s to drop). */
 export const windowDays = <T extends { date: Date }>(days: readonly T[], now: number): T[] =>
   days.filter((d) => bucketStartMs(d.date) >= now - 30 * DAY_MS)
 

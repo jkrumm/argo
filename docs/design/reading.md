@@ -243,4 +243,4 @@ Follow-up (w30-r2):
 
 ### Wave 39 round
 
-- Fixed (argo): the pace bars' readout names the book (`shortTitle` — whole up to 32 characters, else cut at a word with `…`) instead of `Book {i} of {n}`; slowest-first order and the pages/h value are unchanged (`readingPace` now also returns `books`, titles paired with paces; `paceBars` tested). No lost fact.
+- Fixed (argo): the pace bars' readout names the book (`shortTitle` — whole up to 32 code points, else cut at a word with `…`, never inside a surrogate pair) instead of `Book {i} of {n}`; slowest-first order and the pages/h value are unchanged. `Pace.books` (`BookPace`) is now the single cohort the count, median and `slowest/fastest` range derive from; `paces` is gone. No lost fact.

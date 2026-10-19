@@ -251,4 +251,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 39 round
 
-- Fixed (argo): the cost, tokens and p95 sparklines draw `windowDays(...)` — days that began inside the rolling 30 d window — so the partial leading day no longer shows while the footers (`fullDays`) leave it out; today, still running, stays in the visual. Footers keep `fullDays`. `health-card.tsx` has no such pairing and is unchanged. No lost fact.
+- Fixed (argo): the cost, tokens, p95 and cache sparklines draw `windowDays(...)` — days that began inside the rolling 30 d window — so the partial leading day no longer shows while the footers (`fullDays`) leave it out. `useDaily` already drops the running day, so today never showed in these visuals. Footers keep `fullDays`. `health-card.tsx` has no such pairing and is unchanged. No lost fact.
