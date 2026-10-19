@@ -8,6 +8,7 @@ import {
   finishedFooter,
   finishCohort,
   paceBars,
+  paceLabel,
   paceRange,
   backlog,
   currentYear,
@@ -512,8 +513,18 @@ describe('paceBars', () => {
       { book: 3, pace: 40 },
     ])
   })
+  test('sorts unsorted input ascending', () => {
+    expect(paceBars([40, 20, 35]).map((b) => b.pace)).toEqual([20, 35, 40])
+  })
   test('draws nothing below two books', () => {
     expect(paceBars([])).toEqual([])
     expect(paceBars([30])).toEqual([])
+  })
+})
+
+describe('paceLabel', () => {
+  test('prints a sub-1 pace as < 1, like the footer', () => {
+    expect(paceLabel(0)).toBe('< 1\u00a0pages/h')
+    expect(paceLabel(30)).toBe('30\u00a0pages/h')
   })
 })

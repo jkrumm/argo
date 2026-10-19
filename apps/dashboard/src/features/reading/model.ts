@@ -442,14 +442,17 @@ export function booksPerMonth(finished: number, now: number): number | null {
 /** A pace endpoint as shown (rounds to 0 → `< 1`). */
 const paceEndpoint = (v: number): string => (v < 1 ? '< 1' : String(v))
 
-/** One bar per book for the pace cell's slot, slowest first; none below two books (no spread to draw). */
+/** A pace with its unit, as the footer and the pace bars' tooltip both print it (`< 1\u00a0pages/h` below 1). */
+export const paceLabel = (v: number): string => withUnit(paceEndpoint(v), 'pages/h')
+
+/** One bar per book for the pace cell's slot, slowest first (sorted here, not trusted); none below two books (no spread to draw). */
 export function paceBars(paces: readonly number[]): { book: number; pace: number }[] {
   if (paces.length < 2) return []
-  return paces.map((pace, i) => ({ book: i + 1, pace }))
+  return paces.toSorted((a, b) => a - b).map((pace, i) => ({ book: i + 1, pace }))
 }
 
 /** `slowest 20, fastest 40 pages/h`; an endpoint that rounds to 0 reads `< 1`. Null with no paces. */
 export function paceRange(paces: readonly number[]): string | null {
   if (paces.length < 2) return null
-  return `slowest ${paceEndpoint(Math.min(...paces))}, fastest ${withUnit(paceEndpoint(Math.max(...paces)), 'pages/h')}`
+  return `slowest ${paceEndpoint(Math.min(...paces))}, fastest ${paceLabel(Math.max(...paces))}`
 }
