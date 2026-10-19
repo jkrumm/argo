@@ -2,12 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { Box, Card, Group, Skeleton, Text } from '@mantine/core'
 import { useDocumentVisibility } from '@mantine/hooks'
 import { durationClock, relativeTime } from 'basalt-ui/format'
+import { FACT_SEPARATOR } from '../../lib/text-breaks'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import {
   lastWalkLabel,
   toLastWalk,
   fmtDuration,
-  joinFacts,
   withKcal,
   withKm,
   withKmh,
@@ -70,13 +70,15 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
       <Row
         dot={paused ? 'idle' : 'live'}
         status={paused ? 'Paused' : 'Walking now'}
-        facts={joinFacts([
+        facts={[
           durationClock(s.duration_s),
           withKm(s.distance_m),
           `${withKmh(paused ? 0 : s.current_speed_kmh)} now`,
           `avg ${withKmh(s.avg_speed_kmh)}`,
-        ])}
-        stats={joinFacts([withSteps(s.steps), `${withKcal(s.kcal)}, this walk`, ...pauses])}
+        ].join(FACT_SEPARATOR)}
+        stats={[withSteps(s.steps), `${withKcal(s.kcal)}, this walk`, ...pauses].join(
+          FACT_SEPARATOR,
+        )}
       />
     )
   }
@@ -103,13 +105,13 @@ export function RecordHeader({ empty = false }: { empty?: boolean }) {
     <Row
       dot="idle"
       status={status}
-      facts={joinFacts([
+      facts={[
         label,
         withKm(walk.distance_m),
         fmtDuration(walk.duration_s),
         withKmh(walk.avg_speed_kmh),
-      ])}
-      stats={joinFacts([withSteps(walk.steps), withKcal(walk.kcal)])}
+      ].join(FACT_SEPARATOR)}
+      stats={[withSteps(walk.steps), withKcal(walk.kcal)].join(FACT_SEPARATOR)}
     />
   )
 }

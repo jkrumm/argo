@@ -18,7 +18,6 @@ import {
   emptyWindowHint,
   emptyWindowParts,
   emptyWindowShort,
-  joinFacts,
   lastWalkLabel,
   weekTargetLine,
   toLastWalk,
@@ -535,13 +534,6 @@ describe('emptyWindowHint', () => {
 
   it('a never-walked history leaves the headline to say so', () => {
     expect(emptyWindowHint({ last: { state: 'never' }, wider: '30d', nowMs: now })).toBeUndefined()
-  })
-})
-
-describe('joinFacts', () => {
-  it('breaks only before the dot: the dot is glued to the fact after it', () => {
-    expect(joinFacts(['a', 'b', 'c'])).toBe('a ·\u00a0b ·\u00a0c')
-    expect(joinFacts(['a'])).toBe('a')
   })
 })
 
