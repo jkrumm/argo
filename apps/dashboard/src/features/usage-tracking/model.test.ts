@@ -495,6 +495,17 @@ describe('day-count sentences', () => {
     expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1, 9])
     expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')
   })
+  it('takes the mean and the peak day over full days only', () => {
+    const days = [
+      { date: new Date(2025, 11, 11), value: 90 },
+      { date: new Date(2025, 11, 12), value: 2 },
+      reading(9, 4),
+      reading(10, 50),
+    ]
+    const full = fullDays(days, NOW)
+    expect(meanOf(full.map((d) => d.value))).toBe(3)
+    expect(peakOf(full)?.value).toBe(4)
+  })
   it('leaves the running day out of the count and the base', () => {
     const days = [reading(8, 9), reading(9, 1), reading(10, 9)]
     expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')

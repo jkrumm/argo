@@ -29,6 +29,7 @@ import {
   fmtSeconds,
   secondsQuantity,
   shortDay,
+  ERROR_OK_LABEL,
 } from './model'
 import type { BillingValue, WorkspaceValue } from './types'
 import classes from './usage.module.css'
@@ -43,17 +44,17 @@ type P95Point = { date: Date; v: number }
  */
 const VERDICT_BARS = (
   [
-    { state: 'ok', label: `Under ${fmtPct(ERROR_WARN_FROM, 0)}`, color: alpha(VX.muted, 0.5) },
+    { state: 'ok', label: ERROR_OK_LABEL, color: alpha(VX.muted, 0.5) },
     {
       state: 'warn',
-      label: `${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)}`,
+      label: `${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)} of calls`,
       color: VX.warnSolid,
     },
-    { state: 'bad', label: `Over ${fmtPct(ERROR_BAD_ABOVE, 0)}`, color: VX.badSolid },
+    { state: 'bad', label: `Over ${fmtPct(ERROR_BAD_ABOVE, 0)} of calls`, color: VX.badSolid },
   ] as const
 ).map(({ state, label, color }) => ({
   key: state,
-  label: `${label} of calls`,
+  label,
   color,
   getValue: (d: ErrorBucket) => (barStateOf(d) === state ? d.count : null),
 }))
