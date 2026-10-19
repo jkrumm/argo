@@ -40,6 +40,7 @@ import {
   recoveryQualifier,
   recoveryVerdict,
   stressZone,
+  STRESS_ZONE_LEGEND,
   STRESS_ZONE_NAME,
   loadCellBranch,
   loadMeterEmptyText,
@@ -654,6 +655,15 @@ describe('stress zones', () => {
   test('boundaries 24/25/49/50/74/75 land in one band each', () => {
     const names = [24, 25, 49, 50, 74, 75].map((v) => STRESS_ZONE_NAME[stressZone(v)])
     expect(names).toEqual(['Rest', 'Low', 'Low', 'Moderate', 'Moderate', 'High'])
+  })
+
+  test('legend ranges never share a bound', () => {
+    expect(Object.values(STRESS_ZONE_LEGEND)).toEqual([
+      'Rest (< 25)',
+      'Low (25–49)',
+      'Moderate (50–74)',
+      'High (≥ 75)',
+    ])
   })
 })
 
