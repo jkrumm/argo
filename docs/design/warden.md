@@ -288,3 +288,7 @@ Follow-up (w30-r2):
 
 - **History breaks between states:** each state name in a history line is one unbreakable unit (`Needs decision` glued with NBSP) and the arrow stays with the word before it, so a wrapped line breaks only after `→` or before the glued `· {age}`, never inside a state name (`Merging →` / `Needs decision · 2 d 1 h ago`). Fixes the w38-r3 P3 left by #175. No lost fact.
 - **Re-score (`w38-r2` → `w38-r4`):** pass in every round. Confirmed: one `waitingText` wording (#168), the `Code` radius closed by 2.24, history lines that break only after `→` with each state name and ` · {age}` glued (#175, #176). Open (P3): a long test identifier in a title breaks mid-token; the 390 board crop on different live data (harness); hover identical to rest (basalt). Against Keel: close; the gap is the frozen question rung.
+
+### Wave 39 round
+
+- **Fixed (argo):** item titles (board card, timeline header) break at natural boundaries: `breakableTitle` inserts a zero-width space after `.` `/` `_` `-` `::` in tokens of 14+ characters, so a long test identifier no longer splits mid-token at 390; ordinary words are untouched (no `overflow-wrap: anywhere`). No lost fact.

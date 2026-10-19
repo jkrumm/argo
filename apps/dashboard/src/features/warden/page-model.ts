@@ -777,6 +777,24 @@ export function transitionText({ from, to }: TransitionLine): string {
   return `${glue(sentenceCase(from) ?? from)}${HISTORY_ARROW}${target}`
 }
 
+/** A transition line with the space after its arrow glued too: the whole `A → B` is one unit, so a wrap never ends a line on `→`. */
+export const gluedArrow = (text: string): string => text.replaceAll('→ ', `→${NBSP}`)
+
+/**
+ * Break opportunities inside long identifier-like tokens (`a.b_c/d-e`, `a::b`): a zero-width space
+ * after each `.` `/` `_` `-` `::`, so a long test id wraps at a natural boundary instead of
+ * mid-token. Ordinary words and short tokens are left alone.
+ */
+export const BREAK_TOKEN_MIN = 14
+export function breakableTitle(text: string): string {
+  return text
+    .split(/(\s+)/)
+    .map((part) =>
+      part.length < BREAK_TOKEN_MIN ? part : part.replace(/(::|[./_-])(?=[^\s./_:-])/g, '$1\u200b'),
+    )
+    .join('')
+}
+
 /** `{n} min ago` as one unbreakable unit (`ago` glued to its duration); `—` for an unreadable time. */
 export const historyAge = (at: string, now: number): string =>
   formatAgoWhole(Math.max(0, now - Date.parse(at)))
