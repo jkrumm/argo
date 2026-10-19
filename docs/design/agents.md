@@ -295,4 +295,4 @@ No basalt gaps this round.
 
 ### Wave 41 round
 
-- **Fixed (argo):** the project card's `Now` / `Waiting` title wraps instead of ellipsizing (dropped `truncate`). The `.now` row is a flex row, so the label stays on the first line and a wrapped title hangs under itself; no `lineClamp`, nothing else on the page uses one. No lost fact.
+- **Fixed (argo):** the project card's `Now` / `Waiting` title wraps instead of ellipsizing (dropped `truncate`). The `.now` row is a flex row, so the label stays on the first line and a wrapped title hangs under itself, and a lone long token (path, branch) splits via `overflow-wrap: anywhere` only when its line has no other break; no `lineClamp`, nothing else on the page uses one. No lost fact.
