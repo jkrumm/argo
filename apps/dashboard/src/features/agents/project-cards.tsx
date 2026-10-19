@@ -1,4 +1,4 @@
-import { formatAgoWhole, formatDuration } from '../../lib/format'
+import { formatAgo, formatAgoWhole, formatDuration } from '../../lib/format'
 import { Box, SimpleGrid, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
@@ -52,7 +52,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
         },
         {
           caption: 'Last activity',
-          value: group.lastActivityAt === null ? '—' : formatAgoWhole(now - group.lastActivityAt),
+          value: group.lastActivityAt === null ? '—' : formatAgo(now - group.lastActivityAt),
         },
         { caption: 'Git · ahead / behind', ...gitCell(group.git) },
       ]}
