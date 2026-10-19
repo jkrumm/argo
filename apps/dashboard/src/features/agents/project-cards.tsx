@@ -1,4 +1,4 @@
-import { formatAgo, formatDuration } from '../../lib/format'
+import { formatAgoWhole, formatDuration } from '../../lib/format'
 import { Box, SimpleGrid, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
@@ -52,7 +52,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
         },
         {
           caption: 'Last activity',
-          value: group.lastActivityAt === null ? '—' : formatAgo(now - group.lastActivityAt),
+          value: group.lastActivityAt === null ? '—' : formatAgoWhole(now - group.lastActivityAt),
         },
         { caption: 'Git · ahead / behind', ...gitCell(group.git) },
       ]}
@@ -81,7 +81,7 @@ function QuietList({ groups, now }: { groups: ProjectGroup[]; now: number }) {
           </Text>
           <StatusChip tone={STATE_TONE[g.worst]} label={STATE_LABEL[g.worst]} />
           <Text size="sm" ff="monospace" c="dimmed" span className={classes.quietAge}>
-            {g.lastActivityAt === null ? '—' : formatAgo(now - g.lastActivityAt)}
+            {g.lastActivityAt === null ? '—' : formatAgoWhole(now - g.lastActivityAt)}
           </Text>
         </li>
       ))}
