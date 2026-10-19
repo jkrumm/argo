@@ -4,6 +4,7 @@
 import { relativeTime } from 'basalt-ui/format'
 import { format, subMonths, subYears } from 'date-fns'
 import { APP_LOCALE, glue, NBSP } from '../../lib/format'
+import { FACT_SEPARATOR } from '../../lib/text-breaks'
 import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
@@ -77,8 +78,8 @@ export function fmtDuration(seconds: number): string {
   return `${h}${NBSP}h${NBSP}${String(m).padStart(2, '0')}${NBSP}min`
 }
 
-/** Facts joined by `·` that break only before the dot: it is glued to the fact after it, so no line ends on `·`. */
-export const joinFacts = (facts: readonly string[]): string => facts.join(` ·${NBSP}`)
+/** Facts joined by the shared `FACT_SEPARATOR`: the wrap falls before the dot, so no line ends on `·`. */
+export const joinFacts = (facts: readonly string[]): string => facts.join(FACT_SEPARATOR)
 
 const plural = (n: number, one: string, many = `${one}s`): string => (n === 1 ? one : many)
 
