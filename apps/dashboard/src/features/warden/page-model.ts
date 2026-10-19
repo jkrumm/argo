@@ -777,22 +777,27 @@ export function transitionText({ from, to }: TransitionLine): string {
   return `${glue(sentenceCase(from) ?? from)}${HISTORY_ARROW}${target}`
 }
 
-/** A transition line with the space after its arrow glued too: the whole `A → B` is one unit, so a wrap never ends a line on `→`. */
-export const gluedArrow = (text: string): string => text.replaceAll('→ ', `→${NBSP}`)
+/**
+ * A transition line for Home's compact row: the arrow moves to the front of the break, `A →{nbsp}B`,
+ * so a wrapped line starts with `→ B` and never ends on a bare `→`.
+ */
+export const leadingArrow = (text: string): string => text.replaceAll(`${NBSP}→ `, ` →${NBSP}`)
+
+/** Tokens shorter than this are ordinary words and never get break points. */
+export const BREAK_TOKEN_MIN = 14
 
 /**
- * Break opportunities inside long identifier-like tokens (`a.b_c/d-e`, `a::b`): a zero-width space
- * after each `.` `/` `_` `-` `::`, so a long test id wraps at a natural boundary instead of
- * mid-token. Ordinary words and short tokens are left alone.
+ * A title cut into segments at the natural boundaries of long identifier-like tokens (after each
+ * `.` `/` `_` `-` `::`); the segments concatenate back to `text`, a break may fall between any two.
+ * Ordinary words and short tokens stay whole.
  */
-export const BREAK_TOKEN_MIN = 14
-export function breakableTitle(text: string): string {
+export function titleSegments(text: string): string[] {
   return text
     .split(/(\s+)/)
-    .map((part) =>
-      part.length < BREAK_TOKEN_MIN ? part : part.replace(/(::|[./_-])(?=[^\s./_:-])/g, '$1\u200b'),
+    .flatMap((part) =>
+      part.length < BREAK_TOKEN_MIN ? [part] : part.split(/(?<=::|[./_-])(?=[^\s./_:-])/),
     )
-    .join('')
+    .filter((part) => part !== '')
 }
 
 /** `{n} min ago` as one unbreakable unit (`ago` glued to its duration); `—` for an unreadable time. */

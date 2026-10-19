@@ -291,4 +291,4 @@ Follow-up (w30-r2):
 
 ### Wave 39 round
 
-- **Fixed (argo):** item titles (board card, timeline header) break at natural boundaries: `breakableTitle` inserts a zero-width space after `.` `/` `_` `-` `::` in tokens of 14+ characters, so a long test identifier no longer splits mid-token at 390; ordinary words are untouched (no `overflow-wrap: anywhere`). No lost fact.
+- **Fixed (argo):** item titles break at natural boundaries: `BreakableTitle` renders `<wbr>` (copy/search see plain text; splitter `titleSegments`) after `.` `/` `_` `-` `::` in tokens of 14+ characters; applied to board cards, the timeline header and the decision card's `subject`. The card's `question` is a `string` run through the shared card's `identifierRuns` (identifiers kept on one line), so it is not breakable from Warden's call site (UPSTREAM: shared `DecisionCard`), so a long test identifier no longer splits mid-token at 390; ordinary words are untouched (no `overflow-wrap: anywhere`). No lost fact.

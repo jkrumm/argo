@@ -7,6 +7,7 @@ import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
 import classes from '../../components/upstream/decision-card.module.css'
 import queueClasses from './decision-queues.module.css'
 import { useNow } from '../../lib/use-now'
+import { BreakableTitle } from './breakable-title'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
@@ -140,7 +141,7 @@ function QueueCard({
           cardFacts(row, repo, { elapsedMs, historyAgeMs: latestHistoryAgeMs(history, now) }),
         )}
         status={status}
-        subject={copy.entity}
+        subject={copy.entity === null ? null : <BreakableTitle text={copy.entity} />}
         evidenceLine={copy.evidenceLine}
         {...(copy.detail !== null
           ? { disclosure: { label: 'Full reason', content: <FullAsk text={copy.detail} /> } }

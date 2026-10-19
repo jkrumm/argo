@@ -2,7 +2,7 @@ import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
 import classes from '../../components/upstream/decision-card.module.css'
-import { gluedArrow, historyLineWithAge, historyTail, type HistoryView } from './page-model'
+import { leadingArrow, historyLineWithAge, historyTail, type HistoryView } from './page-model'
 
 /**
  * The decision card's change history. One transition is a single inline sentence
@@ -12,14 +12,14 @@ import { gluedArrow, historyLineWithAge, historyTail, type HistoryView } from '.
 export function HistoryPreview({
   view,
   now: cardNow,
-  unbrokenArrow = false,
+  leadingArrow: lead = false,
 }: {
   view: HistoryView
   now?: number
-  /** Home's compact row: a transition never breaks at its arrow, so no line ends on a bare `→`. */
-  unbrokenArrow?: boolean
+  /** Home's compact row: a wrapped transition breaks before its arrow, so no line ends on a bare `→`. */
+  leadingArrow?: boolean
 }) {
-  const text = (t: string) => (unbrokenArrow ? gluedArrow(t) : t)
+  const text = (t: string) => (lead ? leadingArrow(t) : t)
   const ownNow = useNow()
   const now = cardNow ?? ownNow
   if (view.layout === 'inline') {

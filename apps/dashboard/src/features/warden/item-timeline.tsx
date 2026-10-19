@@ -12,7 +12,7 @@ import {
 } from './model'
 import type { WardenItems } from '../../lib/queries/warden'
 import { ARROW } from '../../lib/format'
-import { breakableTitle } from './page-model'
+import { BreakableTitle } from './breakable-title'
 import { useNow } from '../../lib/use-now'
 import { Ago } from './ago'
 
@@ -224,7 +224,7 @@ function FactLine({ children }: { children: ReactNode }) {
 function ItemTitle({ title }: { title: string | null }) {
   return title ? (
     <Text size="sm" fw={700}>
-      {breakableTitle(title)}
+      <BreakableTitle text={title} />
     </Text>
   ) : null
 }
