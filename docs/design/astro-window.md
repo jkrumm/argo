@@ -267,3 +267,7 @@ Follow-up (w30-r2):
 
 - **Night timeline y domain (argo, P1):** the altitude chart's fixed `[-20, 20]` domain cut the moon's line when it climbed above 20° (live, about 18:30–21:00), so the peak the verdict card states was missing from the chart that should prove it. The top is now `max(20, higher of the core and moon peaks)` rounded up to the next 10°, the sun staying clipped by `inPlot` (`charts/night-timeline-domain.ts`, unit-tested); the bottom stays −20 and a low night draws exactly as before. Colours, legend, gate logic and copy are unchanged.
 - **Re-score (`w38-r1`, `w38-r3`):** `w38-r1` fail — a high moon ran off the fixed 20° timeline axis (argo P1, data-triggered) and the sky panorama's 390 legend folds three entries (basalt 2.24). Fixed in #170: the top is the larger of 20° and the core / moon peak rounded up to 10°, the sun clipped at 20°. `w38-r3` **pass** on both tabs (the live night had a high moon; a low night was not shot). Open: the kept `no-declared-states` decision, basalt info bubbles and the sun-first legend order. Against Keel: close.
+
+### Wave 39 round
+
+- **Re-score (`w39-r1`, Tonight + Forecast, no argo change):** pass. Basalt (carried): the 2.24 legend fold and entry wrap on the sky panorama at 390. Against Keel: close.

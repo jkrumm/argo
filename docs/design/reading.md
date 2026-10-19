@@ -243,4 +243,5 @@ Follow-up (w30-r2):
 
 ### Wave 39 round
 
-- Fixed (argo): the pace bars' readout names the book (`shortTitle` — whole up to 32 code points, else cut at a word with `…`, never inside a surrogate pair) instead of `Book {i} of {n}`; slowest-first order and the pages/h value are unchanged. `Pace.books` (`BookPace`) is now the single cohort the count, median and `slowest/fastest` range derive from; `paces` is gone. No lost fact.
+- Fixed (argo): the pace bars' readout names the book (`shortTitle` — whole up to 32 code points, else cut at a word with `…`, never inside a surrogate pair) instead of `Book {i} of {n}`; slowest-first order and the pages/h value are unchanged. `Pace.books` (`BookPace`) is now the single cohort the count, median and `slowest/fastest` range derive from; `paces` is gone. The Bars `ariaLabel` names each bar `{title} {pace} pages/h`. No lost fact.
+- **Re-score (`w39-r1`):** fail on basalt only — the 2.24 `Section` subtitle at 11 px on the backlog (four type sizes). The readout names the book; the `Book {i} of {n}` P3 is closed with no lost fact. Unverified: the dark readout chip (no dark hover readout in the crops). Against Keel: **holds up**.

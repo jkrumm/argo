@@ -229,3 +229,7 @@ Follow-up (w30-r1):
 
 - **Weekly volume legend (`w38-r1`, P3):** a series with no non-zero value in the window (the `AMRAP` key with no AMRAP segment drawn) gets no legend entry; the other series and the empty state are unchanged.
 - **Re-score (`w38-r1`, `w38-r3`):** fail on basalt only — the three chart `Section`s still at four type sizes, and 2.24's compact legend folds series names into `+N` at 390 (ACWR lifts, weekly volume, relative progression, readiness — a lost fact, UPSTREAM). Fixed (argo): the weekly-volume legend no longer keys an undrawn series (#171). Against Keel: close at 1440, not yet at 390.
+
+### Wave 39 round
+
+- **Re-score (`w39-r1`, no argo change):** fail on basalt only — the 2.24 compact-legend `+N` fold, the `BandStrip` wrap and the `Section` type sizes; unchanged from `w38-r4`. Against Keel: close at 1440, short at 390 (the folded legends).

@@ -216,3 +216,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 38 round
 
 - **Re-score (`w38-r1`, `w38-r3`, basalt-ui 2.24 → 2.25, no argo change):** **pass** in both, no regression from either bump. Open (harness): chip hover lands on the active chip, the composer has no anchor, the open-thread view is never shot. Against Keel: close.
+
+### Wave 39 round
+
+- **Re-score (`w39-r1`, no argo change):** pass. Crops identical to `w38-r4`; harness P3s only. Against Keel: close.

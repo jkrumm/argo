@@ -266,4 +266,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 39 round
 
-- Fixed (argo): a topic-less chat's name sorts its member names (`localeCompare`) before taking the first three, so it reads the same on every load. No lost fact.
+- Fixed (argo): a topic-less chat's name sorts its member names (`localeCompare`) before taking the first three, with a code-unit tie-break for locale-equal names, so it reads the same on every load. No lost fact.
+- **Re-score (`w39-r1`, default + both pane presets):** pass. The sorted order is visible and stable. Open (argo, P3): chat names ellipsize at 390; sorted names mix `Last, First` and bare formats (source data). Against Keel: close.

@@ -251,4 +251,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 39 round
 
-- Fixed (argo): the cost, tokens, p95 and cache sparklines draw `windowDays(...)` — days that began inside the rolling 30 d window — so the partial leading day no longer shows while the footers (`fullDays`) leave it out. `useDaily` already drops the running day, so today never showed in these visuals. Footers keep `fullDays`. `health-card.tsx` has no such pairing and is unchanged. No lost fact.
+- Fixed (argo): the cost, tokens, p95 and cache sparklines draw `windowDays(...)` — days that began inside the rolling 30 d window — so the partial leading day no longer shows while the footers (`fullDays`) leave it out. `useDaily` already drops the running day, so today never showed in these visuals. Footers keep `fullDays`. `health-card.tsx` has no such pairing and is unchanged. The errors band follows the same split: the band draws `windowDays`, its error-day count reads `fullDays`. No lost fact.
+- **Re-score (`w39-r1`):** pass. The partial-leading-day spark is closed and nothing regressed. Open: basalt — `BandStrip` hue-only days and its wrapped legend (the 2.24 row); argo P3 slack under the tokens and latency cards (optional). Against Keel: close.
