@@ -492,6 +492,13 @@ describe('chatTitle member order', () => {
     expect(chatTitle(chat(['Zoe', 'Anna', 'Max']))).toBe('Anna, Max, Zoe')
     expect(chatTitle(chat(['Max', 'Zoe', 'Anna']))).toBe('Anna, Max, Zoe')
   })
+  test('locale-equal names order the same whatever the arrival order', () => {
+    // 'é' precomposed vs 'e' + combining acute: localeCompare calls them equal
+    const a = '\u00e9'
+    const b = 'e\u0301'
+    expect(a.localeCompare(b)).toBe(0)
+    expect(chatTitle(chat([a, b]))).toBe(chatTitle(chat([b, a])))
+  })
   test('a topic still wins and empty names are skipped', () => {
     expect(chatTitle({ topic: 'Plan', members: [{ name: 'B' }] })).toBe('Plan')
     expect(chatTitle(chat(['', 'B', 'A']))).toBe('A, B')

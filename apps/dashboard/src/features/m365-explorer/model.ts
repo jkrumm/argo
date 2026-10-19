@@ -35,7 +35,7 @@ export function chatTitle(chat: {
   const names = chat.members
     .map((m) => m.name)
     .filter(Boolean)
-    .toSorted((a, b) => a.localeCompare(b))
+    .toSorted((a, b) => a.localeCompare(b) || (a < b ? -1 : a > b ? 1 : 0))
     .slice(0, 3)
     .join(', ')
   return names || '(no topic)'
