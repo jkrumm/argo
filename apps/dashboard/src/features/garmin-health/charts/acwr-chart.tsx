@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Bars, ChartCard, Lines, type BarsBar, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
-import { METRIC_TOOLTIPS } from '../constants'
 import { toChartFact } from '../chart-facts'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
@@ -11,6 +10,7 @@ import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
+  ACWR_INFO,
   ACWR_LEGEND,
   ACWR_OPTIMAL_TO,
   acwrFact,
@@ -136,7 +136,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
   return (
     <ChartCard
       title="ACWR"
-      info={METRIC_TOOLTIPS.trainingLoad}
+      info={ACWR_INFO}
       state={chartStateOf(query, emptyLabel)}
       placeholderHeight={280}
       facts={[toChartFact(fact), toChartFact(divergence)]}

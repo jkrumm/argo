@@ -6,7 +6,7 @@ import { activitiesWindowQueries } from '../../../lib/queries/activities'
 import { activitiesRange } from '../../../lib/queries/activities-window'
 import { ACTIVITY } from '../../../lib/series'
 import { toChartFact } from '../chart-facts'
-import { activitiesFact, fmtMinutes, windowDayCount } from '../model'
+import { activitiesFact, fillDays, fmtMinutes, windowDayCount, windowSpan } from '../model'
 import { VISIBLE_DATE_MIN } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -147,6 +147,19 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   // The window's length in calendar days (not the rows returned), clipped at the visible floor.
   const dayCount = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
 
+  // The axis spans the window, not just the days with an activity: rest days stay as empty columns.
+  const axisPoints = useMemo(() => {
+    const first = points[0]?.date
+    if (first === undefined) return points
+    const { from, to } = windowSpan(activitiesRange(params), VISIBLE_DATE_MIN, first)
+    return fillDays(points, from, to, (date) => ({
+      date,
+      day: localDay(date),
+      totals: {},
+      activities: [],
+    }))
+  }, [points, params])
+
   const totalMin = useMemo(
     () => points.reduce((s, p) => s + Object.values(p.totals).reduce((acc, v) => acc + v, 0), 0),
     [points],
@@ -184,7 +197,7 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
       <Bars
         cursorResolution="leading"
         ariaLabel="Daily activities stacked by type"
-        data={points}
+        data={axisPoints}
         height={CHART_HEIGHT}
         x={(d) => d.day}
         bars={bars}
@@ -192,6 +205,7 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
         tooltip={{
           rows: (d, ctx) => {
             const hidden = new Set(ctx.hidden.map((s) => s.key))
+            if (d.activities.length === 0) return []
             const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
             return [
               { label: 'Total', value: fmtMinutes(total), color: VX.axis },

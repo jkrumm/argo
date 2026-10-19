@@ -7,6 +7,10 @@ import {
   ACWR_LEGEND,
   acwrFact,
   acwrRelation,
+  ACWR_INFO,
+  dayKeysBetween,
+  fillDays,
+  windowSpan,
   bodyBatteryFact,
   contributorItems,
   countWhere,
@@ -191,7 +195,9 @@ describe('recovery load states', () => {
       recoveryStatus: 'error',
       acwr: 1,
     })
-    expect(sentence).toBe('Load inside the 0.8–1.3 optimal band; the recovery score failed to load')
+    expect(sentence).toBe(
+      'Load inside the 0.8\u2060–\u20601.3 optimal band; the recovery score failed to load',
+    )
     expect(sentence).not.toContain('HRV, sleep')
   })
 })
@@ -679,5 +685,64 @@ describe('strip cell branches', () => {
     expect(recoveryCellBranch({ showsGap: true, gap: {} })).toBe('empty')
     expect(recoveryCellBranch({ showsGap: true, gap: null })).toBe('meter')
     expect(recoveryCellBranch({ showsGap: false, gap: {} })).toBe('meter')
+  })
+})
+
+describe('dayKeysBetween', () => {
+  test('lists every calendar day inclusive, across a month and a DST change', () => {
+    expect(dayKeysBetween('2026-10-30', '2026-11-02')).toEqual([
+      '2026-10-30',
+      '2026-10-31',
+      '2026-11-01',
+      '2026-11-02',
+    ])
+    expect(dayKeysBetween('2026-10-24', '2026-10-26')).toHaveLength(3)
+  })
+
+  test('a single day is one key, a reversed span is empty', () => {
+    expect(dayKeysBetween('2026-10-05', '2026-10-05')).toEqual(['2026-10-05'])
+    expect(dayKeysBetween('2026-10-06', '2026-10-05')).toEqual([])
+  })
+})
+
+const empty = (date: string) => ({ date, v: 0 })
+
+describe('fillDays', () => {
+  test('rest days become empty points, so a week is seven columns', () => {
+    const out = fillDays(
+      [
+        { date: '2026-10-05', v: 3 },
+        { date: '2026-10-08', v: 5 },
+      ],
+      '2026-10-05',
+      '2026-10-11',
+      empty,
+    )
+    expect(out.map((p) => p.date)).toHaveLength(7)
+    expect(out.filter((p) => p.v > 0).map((p) => p.date)).toEqual(['2026-10-05', '2026-10-08'])
+  })
+
+  test('a point outside the span is kept, in order', () => {
+    const out = fillDays([{ date: '2026-10-01', v: 1 }], '2026-10-05', '2026-10-06', empty)
+    expect(out.map((p) => p.date)).toEqual(['2026-10-01', '2026-10-05', '2026-10-06'])
+  })
+})
+
+describe('windowSpan', () => {
+  test('an open start runs from the first point, a closed one clips at the floor, an open end to today', () => {
+    const t = new Date(2026, 9, 18)
+    expect(windowSpan({}, '2026-04-15', '2026-09-02', t)).toEqual({
+      from: '2026-09-02',
+      to: '2026-10-18',
+    })
+    expect(
+      windowSpan({ dateFrom: '2026-01-01', dateTo: '2026-04-20' }, '2026-04-15', '2026-04-16', t),
+    ).toEqual({ from: '2026-04-15', to: '2026-04-20' })
+  })
+})
+
+describe('ACWR_INFO', () => {
+  test('names the zones as the legend does', () => {
+    for (const label of Object.values(ACWR_LEGEND)) expect(ACWR_INFO).toContain(label)
   })
 })

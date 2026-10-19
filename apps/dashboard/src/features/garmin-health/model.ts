@@ -65,6 +65,13 @@ export const ACWR_LEGEND = {
   danger: `${ACWR_ZONE_NAME.danger} (> ${ACWR_CAUTION_TO})`,
 } as const satisfies Record<AcwrZone, string>
 
+/** Word joiner: lets a range keep its en dash on one line (`0.8⁠–⁠1.3` never wraps at the dash). */
+const WJ = '\u2060'
+const glueRange = (from: number, to: number): string => `${from}${WJ}–${WJ}${to}`
+
+/** The training-load (i) text: the legend's zone names and range notation, from the same constants. */
+export const ACWR_INFO = `Acute:Chronic Workload Ratio (ACWR) using EWMA (Hulin et al. 2017). Compares your recent 7-day training load to your 28-day baseline. ${ACWR_ZONE_NAME.undertrained} (< ${ACWR_FLOOR}): detraining risk. ${ACWR_ZONE_NAME.optimal} (${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}): optimal adaptation. ${ACWR_ZONE_NAME.caution} (${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO}): elevated injury risk. ${ACWR_ZONE_NAME.danger} (> ${ACWR_CAUTION_TO}): danger zone. Daily load estimated from intensity minutes (8 × vigorous + 4 × moderate minutes, plus 0.03 × steps outside intensity minutes).`
+
 /** Stress zone edges: below 25 rest, 25–49 low, 50–74 moderate, from 75 high. */
 export const STRESS_REST_BELOW = 25
 export const STRESS_MODERATE_FROM = 50
@@ -182,6 +189,34 @@ function dayKey(d: Date): string {
   return `${y}-${mo}-${da}`
 }
 
+/** Every `YYYY-MM-DD` key from `from` to `to`, inclusive; empty when `to` precedes `from`. */
+export function dayKeysBetween(from: string, to: string): string[] {
+  const out: string[] = []
+  const end = Date.parse(`${to}T00:00:00Z`)
+  for (let t = Date.parse(`${from}T00:00:00Z`); t <= end; t += 86_400_000) {
+    out.push(new Date(t).toISOString().slice(0, 10))
+  }
+  return out
+}
+
+/**
+ * Put dated points on a continuous calendar-day axis from `from` to `to`: every day present, a day
+ * without a point is `empty(date)`. Points outside the span are kept, so no fact is dropped.
+ */
+export function fillDays<T extends { date: string }>(
+  points: readonly T[],
+  from: string,
+  to: string,
+  empty: (date: string) => T,
+): T[] {
+  const byDate = new Map(points.map((p) => [p.date, p]))
+  const filled = dayKeysBetween(from, to).map((date) => byDate.get(date) ?? empty(date))
+  const inSpan = new Set(filled.map((p) => p.date))
+  return [...filled, ...points.filter((p) => !inSpan.has(p.date))].toSorted((a, b) =>
+    a.date.localeCompare(b.date),
+  )
+}
+
 /** The last `days` calendar days ending today, as explicit `from`/`to` — independent of the page's window. */
 export function lastDaysRange(
   days: number,
@@ -204,6 +239,18 @@ export function windowDayCount(
   const end = range.dateTo ?? dayKey(today)
   const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)
   return ms < 0 ? 0 : Math.round(ms / 86_400_000) + 1
+}
+
+/** The window's first and last day keys: an open start runs from `first` (the earliest point), a start before `floor` is clipped, an open end runs to `today`. */
+export function windowSpan(
+  range: { dateFrom?: string | undefined; dateTo?: string | undefined },
+  floor: string,
+  first: string,
+  today: Date = new Date(),
+): { from: string; to: string } {
+  const from =
+    range.dateFrom === undefined ? first : range.dateFrom > floor ? range.dateFrom : floor
+  return { from, to: range.dateTo ?? dayKey(today) }
 }
 
 /**
@@ -280,7 +327,8 @@ export function vo2Hero(
 export function acwrRelation(acwr: number | null): string {
   if (acwr === null) return EM_DASH
   if (acwr < ACWR_FLOOR) return `under the ${ACWR_FLOOR} floor`
-  if (acwr <= ACWR_OPTIMAL_TO) return `inside the ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} optimal band`
+  if (acwr <= ACWR_OPTIMAL_TO)
+    return `inside the ${glueRange(ACWR_FLOOR, ACWR_OPTIMAL_TO)} optimal band`
   if (acwr <= ACWR_CAUTION_TO) return `over the ${ACWR_OPTIMAL_TO} ceiling`
   return `past the ${ACWR_CAUTION_TO} danger line`
 }
