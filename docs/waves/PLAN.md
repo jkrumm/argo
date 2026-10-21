@@ -2594,19 +2594,38 @@ its layout holds, so this wave works the method's way: **scenario → concept �
 - **Deviation from the plan's mechanics:** changes were small and sequential, so they ran as one branch + PR at a time from this pane rather than `rd fan` worktrees; every other gate held.
 - **Not verified:** hover tooltips are identical to rest in the harness; collapsed Diagnostics/Alignment bodies never shot; the `?tab=train` 1440 double stack is a harness artefact. Shots `apps/dashboard/.design-shots/w50-r{0..4}` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
-## Wave 51 — Every page under the two-reviewer bar <!-- status: active -->
+## Wave 51 — Every page under the two-reviewer bar <!-- status: done -->
 
 Strength (Waves 45–50) showed a single fresh reviewer's pass is not stable: verdicts swung 90 → 19 → 83 → 59 until the page was
 reworked concept-first and held under TWO reviewers. The other 13 pages passed under one reviewer each. This wave re-verifies all
 of them under the bar Strength now meets, on the live 2.27.2 bundle.
 
-- [ ] Shoot every route + both m365 presets (1440 / 390, both schemes) with `basalt-ui shot`; give each page TWO fresh
+- [x] Shoot every route + both m365 presets (1440 / 390, both schemes) with `basalt-ui shot`; give each page TWO fresh
       `basalt-design-reviewer`s (all sheets, Keel side by side). Record both verdicts per page in `docs/design/<page>.md`
       § Wave 51.
-- [ ] Pass = both reviewers find no P0/P1 and every component passes. List the pages that fail with their union of P0–P2.
-- [ ] Fix only argo P0/P1 items that are small and local (copy, units, a label); a page whose findings oscillate or pile up
+- [x] Pass = both reviewers find no P0/P1 and every component passes. List the pages that fail with their union of P0–P2.
+- [x] Fix only argo P0/P1 items that are small and local (copy, units, a label); a page whose findings oscillate or pile up
       gets its own concept-first wave in the Wave 50 shape (author it, do not run it). Basalt causes → `UPSTREAM.md` rows.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 51 is `done`; Wave 52 is authored, not run.**
+
+- **Method:** every route shot on the live 2.27.2 bundle's source (local `dist` of master, API proxied from production, GET only; a local strip-proxy removed `ETag`/`If-None-Match` because the harness counts a 304 as a failed shot), `shot detect` on each dir, then TWO fresh `basalt-design-reviewer`s per page (24 reviews, 12 pages; m365 incl. both pane presets, astro incl. all three tabs). Per-page verdicts: `docs/design/<page>.md` § Wave 51. Strength passed in Wave 50 and was not re-shot.
+- **Pass (both reviewers, no P0/P1, every component passes), 10 pages:** home 86 / 92, agents 86 / 86, warden 78 / 84, calendar 88 / 84, garmin-health 86 / 82, hermes-chat 86 / 86, m365-explorer 83 / pass (score returned as 7, partial sheets), reading 86 / 86, usage-tracking 86 / 86, walking-pad 86 / 82.
+- **Fail, 2 pages:** **astro-window** (78 / 82, `site-map` P1 on `shot detect`: overlay `Paper` nested in the 10 px map `Card`, and the 12 px MapLibre attribution at 390; basalt/third-party, `UPSTREAM.md` § Wave 51). **body-composition** (84 / 78 first pass, then A fail 78 / B pass 84 after the fix): the first pair's shared P1 (y-axis ticks `74, 73, 73, 72…`) was fixed in `37ddf42f` and deployed; what remains is a P1 at 390 (Weight and Rate strip cells side by side, meter captions touching) plus the headline, stale-colour and no-goal-cell P2s, and the goal / skinfold / history states cannot render on production data.
+- **Fixed in the wave:** one commit, `37ddf42f` (weight-chart ticks keep the half-kg decimal). `make check` green (609 tests); deploy green.
+- **Open argo P2 across passing pages (named, not fixed):** Warden's ~49 near-identical Needs-you cards (no grouping or fold); m365 headline `Chats span {n} d`, bare `Chats` list title at 390, mismatched source-kind glyphs in the Labeled pane; Home Dispatch cell without a figure, ragged strip; Calendar right column half empty at 1440; Garmin `Improving` qualifier beside a red VO2max delta; Walking empty page ~55 % blank. Basalt/harness carried rows unchanged.
+- **Not verified:** m365 detail pane with a source open, goal/skinfold states, loading/error/tooltip states not declared on several anchors, Keel captures not opened by every reviewer. Shots `apps/dashboard/.design-shots/w51-*` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
+
+## Wave 52 — Concept-first: astro Map tab and body-composition <!-- status: active -->
+
+Both pages fail the two-reviewer bar in Wave 51 for reasons a one-finding patch does not close. Work them in the Wave 50 shape.
+
+- [ ] Astro Map tab: scenario and concept in `docs/design/astro-window.md` § Wave 52 (what a reader scouting a site needs on the map; which overlays are panels over the canvas and how they sit without nesting a card radius); resolve the overlay-radius and attribution P1s (a `UPSTREAM.md` row if basalt, otherwise a documented layout that clears `shot detect`).
+- [ ] Body-composition: concept in `docs/design/body-composition.md` § Wave 52 — the headline states value, rate and distance to goal; the 390 strip decision (stack or fix the Rate meter); stale and no-goal states; shoot the goal/skinfold/history states with a documented seed or mock overlay.
+- [ ] At least two rounds, each with TWO fresh `basalt-design-reviewer`s; pass = both find no P0/P1 and every component passes. Shoot only after the served bundle carries the change.
+**Left behind:**
+
 
 # Part 1, continued
 

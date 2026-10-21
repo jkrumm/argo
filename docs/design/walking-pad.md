@@ -232,3 +232,13 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Fixed (argo):** the record header's facts and stats lines join with the shared `FACT_SEPARATOR` (` ·{NBSP}`, `lib/text-breaks.ts` — the rule Warden's facts line settled in Wave 40): the one break is before the dot, so a 390 wrap opens a line on `· {fact}` and never ends on `·` (`… 1 h 30 min ·` / `4.2 km/h`). Applied to the live and last-walk rows, facts and stats. No lost fact.
 - **Re-score (`w41-r1`):** pass. At 390 in both schemes the last-walk line wraps `last walk 31 Jul · 6.3 km · 1 h 30 min` / `· 4.2 km/h` — no trailing `·`; one line at 1440. No regression vs `w40-r4`, no lost fact. Open (argo): none. Unverified: the live-walk row (data showed `Not walking`), loading / error (not declared). Against Keel: close.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-walking-pad` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 86.** No P0–P2.
+- **Reviewer B: pass, 82.**
+  - P2 `page / empty-window` (argo): At 1440 about 55-60% of the page is blank below the empty-window card. Pace and Totals cells hold only the short sentence 'No walks in the last 30 days' and no visual. Keel's equivalent pages fill…
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

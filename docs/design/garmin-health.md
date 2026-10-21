@@ -264,3 +264,19 @@ Follow-up (w30-r1):
 ### Wave 41 bump round
 
 - **Re-score on basalt-ui 2.27.0 (`w42-a`):** fail on basalt only (71). Closed: load meter `Caution` at 390 (second label row), hue-only zone folds (ACWR / recovery / stress legends name every key), the activities tooltip staying inside its card. Open (basalt, P1): the fitness `Sparkline` readout now lands on the HRV row's line at 390, in the Fitness cell and the joined strip; clear on desktop. Carried (basalt, P2): the Meter `0` detached under the marker, info bubbles over the ACWR / recovery / activity-score headlines, fact lines wrapping with a leading `·`. Open (argo): none; no lost fact. Detail: `UPSTREAM.md` § "Wave 41 bump".
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-garmin-health` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 86.**
+  - P2 `strip / recovery and training-load Meter` (basalt): Meter end figures and ticks sit detached below the track: the `100` and `2.0` ends float on their own row, the `0` tick sits under the marker, and the `Caution` zone label wraps to a second row at…
+  - P2 `acwr-chart, recovery-chart, activity-score-chart (info icon)` (basalt): The focused (i) tooltip opens over the headline figure and the first rows of the plot, covering the data and the zone lines in the ACWR focus sheet at desktop and 390. Carried (basalt).
+  - P2 `strip-fitness (390, focus)` (basalt): At 390 the sparkline focus readout (`45 bpm · 21 Oct`) is drawn over the RHR line, in the fitness cell and in the joined strip. It is clear on desktop. Carried (basalt, P1 in w42; the sheets show it…
+  - P2 `strip-fitness` (argo): The fitness qualifier `Improving` over `RHR/HRV slope · 14 d` sits beside a VO2max headline whose own row is a red decline (`−0.3 ml/kg/min`, `slope · 126 d`). The qualifier's subject is not named…
+- **Reviewer B: pass, 82.**
+  - P2 `strip-load / strip-recovery (Meter)` (basalt): Carried: Meter end figures ('100', '2.0') and the '0' tick sit detached below the track, not on its ends. The load '0' hangs under the Optimal label. Visible at 1440 and 390, light and dark.
+  - P2 `acwr-chart (info tooltip)` (basalt): Carried: the (i) focus bubble covers the headline and the plot's top-left on desktop and mobile, so the ACWR figure and zone bands are hidden while it is open. Seen in the focus sheet at both widths.
+  - P2 `empty states (all chart cards)` (basalt): Carried: an empty chart card keeps its full plot height around one centred line of text, so the cards look broken rather than empty. Seen in the ACWR sheet at 1440 and 390.
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

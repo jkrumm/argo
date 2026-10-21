@@ -301,3 +301,15 @@ Follow-up (w30-r2):
 - **Declined (review):** dropping `overflow-wrap: anywhere` on the facts line (it only splits a word when a line has no other break opportunity, which #189 restores); gluing Home/Agents fact internals (`warden · {repo}`, `asked {d} ago` carry plain spaces in `lib/decisions.ts` — pre-existing, scope frozen; open P3 if a reviewer ever sees one wrap).
 - **Re-score (`w40-r1` pass → `w40-r2` fail → `w40-r3` fail on basalt only):** `w40-r3` — decision-1611, failed-1576, failed-1584 wrap as `… waiting {d} d {h} h` / `· revised {n} times`; no mid-word split, no line ending on `·`, `waiting` whole everywhere, identifiers whole or broken after a joint (`alert_egress_` / `down:…`), history lines unchanged. Basalt (carried): the strip qualifier alone after `·`, info tooltips over the next cell, hover identical to rest. Against Keel: close; Keel's cards carry a small visual each, ours are text.
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass (basalt P2/P3 only). No regression vs `w40-r3`: facts lines wrap before `·`, identifiers whole or broken after a joint, history unchanged, edge tooltips inside their card. Carried (basalt): hover = rest, the info tooltip over the next cell, the strip qualifier alone after `·`.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-warden` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 78.**
+  - P2 `page / decision queue` (argo): The Needs-you queue renders about 49 near-identical decision cards, so the page is 7650 px tall at 1440 and about 16000 px at 390. Ten or more alert cards carry the same Blocker chip, 'waiting 3 d 20…
+- **Reviewer B: pass, 84.**
+  - P2 `decision queues (page)` (argo): About 45 Needs-you cards render as one flat list, about 7650 px tall at 1440 and about 16000 px at 390. Many cards are near-identical (the Down Request alerts, four 'Re-triage with host log access'…
+  - P2 `strip-fixes` (harness): The rest and hover crops cut off the cell's last line ('+ 332 closed = 396 items' sits on the crop edge) and show only one cell. This is probably the crop box, not the page, and I could not tell…
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

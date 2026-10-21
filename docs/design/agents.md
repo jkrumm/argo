@@ -297,3 +297,13 @@ No basalt gaps this round.
 
 - **Fixed (argo):** the project card's `Now` / `Waiting` title wraps instead of ellipsizing (dropped `truncate`). The `.now` row is a flex row, so the label stays on the first line and a wrapped title hangs under itself, and a lone long token (path, branch) splits via `overflow-wrap: anywhere` only when its line has no other break; no `lineClamp`, nothing else on the page uses one. No lost fact.
 - **Re-score (`w41-r1`):** pass. No `…` on any `Now` title at 1440 or 390, label and title on one baseline, all facts present. No regression vs `w40-r4`, no lost fact. Open (argo, P3, accepted): `ago` alone on project-card-4 at 1440. Basalt (carried): the 390 oldest-wait meter dropping `abandoned at 7 d`, the activity-strip focus readout over its legend, hover = rest. Unverified: an actual wrapping `Now` / `Waiting` title (no live title was long enough), `overflow-wrap` on a lone long token, the evidence-line unit glue (no break near a number), the agent card's glued `waiting`. Against Keel: close.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-agents` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 86.** No P0–P2.
+- **Reviewer B: pass, 86.**
+  - P2 `activity-strip` (basalt): Carried: the focus readout tooltip sits over the legend and footer line (sheet, focus row, desktop and mobile, both schemes), so the key is hidden while a keyboard user is on the strip.
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

@@ -246,3 +246,14 @@ Follow-up (w30-r1):
 - **Fixed (argo):** the recovery footer joins its facts with the Wave 40 facts joint (`FACT_SEPARATOR`, now in `lib/text-breaks.ts` and shared with the DecisionCard facts line): a breakable space before the `·`, a no-break space after, so a wrapped footer opens on `· 5/7 d observed` and never ends on `7 d mean 69 ·`. No lost fact.
 - **Fixed (argo, shared DecisionCard):** the evidence line glues a number to the short unit after it (`glueNumberUnits` in `lib/text-breaks.ts`: `KB`/`MB`/`GB`/`TB`, `%`, `d`, `h`, `min`, `s`, `ms`), so `keep the 50 GB floor?` no longer breaks `50` / `GB`. Render-time glue only, no copy change; the component is shared with Warden and Agents, which get the same glue. No lost fact.
 - **Re-score (`w41-r1`):** pass. Both changes verified at 390 in both schemes: the recovery footer wraps `7 d mean 73` / `· 7/7 d observed` (no line ends on `·`), decision-card-3 reads `…keep the` / `50 GB floor?`; at 1440 both stay on one line. The glue does not over-reach (identifiers whole, no overflow). No regression vs `w40-r4`, no lost fact. Open (argo, P3, carried, accepted): the `No snapshot yet from …` body. Basalt (carried): the ACWR meter's zone names running together at 1440 (in dark `Optimal` cut to `Optima` — not only a missing gap), hover = rest, the 390 `Latest changes` preview width. Unverified: a facts line that wraps, a unit glued at a 1440 wrap point. Against Keel: close.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-home` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 86.** No P0–P2.
+- **Reviewer B: pass, 92.**
+  - P2 `strip-acwr` (basalt): ACWR meter zone names (Low / Optimal / Caution / Danger) sit tight at 1440 and in the narrow sheet crop. The older 'running together' and dark 'Optima' clip did NOT reproduce here; every name read…
+  - P2 `strip-budget` (argo): The Dispatch cell carries no figure, only 'Not reported yet; Warden sends it with each push, about every 10 min.' Plus the footer 'watchdog poll 15 min old' and a 12 px empty band. At rest it spends…
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

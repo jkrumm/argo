@@ -263,3 +263,12 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Fixed (argo): the health card draws window days only. At day grain the p95 line and the per-day error bars both drop the partial leading day of the range's rolling window (`rangeWindowDays` in `model.ts` owns the range→span table and the day-grain / `all` gates; `windowDays` takes an explicit span and the strip passes `STRIP_WINDOW_DAYS`, so its behaviour is unchanged), so the two halves share one x extent and the line's first point is the first day that began inside the window. `p95 latest` is the last bucket, unchanged; the empty and two-point states are unchanged. The `all` range has no window start and week grain keeps its buckets as returned (a week bucket is not day-aligned to the window start, so no clean rule exists). The error-event total follows the drawn bars. No lost fact.
 - Also (round-2 review): the card's no-calls judgement (`hasCalls`) reads the same windowed rate buckets, so a range whose only calls fall in the excluded leading day shows the no-reading state.
 - **Re-score (`w41-r1`):** pass. The line now opens at ~45 s on a 0–100 s axis (was ~155 s on 0–200 s); its peak ~65 s on 1 Oct matches the strip's `slowest day 65.3 s, 1 Oct`; latency points and error bars share one x extent (20 Sep – 18 Oct); error figures still agree with the strip (2 bad, 3 warn days, `1.4 k` total unchanged). No regression vs `w40-r4`, no lost fact. Basalt (carried, P3): `Sept` band ticks, `$0` / `0 M` tooltip rows, the band under the tokens plot. Unverified: week grain and the `all` range (not shot). Against Keel: close.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-usage-tracking` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 86.** No P0–P2.
+- **Reviewer B: pass, 86.** No P0–P2.
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

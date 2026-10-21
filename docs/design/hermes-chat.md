@@ -224,3 +224,12 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 40 round
 
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass, no regression vs `w39-r1`, no lost fact. Carried (harness, P3): the toolbar hover crop lands on the active chip. Against Keel: close.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-hermes-chat` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 86.** No P0–P2.
+- **Reviewer B: pass, 86.** No P0–P2.
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

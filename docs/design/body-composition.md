@@ -240,3 +240,15 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 40 round
 
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass. Closed by 2.26: the 390 rate meter names all three zones (`Cut`, `Maintenance`, `Bulk`); the weight chart holds three sizes at 390. Carried (basalt, P3): the `7 d mean` end-label overprint, the info bubble over the net change, `Set a goal` hover = rest. No regression, no lost fact. Against Keel: close.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-body` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: fail (weight-chart), 84.**
+  - P2 `weight-chart` (basalt): The y-axis tick labels are rounded to whole kg on a half-kg step, so adjacent ticks repeat: 74, 73, 73, 72, 72, 71, 71 at 1440, both schemes. The axis cannot be read without guessing which 73 is…
+- **Reviewer B: fail (weight-chart), 78.**
+  - P1 `weight-chart` (argo): The y-axis tick labels repeat. Desktop reads 74, 73, 73, 72, 72, 71, 71 kg and mobile 74, 73, 72, 71. The ticks sit at 0.5 kg steps but are formatted to whole kg, so adjacent gridlines carry the same…
+  - P2 `headline / weight-chart` (argo): The headline says 'Weight rising over the 28 d to 2 Sep', while the chart card directly below says '-0.2 kg net change, 23 Jul to 2 Sep'. Two windows (28 d and 90 d) give opposite directions with no…
+
+The `weight-chart` y-axis repeat (`74, 73, 73, 72, …`, both reviewers) was fixed in 37ddf42f (half-kg ticks keep one decimal) and a second pair re-scored: **A fail 78** (P1 `strip-rate` at 390: Weight and Rate cells sit side by side instead of stacking, the Cut / Maintenance / Bulk captions nearly touch), **B pass 84**. The tick defect is closed in both. Open (argo, P2): the headline `Weight rising over the 28 d to 2 Sep` carries no value and reads against the 90 d net change below it; the stale qualifier is not in the warn colour; the no-goal Weight cell is sparse. Not verifiable on production data: goal meter, goal ref line, skinfold cell/chart, history table. **Result: fails the bar** — it gets its own concept-first wave (Wave 52).

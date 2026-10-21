@@ -227,3 +227,13 @@ No new basalt rows.
 ### Wave 40 round
 
 - **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass, no regression vs `w39-r1`, no lost fact. Carried (P3): the free-block loading skeleton drops its range line (~60 px vs ~90 px loaded). Against Keel: close.
+
+## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
+
+Shots `w51-calendar` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
+
+- **Reviewer A: pass, 88.**
+  - P2 `page (desktop 1440 layout)` (argo): The right column (week strip, free block, tasks) ends near y=920 while Next 7 days runs to about y=1950. Roughly half of the right column is empty and the cards do not stay in view while the long…
+- **Reviewer B: pass, 84.** No P0–P2.
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes).

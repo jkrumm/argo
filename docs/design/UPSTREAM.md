@@ -663,3 +663,11 @@ Full read (13 sheets, `w45-strength`): pass 68, no new basalt row. Carried, stil
 | `Sparkline` target band | no `band`/`zones` prop: a micro-visual with a known productive range (INOL 0.6–1.0) can draw only its shape or one `reference` line, so the cell cannot show "is this in range" | strength per-lift table (INOL column) | argo prints the latest value with its zone word beside the spark; no local band drawn |
 | `Sparkline` reference label | the `PR` label is overprinted by the line's start at 390 (carried since w45) | strength lift strip | as rendered |
 | `ChartCard` `subtitle` at compact | the subtitle (the e1RM chart's line/dot key) is dropped at 390 and only reachable in the focus tooltip, so the dashed lines and PR dots are unlabelled on a phone | strength `Estimated 1RM` | as rendered; argo does not move the key into a local legend |
+
+## Wave 51
+
+| Pattern | Friction | Pages | Note |
+|-|-|-|-|
+| Floating `Paper` over a `Card variant="flush"` | the overlay `Paper` and the flush `Card` share the 10 px card radius, so `shot detect` fails `craft-1/nested-radius-step` (P1); the strict surface system leaves no radius step for a panel floating over a card-sized canvas | astro Map tab scrubber and legends | as rendered |
+| MapLibre compact attribution | the third-party control is 12 px (`craft-1/off-scale-radius` and a nested step, 390 only); no basalt hook styles a map control | astro Map tab | as rendered |
+| `Lines` end labels | `Weight` / `7 d mean` end labels sit on the last segment with no collision avoidance (carried from cloud layers) | body weight chart, astro cloud layers | as rendered |
