@@ -2636,6 +2636,16 @@ Both pages fail the two-reviewer bar in Wave 51 for reasons a one-finding patch 
 - **New tool:** `scripts/design-shot/fixture-proxy.ts` (AGENTS.md § Verify): synthetic goal / skinfold data for `basalt-ui shot --dist`, every other GET forwarded to production; the shots still carry real weights.
 - **Not verified:** loading / error states (undeclared on both pages); the failed-tiles message; the forecast-model layer keys; body headline forms at-goal / no-rate / fresh weigh-in; two skinfold sessions under 3 d apart. Shots `apps/dashboard/.design-shots/w52-*` (gitignored, never committed). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 53 — Astro Map tab: one question at a time <!-- status: active -->
+
+Owner decision (2026-10-21, on the Wave 52 close-out): **one question at a time**. A weather layer (radar, lightning, forecast) lowers or hides the light-pollution atlas; radar keeps RainViewer's own scale. Concept first, then rounds, in the Wave 50/52 shape.
+
+- [ ] Concept in `docs/design/astro-window.md` § Wave 53: which layers are mutually exclusive, which combine, how the key rail says what is shown and what is hidden, what the default layer is for a reader scouting a site tonight, and how a switch reads at 390.
+- [ ] Implement it; declare and shoot the loading, error and failed-tiles states and the forecast-model layer keys (Wave 52 "Not verified").
+- [ ] Body-composition remainder from Wave 52 "Not verified": shoot at-goal, no-rate, fresh weigh-in and two skinfold sessions under 3 d apart through `scripts/design-shot/fixture-proxy.ts`; fix only P0/P1.
+- [ ] At least two rounds, each with TWO fresh `basalt-design-reviewer`s; pass = both find no P0/P1 and every component passes. The two upstream rows (MapLibre attribution, no basalt map form) are scored and recorded, never worked around. Shoot only after the served bundle carries the change.
+      **Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
