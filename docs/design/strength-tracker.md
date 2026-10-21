@@ -345,3 +345,10 @@ collapsed.
 | Scan `Status` column and its dot | merged into the trend cell | same fact as velocity |
 | Local Vol/INOL minis under the lift name at 390 | dropped | the table's row detail carries them, labelled |
 | Headline narration of the strips | replaced by the last-session fact | facts only |
+
+### Wave 50 round 1 (`w50-r1`, live after #195–#196)
+
+- **Two fresh reviewers, all sheets + page shots + Keel: A fail 3, B fail 9.** Both: every concept target met (headline is the last-session fact, trend is one cell, no dot, Recent scrollbar clear), all charts, strips, call card, balance, readiness, diagnostics and alignment pass; `strength-scan` and `strength-log` fail. `shot detect`: 80 (the Log's 4th font size).
+- **Union of P0–P2 (all argo):** P1 the trend shows a 28 d velocity for lifts with no session in 28 d (contradicts the headline; Momentum header too, P2); P1 Volume/INOL cells are bare shapes, the volume readout a unitless `{n}k`; P1 the 390 trend figure splits from `%/mo` and its header wraps to three lines, so Volume never folds; P1 the Log under `empty` still shows prior sets and fills; P1 the Log's set-type key added a 4th font size (12 px); P2 `30-day` / `28-day` / `7-day` beside `d` spans elsewhere; P2 ACWR lift lines share hues with the zone fills (squat/optimal, deadlift/danger).
+- **Fixed in one pass (#197):** a stale lift's trend reads `no session in 28 d` (table and Momentum header); Volume and INOL cells print the latest figure with its unit (`{t} t`, `{inol} {zone}`) beside the spark, readouts formatted; trend figure joined to `%/mo` by NBSP, header `Trend, 28 d`; Log reads empty under `?shot-state=empty`; key line on the Log's 13 px step; spans `30 d` / `28 d` / `7 d` / `90 d`; readiness readouts `/100`; `Bench Press` and `e1RM` named one way.
+- **Not fixed, named:** ACWR hue collision (P2, needs a series-dictionary decision, not a patch); timer presets `m`; diagnostics period on its own line; balance caption spacing (P3). Basalt: `Sparkline` has no band (`UPSTREAM.md` § Wave 50); `PR` label overprint; disclosure `▸`.

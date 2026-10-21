@@ -655,3 +655,10 @@ Full read (13 sheets, `w45-strength`): pass 68, no new basalt row. Carried, stil
 | Pattern | Friction | Pages | Note |
 |-|-|-|-|
 | `BasaltDataTable` row disclosure | at 390 a bare `▸` / `▾` (`FoldToggle`, `table/data-table.js`) sits left of each row under an unlabeled header cell; it reads as a stray glyph. Wants a chevron icon (or a labelled "Details" header) and the toggle on the row's far edge | strength scan (`sparkline-grid-chart.tsx`) | as rendered; argo does not work around it |
+
+### Wave 50 — Strength rounds
+
+| Pattern | Friction | Pages | Note |
+|-|-|-|-|
+| `Sparkline` target band | no `band`/`zones` prop: a micro-visual with a known productive range (INOL 0.6–1.0) can draw only its shape or one `reference` line, so the cell cannot show "is this in range" | strength per-lift table (INOL column) | argo prints the latest value with its zone word beside the spark; no local band drawn |
+| `Sparkline` reference label | the `PR` label is overprinted by the line's start at 390 (carried since w45) | strength lift strip | as rendered |
