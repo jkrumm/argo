@@ -997,6 +997,8 @@ export function paintOverlayState(map: MapLibreMap, state: OverlayState, radarFr
     }
   }
 
+  syncLabelLegibility(map, state)
+
   for (const selection of state.weather) {
     const entry = weatherLayer(selection.id)
     if (entry === undefined || entry.source === 'rainviewer') continue
@@ -1194,6 +1196,93 @@ export function refreshContours(map: MapLibreMap, state: OverlayState): void {
   if (map.getLayer(CONTOUR_LABEL_LAYER_ID) !== undefined) {
     map.setPaintProperty(CONTOUR_LABEL_LAYER_ID, 'text-color', line)
     map.setPaintProperty(CONTOUR_LABEL_LAYER_ID, 'text-halo-color', halo)
+  }
+}
+
+// ── Basemap label legibility ────────────────────────────────────────────────
+
+/** Basemap text sits ABOVE our rasters already (`labelAnchorId`), but its own ink and halo are tuned
+ * for the bare basemap: a light dark-scheme label over a slate overcast, or over the light-rain
+ * band, loses its edge. While a weather layer is on the labels take the page's ink and a
+ * page-coloured halo, both tokens — the same pair the contour labels use. */
+const LABEL_INK_VAR = '--vx-ink'
+const LABEL_HALO_VAR = '--vx-surface-bg'
+const LABEL_HALO_WIDTH = 2
+
+/** What the legibility pass wrote on a layer, and the paint it replaced. A layer is OURS to restore
+ * only while its current paint still equals `applied`; anything else means the style was swapped
+ * under us and the layer is somebody else's again. */
+type LabelPaint = { color: unknown; halo: unknown; width: unknown }
+type LabelSave = { original: LabelPaint; applied: LabelPaint }
+const labelSaves = new WeakMap<MapLibreMap, Map<string, LabelSave>>()
+
+const readLabelPaint = (map: MapLibreMap, id: string): LabelPaint => ({
+  color: map.getPaintProperty(id, 'text-color'),
+  halo: map.getPaintProperty(id, 'text-halo-color'),
+  width: map.getPaintProperty(id, 'text-halo-width'),
+})
+
+const sameLabelPaint = (a: LabelPaint, b: LabelPaint): boolean =>
+  a.color === b.color && a.halo === b.halo && a.width === b.width
+
+function writeLabelPaint(map: MapLibreMap, id: string, paint: LabelPaint): void {
+  // `setPaintProperty` takes the style spec's value types; the originals came out of the same
+  // style via `getPaintProperty`, so they round-trip.
+  map.setPaintProperty(id, 'text-color', paint.color as string)
+  map.setPaintProperty(id, 'text-halo-color', paint.halo as string)
+  map.setPaintProperty(id, 'text-halo-width', paint.width as number)
+}
+
+/**
+ * The basemap's own text layers (not ours: contour labels carry their own halo), in draw order.
+ * Used by the legibility pass below and by the site-label placement, which asks the map what
+ * text is on screen before it puts a name next to a dot.
+ */
+export function basemapLabelLayerIds(map: MapLibreMap): string[] {
+  const style: ReturnType<MapLibreMap['getStyle']> | undefined = map.getStyle()
+  if (style === undefined) return []
+  return style.layers
+    .filter(
+      (layer) =>
+        layer.type === 'symbol' &&
+        !layer.id.startsWith(OWN_PREFIX) &&
+        map.getLayoutProperty(layer.id, 'text-field') !== undefined,
+    )
+    .map((layer) => layer.id)
+}
+
+/**
+ * Strengthens the basemap's label ink and halo while any weather layer is on, and puts the
+ * style's own paint back when none is. Idempotent: called from {@link paintOverlayState} on every
+ * state commit and from the bare scheme flip, where the resolved tokens change under a style that
+ * did not reload.
+ */
+export function syncLabelLegibility(map: MapLibreMap, state: OverlayState): void {
+  const ids = basemapLabelLayerIds(map)
+  const saves = labelSaves.get(map) ?? new Map<string, LabelSave>()
+  labelSaves.set(map, saves)
+  const wanted = state.weather.length > 0
+  const cs = wanted ? getComputedStyle(document.documentElement) : undefined
+  const applied: LabelPaint | undefined = cs && {
+    color: resolveStopColor(cs, LABEL_INK_VAR, 1),
+    halo: resolveStopColor(cs, LABEL_HALO_VAR, 1),
+    width: LABEL_HALO_WIDTH,
+  }
+
+  for (const id of ids) {
+    const current = readLabelPaint(map, id)
+    const save = saves.get(id)
+    const owned = save !== undefined && sameLabelPaint(current, save.applied)
+    if (!owned) saves.delete(id)
+
+    if (applied === undefined) {
+      if (owned) writeLabelPaint(map, id, save.original)
+      saves.delete(id)
+      continue
+    }
+    if (owned && sameLabelPaint(current, applied)) continue
+    saves.set(id, { original: owned ? save.original : current, applied })
+    writeLabelPaint(map, id, applied)
   }
 }
 

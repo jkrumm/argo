@@ -1441,7 +1441,9 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     // Scale checked 2026-10-21 against the package's `precipitation` ramp: first breakpoint 0.01 mm at alpha 0, 0.055 mm light blue, 1 mm blue, 2–3 mm green, 4.5–6 mm yellow, 20 mm and up red.
     textKey: {
       title: 'Forecast precipitation',
-      lines: ['mm/h: light blue → blue → green → yellow → red heavy; transparent under 0.06 mm/h'],
+      lines: [
+        'mm/h: light rain → heavy rain, the colour running from cool to warm; transparent under 0.06 mm/h',
+      ],
     },
     emptyMeans:
       'Blank means no precipitation forecast at that hour, or a place outside the forecast domain.',

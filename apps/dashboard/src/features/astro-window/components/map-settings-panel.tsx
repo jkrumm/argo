@@ -419,8 +419,7 @@ export function MapLayerSections({
       </Accordion>
 
       <Text size="xs" c="dimmed">
-        Every choice here is in the URL, so a configured map can be linked and survives a reload.
-        The pollution ramp defaults to {DEFAULT_LP_YEAR}, the latest published atlas.
+        The pollution atlas opens on {DEFAULT_LP_YEAR}, the latest published year.
       </Text>
     </Stack>
   )

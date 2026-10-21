@@ -4,5 +4,6 @@
  */
 declare const classes: {
   readonly siteLabel: string
+  readonly siteLabelQuiet: string
 }
 export default classes

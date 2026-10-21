@@ -74,6 +74,7 @@ import {
   type WeatherSelection,
 } from '../map-layers'
 import {
+  basemapLabelLayerIds,
   detachTerrainIfUnwanted,
   installOverlays,
   paintOverlayState,
@@ -83,11 +84,13 @@ import {
   refreshContours,
   refreshHillshade,
   refreshLpRamp,
+  syncLabelLegibility,
   syncTerrain,
   type OverlayState,
 } from './map-overlays'
 import { MapLayerSections } from './map-settings-panel'
 import { ScoutPanel } from './scout-panel'
+import { placeSiteLabels, type SiteLabel } from './site-labels'
 import classes from './site-map.module.css'
 
 /*
@@ -622,6 +625,7 @@ export default function SiteMap({
     refreshCloudRamp(map, overlayStateRef.current)
     refreshHillshade(map, overlayStateRef.current)
     refreshContours(map, overlayStateRef.current)
+    syncLabelLegibility(map, overlayStateRef.current)
   }, [resolvedScheme])
 
   // Panel changes: add/remove sources and layers, then paint. Guarded on the style being up —
@@ -696,7 +700,9 @@ export default function SiteMap({
     const map = mapRef.current
     if (!map) return
 
+    let stopPlacingLabels = () => {}
     const addMarkers = () => {
+      stopPlacingLabels()
       markersRef.current.forEach((marker) => marker.remove())
       markersRef.current = data.data.map((site) => {
         const el = document.createElement('button')
@@ -728,17 +734,27 @@ export default function SiteMap({
         })
         return new Marker({ element: el }).setLngLat([site.lon, site.lat]).addTo(map)
       })
-      const selectedSite = data.data.find((site) => site.id === siteId)
-      if (selectedSite !== undefined) {
-        const label = document.createElement('span')
-        label.className = classes.siteLabel
-        label.textContent = selectedSite.name
-        markersRef.current.push(
-          new Marker({ element: label, anchor: 'left', offset: [12, 0] })
-            .setLngLat([selectedSite.lon, selectedSite.lat])
-            .addTo(map),
-        )
-      }
+      // Every site is named on the canvas, not just the selected one: a dot with no name is a
+      // guess. The selected name is the louder one; `placeSiteLabels` seats each beside its dot
+      // clear of the others and of the basemap's own text, and hides a name with no room.
+      const labels: SiteLabel[] = data.data.map((site) => {
+        const selected = site.id === siteId
+        const element = document.createElement('span')
+        // The dot is the button with the accessible name; the text beside it would read twice.
+        element.setAttribute('aria-hidden', 'true')
+        element.className = selected ? classes.siteLabel : classes.siteLabelQuiet
+        element.textContent = site.name
+        const lngLat: [number, number] = [site.lon, site.lat]
+        const marker = new Marker({ element }).setLngLat(lngLat).addTo(map)
+        markersRef.current.push(marker)
+        return { marker, element, lngLat, selected }
+      })
+      const place = () => placeSiteLabels({ map, labels, textLayers: basemapLabelLayerIds(map) })
+      place()
+      // `idle`: after MapLibre's collision pass, so the basemap text the names dodge is the text
+      // that is actually on screen; it fires again after every move, zoom and style change.
+      map.on('idle', place)
+      stopPlacingLabels = () => map.off('idle', place)
     }
 
     // The guard is our OWN ref, set by the create effect's `style.load` handler — never
@@ -752,6 +768,7 @@ export default function SiteMap({
 
     return () => {
       map.off('style.load', addMarkers)
+      stopPlacingLabels()
       markersRef.current.forEach((marker) => marker.remove())
       markersRef.current = []
     }
