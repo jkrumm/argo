@@ -367,7 +367,9 @@ export default function SiteMap({
    * several hours stale.
    */
   const [targetMs, setTargetMs] = useState(() => Date.now())
-  const [playing, setPlaying] = useState(true)
+  // Opened with a forecast layer already on, the map starts paused too: the switch-on reset below
+  // only fires on a change, and a URL that arrives with `wx=model-*` never changes.
+  const [playing, setPlaying] = useState(() => !omModelActive)
 
   const tickIndex = useMemo(
     () => (tickCount === 0 ? 0 : (nearestTimeIndex(ticks, new Date(targetMs)) ?? 0)),
