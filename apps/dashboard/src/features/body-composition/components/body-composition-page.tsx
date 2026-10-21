@@ -81,7 +81,14 @@ export function BodyCompositionPage({ params }: { params: Params }) {
       status: weightStatus,
     }),
     ...(sessions.length > 0
-      ? [skinfoldCell({ summary: skinfoldSummary, rows, latestDate: latestDate(sessions) })]
+      ? [
+          skinfoldCell({
+            summary: skinfoldSummary,
+            rows,
+            latestDate: latestDate(sessions),
+            sessions: sessions.length,
+          }),
+        ]
       : []),
   ]
 

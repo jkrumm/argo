@@ -322,3 +322,12 @@ Two reviewers failed round 1. Fixed in the dashboard (argo defects only):
 6. The skinfold cell's sparkline readout carries the unit (`{v} mm`).
 7. The empty-state short reason names the next step: `No entries in this window — log a weight` (strip cells and weight chart).
 8. The weight chart's goal legend label carries the unit: `goal {goal} kg`.
+
+**Round 2 fixes.**
+
+- The history table's delete action no longer carries `danger`; the red stays on the confirm dialog, where the decision is made,
+  instead of on every row at rest (the basalt row in `UPSTREAM.md` § Wave 52 stands).
+- One skinfold session is stated once: the cell drops its footer and the empty row under the weight chart says a second session
+  is needed. Two sessions under 3 d apart keep the footer `Sessions under 3 d apart — a wider gap sets the rate`.
+- Kept by decision: the headline repeats the strip's weight and rate (pass criterion 1 asks for both in the headline; the strip
+  carries their scales).

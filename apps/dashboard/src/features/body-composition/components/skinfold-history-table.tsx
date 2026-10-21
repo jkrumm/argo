@@ -72,7 +72,7 @@ export function SkinfoldHistoryTable() {
             key: 'delete',
             label: 'Delete',
             icon: <IconTrash size={14} />,
-            danger: true,
+            // The red belongs on the confirm dialog, where the decision is made, not on every row.
             loading: (r) => deleteSkinfoldLog.isPending && deleteSkinfoldLog.variables === r.id,
             onClick: handleDelete,
           },

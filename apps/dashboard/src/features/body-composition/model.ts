@@ -278,7 +278,7 @@ export function skinfoldHeaderFact(
 
 /**
  * The SKINFOLD cell footer: the direction and its mm/wk rate over the API's lookback, or what a
- * rate needs when there is none (a single session has no direction to name).
+ * rate needs when there is none. `null` for a single session, which has no direction to name.
  */
 export function skinfoldRateFooter({
   direction,
@@ -289,11 +289,11 @@ export function skinfoldRateFooter({
   mmPerWeek: number | null
   /** Sessions in the window; with two or more, a missing rate means they sit too close together. */
   sessions: number
-}): string {
+}): string | null {
+  // One session: the empty row under the weight chart already says a second one is needed.
+  if (sessions < 2) return null
   if (mmPerWeek === null)
-    return sessions < 2
-      ? 'One session — a second sets the rate'
-      : `Sessions under ${withUnit(3, 'd')} apart — a wider gap sets the rate`
+    return `Sessions under ${withUnit(3, 'd')} apart — a wider gap sets the rate`
   return `${skinfoldDirectionLabel(direction)} \u00b7 ${signed(mmPerWeek, 2)} mm/wk over ${withUnit(RATE_LOOKBACK_DAYS, 'd')}`
 }
 

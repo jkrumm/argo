@@ -219,12 +219,16 @@ export function skinfoldCell({
   summary,
   rows,
   latestDate,
+  sessions,
 }: {
   summary: SkinfoldSummary
   rows: SiteRow[]
   latestDate: string | null
+  /** Caliper sessions in the window. */
+  sessions: number
 }): StatStripCell {
   const latest = dateLabel(latestDate)
+  const footer = skinfoldRateFooter({ ...summary, sessions })
   return {
     key: 'skinfold',
     caption: 'Skinfold',
@@ -233,10 +237,8 @@ export function skinfoldCell({
     ...(latest !== undefined && { qualifier: `latest session ${latest}` }),
     value: summary.current === null ? null : fixed(summary.current),
     unit: 'mm session average',
-    footer: skinfoldRateFooter({
-      ...summary,
-      sessions: Math.max(0, ...rows.map((row) => row.values.length)),
-    }),
+    ...(footer !== null && { footer }),
+
     rows: rows.map((row) => ({
       key: row.site,
       label: row.label,

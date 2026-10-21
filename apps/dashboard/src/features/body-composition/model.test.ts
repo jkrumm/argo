@@ -261,10 +261,8 @@ describe('skinfoldRateFooter', () => {
       'Reducing \u00b7 \u22120.25 mm/wk over 28\u00a0d',
     )
   })
-  test('a single session has no rate and no direction word', () => {
-    expect(skinfoldRateFooter({ direction: 'stable', mmPerWeek: null, sessions: 1 })).toBe(
-      'One session \u2014 a second sets the rate',
-    )
+  test('a single session has no footer: the empty row already says a second is needed', () => {
+    expect(skinfoldRateFooter({ direction: 'stable', mmPerWeek: null, sessions: 1 })).toBeNull()
   })
   test('two sessions too close together say so, not "one session"', () => {
     expect(skinfoldRateFooter({ direction: 'stable', mmPerWeek: null, sessions: 2 })).toBe(
