@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   ActionIcon,
   Box,
@@ -751,6 +751,7 @@ export default function SiteMap({
       markersRef.current.forEach((marker) => marker.remove())
       markersRef.current = []
     }
+    // `attempt`: a Retry built a new map, whose markers this effect has to add again.
   }, [data, siteId, attempt])
 
   // Fit bounds to every site once, on first load only.
@@ -778,6 +779,7 @@ export default function SiteMap({
     return () => {
       map.off('style.load', fit)
     }
+    // `attempt`: a Retry built a new map, which has to be fitted again.
   }, [data, attempt])
 
   const closeScoutPanel = useCallback(() => setScoutOpen(false), [])
@@ -1055,12 +1057,14 @@ const GRATICULE_STEP = 48
 
 /** The canvas placeholder: grid lines in the chart-grid ink, so the card keeps a map's shape. */
 function MapGraticule() {
+  // SVG ids are document-global; `useId`'s colons are not valid in a `url(#…)` reference.
+  const patternId = `graticule-${useId().replaceAll(':', '')}`
   return (
     <Box style={{ flex: 1 }}>
       <svg width="100%" height="100%" aria-hidden="true">
         <defs>
           <pattern
-            id="map-graticule"
+            id={patternId}
             width={GRATICULE_STEP}
             height={GRATICULE_STEP}
             patternUnits="userSpaceOnUse"
@@ -1073,7 +1077,7 @@ function MapGraticule() {
             />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#map-graticule)" />
+        <rect width="100%" height="100%" fill={`url(#${patternId})`} />
       </svg>
     </Box>
   )
