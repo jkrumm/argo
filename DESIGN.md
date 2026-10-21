@@ -256,7 +256,9 @@ empty section is the correct default; do not invent deviations to fill it.
   its own before MapLibre ever sees it — so these are the one surface in the app whose colour does
   not come from a `--vx-*` token, and the theme guard cannot see them (there is no hex in our
   source to find). Measured from the shipped scales on 2026-08-20 rather than assumed: cloud runs
-  dark-to-light with alpha `0 → .925` across 0–100 %, precipitation is the conventional
+  white-to-slate with alpha `0 → .925` across 0–100 % (the package's light palette, requested in
+  both schemes since 2026-10-21: its dark palette ends near-white and buried the dark base's labels),
+  precipitation is the conventional
   blue → green → red radar ramp with alpha `0` below 0.055 mm. **Both are fully transparent at
   zero**, which is the property that actually matters here — a forecast layer that washed the
   whole viewport at 0 % would bury the pollution ramp the same way the ramp was burying the
@@ -264,6 +266,12 @@ empty section is the correct default; do not invent deviations to fill it.
   correct; the hook to bring them onto our palette exists (`colorScales` on
   `OmProtocolSettings`, passed as `omProtocol`'s third argument) and is the right follow-up if
   these layers ever need to sit alongside our own series ink rather than replace the view.
+
+- **Radar paints in RainViewer's palette, not ours.** The `radar` tiles arrive pre-coloured in RainViewer's
+  colour scheme 2 "Universal Blue" (grey-beige faint → blue → yellow, orange → dark red heavy), the only
+  scheme the free tier serves since 2026-01-01. Its blue would read as the atlas's dark-sky blue, which is
+  one reason the map shows one answer field at a time (`docs/design/astro-window.md` § Wave 53): radar
+  hides the atlas rather than sharing the canvas with it. Its key names the ramp in words.
 
 - **The EUMETSAT weather legends are third-party rasters on a white plate we draw ourselves, in
   both schemes.** The GeoServer `GetLegendGraphic` ignores `fontColor`, `fontSize`, `bgColor` and

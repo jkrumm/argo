@@ -447,9 +447,8 @@ export default function SiteMap({
       nowMs,
       gibsTime: gibsTimeValue,
       omTimeStep,
-      omDark: resolvedScheme === 'dark',
     }),
-    [layers, radarFrames, nowMs, gibsTimeValue, omTimeStep, resolvedScheme],
+    [layers, radarFrames, nowMs, gibsTimeValue, omTimeStep],
   )
   // The last clicked coordinate — held even after the panel closes, so reopening it (or clicking
   // the same spot again) reads from cache instead of re-fetching. `null` until the first click.

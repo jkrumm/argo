@@ -1059,8 +1059,8 @@ export function openMeteoMetaUrl(domain: OmDomainId, variable: string): string {
 /**
  * The `om://` MapLibre source URL — the metadata URL above, plus the three params the protocol
  * reads off it: `time_step`, `interpolation` (`linear` — smooth, matching how Windy itself
- * renders these same NWP fields, ASTRO-MAP-RESEARCH §10.2) and `dark` (`true`, this app's own
- * scheme).
+ * renders these same NWP fields, ASTRO-MAP-RESEARCH §10.2) and `dark` (`false` in both schemes,
+ * see the body).
  *
  * `time_step` is `valid_times_<index>` and NOT the bare index, which is the whole reason this
  * function has a docblock. The protocol parses the param against
@@ -1082,15 +1082,14 @@ export function omTileUrl({
   domain,
   variable,
   timeStep,
-  dark,
 }: {
   domain: OmDomainId
   variable: string
   timeStep: number
-  /** The package's palette per scheme (its `dark` cloud ramp ends pale grey, the `light` one slate). */
-  dark: boolean
 }): string {
-  return `om://${openMeteoMetaUrl(domain, variable)}&time_step=valid_times_${timeStep}&interpolation=linear&dark=${dark}`
+  // `dark=false` in BOTH schemes: the package's dark cloud ramp ends near-white, which vanished on the
+  // light base and buried the dark base's labels; its light ramp ends at mid slate, readable on both.
+  return `om://${openMeteoMetaUrl(domain, variable)}&time_step=valid_times_${timeStep}&interpolation=linear&dark=false`
 }
 
 /** Required by the data's CC BY 4.0 licence — wired through the same `attribution` field every
@@ -1399,8 +1398,8 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 0.7,
     stackIndex: 26,
     legend: false,
-    // Scale checked 2026-10-21 against @openmeteo/weather-map-layer's `cloud_cover` ramp, alpha 0 → .925:
-    // the `dark=true` palette ends pale grey, the `light` one slate (`omTileUrl` follows the scheme).
+    // Scale checked 2026-10-21 against @openmeteo/weather-map-layer's `cloud_cover` ramp, alpha 0 → .925,
+    // the light palette `omTileUrl` requests: white → slate.
     textKey: {
       title: 'Forecast cloud cover',
       lines: ['Total cloud, 0–100 %: transparent clear → grey overcast'],

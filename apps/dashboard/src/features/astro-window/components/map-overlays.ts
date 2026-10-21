@@ -206,8 +206,8 @@ const gibsLayerId = (index: number, time: string) =>
  * same one), so the old domain's source has to fall out of `installOverlays`' `wanted` set exactly
  * the way an aged-out WMS timestamp already does.
  */
-const omLayerId = (id: WeatherLayerId, domain: OmDomainId, timeStep: number, dark: boolean) =>
-  `${OWN_PREFIX}wx-${id}-${domain}-${timeStep}-${dark ? 'dark' : 'light'}`
+const omLayerId = (id: WeatherLayerId, domain: OmDomainId, timeStep: number) =>
+  `${OWN_PREFIX}wx-${id}-${domain}-${timeStep}`
 
 // ── The light-pollution ramp ───────────────────────────────────────────────
 
@@ -425,9 +425,6 @@ export type OverlayState = MapLayerState & {
    * a bogus step.
    */
   omTimeStep: number | null
-  /** Open-Meteo's own palette per scheme: its `dark` cloud ramp runs to pale grey, which vanishes on
-   * the light base; the `light` ramp runs to slate. Baked into the source id so a flip refetches. */
-  omDark: boolean
 }
 
 function rasterEntry({
@@ -799,13 +796,12 @@ function desiredStack(state: OverlayState): StackEntry[] {
       if (state.omTimeStep === null) continue
       stack.push(
         omRasterEntry({
-          id: omLayerId(entry.id, state.omDomain, state.omTimeStep, state.omDark),
+          id: omLayerId(entry.id, state.omDomain, state.omTimeStep),
           stackIndex: entry.stackIndex,
           url: omTileUrl({
             domain: state.omDomain,
             variable: entry.variable,
             timeStep: state.omTimeStep,
-            dark: state.omDark,
           }),
           attribution: entry.attribution,
           opacity: selection.opacity,
@@ -1035,7 +1031,7 @@ export function paintOverlayState(map: MapLibreMap, state: OverlayState, radarFr
 
     if (entry.source === 'om-model') {
       if (state.omTimeStep === null) continue
-      const id = omLayerId(entry.id, state.omDomain, state.omTimeStep, state.omDark)
+      const id = omLayerId(entry.id, state.omDomain, state.omTimeStep)
       if (map.getLayer(id) === undefined) continue
       map.setPaintProperty(id, 'raster-opacity', selection.opacity)
       continue
