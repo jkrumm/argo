@@ -2657,6 +2657,17 @@ Owner decision (2026-10-21, on the Wave 52 close-out): **one question at a time*
 - **Open (argo, P2/P3, named not fixed):** map: faint small canvas labels under slate overcast / light rain in dark, unnamed unselected site dots, the aside footer narrating the URL, "blue" in the precip key reads periwinkle in light, selected-site label can collide at 390, rail near half the card at 390 with a forecast key. Body: `7 d mean —` without a reason for one weigh-in, the no-rate sentence printed twice, 2-day skinfold deltas in good-trend green, `Sept` vs `Sep` in the tooltip. Detail in `docs/design/astro-window.md` § "Wave 53 rounds" and `docs/design/body-composition.md` § Wave 53.
 - **Not verified:** keys of cloud mask, infrared cloud, cloud top and forecast low cloud were not shot (a unit test pins that each has one); a real tile failure after the style loaded; body loading / error (route loader awaits its data). Shots `apps/dashboard/.design-shots/w53-*` (gitignored, never committed). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 54 — P2 sweep on the passing pages <!-- status: active -->
+
+Wave 51 passed these pages under the two-reviewer bar but named P2s; Wave 53 named more. Fix the argo-owned ones; anything basalt-owned is already queued in basalt's "argo upstream rows" wave, so record it, never work around it. Concept first for the two layout questions (Warden, WalkingPad empty).
+
+- [ ] Warden: the ~49 near-identical Needs-you cards. Concept (group, collapse or summarise by repo/kind, what a reader triages first), then build it.
+- [ ] WalkingPad empty page (~55% blank) and Calendar's right column, half empty at 1440: decide what earns the space or reflow it. No filler.
+- [ ] Copy and state fixes: m365 headline, list title and glyphs; Home Dispatch cell and the ragged strip; Garmin `Improving` beside a red VO2max delta (the word and the hue must agree); body-composition `7 d mean —` with no reason for one weigh-in, the no-rate sentence printed twice, 2-day skinfold deltas in good-trend green, `Sept` vs `Sep`.
+- [ ] Astro map argo P2s: faint canvas labels in dark under overcast, unnamed unselected site dots, the aside footer narrating the URL, the "blue" wording in the precip key, the selected-site label collision at 390.
+- [ ] One round with TWO fresh `basalt-design-reviewer`s on every touched page; no page may regress below pass (body and astro: no new argo-owned P0/P1). Shoot only after the served bundle carries the change.
+      **Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
