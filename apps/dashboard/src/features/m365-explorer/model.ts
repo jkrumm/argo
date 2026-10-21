@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, format, isSameDay } from 'date-fns'
-import { NBSP, withUnit } from '../../lib/format'
+import { glue } from '../../lib/format'
 
 export type LabelKind = 'chat' | 'channel'
 export type ChatType = 'oneOnOne' | 'group' | 'meeting' | 'unknownFutureValue'
@@ -328,43 +328,38 @@ export function labeledBasis(c: Coverage, list: { chats: number; capped: boolean
   return `${more} on sources gone from the chat and channel list`
 }
 
-/** The phone Sources pane's heading: the pane's name only; the tabs and cells print the counts. */
-export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
-  return view === 'feed' ? 'Feed sources' : view === 'chats' ? 'Chats' : 'Teams'
-}
-
-/** `3–17 Oct` within a month, `28 Sep – 17 Oct` across two, `17 Oct 2025 – 3 Oct 2026` across years. Every space inside a date is glued; only the spaces around the range dash can break. */
-function spanDates(from: number, to: number): string {
-  const day = (ms: number, pattern: string) => format(ms, pattern).replaceAll(' ', NBSP)
-  if (format(from, 'yyyy') !== format(to, 'yyyy'))
-    return `${day(from, 'd MMM yyyy')} – ${day(to, 'd MMM yyyy')}`
-  return format(from, 'MMM') === format(to, 'MMM')
-    ? `${format(from, 'd')}–${day(to, 'd MMM')}`
-    : `${day(from, 'd MMM')} – ${day(to, 'd MMM')}`
+/** The phone Sources pane's heading: a fact (count and kind) the tab above does not print as a title. */
+export function sourcesTitle(
+  view: 'chats' | 'teams' | 'feed',
+  counts: { chats: number; capped: boolean; teams: number },
+): string {
+  if (view === 'feed') return 'Feed sources'
+  if (view === 'teams') return plural(counts.teams, 'team')
+  return counts.capped ? `Newest ${counts.chats} chats` : plural(counts.chats, 'chat')
 }
 
 /**
- * The page's opening: how many days the loaded chats span. Rows print their own times, but not the
- * window's width, which is what tells a reader how far back the list can answer. A capped list says
- * so (`Newest {n} chats span {d} d`), since the span then belongs to the newest slice only.
+ * The page's opening: what the page is for. It labels sources, so the sentence counts the sources
+ * that already carry a label (the strip's figure) across how many tags, then names how fresh the
+ * newest chat activity is. A date span says how deep the list reaches, which no decision turns on.
  */
 export function headlineOf(h: {
   /** Each chat's last activity (ISO), newest or not; missing stamps are skipped. */
   times: ReadonlyArray<string | null>
-  capped: boolean
+  /** Labeled sources inside the loaded set: the strip's own figure. */
+  labeled: number
+  /** Distinct tags in use. */
+  tags: number
 }): { sentence: string } {
   const stamps = h.times.map(timeOf).filter(Number.isFinite)
-  if (stamps.length === 0) return { sentence: 'No chat activity yet' }
-  const newest = Math.max(...stamps)
-  const oldest = Math.min(...stamps)
-  const days = differenceInCalendarDays(newest, oldest)
-  const lead = h.capped ? `Newest ${stamps.length} chats` : 'Chats'
-  return {
-    sentence:
-      days === 0
-        ? `${lead} all from ${format(newest, 'd MMM').replaceAll(' ', NBSP)}`
-        : `${lead} span ${withUnit(days, 'd')}, ${spanDates(oldest, newest)}`,
-  }
+  if (stamps.length === 0 && h.labeled === 0) return { sentence: 'No chat activity yet' }
+  const labeled =
+    h.labeled === 0
+      ? 'No sources labeled yet'
+      : `${plural(h.labeled, 'source')} labeled across ${plural(h.tags, 'tag')}`
+  if (stamps.length === 0) return { sentence: labeled }
+  const latest = glue(formatStamp(new Date(Math.max(...stamps)).toISOString()))
+  return { sentence: `${labeled} · latest chat activity ${latest}` }
 }
 
 /** How many messages a record fetches; the pane's heading never states it (it is a request cap, not what renders). */
@@ -376,10 +371,11 @@ export function sectionTitleFor(input: {
   view: 'chats' | 'teams' | 'feed'
   tag: string
   open: boolean
+  counts: { chats: number; capped: boolean; teams: number }
 }): string {
   switch (input.pane) {
     case 'sources':
-      return sourcesTitle(input.view)
+      return sourcesTitle(input.view, input.counts)
     case 'labeled':
       return input.tag === '' || input.tag === LABELED_FILTER ? 'Chats and channels' : input.tag
     case 'detail':

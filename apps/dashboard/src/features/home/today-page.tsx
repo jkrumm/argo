@@ -43,7 +43,6 @@ import {
   acwrCellGap,
   agentsCell,
   budgetCell,
-  budgetFooterEntries,
   meetingCell,
   recoveryCell,
   recoveryCellGap,
@@ -263,7 +262,6 @@ export function TodayPage() {
               acwrForm,
             ),
           ]}
-          footer={budgetFooterEntries(wardenRaw?.budget, poller, wardenStatus)}
         />
 
         <div className={classes.columns}>

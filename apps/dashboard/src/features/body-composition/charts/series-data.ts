@@ -31,6 +31,9 @@ export const MEAN_DAYS = 7
 /** A period's figure needs entries spanning at least this share of it; one entry is not a "30 d mean". */
 const COVERAGE_SHARE = 0.7
 
+/** Whole days the entries must span before the {@link MEAN_DAYS}-day mean is stated. */
+export const MEAN_MIN_SPAN_DAYS = Math.ceil(MEAN_DAYS * COVERAGE_SHARE)
+
 /**
  * The entries dated 0 to `days` days up to `endDate` (inclusive, the API's `date >= end - days`),
  * oldest first, or `[]` when the selected window (`span` days, `null` for all) is shorter than the
@@ -121,3 +124,9 @@ export function axisDateFormat(dates: readonly Date[]): (d: Date) => string {
   const spanDays = times.length === 0 ? 0 : (Math.max(...times) - Math.min(...times)) / 86_400_000
   return (d) => format(d, spanDays >= 365 ? 'MMM yyyy' : 'd MMM')
 }
+
+/**
+ * The tooltip title: `Tue 1 Sep 2026`, the shape basalt's default header has, but with the month
+ * spelled as every other date on the page (the page locale's `Intl` short month reads `Sept`).
+ */
+export const tooltipDateHeader = (d: Date): string => format(d, 'EEE d MMM yyyy')

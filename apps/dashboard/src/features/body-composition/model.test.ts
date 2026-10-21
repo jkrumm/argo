@@ -14,11 +14,13 @@ import {
   goalProgress,
   formatRange,
   intensityTier,
+  meanFooter,
   rateFooter,
   isStale,
   meanOverDays,
   signed,
   siteRows,
+  skinfoldDeltaPolarity,
   summaryParts,
   weightDeltaPolarity,
   weightWindowStats,
@@ -165,7 +167,7 @@ describe('summaryParts', () => {
       summaryParts({ ...base, current: 75.02, kgPerWeek: 0, goal: 75, ageDays: 0 }).sentence,
     ).toBe('75.0\u00a0kg, 0.00\u00a0kg/wk over 28\u00a0d, at the 75.0\u00a0kg goal')
   })
-  test('unknown rate names the weight and its day, never a 0 rate', () => {
+  test('unknown rate names the weight and its day, never a 0 rate, and leaves the cause to the Rate cell', () => {
     expect(
       summaryParts({
         ...base,
@@ -177,17 +179,15 @@ describe('summaryParts', () => {
         latestKey: '2026-06-03',
       }),
     ).toEqual({
-      sentence: '80.0\u00a0kg on 3 Jun; a rate needs two weigh-ins at least 3\u00a0d apart',
+      sentence: '80.0\u00a0kg on 3 Jun',
       facts: ['5 weigh-ins in 90\u00a0d', 'last weigh-in 3\u00a0d ago'],
     })
     expect(
       summaryParts({ ...base, current: 80, kgPerWeek: null, goal: null, ageDays: null }).sentence,
-    ).toBe('80.0\u00a0kg; a rate needs two weigh-ins at least 3\u00a0d apart')
+    ).toBe('80.0\u00a0kg')
     expect(
       summaryParts({ ...base, current: 80, kgPerWeek: null, goal: 75, ageDays: null }).sentence,
-    ).toBe(
-      '80.0\u00a0kg, 5.0\u00a0kg from the 75.0\u00a0kg goal; a rate needs two weigh-ins at least 3\u00a0d apart',
-    )
+    ).toBe('80.0\u00a0kg, 5.0\u00a0kg from the 75.0\u00a0kg goal')
   })
   test('empty window', () => {
     expect(
@@ -436,6 +436,7 @@ describe('siteRows', () => {
       delta: -4,
       current: 20,
       priorDate: '2026-05-10',
+      gapDays: 31,
     })
     expect(rows[1]).toMatchObject({ site: 'suprailiac', values: [10], delta: null, current: 10 })
   })
@@ -510,5 +511,27 @@ describe('no-entries wording', () => {
   test('rate qualifier names the slope window only', () => {
     expect(rateQualifier(28)).toBe('28\u00a0d slope')
     expect(rateQualifier(7)).toBe('7\u00a0d slope')
+  })
+})
+
+describe('meanFooter', () => {
+  const NB = '\u00a0'
+  test('states the mean when there is one', () => {
+    expect(meanFooter(80, 5)).toBe(`7${NB}d${NB}mean 80.0${NB}kg`)
+  })
+  test('a single weigh-in names the second one it needs', () => {
+    expect(meanFooter(null, 1)).toBe(`7${NB}d${NB}mean \u2014 needs 2 weigh-ins`)
+  })
+  test('a few close weigh-ins name the span they need', () => {
+    expect(meanFooter(null, 3)).toBe(`7${NB}d${NB}mean \u2014 needs weigh-ins over 5${NB}d`)
+  })
+})
+
+describe('skinfoldDeltaPolarity', () => {
+  test('a change over a gap too short for a rate is neutral, never a good trend', () => {
+    expect(skinfoldDeltaPolarity(2)).toBe('neutral')
+    expect(skinfoldDeltaPolarity(3)).toBe('up-bad')
+    expect(skinfoldDeltaPolarity(31)).toBe('up-bad')
+    expect(skinfoldDeltaPolarity(null)).toBe('up-bad')
   })
 })

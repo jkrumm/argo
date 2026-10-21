@@ -9,6 +9,7 @@ import { skinfoldHeaderFact, windowLabel } from '../model'
 import { METRIC_TOOLTIPS, SKINFOLD_SITES } from '../constants'
 import {
   axisDateFormat,
+  tooltipDateHeader,
   markerRadiusFor,
   toSkinfoldChartPoints,
   type SkinfoldChartPoint,
@@ -88,6 +89,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
           height={CHART_HEIGHT}
           x={(d) => d.date}
           formatX={axisDateFormat(chartData.map((d) => d.date))}
+          tooltip={{ formatHeader: tooltipDateHeader }}
           series={series}
           y={{ domain: skinfoldDomain, ticks: 5, nice: true, format: (v) => `${v} mm` }}
         />

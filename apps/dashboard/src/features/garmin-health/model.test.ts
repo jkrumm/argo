@@ -236,8 +236,9 @@ describe('contributorItems', () => {
 })
 
 describe('fitnessQualifier', () => {
-  test('names the RHR/HRV basis and the window beside the label', () => {
-    expect(fitnessQualifier('Improving')).toBe('Improving · RHR/HRV\u00a0slope · 14\u00a0d')
+  test('names the RHR/HRV subject with the label and the window, so it is not the VO2max verdict', () => {
+    expect(fitnessQualifier('Improving')).toBe('RHR/HRV\u00a0improving · slope · 14\u00a0d')
+    expect(fitnessQualifier('Declining')).toBe('RHR/HRV\u00a0declining · slope · 14\u00a0d')
   })
   test('a missing label omits the basis', () => {
     expect(fitnessQualifier(undefined)).toBe('—')

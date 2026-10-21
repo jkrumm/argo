@@ -73,6 +73,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
       startDate: startPoint?.date ?? null,
       latestDate: latestDate(weightPoints),
       range: weightRange(weightPoints),
+      entries: weightPoints.length,
     }),
     rateCell({
       summary,

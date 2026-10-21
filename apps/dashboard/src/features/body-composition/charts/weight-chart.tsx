@@ -17,6 +17,7 @@ import {
 } from '../model'
 import {
   axisDateFormat,
+  tooltipDateHeader,
   markerRadiusFor,
   toWeightChartPoints,
   type WeightChartPoint,
@@ -106,6 +107,7 @@ export default function WeightChart({
           height={CHART_HEIGHT}
           x={(d) => d.date}
           formatX={axisDateFormat(chartData.map((d) => d.date))}
+          tooltip={{ formatHeader: tooltipDateHeader }}
           series={series}
           {...(goal !== null && {
             refLines: [

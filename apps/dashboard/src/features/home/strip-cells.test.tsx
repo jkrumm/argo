@@ -12,7 +12,6 @@ import {
   recoveryCellGap,
   agentsCell,
   budgetCell,
-  budgetFooterEntries,
   meetingCell,
   recoveryCaption,
   recoveryCell,
@@ -49,7 +48,7 @@ const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
 
 describe('budget cell gap per Warden feed', () => {
   const gap = (feed: Parameters<typeof budgetCell>[2]) =>
-    (budgetCell(undefined, undefined, feed).state as { reason: string }).reason
+    textOf(budgetCell(undefined, undefined, feed).footer)
 
   it('words each feed state once: no snapshot leads with the clause and the cadence, failed and pending never alias', () => {
     expect(gap('no-snapshot')).toBe('No snapshot yet — Warden pushes every 10\u00a0min')
@@ -269,13 +268,6 @@ describe('strip cells with no reading', () => {
     ).toBe('loading training load')
   })
 
-  it('drops the poller line when there is no budget and no poller to date', () => {
-    expect(budgetFooterEntries(undefined, undefined, 'ready')).toEqual([])
-    expect(
-      budgetFooterEntries(undefined, { name: 'loop', ageMin: 4, stale: false }, 'ready'),
-    ).toHaveLength(1)
-  })
-
   it('names the reading day in the ACWR footer only when it is not today', () => {
     const reading = { acwr: 1.1, zone: 'optimal' as const }
     expect(
@@ -450,19 +442,22 @@ describe('recoveryCaption', () => {
   })
 })
 
-describe('budget footer entries', () => {
+describe('budget cell footer without a count', () => {
   const poller = { name: 'loop', ageMin: 4, stale: false }
 
-  it('keeps the poller fact under the budget cell while it shows its reason', () => {
-    expect(budgetFooterEntries(undefined, poller, 'ready')).toMatchObject([
-      { under: 'budget', shotAbsent: ['empty'] },
-    ])
-    expect(budgetCell(undefined, poller, 'ready').state).toMatchObject({ kind: 'empty' })
+  it('keeps the figure slot (an em dash) and puts the reason and the poller fact in the footer', () => {
+    const cell = budgetCell(undefined, poller, 'ready')
+    expect(cell.value).toBeNull()
+    expect(cell.state).toBeUndefined()
+    expect(cell.visual).toBeUndefined()
+    expect(textOf(cell.footer)).toContain(BUDGET_MISSING.short)
+    expect(textOf(cell.footer)).toContain('loop')
   })
 
-  it('adds nothing when the cell draws its own footer or has no snapshot', () => {
-    expect(budgetFooterEntries(undefined, poller, 'loading')).toEqual([])
-    expect(budgetFooterEntries(undefined, undefined, 'no-snapshot')).toEqual([])
-    expect(budgetFooterEntries(undefined, poller, 'no-snapshot')).toEqual([])
+  it('drops the poller fact with no snapshot, or with no budget and no poller to date', () => {
+    expect(textOf(budgetCell(undefined, poller, 'no-snapshot').footer)).toBe(
+      'No snapshot yet — Warden pushes every 10\u00a0min',
+    )
+    expect(textOf(budgetCell(undefined, undefined, 'ready').footer)).toBe(BUDGET_MISSING.short)
   })
 })

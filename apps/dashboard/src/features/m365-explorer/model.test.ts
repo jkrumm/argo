@@ -205,37 +205,29 @@ describe('formatTime', () => {
 
 describe('headlineOf', () => {
   const at = (day: number) => new Date(2026, 9, day, 12).toISOString()
-  test('says how many days the loaded chats span', () => {
-    expect(headlineOf({ times: [at(17), at(3), null], capped: false })).toEqual({
-      sentence: `Chats span 14${NBSP}d, 3–17${NBSP}Oct`,
+  test('counts the labeled sources and tags, then the latest chat activity', () => {
+    expect(headlineOf({ times: [at(17), at(3), null], labeled: 5, tags: 2 })).toEqual({
+      sentence: `5 sources labeled across 2 tags · latest chat activity 17${NBSP}Oct,${NBSP}12:00`,
     })
+    expect(headlineOf({ times: [at(3)], labeled: 1, tags: 1 }).sentence).toBe(
+      `1 source labeled across 1 tag · latest chat activity 03${NBSP}Oct,${NBSP}12:00`,
+    )
   })
-  test('a capped list says the span belongs to the newest slice', () => {
-    expect(headlineOf({ times: [at(17), at(10)], capped: true })).toEqual({
-      sentence: `Newest 2 chats span 7${NBSP}d, 10–17${NBSP}Oct`,
+  test('nothing labeled yet still names the latest activity', () => {
+    expect(headlineOf({ times: [at(17)], labeled: 0, tags: 0 }).sentence).toBe(
+      `No sources labeled yet · latest chat activity 17${NBSP}Oct,${NBSP}12:00`,
+    )
+  })
+  test('labels without any chat stamp drop the activity clause', () => {
+    expect(headlineOf({ times: [null], labeled: 2, tags: 1 }).sentence).toBe(
+      '2 sources labeled across 1 tag',
+    )
+  })
+  test('no stamps and no labels', () => {
+    expect(headlineOf({ times: [], labeled: 0, tags: 0 })).toEqual({
+      sentence: 'No chat activity yet',
     })
-  })
-  test('across years both ends carry their year, even with the same month name', () => {
-    const on = (y: number, mo: number, d: number) => new Date(y, mo, d, 12).toISOString()
-    expect(headlineOf({ times: [on(2026, 9, 3), on(2025, 9, 17)], capped: false }).sentence).toBe(
-      `Chats span 351${NBSP}d, 17${NBSP}Oct${NBSP}2025 – 3${NBSP}Oct${NBSP}2026`,
-    )
-    expect(headlineOf({ times: [on(2026, 0, 2), on(2025, 11, 30)], capped: false }).sentence).toBe(
-      `Chats span 3${NBSP}d, 30${NBSP}Dec${NBSP}2025 – 2${NBSP}Jan${NBSP}2026`,
-    )
-  })
-  test('across months the ends name their month', () => {
-    const on = (mo: number, d: number) => new Date(2026, mo, d, 12).toISOString()
-    expect(headlineOf({ times: [on(9, 3), on(8, 28)], capped: false }).sentence).toBe(
-      `Chats span 5${NBSP}d, 28${NBSP}Sep – 3${NBSP}Oct`,
-    )
-  })
-  test('one day and no stamps', () => {
-    expect(headlineOf({ times: [at(17), at(17)], capped: false }).sentence).toBe(
-      `Chats all from 17${NBSP}Oct`,
-    )
-    expect(headlineOf({ times: [], capped: false })).toEqual({ sentence: 'No chat activity yet' })
-    expect(headlineOf({ times: [null], capped: false }).sentence).toBe('No chat activity yet')
+    expect(headlineOf({ times: [null], labeled: 0, tags: 0 }).sentence).toBe('No chat activity yet')
   })
 })
 
@@ -295,10 +287,15 @@ describe('chatsStat', () => {
 })
 
 describe('sectionTitleFor', () => {
-  const base = { view: 'chats', tag: '', open: false } as const
-  test('says a fact about the pane, not the tab name or a count', () => {
-    expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('Chats')
-    expect(sectionTitleFor({ ...base, pane: 'sources', view: 'teams' })).toBe('Teams')
+  const base = {
+    view: 'chats',
+    tag: '',
+    open: false,
+    counts: { chats: 7, capped: false, teams: 3 },
+  } as const
+  test('says a fact about the pane, not the tab name', () => {
+    expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('7 chats')
+    expect(sectionTitleFor({ ...base, pane: 'sources', view: 'teams' })).toBe('3 teams')
     expect(sectionTitleFor({ ...base, pane: 'sources', view: 'feed' })).toBe('Feed sources')
     expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Chats and channels')
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: LABELED_FILTER })).toBe(
@@ -370,10 +367,13 @@ describe('labeled count, outside note and sources title', () => {
       labeledBasis({ ...cov, outside: 0, failed: 1 }, { chats: CHATS_TOP, capped: true }),
     ).toBe('across the newest 50 chats and channels')
   })
-  test('the sources title is the pane name only', () => {
-    expect(sourcesTitle('chats')).toBe('Chats')
-    expect(sourcesTitle('teams')).toBe('Teams')
-    expect(sourcesTitle('feed')).toBe('Feed sources')
+  test('the sources title is a count and kind, never the tab name', () => {
+    const counts = { chats: 12, capped: false, teams: 1 }
+    expect(sourcesTitle('chats', counts)).toBe('12 chats')
+    expect(sourcesTitle('chats', { ...counts, chats: 1 })).toBe('1 chat')
+    expect(sourcesTitle('chats', { ...counts, chats: 50, capped: true })).toBe('Newest 50 chats')
+    expect(sourcesTitle('teams', counts)).toBe('1 team')
+    expect(sourcesTitle('feed', counts)).toBe('Feed sources')
   })
 })
 

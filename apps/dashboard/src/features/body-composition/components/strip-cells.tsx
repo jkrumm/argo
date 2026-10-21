@@ -8,18 +8,20 @@ import { DeltaBadge, Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { format } from 'date-fns'
-import { NBSP, withUnit } from '../../../lib/format'
+import { NBSP } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
 import {
   deltaFromMean,
   fixed,
   goalProgress,
+  meanFooter,
   NO_WEIGHT_ENTRIES_SHORT,
   RATE_NEUTRAL_KG_WK,
   rateQualifier,
   rateFooter,
   RATE_SCALE_KG_WK,
   signed,
+  skinfoldDeltaPolarity,
   skinfoldRateFooter,
   weightDeltaPolarity,
   type SiteRow,
@@ -67,6 +69,7 @@ export function weightCell({
   startDate,
   latestDate,
   range,
+  entries,
 }: {
   summary: WeightSummary
   stats: WeightWindowStats
@@ -76,12 +79,12 @@ export function weightCell({
   latestDate: string | null
   /** The window's lowest and highest weigh-in; the no-goal meter's extent. */
   range: { min: number; max: number } | null
+  /** Weigh-ins in the window; names why the 7 d mean is missing. */
+  entries: number
 }): StatStripCell {
   const delta = deltaFromMean(summary.current, stats.mean30)
   const progress = goalProgress({ start: startWeight, current: summary.current, goal })
   const latest = dateLabel(latestDate)
-
-  const meanFooter = `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
 
   if (hasNoWeightEntries(summary, stats)) {
     return {
@@ -157,7 +160,7 @@ export function weightCell({
       }),
     footer: (
       <>
-        <span>{meanFooter}</span>
+        <span>{meanFooter(stats.mean7, entries)}</span>
         {goal === null && (
           <Box pt="xs">
             <GoalPopover lastWeight={summary.current} />
@@ -267,7 +270,7 @@ export function skinfoldCell({
         delta: (
           <DeltaBadge
             value={row.delta}
-            polarity="up-bad"
+            polarity={skinfoldDeltaPolarity(row.gapDays)}
             format={(v) => `${Math.abs(v).toFixed(1)} mm`}
             period={row.priorDate === null ? 'prior' : dateLabel(row.priorDate)}
           />

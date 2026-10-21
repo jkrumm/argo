@@ -15,6 +15,8 @@ describe('weight cell with no entries', () => {
       startWeight: null,
       startDate: null,
       latestDate: null,
+      range: null,
+      entries: 0,
     })
     expect(cell.state).toEqual({
       kind: 'empty',

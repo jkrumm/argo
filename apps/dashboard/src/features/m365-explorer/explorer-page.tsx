@@ -133,6 +133,7 @@ export function M365ExplorerPage(): ReactElement {
     lastUpdatedAt: c.lastUpdatedAt,
     webUrl: c.webUrl,
   }))
+  const chatTypeById = new Map(chatRows.map((r) => [chatSourceId(r.ref.chatId), r.chatType]))
   const labelMap = new Map(labels.map((l) => [l.sourceId, l]))
   const tagCounts = tagCountsOf(labels)
   const tagNames = tagCounts.map(([t]) => t)
@@ -178,7 +179,8 @@ export function M365ExplorerPage(): ReactElement {
 
   const headline = headlineOf({
     times: chatRows.map((r) => r.lastUpdatedAt),
-    capped: chatsCapped,
+    labeled: coverage.labeled,
+    tags: tagNames.length,
   })
 
   const invalidateLabels = (): void => {
@@ -282,6 +284,7 @@ export function M365ExplorerPage(): ReactElement {
     <LabeledPane
       title={compact ? undefined : labeledPaneTitle(tag)}
       labels={labels}
+      chatTypeOf={(id) => chatTypeById.get(id)}
       tag={tag}
       noSources={nothingToLabel(coverage)}
       selectedId={selectedId}
@@ -340,7 +343,13 @@ export function M365ExplorerPage(): ReactElement {
     detail: detailPane,
   }
   const shown = PANE_META[shownPane]
-  const sectionTitle = sectionTitleFor({ pane: shownPane, view, tag, open: selected !== null })
+  const sectionTitle = sectionTitleFor({
+    pane: shownPane,
+    view,
+    tag,
+    open: selected !== null,
+    counts: { chats: chatRows.length, capped: chatsCapped, teams: teams.length },
+  })
 
   const retryFailed = (): void => {
     for (const { channels } of teamRows) {

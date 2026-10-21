@@ -1,5 +1,5 @@
 import { Alert, ScrollArea } from '@mantine/core'
-import { LABELED_FILTER, labelsByTag, NO_SOURCES, type LabelLite } from './model'
+import { LABELED_FILTER, labelsByTag, NO_SOURCES, type ChatType, type LabelLite } from './model'
 import { SourceRow } from './source-row'
 import classes from './m365.module.css'
 
@@ -16,6 +16,8 @@ export type LabeledPaneProps = {
   error: string | null
   /** The pane's own title; omitted where a Section title above already names it. */
   title?: string | undefined
+  /** A chat's kind by source id, so a row wears the glyph its Sources row does; unknown (outside the loaded list) is undefined. */
+  chatTypeOf: (sourceId: string) => ChatType | undefined
   onOpen: (label: LabelLite) => void
   onRemove: (sourceId: string) => void
 }
@@ -60,7 +62,7 @@ export function LabeledPane(props: LabeledPaneProps) {
               {g.rows.map((l) => (
                 <SourceRow
                   key={l.sourceId}
-                  glyph={l.kind === 'chat' ? 'group' : 'channel'}
+                  glyph={l.kind === 'chat' ? (props.chatTypeOf(l.sourceId) ?? 'group') : 'channel'}
                   name={l.displayName ?? l.sourceId}
                   meta={l.kind === 'channel' ? 'team channel' : undefined}
                   selected={props.selectedId === l.sourceId}

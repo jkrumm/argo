@@ -1,8 +1,7 @@
-import type { ComponentProps } from 'react'
 import { NBSP, glue, withUnit } from '../../lib/format'
 import { Box, Text } from '@mantine/core'
 import { DayAxis } from './strip-visuals'
-import { Meter, type StatGroup, type StatStripCell } from 'basalt-ui'
+import { Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { OverviewSummary } from '../../lib/queries/agents'
@@ -123,28 +122,6 @@ const pollerFact = (poller: Poller) => (
   </Text>
 )
 
-/** basalt-ui's root exports no `StatStripFooterEntry`; derive it from `StatGroup`'s strip footer. */
-type StripFooterEntry = NonNullable<
-  Extract<ComponentProps<typeof StatGroup>, { variant: 'strip' }>['footer']
->[number]
-
-/**
- * A cell in `state` draws no `footer` of its own, so the poller's freshness fact a budget-less cell
- * would lose rides the strip's footer, under that cell.
- */
-export function budgetFooterEntries(
-  budget: WardenBudget | undefined,
-  poller: Poller,
-  feed: WardenFeed,
-): StripFooterEntry[] {
-  if (feed === 'no-snapshot' || !budgetIsEmpty(budget, feed)) return []
-  if (poller === undefined && budget === undefined) return []
-  // Production never renders this entry under the strip's empty state, so `shot` must not expect it there.
-  return [
-    { key: 'budget-poller', under: 'budget', content: pollerFact(poller), shotAbsent: ['empty'] },
-  ]
-}
-
 export function budgetCell(
   budget: WardenBudget | undefined,
   poller: Poller,
@@ -158,9 +135,6 @@ export function budgetCell(
     caption: 'Dispatch · today',
     value: used === null ? null : String(used),
     ...(max !== null && { unit: `/ ${max}` }),
-    ...(budgetIsEmpty(budget, feed) && {
-      state: { kind: 'empty' as const, reason: budgetGap(feed) },
-    }),
     visual:
       used !== null && max !== null && max > 0 ? (
         <Meter
@@ -178,21 +152,35 @@ export function budgetCell(
           {budgetGap(feed)}
         </Text>
       ) : undefined,
-    // With no budget and no poller there is no snapshot: the cell's line already says what to wait for.
-    // A known count with no usable cap keeps its value and says the cap is missing.
-    ...((poller !== undefined || budget !== undefined) &&
-      !budgetIsEmpty(budget, feed) && {
-        footer: (
-          <>
-            {used !== null && !(max !== null && max > 0) ? (
+    // A cell with no count keeps the figure slot (`—`, like the Warden strip's not-reported cells) and
+    // the reason rides its footer, so the strip's rows align. With no budget and no poller there is no
+    // snapshot: the reason alone says what to wait for. A known count with no usable cap keeps its
+    // value and says the cap is missing.
+    ...(budgetIsEmpty(budget, feed)
+      ? {
+          footer: (
+            <>
               <Text span size="sm" c="dimmed">
-                {BUDGET_MISSING.short}{' '}
+                {budgetGap(feed)}
               </Text>
-            ) : null}
-            {pollerFact(poller)}
-          </>
-        ),
-      }),
+              {feed !== 'no-snapshot' && (poller !== undefined || budget !== undefined) ? (
+                <> {pollerFact(poller)}</>
+              ) : null}
+            </>
+          ),
+        }
+      : (poller !== undefined || budget !== undefined) && {
+          footer: (
+            <>
+              {used !== null && !(max !== null && max > 0) ? (
+                <Text span size="sm" c="dimmed">
+                  {BUDGET_MISSING.short}{' '}
+                </Text>
+              ) : null}
+              {pollerFact(poller)}
+            </>
+          ),
+        }),
   }
 }
 

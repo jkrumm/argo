@@ -4,7 +4,13 @@
  */
 import { NBSP, withUnit } from '../../lib/format'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
-import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
+import {
+  compareByDate,
+  MEAN_DAYS,
+  MEAN_MIN_SPAN_DAYS,
+  trailingMean,
+  type SkinfoldPoint,
+} from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
 import { skinfoldDirectionLabel, type SkinfoldDirection } from './formulas'
 import type { WeightSummary, WeightWindowStats } from './types'
@@ -126,8 +132,11 @@ export function shortDay(key: string, now: Date = new Date()): string {
   return Number(key.slice(0, 4)) === now.getFullYear() ? day : `${day} ${key.slice(0, 4)}`
 }
 
+/** Entries (weigh-ins or caliper sessions) closer than this cannot set a rate, and their change is not a trend. */
+const MIN_TREND_GAP_DAYS = 3
+
 /** Why a window with entries has no rate: the API needs two weigh-ins this far apart. */
-const RATE_NEEDS_TWO_WEIGH_INS = `A rate needs two weigh-ins at least ${withUnit(3, 'd')} apart`
+const RATE_NEEDS_TWO_WEIGH_INS = `A rate needs two weigh-ins at least ${withUnit(MIN_TREND_GAP_DAYS, 'd')} apart`
 
 /** The one wording for a window with no weigh-ins: what is missing and the next step. */
 export const NO_WEIGHT_ENTRIES = 'No entries in this window — log a weight to start the trend.'
@@ -223,9 +232,8 @@ function headlineSentence({
       : distance < GOAL_TOLERANCE_KG
         ? `, at the ${withKg(goal)} goal`
         : `, ${withKg(distance)} from the ${withKg(goal)} goal`
-  // No rate: the same cause the Rate cell's footer gives, lower-cased into the sentence.
-  const noRate = kgPerWeek === null ? `; ${RATE_NEEDS_TWO_WEIGH_INS.toLowerCase()}` : ''
-  return `${rate}${goalClause}${noRate}`
+  // No rate: the Rate cell states the cause once; the sentence only drops the rate.
+  return `${rate}${goalClause}`
 }
 
 /** "12 weigh-ins in 30 d": the count and the window it was counted over. */
@@ -293,7 +301,7 @@ export function skinfoldRateFooter({
   // One session: the empty row under the weight chart already says a second one is needed.
   if (sessions < 2) return null
   if (mmPerWeek === null)
-    return `Sessions under ${withUnit(3, 'd')} apart — a wider gap sets the rate`
+    return `Sessions under ${withUnit(MIN_TREND_GAP_DAYS, 'd')} apart — a wider gap sets the rate`
   return `${skinfoldDirectionLabel(direction)} \u00b7 ${signed(mmPerWeek, 2)} mm/wk over ${withUnit(RATE_LOOKBACK_DAYS, 'd')}`
 }
 
@@ -323,6 +331,16 @@ export type SiteRow = {
   delta: number | null
   /** The previous session's date, the period the delta is measured against. */
   priorDate: string | null
+  /** Days from the previous reading to the latest; `null` with fewer than two readings. */
+  gapDays: number | null
+}
+
+const gapBetween = (from: string | undefined, to: string | undefined): number | null =>
+  from === undefined || to === undefined ? null : daysBetween(from, to)
+
+/** A skinfold change reads as progress (thinner is good) only across a gap long enough to be a trend. */
+export function skinfoldDeltaPolarity(gapDays: number | null): 'up-bad' | 'neutral' {
+  return gapDays !== null && gapDays < MIN_TREND_GAP_DAYS ? 'neutral' : 'up-bad'
 }
 
 /** One row per caliper site: its sparkline values and the change since the previous session. */
@@ -346,6 +364,7 @@ export function siteRows(
       values,
       delta: last === undefined || prev === undefined ? null : last - prev,
       priorDate: readings.at(-2)?.date ?? null,
+      gapDays: gapBetween(readings.at(-2)?.date, readings.at(-1)?.date),
     }
   })
 }
@@ -361,6 +380,18 @@ export function windowDays(params: WindowParams): number | null {
     return daysBetween(params.from, params.to) + 1
   }
   return null
+}
+
+/**
+ * The Weight cell's 7 d mean line: the figure, or why there is none. One weigh-in needs a second;
+ * a few close together need to span enough of the week (the same coverage floor as the mean itself).
+ */
+export function meanFooter(mean7: number | null, entries: number): string {
+  const label = withUnit(withUnit(MEAN_DAYS, 'd'), 'mean')
+  if (mean7 !== null) return `${label} ${withKg(mean7)}`
+  return entries < 2
+    ? `${label} \u2014 needs 2 weigh-ins`
+    : `${label} \u2014 needs weigh-ins over ${withUnit(MEAN_MIN_SPAN_DAYS, 'd')}`
 }
 
 /** Mean weight of the last `days` days up to the newest entry; `null` when not covered. */

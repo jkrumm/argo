@@ -5,6 +5,7 @@ import {
   localDay,
   markerRadiusFor,
   thirtyDayMean,
+  tooltipDateHeader,
   toSkinfoldChartPoints,
   toWeightChartPoints,
   trailingMean,
@@ -99,5 +100,11 @@ describe('axisDateFormat', () => {
   })
   test('no points fall back to day and month', () => {
     expect(axisDateFormat([])(at('2026-10-07'))).toBe('7 Oct')
+  })
+})
+
+describe('tooltipDateHeader', () => {
+  test('spells September as every other date on the page does', () => {
+    expect(tooltipDateHeader(new Date(2026, 8, 2))).toBe('Wed 2 Sep 2026')
   })
 })
