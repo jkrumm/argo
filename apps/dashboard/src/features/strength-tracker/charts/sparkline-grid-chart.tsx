@@ -140,8 +140,8 @@ const columns = [
       <FigureSpark
         data={ctx.row.original.volume}
         mark="bar"
-        figure={fmtTonnes}
-        format={fmtTonnes}
+        figure={(v) => `${fmtTonnes(v)}/wk`}
+        format={(v) => `${fmtTonnes(v)}/wk`}
         ariaLabel={`${ctx.row.original.exercise_name} weekly volume in tonnes, last 10 training weeks`}
       />
     ),

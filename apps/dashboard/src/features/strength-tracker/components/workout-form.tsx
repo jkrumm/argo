@@ -597,7 +597,7 @@ export function WorkoutForm() {
         {previewParts.length > 0 && (
           <Group gap={6} align="center" mt={2} wrap="nowrap">
             <Text size="sm" c="dimmed">
-              {previewParts.join(' · ')}
+              On save: {previewParts.join(' · ')}
             </Text>
             {pendingPrs.map((pr) => (
               <Tooltip key={pr.key} label={pr.label} withArrow>
