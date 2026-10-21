@@ -20,6 +20,7 @@ import {
   EM_DASH,
   shortDate,
   deloadLine,
+  lastLoggedDate,
   lastSessionDate,
   staleCopy,
   ACWR_LABEL,
@@ -82,7 +83,8 @@ function useOverview({ params, exercises }: Params) {
     const points = series.byExercise.find((l) => l.exercise_id === id)?.points ?? []
     return { id, points, delta: liftDelta(points, now) }
   })
-  const summaryLine = summaryParts(lifts, lastDate === null ? null : { date: lastDate, now })
+  const logged = lastLoggedDate(series.byExercise)
+  const summaryLine = summaryParts(lifts, logged === null ? null : { date: logged, now })
   return {
     readiness,
     deload: deloadNow,
@@ -320,7 +322,7 @@ function LiftStrip(props: Params) {
   const cells = lifts.map(({ id, points, delta }) =>
     liftCell({ id, points, move: delta, pr: prs.get(id) }),
   )
-  const { note } = staleCopy(lifts)
+  const { note } = staleCopy(lifts, null)
 
   return (
     <Stack gap="xs">

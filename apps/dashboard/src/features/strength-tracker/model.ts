@@ -3,7 +3,7 @@
  * the summary, the verdict card and the lift cells cannot disagree. Unknown is `null` (rendered `—`),
  * never 0.
  */
-import { format } from 'date-fns'
+import { differenceInCalendarDays, format } from 'date-fns'
 import { READINESS_PUSH_FROM, READINESS_REST_BELOW } from './bands'
 import { withUnit } from '../../lib/format'
 import { exerciseLabel, type RatioStatus } from './formulas'
@@ -89,6 +89,13 @@ export function todaysCall(
 }
 
 /** The newest session date over all lifts. */
+/** The newest logged session date across the lifts, scored or not (the headline's fact). */
+export function lastLoggedDate(lifts: readonly LiftSeries[]): string | null {
+  return lifts
+    .flatMap((l) => l.points.map((p) => p.date))
+    .reduce<string | null>((a, b) => (a === null || b > a ? b : a), null)
+}
+
 export function lastSessionDate(lifts: readonly LiftSeries[]): string | null {
   return lifts
     .flatMap((l) => l.points.filter((p) => isNum(p.e1rm)).map((p) => p.date))
@@ -287,18 +294,13 @@ function deltaSpan(lifts: readonly DeltaLift[]): string {
   return withUnit(lifts[0]?.delta.days ?? DELTA_DAYS, 'd')
 }
 
-/** The last scored session and the clock it is measured against. */
-export type LastSession = { date: string; now: number }
+/** The newest logged session and the clock the headline measures it against. */
+export type SinceLastSession = { date: string; now: number }
 
-/** `2 Sep, 49\u00a0d ago` (whole local days; `today` for the same day). */
-export function sinceLabel({ date, now }: LastSession): string {
+/** `2 Sep, 49\u00a0d ago` in whole local calendar days; the same day (or a future-dated one) is `today`. */
+export function sinceLabel({ date, now }: SinceLastSession): string {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number]
-  const today = new Date(now)
-  const days = Math.round(
-    (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() -
-      new Date(y, m - 1, d).getTime()) /
-      DAY_MS,
-  )
+  const days = differenceInCalendarDays(now, new Date(y, m - 1, d))
   return days <= 0 ? `${shortDate(date)}, today` : `${shortDate(date)}, ${days}\u00a0d ago`
 }
 
@@ -309,7 +311,7 @@ export function sinceLabel({ date, now }: LastSession): string {
  */
 export function staleCopy(
   lifts: readonly DeltaLift[],
-  last: LastSession | null = null,
+  last: SinceLastSession | null,
 ): {
   headline: string | null
   note: string | null
@@ -389,7 +391,7 @@ export function lastSession(
  */
 export function summaryParts(
   lifts: readonly DeltaLift[],
-  last: LastSession | null = null,
+  last: SinceLastSession | null,
 ): { sentence: string } | null {
   if (lifts.length === 0) return null
   const { headline } = staleCopy(lifts, last)
