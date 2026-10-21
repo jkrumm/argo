@@ -2486,22 +2486,29 @@ Strength's pass (90, w42) is provisional: its reviewer read 4 of 13 sheets. No c
 - **Not verified:** Keel not read, no `detect.json`; the w42 shots are gone from disk, so the comparison is to the recorded verdict; ~90 single crops judged from their sheets.
 - **Shots:** auth seeded via env from `secrets-run` (zustand `argo-auth` JSON), never printed or written. No background task left.
 
-## Wave 46 — Strength's argo P2s <!-- status: active -->
+## Wave 46 — Strength's argo P2s <!-- status: done -->
 
 From Wave 45's complete 13-sheet re-score (`docs/design/strength-tracker.md`, `UPSTREAM.md` § "Wave 45"). Same shape as Wave 38
 (fan-out on disjoint files, two independent reviews per PR, CI `check` green on the PR head before the merge, `bun install` in a
 worktree after its rebase, live re-shoot once the served bundle carries the change, fresh `basalt-design-reviewer`s told to read
 every sheet). **Subtract before you add**; a removal that leaves a reader without a fact is a defect. Basalt rows: no workaround.
 
-- [ ] The lost fact first: the scan folds Volume/INOL at 390 — keep both figures readable at the phone width.
-- [ ] The Estimated 1RM dashed companion line and dot get a legend entry (or a direct label), so no mark is unexplained.
-- [ ] The "Balance" title names its scope; the selected timer preset uses the selected-state token, not the accent; the dark
+- [x] The lost fact first: the scan folds Volume/INOL at 390 — keep both figures readable at the phone width.
+- [x] The Estimated 1RM dashed companion line and dot get a legend entry (or a direct label), so no mark is unexplained.
+- [x] The "Balance" title names its scope; the selected timer preset uses the selected-state token, not the accent; the dark
       Warm-up bars reach the contrast floor.
-- [ ] Shot anchors for scan, Log, Timer, Recent and the expanded diagnostics/alignment, so the scorer sees them.
-- [ ] The P3s if cheap: the "90-day norm" vs "all time" caption, the scan title's period, the duplicated "Daily 62" /
+- [x] Shot anchors for scan, Log, Timer, Recent and the expanded diagnostics/alignment, so the scorer sees them.
+- [x] The P3s if cheap: the "90-day norm" vs "all time" caption, the scan title's period, the duplicated "Daily 62" /
       "Garmin Recovery 62", the unitless "Fatigue debt".
-- [ ] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
+- [x] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 46 is `done`; no Wave 47 is authored.**
+
+- **Changed (master, deploy green and live before each shoot):** the scan at 390 keeps Volume and INOL as labelled mini-sparklines under the lift name (`6fbafe2e`; the first cut widened the lift column and folded Velocity/Status, caught by the first reviewer and fixed in `8fc99a95` by stacking the minis at 44 px, verified on the live shot); Estimated 1RM `subtitle` explains the dashed 30-day line and PR dot; `Balance, <period>`; the selected timer preset is `VX.surface.rowSelected` + bold, not an accent fill; Warm-up opacity .3 to .4; anchors `strength-scan` / `strength-log` / `strength-timer` / `strength-recent`; P3s: the readiness tooltip drops "Garmin Recovery" when it equals the daily score, the diagnostics summary reads `Window: <period>` (`7b52a2ea`). `make check` green (609 tests).
+- **Verdict (`w46-strength` fail 23, then `w46-strength-b` fail 19; fresh reviewers, all sheets read, 0 failed shots):** every Wave 46 target met and no lost fact at 390, but three components fail on contrast. **Not fixed, named:** P0 light-scheme green delta ink (`#29a634` on card, 2.9-3.05:1; scan and strips) and the Log set table's header/"Previous" ink (1.9-2.3 light, 2.7-3.6 dark); P1 dark Warm-up vs Drop bars/legend near-identical (one `exColor` at .4/.6 opacity; needs distinct shades). The w45 pass (68) did not flag these rows and no baseline shot dir exists, so they may be newly measured rather than new. Candidate basalt ink-token rows, not confirmed from source.
+- **P2:** the 390 scan delta lacks the up/down glyph and the Vol/INOL minis carry no unit; `PR` label on the sparkline in two strips (basalt, carried); `strength-log`/`strength-timer`/`strength-recent` are not captured at 390 (under the Train tab, which the shot never opens); expanded diagnostics/alignment still have no anchor (collapsed by default).
+- **Not verified:** the `Window:` copy edit was not re-shot; no `detect.json`, no Keel read. Shots in `apps/dashboard/.design-shots/w46-strength{,-b}` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 # Part 1, continued
 
