@@ -358,3 +358,17 @@ scrolls past the cap" and the 390 note's "the card does not grow past the viewpo
 4. `MAP_FULL_BLEED_HEIGHT` now subtracts the footer offset, the bottom safe-area inset, the page-bar band and twice the main's block
    padding, so the card no longer runs under the mobile tab bar; at desktop widths the footer and inset terms are 0 and it equals
    the scrollport's content box.
+
+**Round 2 fixes.** Five defects from the second review round on the key rail (item 2 of Round 1 is superseded by item 1 here).
+
+1. The EUMETSAT weather key gets its white plate from us: GeoServer ignores `transparent=false` and `bgColor` as well as
+   `fontColor` (the PNG is RGBA, transparent background), so black text sat on the dark rail. `WeatherLegendCard` wraps the
+   cropped image in a `Box` with `bg="white"`, no radius, shadow or border; `legendUrl` no longer sends the ignored options
+   (`DESIGN.md`, App deviations).
+2. Radar had no key. The `radar` catalogue row carries a `textKey` (title `Radar`, one dimmed line: rain echoes of the last
+   2 h, grey-beige faint, blue, yellow, orange to dark red heavy; RainViewer colour scheme 2 "Universal Blue", past frames only),
+   rendered in the rail while radar is on with the same anatomy as the image keys. The "radar holds at its latest frame" note
+   stays in the scrubber.
+3. The light-pollution key gets the title `Light pollution`, so every key in the rail opens with a title.
+4. The scrubber states its span under the slider in dimmed mono, `{first}–{last}`, so the slider's ends are named.
+5. `UPSTREAM.md` § Wave 52 records that basalt's chart catalogue has no form for a geographic raster on a map canvas.

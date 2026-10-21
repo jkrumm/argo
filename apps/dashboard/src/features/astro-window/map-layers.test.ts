@@ -816,14 +816,12 @@ describe('rainviewerTileUrl', () => {
 describe('legendUrl', () => {
   const url = new URL(legendUrl({ host: 'https://example.com/wms', wmsLayer: 'mtg:lightning' }))
 
-  it('asks for an opaque, 300 px wide graphic with no font options the server ignores', () => {
+  it('asks for a 300 px wide graphic with no options the server ignores', () => {
     expect(url.searchParams.get('request')).toBe('GetLegendGraphic')
     expect(url.searchParams.get('layer')).toBe('mtg:lightning')
-    expect(url.searchParams.get('transparent')).toBe('false')
+    expect(url.searchParams.has('transparent')).toBe(false)
     expect(url.searchParams.get('WIDTH')).toBe('300')
-    expect(url.searchParams.get('LEGEND_OPTIONS')).toBe(
-      'bgColor:0xffffff;fontAntiAliasing:true;dpi:96',
-    )
+    expect(url.searchParams.get('LEGEND_OPTIONS')).toBe('fontAntiAliasing:true;dpi:96')
   })
 })
 

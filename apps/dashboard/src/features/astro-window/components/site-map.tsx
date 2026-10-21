@@ -62,6 +62,7 @@ import {
   SCHEME_STYLE_URL,
   weatherLayer,
   type LegendableWeatherLayer,
+  type WeatherLayer,
   type MapLayerState,
   type WeatherSelection,
 } from '../map-layers'
@@ -739,8 +740,11 @@ export default function SiteMap({
   const closeScoutPanel = useCallback(() => setScoutOpen(false), [])
   const compareSite = data.data.find((site) => site.id === siteId)
   const weatherLegends = legendableWeatherLayers(layers.weather)
+  const textKeys = textKeyedWeatherLayers(layers.weather)
   // A failed map shows no keys: there is no canvas for them to explain.
-  const showRail = !failed && (tickCount > 0 || layers.lpYear !== null || weatherLegends.length > 0)
+  const showRail =
+    !failed &&
+    (tickCount > 0 || layers.lpYear !== null || weatherLegends.length > 0 || textKeys.length > 0)
 
   return (
     <Card variant="flush" h={height} mih={MAP_MIN_HEIGHT} style={{ overflow: 'hidden' }}>
@@ -773,6 +777,9 @@ export default function SiteMap({
                   )}
                   {weatherLegends.map((entry) => (
                     <WeatherLegendCard key={entry.id} entry={entry} />
+                  ))}
+                  {textKeys.map(({ id, textKey, emptyMeans }) => (
+                    <WeatherTextKey key={id} textKey={textKey} emptyMeans={emptyMeans} />
                   ))}
                 </Group>
               </Box>
@@ -865,7 +872,9 @@ function TimeScrubber({
 }) {
   const now = useNow()
   const at = ticks[Math.min(tickIndex, ticks.length - 1)] ?? null
-  if (at === null) return null
+  const first = ticks[0]
+  const last = ticks[ticks.length - 1]
+  if (at === null || first === undefined || last === undefined) return null
   const forecast = at.getTime() > now
   // Radar has no forecast of its own (RainViewer discontinued its nowcast 2026-01-01) — once the
   // scrubber moves past radar's own newest frame, `nearestTimeIndex` (map-layers.ts) already
@@ -904,6 +913,9 @@ function TimeScrubber({
         }}
         aria-label="Timeline position"
       />
+      <Text ff="monospace" size="xs" c="dimmed">
+        {CLOCK_FORMAT.format(first)}–{CLOCK_FORMAT.format(last)}
+      </Text>
       {radarHoldsAtLatest && (
         <Text size="xs" c="dimmed">
           Radar holds at its latest frame past now — it has no forecast of its own.
@@ -962,6 +974,9 @@ function LpLegend({ year, range }: { year: number; range: readonly [number, numb
   const remappedSiteBand = remapLpRampStops(range)[LP_SITE_BAND_INDEX] ?? LP_SITE_BAND
   return (
     <Stack gap={4} w={LEGEND_WIDTH}>
+      <Text size="xs" fw={600}>
+        Light pollution
+      </Text>
       <Box h={6} style={{ backgroundImage: legendGradient(range), borderRadius: VX.radiusCtrl }} />
       <Group justify="space-between" gap={4}>
         <Text ff="monospace" size="xs" c="dimmed">
@@ -1006,16 +1021,61 @@ function legendableWeatherLayers(weather: readonly WeatherSelection[]): Legendab
     )
 }
 
-/** The weather key's size. The EUMETSAT GetLegendGraphic canvas is a fixed 640×80, and with
- * `WIDTH=300` (`legendUrl`) the whole legend sits in its left ~320 px: the image is cropped to that. */
+/**
+ * The active weather layers that carry a plain text key instead of a legend image (`textKey`,
+ * `map-layers.ts` — radar). Narrowed to a non-optional `textKey` so the caller needs no re-check.
+ */
+function textKeyedWeatherLayers(weather: readonly WeatherSelection[]): {
+  id: WeatherSelection['id']
+  textKey: NonNullable<WeatherLayer['textKey']>
+  emptyMeans: string
+}[] {
+  return weather.flatMap((selection) => {
+    const entry = weatherLayer(selection.id)
+    if (entry?.textKey === undefined) return []
+    return [{ id: selection.id, textKey: entry.textKey, emptyMeans: entry.emptyMeans }]
+  })
+}
+
+/** A text-only key: the same anatomy as the image keys (bold title, then dimmed lines). */
+function WeatherTextKey({
+  textKey,
+  emptyMeans,
+}: {
+  textKey: NonNullable<WeatherLayer['textKey']>
+  /** What an empty render means, the same line a legend card ends on. */
+  emptyMeans: string
+}) {
+  return (
+    <Stack gap={4} w={LEGEND_WIDTH} maw="100%">
+      <Text size="xs" fw={600}>
+        {textKey.title}
+      </Text>
+      {textKey.lines.map((line) => (
+        <Text key={line} size="xs" c="dimmed">
+          {line}
+        </Text>
+      ))}
+      <Text size="xs" c="dimmed">
+        {emptyMeans}
+      </Text>
+    </Stack>
+  )
+}
+
+/** The plate behind a third-party legend raster: white in both schemes, the one literal colour in
+ * this file, because the raster's black text cannot be recoloured (DESIGN.md, App deviations). */
+const LEGEND_PLATE = 'white'
 
 /**
  * One legend card. The image is a third-party PNG on a host we don't control — `onError` hides it
  * quietly rather than letting a broken-image glyph sit on the map; the label and `emptyMeans` line
  * still render either way, so the card degrades to text instead of vanishing.
  *
- * The raster is black text on an opaque white plate in BOTH schemes by design: the server ignores
- * `fontColor`, so a legible key means keeping the provider's own plate (DESIGN.md, App deviations).
+ * The raster is black text on a transparent background in BOTH schemes: the server ignores
+ * `fontColor`, `bgColor` and `transparent=false`, so the white plate behind it is ours (a `Box`
+ * with `bg="white"`, no radius, shadow or border — a key, not a surface; DESIGN.md, App
+ * deviations).
  */
 function WeatherLegendCard({ entry }: { entry: LegendableWeatherLayer }) {
   const [imageFailed, setImageFailed] = useState(false)
@@ -1025,16 +1085,18 @@ function WeatherLegendCard({ entry }: { entry: LegendableWeatherLayer }) {
         {entry.label}
       </Text>
       {!imageFailed && (
-        <Image
-          src={legendUrl(legendSource(entry))}
-          alt={`${entry.label} legend`}
-          w={LEGEND_IMAGE_CROP.width}
-          maw="100%"
-          h={LEGEND_IMAGE_CROP.height}
-          fit="cover"
-          style={{ objectPosition: 'left top' }}
-          onError={() => setImageFailed(true)}
-        />
+        <Box bg={LEGEND_PLATE} w={LEGEND_IMAGE_CROP.width} maw="100%">
+          <Image
+            src={legendUrl(legendSource(entry))}
+            alt={`${entry.label} legend`}
+            w={LEGEND_IMAGE_CROP.width}
+            maw="100%"
+            h={LEGEND_IMAGE_CROP.height}
+            fit="cover"
+            style={{ objectPosition: 'left top' }}
+            onError={() => setImageFailed(true)}
+          />
+        </Box>
       )}
       <Text size="xs" c="dimmed">
         {entry.emptyMeans}

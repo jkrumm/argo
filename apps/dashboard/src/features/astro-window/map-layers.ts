@@ -297,9 +297,10 @@ export const LEGEND_IMAGE_CROP = { width: 320, height: 80 } as const
  * a future host that does not run GeoServer at all.
  *
  * The server ignores `fontColor` and `fontSize` in `LEGEND_OPTIONS` (checked 2026-10-21: text is
- * always black on a fixed 640×80 canvas), so the graphic is a third-party raster we cannot
- * recolour: it is requested opaque (`transparent=false`, `bgColor:0xffffff`) and shown on its own
- * white plate in both schemes. `WIDTH=300` makes it draw one complete ~320 px wide legend (label,
+ * always black on a fixed 640×80 canvas), and it ignores `transparent=false` and `bgColor` too
+ * (the PNG is RGBA with a transparent background), so the graphic is a third-party raster we
+ * cannot recolour or flatten: the card draws the white plate itself (`WeatherLegendCard`,
+ * `components/site-map.tsx`) in both schemes. `WIDTH=300` makes it draw one complete ~320 px wide legend (label,
  * ramp, ticks) at the left of that canvas; the card crops to it (`LEGEND_IMAGE_CROP` in
  * `components/site-map.tsx`). `LEGEND_OPTIONS` is run through `URLSearchParams` (its `;`
  * separators arrive percent-encoded as `%3B`); GeoServer decodes the query string before parsing
@@ -312,9 +313,8 @@ export function legendUrl(source: { host: string; wmsLayer: string }): string {
     request: 'GetLegendGraphic',
     format: 'image/png',
     layer: source.wmsLayer,
-    transparent: 'false',
     WIDTH: String(LEGEND_REQUEST_WIDTH),
-    LEGEND_OPTIONS: 'bgColor:0xffffff;fontAntiAliasing:true;dpi:96',
+    LEGEND_OPTIONS: 'fontAntiAliasing:true;dpi:96',
   })
   return `${source.host}?${query.toString()}`
 }
@@ -1225,6 +1225,13 @@ export type WeatherLayer = {
    * instead — "I turned it on and nothing appeared" still needs an answer without one.
    */
   legend?: boolean
+  /**
+   * A plain text key for a layer with no `GetLegendGraphic` image (`legend: false`) whose colours
+   * still need explaining: a bold `title`, then dimmed `lines`. Rendered in the key rail while the
+   * layer is active, with the same anatomy as `WeatherLegendCard`. Omitted when there is nothing
+   * to key.
+   */
+  textKey?: { title: string; lines: readonly string[] }
   /** What an empty render means, in the user's words. Shown next to the layer's legend (or in its
    * place, for the three layers with `legend: false`). */
   emptyMeans: string
@@ -1280,6 +1287,12 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 0.75,
     stackIndex: 30,
     legend: false,
+    // RainViewer's tiles use colour scheme 2 "Universal Blue", the only scheme left since
+    // 2026-01-01 (checked 2026-10-21); past frames only, about 2 h at 10-minute steps.
+    textKey: {
+      title: 'Radar',
+      lines: ['Rain echoes, last 2 h: grey-beige faint → blue → yellow, orange → dark red heavy'],
+    },
     emptyMeans:
       'Blank means no precipitation in range — or a gap between the 1200+ station radars this feed stitches together.',
     coverage: 'Global — 1200+ radars across 150+ countries.',

@@ -265,12 +265,14 @@ empty section is the correct default; do not invent deviations to fill it.
   `OmProtocolSettings`, passed as `omProtocol`'s third argument) and is the right follow-up if
   these layers ever need to sit alongside our own series ink rather than replace the view.
 
-- **The EUMETSAT weather legends are third-party rasters on their own white plate, in both
-  schemes.** The GeoServer `GetLegendGraphic` ignores `fontColor` and `fontSize` (checked
-  2026-10-21: text is always black on a fixed 640×80 canvas), so the legend cannot follow the
-  palette. It is requested opaque (`bgColor:0xffffff`, `WIDTH=300`) and cropped to its content in
-  the key rail: black text on a white plate stays legible in dark and light. The colours are the
-  provider's, like the Open-Meteo entry above; the hook is not ours to build.
+- **The EUMETSAT weather legends are third-party rasters on a white plate we draw ourselves, in
+  both schemes.** The GeoServer `GetLegendGraphic` ignores `fontColor`, `fontSize`, `bgColor` and
+  `transparent=false` (checked 2026-10-21: the PNG is RGBA with a transparent background and black
+  text on a fixed 640×80 canvas), so the legend can neither follow the palette nor arrive on a
+  plate of its own. It is requested at `WIDTH=300` and cropped to its content in the key rail, and
+  `WeatherLegendCard` wraps it in a `Box` with `bg="white"`: black text on a white plate stays
+  legible in dark and light. The plate is a key, not a surface: no radius, shadow or border. The
+  colours are the provider's, like the Open-Meteo entry above; the hook is not ours to build.
 
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
