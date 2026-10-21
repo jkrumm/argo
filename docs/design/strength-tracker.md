@@ -245,3 +245,11 @@ Follow-up (w30-r1):
 - **Argo, P3:** "vs 90-day norm" under an "all time" caption; "Strength scan" title has no period; readiness tooltip prints "Daily 62" and "Garmin Recovery 62" twice, "Fatigue debt 0.00" unitless.
 - **Basalt (carried, P2/P3):** bench sparkline through its `PR` label at 390; INOL tooltip over the headline; `Sept` beside `Sep` and three date-tick formats; target band faintest ink; hover crops identical to rest; strip cards `padding-bottom` 0; chevron on its own row at 390.
 - **Not verified:** Keel (`README.md`) and `detect.json` not run; w42 shots no longer on disk, comparison is to the recorded verdict.
+
+### Wave 47 round (`w47-strength`, live; code `d47f57bf`)
+
+- **Re-score (complete, all 17 anchors + 4 page shots):** the three w46 contrast failures are closed. Scan delta ink min 4.96:1 (`directionColor` now `status.good`; `directionFill` keeps `excellent` for dots), strips 5.25, Log header/"Previous" ink 4.9 in both schemes (`--vx-muted`, dimmed rows no longer halve opacity), dark Warm-up (neutral) / Work / Drop read as three bands. No anchor has a contrast failure. Score **83**; one component fails.
+- **Open, P1 Craft:** `strength-log` uses four font sizes (11/12/13/15) against a limit of three.
+- **Open, P2:** page H1 "No scored e1RM in 28 d" reads as contradicting the strips' e1RM values; `strength-log`/`timer`/`recent` not captured at 390 (Train tab never opened by the shot).
+- **Open, P3:** stray dot left of the Vol/INOL minis in the 390 scan.
+- **Not verified:** no `detect.json`, no Keel read, no w46 comparison; bar-segment contrast judged by eye.

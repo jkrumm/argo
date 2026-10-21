@@ -2510,21 +2510,27 @@ every sheet). **Subtract before you add**; a removal that leaves a reader withou
 - **P2:** the 390 scan delta lacks the up/down glyph and the Vol/INOL minis carry no unit; `PR` label on the sparkline in two strips (basalt, carried); `strength-log`/`strength-timer`/`strength-recent` are not captured at 390 (under the Train tab, which the shot never opens); expanded diagnostics/alignment still have no anchor (collapsed by default).
 - **Not verified:** the `Window:` copy edit was not re-shot; no `detect.json`, no Keel read. Shots in `apps/dashboard/.design-shots/w46-strength{,-b}` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
-## Wave 47 — Strength contrast <!-- status: active -->
+## Wave 47 — Strength contrast <!-- status: done -->
 
 From Wave 46's verdict (Strength fail 19–23 on contrast only). Both causes are argo code, traced:
 
-- [ ] P0, the green delta ink: `features/strength-tracker/formulas.ts:38` `directionColor('improving')` returns
+- [x] P0, the green delta ink: `features/strength-tracker/formulas.ts:38` `directionColor('improving')` returns
       `ZONE_COLORS.excellent` → `VX.status.excellent`, a chart FILL (`forest[2]` `#29a634`, ~2.9:1) that basalt's text solver
       never tunes. Text must use `VX.status.good` (solver-tuned) — fix `directionColor` (or split a text vs fill helper) and its
       text call sites (`charts/momentum-chart.tsx:110/116`, `charts/sparkline-grid-chart.tsx:176/204`); fills keep `excellent`.
-- [ ] P0, the Log set table: the header (`components/set-editor.module.css:19`, `--vx-neutral` at 50 % alpha) and the
+- [x] P0, the Log set table: the header (`components/set-editor.module.css:19`, `--vx-neutral` at 50 % alpha) and the
       "Previous" cells (`components/set-editor.tsx:223`, `alpha(VX.neutral, 0.4)`) fade a chart neutral instead of using the
       ink ramp; the dimmed-row `opacity: 0.5` halves it again. Use `VX.muted` / `var(--vx-muted)` (or `c="dimmed"`) and keep the
       dimmed-row cue without dropping text below 4.5:1 (measure it in both schemes).
-- [ ] P1, dark Warm-up vs Drop bars/legend: one `exColor` at .4/.6 opacity reads as one series. Give them distinct shades.
-- [ ] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
+- [x] P1, dark Warm-up vs Drop bars/legend: one `exColor` at .4/.6 opacity reads as one series. Give them distinct shades.
+- [x] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 47 is `done`; no Wave 48 is authored.**
+
+- **Changed (master `d47f57bf`, deploy green and live before the shoot):** `directionColor` returns the solver-tuned `status.good` for text, new `directionFill` keeps `excellent` for the sparkline-grid dot; Log header and "Previous" ink use `--vx-muted`, dimmed rows recolour instead of halving opacity; Warm-up is `VX.neutral`, Drop the lift hue, both at .55. `make check` green (609 tests).
+- **Verdict (`w47-strength`, fresh reviewer, all 17 anchors + 4 page shots, 0 failed): fail, 83** (up from 19-23). All three w46 contrast items closed (min contrast 4.9:1, no failures). One P1 left: `strength-log` has four font sizes (11/12/13/15, limit three). P2: the page H1 "No scored e1RM in 28 d" sits above strips that show e1RM values; log/timer/recent are not captured at 390. P3: stray dot beside the 390 Vol/INOL minis. Recorded in `docs/design/strength-tracker.md`.
+- **Not verified:** no `detect.json`, no Keel read, bar-segment contrast judged by eye. Shots in `apps/dashboard/.design-shots/w47-strength` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 # Part 1, continued
 
