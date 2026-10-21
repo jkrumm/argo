@@ -287,12 +287,30 @@ function deltaSpan(lifts: readonly DeltaLift[]): string {
   return withUnit(lifts[0]?.delta.days ?? DELTA_DAYS, 'd')
 }
 
+/** The last scored session and the clock it is measured against. */
+export type LastSession = { date: string; now: number }
+
+/** `2 Sep, 49\u00a0d ago` (whole local days; `today` for the same day). */
+export function sinceLabel({ date, now }: LastSession): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number]
+  const today = new Date(now)
+  const days = Math.round(
+    (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() -
+      new Date(y, m - 1, d).getTime()) /
+      DAY_MS,
+  )
+  return days <= 0 ? `${shortDate(date)}, today` : `${shortDate(date)}, ${days}\u00a0d ago`
+}
+
 /**
  * The copy for lifts with no session in the delta window, decided once: every lift stale is the
  * headline's sentence (and the strip stays silent); some stale is the strip's one note. Only
  * sessions with a scored e1RM move the figure; a session without one does not count.
  */
-export function staleCopy(lifts: readonly DeltaLift[]): {
+export function staleCopy(
+  lifts: readonly DeltaLift[],
+  last: LastSession | null = null,
+): {
   headline: string | null
   note: string | null
 } {
@@ -300,7 +318,10 @@ export function staleCopy(lifts: readonly DeltaLift[]): {
   if (stale.length === 0) return { headline: null, note: null }
   const span = deltaSpan(lifts)
   if (stale.length === lifts.length)
-    return { headline: `No e1RM scored in ${span}; strips show the last one`, note: null }
+    return {
+      headline: last === null ? `No e1RM scored in ${span}` : `Last session ${sinceLabel(last)}`,
+      note: null,
+    }
   return {
     headline: null,
     note: `No scored e1RM in ${span}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`,
@@ -366,9 +387,12 @@ export function lastSession(
  * sentence. The per-lift e1RM and move are the strip's, the score and ACWR the call card's: the
  * headline repeats none of them.
  */
-export function summaryParts(lifts: readonly DeltaLift[]): { sentence: string } | null {
+export function summaryParts(
+  lifts: readonly DeltaLift[],
+  last: LastSession | null = null,
+): { sentence: string } | null {
   if (lifts.length === 0) return null
-  const { headline } = staleCopy(lifts)
+  const { headline } = staleCopy(lifts, last)
   if (headline !== null) return { sentence: headline }
   const span = deltaSpan(lifts)
   const scored = lifts.flatMap((l) => (l.delta.delta === null ? [] : [l.delta.delta]))

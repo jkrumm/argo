@@ -82,7 +82,7 @@ function useOverview({ params, exercises }: Params) {
     const points = series.byExercise.find((l) => l.exercise_id === id)?.points ?? []
     return { id, points, delta: liftDelta(points, now) }
   })
-  const summaryLine = summaryParts(lifts)
+  const summaryLine = summaryParts(lifts, lastDate === null ? null : { date: lastDate, now })
   return {
     readiness,
     deload: deloadNow,

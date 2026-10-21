@@ -104,7 +104,7 @@ export const METRIC_TOOLTIPS = {
   readinessStrain: `${TERM_DEFINITIONS.readiness} Recovery is HRV ${RECOVERY_WEIGHTS.hrv} %, sleep ${RECOVERY_WEIGHTS.sleep} %, resting HR ${RECOVERY_WEIGHTS.restingHr} %; fatigue takes up to ${FATIGUE_MAX_SHAVE_PCT} %: the last session's INOL over your 90th-percentile INOL, and a session above INOL ${HEAVY_SESSION_INOL} within ${HEAVY_SESSION_HOURS} h takes a further ${HEAVY_SESSION_DAMPEN_PCT} %.`,
   trainingRecoveryAlignment:
     'Sessions counted by recovery zone (High, Normal, Low) against training load (per-lift average ACWR: Under, Optimal, Caution). Aligned means recovery and load match; misaligned means they conflict.',
-  strengthScan: `Momentum is the 28-day e1RM velocity in % per month; INOL quality is productive at ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO}.`,
+  strengthScan: `The 28 d trend is the e1RM velocity over 28 days, in % per month; INOL quality is productive at ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO}.`,
 } as const
 
 /**
