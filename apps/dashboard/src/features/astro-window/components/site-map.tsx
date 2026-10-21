@@ -885,6 +885,13 @@ const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
   hour12: false,
 })
 
+const DAY_CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
 /** The clock's zone name (`CEST`) — the scrubber's times are the viewer's local time, and the
  * clock says so. */
 const ZONE_FORMAT = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' })
@@ -941,6 +948,9 @@ function TimeScrubber({
   const first = ticks[0]
   const last = ticks[ticks.length - 1]
   if (at === null || first === undefined || last === undefined) return null
+  // A span that crosses midnight (a 48 h forecast) names the weekday on every time, or its two
+  // ends read as the same `20:00`.
+  const clock = first.toDateString() === last.toDateString() ? CLOCK_FORMAT : DAY_CLOCK_FORMAT
   const forecast = at.getTime() > now
   // Radar has no forecast of its own (RainViewer discontinued its nowcast 2026-01-01) — once the
   // scrubber moves past radar's own newest frame, `nearestTimeIndex` (map-layers.ts) already
@@ -961,7 +971,7 @@ function TimeScrubber({
           {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
         </ActionIcon>
         <Text ff="monospace" size="xs">
-          {CLOCK_FORMAT.format(at)} {zoneName(at)}
+          {clock.format(at)} {zoneName(at)}
         </Text>
         <Text size="xs" c="dimmed">
           {forecast ? 'forecast' : 'observed'}
@@ -975,12 +985,12 @@ function TimeScrubber({
         step={1}
         label={(index) => {
           const tick = ticks[index]
-          return tick === undefined ? '' : CLOCK_FORMAT.format(tick)
+          return tick === undefined ? '' : clock.format(tick)
         }}
         aria-label="Timeline position"
       />
       <Text ff="monospace" size="xs" c="dimmed">
-        {CLOCK_FORMAT.format(first)}–{CLOCK_FORMAT.format(last)}
+        {clock.format(first)}–{clock.format(last)}
       </Text>
       {radarHoldsAtLatest && (
         <Text size="xs" c="dimmed">
@@ -993,8 +1003,8 @@ function TimeScrubber({
 
 /**
  * The canvas while the style has not loaded, or after it failed: the loaded shape (a rail band over
- * a canvas), never a spinner in an empty card. Pending is a skeleton rail over a blank canvas;
- * failed states the cause in the rail band with a Retry, over the same blank canvas.
+ * a canvas), never a spinner in an empty card. Pending is a skeleton rail over an empty
+ * graticule; failed states the cause in the rail band with a Retry, over the same graticule.
  */
 function MapPendingOrFailed({
   failed,
@@ -1032,9 +1042,37 @@ function MapPendingOrFailed({
         )}
       </Box>
       <Divider />
-      {/* A blank canvas surface in both states: a skeleton here would draw its radius inside the card. */}
-      <Box bg={VX.surface.subtle} style={{ flex: 1 }} />
+      <MapGraticule />
     </Flex>
+  )
+}
+
+/** Graticule spacing, px: a map's empty frame, drawn while there is no map to show. */
+const GRATICULE_STEP = 48
+
+/** The canvas placeholder: grid lines in the chart-grid ink, so the card keeps a map's shape. */
+function MapGraticule() {
+  return (
+    <Box style={{ flex: 1 }}>
+      <svg width="100%" height="100%" aria-hidden="true">
+        <defs>
+          <pattern
+            id="map-graticule"
+            width={GRATICULE_STEP}
+            height={GRATICULE_STEP}
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d={`M ${GRATICULE_STEP} 0 L 0 0 0 ${GRATICULE_STEP}`}
+              fill="none"
+              stroke={VX.grid}
+              strokeWidth={1}
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#map-graticule)" />
+      </svg>
+    </Box>
   )
 }
 
