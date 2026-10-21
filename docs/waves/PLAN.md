@@ -2532,6 +2532,18 @@ From Wave 46's verdict (Strength fail 19–23 on contrast only). Both causes are
 - **Verdict (`w47-strength`, fresh reviewer, all 17 anchors + 4 page shots, 0 failed): fail, 83** (up from 19-23). All three w46 contrast items closed (min contrast 4.9:1, no failures). One P1 left: `strength-log` has four font sizes (11/12/13/15, limit three). P2: the page H1 "No scored e1RM in 28 d" sits above strips that show e1RM values; log/timer/recent are not captured at 390. P3: stray dot beside the 390 Vol/INOL minis. Recorded in `docs/design/strength-tracker.md`.
 - **Not verified:** no `detect.json`, no Keel read, bar-segment contrast judged by eye. Shots in `apps/dashboard/.design-shots/w47-strength` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 48 — Strength: the last P1 and P2s <!-- status: active -->
+
+From Wave 47's verdict (Strength fail 83; contrast closed, min 4.9:1). Detail: `docs/design/strength-tracker.md` § Wave 47.
+
+- [ ] P1: `strength-log` holds four font sizes (11/12/13/15; the limit is three). Find which is argo's own (a raw `size`, a
+      class) and fold it onto the shell's steps; if a basalt slot forces the fourth, record it as an `UPSTREAM.md` row instead.
+- [ ] P2: the page H1 "No scored e1RM in 28 d" contradicts the strips below that show e1RM values — make the headline state
+      what the page actually has (one fact, one form).
+- [ ] P2: capture log / timer / recent at 390 (shot anchors per viewport). P3: the stray dot beside the 390 Vol/INOL minis.
+- [ ] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
