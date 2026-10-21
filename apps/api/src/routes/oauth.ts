@@ -8,7 +8,7 @@ export const oauthRoutes = new Elysia({ prefix: '/oauth' })
       tags: ['System'],
       summary: 'Initiate Google OAuth',
       description:
-        'Redirects browser to Google consent screen. Visit in a browser to grant Gmail and Calendar read access. No auth required.',
+        'Redirects browser to Google consent screen. Visit in a browser to grant Calendar read access. No auth required.',
       security: [],
     },
   })

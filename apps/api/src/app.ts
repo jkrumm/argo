@@ -12,7 +12,6 @@ import { dockerHomelabRoutes, dockerVpsRoutes } from './routes/docker.js'
 import { summaryRoute } from './routes/summary.js'
 import { slackRoutes } from './routes/slack.js'
 import { oauthRoutes } from './routes/oauth.js'
-import { gmailRoutes } from './routes/gmail.js'
 import { calendarRoutes } from './routes/calendar.js'
 import { m365Routes } from './routes/m365.js'
 import { jiraRoutes } from './routes/jira.js'
@@ -117,7 +116,7 @@ export function buildApp() {
               {
                 name: 'Productivity',
                 description:
-                  'Personal comms and task management: TickTick projects/tasks, Slack channels/messages/threads, Gmail inbox, Google Calendar events.',
+                  'Personal comms and task management: TickTick projects/tasks, Slack channels/messages/threads, Google Calendar events.',
               },
               {
                 name: 'M365',
@@ -185,7 +184,7 @@ export function buildApp() {
               {
                 name: 'System',
                 description:
-                  'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
+                  'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
               },
             ],
           },
@@ -272,7 +271,6 @@ export function buildApp() {
       .use(dockerHomelabRoutes)
       .use(dockerVpsRoutes)
       .use(slackRoutes)
-      .use(gmailRoutes)
       .use(calendarRoutes)
       .use(m365Routes)
       .use(jiraRoutes)

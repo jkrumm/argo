@@ -1856,7 +1856,6 @@ const GUARDED_ROUTE_CASES: Array<{
   { group: 'dockerHomelabRoutes', method: 'GET', path: '/docker/homelab/containers' },
   { group: 'dockerVpsRoutes', method: 'GET', path: '/docker/vps/containers' },
   { group: 'slackRoutes', method: 'GET', path: '/slack/channels' },
-  { group: 'gmailRoutes', method: 'GET', path: '/gmail/emails' },
   { group: 'calendarRoutes', method: 'GET', path: '/calendar' },
   { group: 'm365Routes', method: 'GET', path: '/m365/tools' },
   { group: 'jiraRoutes', method: 'GET', path: '/atlassian/jira/me' },
