@@ -1367,7 +1367,6 @@ on the mini's ICU).
   surface already.
 - **Cleanup:** worktrees removed with `rd fan --clean`; no background task left running.
 
-
 ## Wave 28 — Re-score round 7: lost facts, alert titles, one stretch rule <!-- status: done -->
 
 Same shape as Wave 27 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
@@ -1672,7 +1671,7 @@ warden and agent-gateway, not built — add nothing for it.
   empty-only elements (invisible at rest, so craft-7 stayed); `loading` / `error` declared on loader-gated pages; whole-page wrapper
   anchors; a shot-only page-level astro card.
 - **Code review caught:** the Garmin load + fitness cells unemptied under `empty`; calendar / Home sources still `unknown` under `empty`;
-  a `?? ''` footer opening on ` · `; `restBy('/agents')` counting human-queue items; the m365 `LabeledPane` fragment root; the m365
+  a `?? ''` footer opening on `·`; `restBy('/agents')` counting human-queue items; the m365 `LabeledPane` fragment root; the m365
   source list's false `with this label` under `empty`; the Sky footer able to open a line on `·`; a `0.95` → `0.9` float tie; absent marks
   that did not match what unmounts.
 - **Rounds:** `w32-r1` (all pages live, 1440 + 390, both schemes, plus the two m365 pane presets; shot after the served bundle carried the
@@ -2407,7 +2406,7 @@ scope beyond these steps. Basalt rows get no local workaround.
 - [x] Once the served dashboard bundle carries the bump: re-shoot Garmin, Home, Agents and Reading (1440 / 390, both schemes)
       and re-score them with fresh `basalt-design-reviewer`s given the w42 shots + Keel.
 - [x] Re-check the `UPSTREAM.md` § "Wave 41 bump" rows these fixes close; record any regression as a basalt row.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 42 is `done`; no Wave 43 is authored — the open items are basalt's.**
 
@@ -2424,7 +2423,6 @@ scope beyond these steps. Basalt rows get no local workaround.
 - **Not verified:** Garmin dark mobile crops one by one; hover/tooltip states for Home (none declared).
 - **Shots:** `.design-shots/w43-{a,b}` (0 failed; gitignored), plus the discarded `w43-bump`. No token written; no background task left.
 
-
 ## Wave 43 — Re-score round 22: basalt-ui 2.27.2 <!-- status: done -->
 
 basalt-ui 2.27.2 (basalt Wave 41, argo friction VI) is a patch with nothing to migrate: #461/#463 open the info bubble below
@@ -2437,7 +2435,7 @@ wave before a pause for the owner's weekly limit: one round, no scope beyond the
       `basalt-ui shot` (only its out dirs feed the scorer) and re-score them with fresh `basalt-design-reviewer`s given the
       w43 shots + Keel.
 - [x] Re-check the `UPSTREAM.md` § "Wave 42 bump" rows these fixes close; record any regression as a basalt row.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 43 is `done`; no Wave 44 is authored.**
 
@@ -2446,7 +2444,6 @@ wave before a pause for the owner's weekly limit: one round, no scope beyond the
 - **Argo items (not fixed, scope frozen):** Garmin card titles carry no period (P2 copy); orphaned `· ` when a headline wraps at 390 (P3).
 - **Not verified:** Keel captures not opened by either reviewer; Reading's non-pace anchors and Garmin's light-mobile/dark-desktop page shots were read from metrics only; no `detect.json` run.
 - **Shots:** `.design-shots/w44-{a,b}` (0 failed; gitignored), shot with `--base https://argo.jkrumm.com`, auth seeded via env from `secrets-run`, never printed or written. No background task left.
-
 
 ## Wave 44 — Garmin: one date axis on ACWR <!-- status: done -->
 
@@ -2459,7 +2456,7 @@ This is argo's composition, not a basalt row. Last wave before the owner's weekl
       share the x domain so the days line up, and add a test if the chart module has one. Check/test green, direct to master.
 - [x] Once the served bundle carries it (and not before): re-shoot Garmin with `basalt-ui shot` (1440 / 390, both schemes)
       and re-score it with a fresh `basalt-design-reviewer` given the w44 shots + Keel. A pass makes argo 14 of 14.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 44 is `done`; no Wave 45 is authored.**
 
@@ -2477,7 +2474,7 @@ Strength's pass (90, w42) is provisional: its reviewer read 4 of 13 sheets. No c
 - [x] Re-shoot Strength with `basalt-ui shot` (1440 / 390, both schemes) on the live 2.27.2 bundle and re-score it with a fresh
       `basalt-design-reviewer` told to read EVERY sheet and given the w42 shots + Keel. Record the verdict per component in
       `docs/design/strength.md`. A basalt finding is an `UPSTREAM.md` row; an argo P1/P2 is named in Left behind, not fixed here.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 45 is `done`; no Wave 46 is authored.**
 
@@ -2501,7 +2498,7 @@ every sheet). **Subtract before you add**; a removal that leaves a reader withou
 - [x] The P3s if cheap: the "90-day norm" vs "all time" caption, the scan title's period, the duplicated "Daily 62" /
       "Garmin Recovery 62", the unitless "Fatigue debt".
 - [x] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 46 is `done`; no Wave 47 is authored.**
 
@@ -2524,7 +2521,7 @@ From Wave 46's verdict (Strength fail 19–23 on contrast only). Both causes are
       dimmed-row cue without dropping text below 4.5:1 (measure it in both schemes).
 - [x] P1, dark Warm-up vs Drop bars/legend: one `exColor` at .4/.6 opacity reads as one series. Give them distinct shades.
 - [x] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 47 is `done`; no Wave 48 is authored.**
 
@@ -2542,7 +2539,7 @@ From Wave 47's verdict (Strength fail 83; contrast closed, min 4.9:1). Detail: `
       what the page actually has (one fact, one form).
 - [x] P2: capture log / timer / recent at 390 (shot anchors per viewport). P3: the stray dot beside the 390 Vol/INOL minis.
 - [x] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 48 is `done`; no Wave 49 is authored.**
 
@@ -2550,7 +2547,7 @@ From Wave 47's verdict (Strength fail 83; contrast closed, min 4.9:1). Detail: `
 - **Verdict (`w48-strength`, fresh reviewer, 0 failed): fail, 59** - only `strength-log` fails, on a new P1 Communication: the "Fill from" chip prints bare numbers with no kg. The w47 font-size P1 is closed. Not fixed: the stray dot at 390 (a "▸" in an unlabelled first column of the scan; source not located); the H1 is still P2 (no as-of date, 28 d figures beside it). Detail: `docs/design/strength-tracker.md` § Wave 48.
 - **Not verified:** no `detect.json`, no Keel read, collapsed diagnostics/alignment bodies never shot. Shots in `apps/dashboard/.design-shots/w48-strength` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
-## Wave 49 — Strength: converge on the union of two reviews <!-- status: active -->
+## Wave 49 — Strength: converge on the union of two reviews <!-- status: done -->
 
 Strength's single-reviewer verdicts swing (68 → 19 → 83 → 59) because each fresh reviewer surfaces a different real item. To
 converge instead of chasing one finding per wave: start from TWO independent fresh reviewers on the current live page (all
@@ -2558,11 +2555,17 @@ sheets, 1440 / 390, both schemes), take the UNION of their P0–P2 findings, fix
 reviewer. Known open: the "Fill from" chip prints bare numbers without `kg` (P1); the H1 has no as-of date beside 28 d figures
 (P2); a stray `▸` in an unlabelled first column of the 390 scan (P3, locate the source).
 
-- [ ] Two independent fresh reviews of the live Strength page; write the union of P0–P2 findings into
+- [x] Two independent fresh reviews of the live Strength page; write the union of P0–P2 findings into
       `docs/design/strength-tracker.md` § Wave 49.
-- [ ] Fix the union (argo items); a basalt cause becomes an `UPSTREAM.md` row, no workaround. Check/test green, deploy.
-- [ ] A third fresh reviewer on the re-shoot. Pass = no P0/P1 and every component passes.
-**Left behind:**
+- [x] Fix the union (argo items); a basalt cause becomes an `UPSTREAM.md` row, no workaround. Check/test green, deploy.
+- [x] A third fresh reviewer on the re-shoot. Pass = no P0/P1 and every component passes.
+      **Left behind:**
+
+**Closed out (orchestrated): Wave 49 is `done`; no Wave 50 is authored.**
+
+- **Changed (master `484d5240` plus a follow-up title reword; deploy green, served bundle carried the copy before the shoot):** the union of two reviews fixed in one pass: chip kg, ACWR title and ticks, headline, Momentum / diagnostics titles, neutral trophy, Previous unit, `Vol kg/wk`, strip qualifier; the `▸` is a basalt row-disclosure row in `docs/design/UPSTREAM.md`. `make check` green (609 tests).
+- **Third reviewer (`w49-strength-r2`): fail, 48** (two reviews before it: 64 and 34). Pass not met: P1 "Recent records, last 30" had no unit (reworded to `<n> most recent`, not re-shot); P1 at 390 the scan drops Velocity and Status, leaving an unlabelled status dot (open). Remaining P2/P3 in `docs/design/strength-tracker.md` § Wave 49.
+- **Not verified:** no `detect.json`, no Keel read, collapsed diagnostics/alignment bodies never shot. Shots in `apps/dashboard/.design-shots/w49-strength{,-r2}` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 # Part 1, continued
 
