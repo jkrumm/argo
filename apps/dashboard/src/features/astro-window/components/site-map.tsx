@@ -3,10 +3,10 @@ import {
   ActionIcon,
   Box,
   Card,
+  Divider,
   Flex,
   Group,
   Image,
-  Paper,
   ScrollArea,
   Slider,
   Stack,
@@ -521,7 +521,8 @@ export default function SiteMap({
     // component is lazy-loaded behind Suspense, so it is constructed while the grid column is
     // still settling and the canvas ends up narrower than the card it sits in — a black gutter
     // down the right-hand side. MapLibre has no internal resize observer; wiring one is the
-    // documented fix, and it also covers the sidebar collapsing.
+    // documented fix, and it also covers the sidebar collapsing and the key rail appearing or
+    // wrapping.
     const observer = new ResizeObserver(() => map.resize())
     observer.observe(containerRef.current)
 
@@ -752,48 +753,66 @@ export default function SiteMap({
 
   const closeScoutPanel = useCallback(() => setScoutOpen(false), [])
   const compareSite = data.data.find((site) => site.id === siteId)
+  const weatherLegends = legendableWeatherLayers(layers.weather)
+  // A failed map shows no keys: there is no canvas for them to explain.
+  const showRail = !failed && (tickCount > 0 || layers.lpYear !== null || weatherLegends.length > 0)
 
   return (
     <Card variant="flush" h={height} mih={MAP_MIN_HEIGHT} style={{ overflow: 'hidden' }}>
       <Flex h="100%" wrap="nowrap">
-        {/* The map's own column — `pos="relative"` moved here (off the outer `Card`) so every
-            absolutely-positioned overlay cluster below anchors to the MAP. The settings panel now
-            portals into the shell's aside region via `PageAside` below, so this is the only flex
-            child. */}
-        <Box pos="relative" style={{ flex: 1, minWidth: 0 }}>
-          <Box ref={containerRef} h="100%" style={{ visibility: failed ? 'hidden' : 'visible' }} />
-          {failed ? (
-            <Box pos="absolute" inset={0}>
-              <Stack justify="center" align="center" h="100%" gap={4}>
-                <Text size="sm" c="dimmed">
-                  Map unavailable — could not reach the tile server.
-                </Text>
-              </Stack>
-            </Box>
-          ) : (
+        {/* The map's own column: the key rail, a divider, then the canvas. Nothing argo draws floats
+            over the canvas — every key sits in the rail, plain layout rather than a surface, so no
+            surface nests inside the card. The canvas wrapper is `pos="relative"` so the failed-tiles
+            message anchors to the MAP; the settings panel portals into the shell's aside region via
+            `PageAside` below, so this column is the only flex child. */}
+        <Flex direction="column" style={{ flex: 1, minWidth: 0 }}>
+          {showRail && (
             <>
-              {/* One cluster, laid out by a Group — the time scrubber anchors here rather than at
-                  a second hand-guessed offset. */}
-              <Box pos="absolute" top={8} left={8}>
-                <Group gap="xs" wrap="nowrap" align="flex-start">
-                  {tickCount > 0 && (
-                    <TimeScrubber
-                      ticks={ticks}
-                      tickIndex={tickIndex}
-                      playing={playing}
-                      onToggle={() => setPlaying((current) => !current)}
-                      onScrub={scrubToTick}
-                      radarActive={radarActive}
-                      radarNewestTime={radarNewestTime}
-                    />
-                  )}
-                </Group>
-              </Box>
-              {layers.lpYear !== null && <LpLegend year={layers.lpYear} range={layers.lpRange} />}
-              <WeatherLegends weather={layers.weather} fontColor={legendFontColor} />
+              {/* Bounded so a short viewport with several keys still leaves the canvas most of the
+                  card; past the cap the rail scrolls rather than squeezing the map. */}
+              <ScrollArea.Autosize mah={RAIL_MAX_HEIGHT} type="auto">
+                <Box px="sm" py="xs">
+                  <Group gap="md" wrap="wrap" align="flex-start">
+                    {tickCount > 0 && (
+                      <TimeScrubber
+                        ticks={ticks}
+                        tickIndex={tickIndex}
+                        playing={playing}
+                        onToggle={() => setPlaying((current) => !current)}
+                        onScrub={scrubToTick}
+                        radarActive={radarActive}
+                        radarNewestTime={radarNewestTime}
+                      />
+                    )}
+                    {layers.lpYear !== null && (
+                      <LpLegend year={layers.lpYear} range={layers.lpRange} />
+                    )}
+                    {weatherLegends.map((entry) => (
+                      <WeatherLegendCard key={entry.id} entry={entry} fontColor={legendFontColor} />
+                    ))}
+                  </Group>
+                </Box>
+              </ScrollArea.Autosize>
+              <Divider />
             </>
           )}
-        </Box>
+          <Box pos="relative" style={{ flex: 1, minHeight: 0 }}>
+            <Box
+              ref={containerRef}
+              h="100%"
+              style={{ visibility: failed ? 'hidden' : 'visible' }}
+            />
+            {failed && (
+              <Box pos="absolute" inset={0}>
+                <Stack justify="center" align="center" h="100%" gap={4}>
+                  <Text size="sm" c="dimmed">
+                    Map unavailable — could not reach the tile server.
+                  </Text>
+                </Stack>
+              </Box>
+            )}
+          </Box>
+        </Flex>
       </Flex>
       <PageAside title="Map layers" persistKey="astro-map-layers">
         <MapLayerSections state={layers} onChange={onLayersChange} />
@@ -817,8 +836,11 @@ const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
 })
 
 /** The `Slider`'s own fixed width — wide enough to read the two ends of a mixed 5-minutely/hourly
- * tick list without wrapping, narrow enough to sit comfortably beside the settings trigger. */
+ * tick list without wrapping, narrow enough to sit comfortably in the key rail. */
 const SCRUBBER_WIDTH = 220
+
+/** The key rail's cap: about one scrubber row plus one key row at 390, so the canvas keeps the card. */
+const RAIL_MAX_HEIGHT = 168
 
 /**
  * Replaces the old `RadarClock`. Where that component only ever read `radar`'s own frames, this
@@ -870,47 +892,49 @@ function TimeScrubber({
     radarActive && radarNewestTime !== null && at.getTime() > radarNewestTime.getTime()
 
   return (
-    <Paper>
-      <Stack gap={4} w={SCRUBBER_WIDTH}>
-        <Group gap="xs" wrap="nowrap">
-          <ActionIcon
-            variant="subtle"
-            size="sm"
-            aria-label={playing ? 'Pause timeline' : 'Play timeline'}
-            onClick={onToggle}
-          >
-            {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
-          </ActionIcon>
-          <Text ff="monospace" size="xs">
-            {CLOCK_FORMAT.format(at)}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {forecast ? 'forecast' : 'observed'}
-          </Text>
-        </Group>
-        <Slider
-          value={tickIndex}
-          onChange={onScrub}
-          min={0}
-          max={Math.max(ticks.length - 1, 0)}
-          step={1}
-          label={(index) => {
-            const tick = ticks[index]
-            return tick === undefined ? '' : CLOCK_FORMAT.format(tick)
-          }}
-          aria-label="Timeline position"
-        />
-        {radarHoldsAtLatest && (
-          <Text size="xs" c="dimmed">
-            Radar holds at its latest frame past now — it has no forecast of its own.
-          </Text>
-        )}
-      </Stack>
-    </Paper>
+    <Stack gap={4} w={SCRUBBER_WIDTH}>
+      <Group gap="xs" wrap="nowrap">
+        <ActionIcon
+          variant="subtle"
+          size="sm"
+          aria-label={playing ? 'Pause timeline' : 'Play timeline'}
+          onClick={onToggle}
+        >
+          {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+        </ActionIcon>
+        <Text ff="monospace" size="xs">
+          {CLOCK_FORMAT.format(at)}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {forecast ? 'forecast' : 'observed'}
+        </Text>
+      </Group>
+      <Slider
+        value={tickIndex}
+        onChange={onScrub}
+        min={0}
+        max={Math.max(ticks.length - 1, 0)}
+        step={1}
+        label={(index) => {
+          const tick = ticks[index]
+          return tick === undefined ? '' : CLOCK_FORMAT.format(tick)
+        }}
+        aria-label="Timeline position"
+      />
+      {radarHoldsAtLatest && (
+        <Text size="xs" c="dimmed">
+          Radar holds at its latest frame past now — it has no forecast of its own.
+        </Text>
+      )}
+    </Stack>
   )
 }
 
 // ── Legend ─────────────────────────────────────────────────────────────────
+
+/** One key's fixed width in the rail; the rail's `Group` wraps keys onto their own rows when the card
+ * is narrower than the keys side by side. */
+const LEGEND_WIDTH = 220
 
 /** Where a remapped stop sits along the gradient, as a percentage of the WINDOW's own span —
  * not the canonical ramp's, so the gradient always fills edge-to-edge regardless of how narrow
@@ -954,77 +978,55 @@ const LP_SITE_BAND_INDEX = LP_RAMP.findIndex((row) => row.stop === LP_SITE_BAND)
 function LpLegend({ year, range }: { year: number; range: readonly [number, number] }) {
   const remappedSiteBand = remapLpRampStops(range)[LP_SITE_BAND_INDEX] ?? LP_SITE_BAND
   return (
-    <Box pos="absolute" bottom={44} left={8}>
-      <Paper>
-        <Stack gap={4} w={148}>
-          <Box
-            h={6}
-            style={{ backgroundImage: legendGradient(range), borderRadius: VX.radiusCard }}
-          />
-          <Group justify="space-between" gap={4}>
-            <Text ff="monospace" size="xs" c="dimmed">
-              {fmtMag(range[0])}
-            </Text>
-            <Text ff="monospace" size="xs" c="dimmed">
-              {fmtMag(range[1])}
-            </Text>
-          </Group>
-          <Text size="xs" c="dimmed">
-            mag/arcsec² — blue from{' '}
-            <Text span ff="monospace" size="xs" c="dimmed">
-              {fmtMag(remappedSiteBand)}
-            </Text>
-            , where the sites sit{' '}
-            <Text span ff="monospace" size="xs" c="dimmed">
-              ({year})
-            </Text>
-          </Text>
-        </Stack>
-      </Paper>
-    </Box>
+    <Stack gap={4} w={LEGEND_WIDTH}>
+      <Box h={6} style={{ backgroundImage: legendGradient(range), borderRadius: VX.radiusCtrl }} />
+      <Group justify="space-between" gap={4}>
+        <Text ff="monospace" size="xs" c="dimmed">
+          {fmtMag(range[0])}
+        </Text>
+        <Text ff="monospace" size="xs" c="dimmed">
+          {fmtMag(range[1])}
+        </Text>
+      </Group>
+      <Text size="xs" c="dimmed">
+        mag/arcsec² · blue from{' '}
+        <Text span ff="monospace" size="xs" c="dimmed">
+          {fmtMag(remappedSiteBand)}
+        </Text>
+        , where the sites sit ·{' '}
+        <Text span ff="monospace" size="xs" c="dimmed">
+          {year}
+        </Text>{' '}
+        atlas
+      </Text>
+    </Stack>
   )
 }
 
 // ── Weather legends ────────────────────────────────────────────────────────
 
 /**
- * The active weather layers' own WMS legends — EUMETSAT's, both the single-disc (`lightning`) and
+ * The active weather layers that carry a legend — EUMETSAT's, both the single-disc (`lightning`) and
  * two-disc (`cloud-top`) shapes (`legendUrl`'s `GetLegendGraphic` builder is generic GeoServer, not
  * host- or disc-specific — `legendSource` resolves either shape to the one `{host, wmsLayer}` pair
- * it needs) — a separate, bottom-RIGHT cluster so it never collides with `LpLegend` at bottom-left.
- * Answers the two halves of "toggle it on, nothing appears, is this broken": what colour means what
- * (the legend image), and what an empty render means (`entry.emptyMeans`, right under it — a quiet
- * night is data, not a failure).
+ * it needs). Each becomes one `WeatherLegendCard` in the key rail, which answers the two halves of
+ * "toggle it on, nothing appears, is this broken": what colour means what (the legend image), and
+ * what an empty render means (`entry.emptyMeans`, right under it — a quiet night is data, not a
+ * failure).
  */
-function WeatherLegends({
-  weather,
-  fontColor,
-}: {
-  weather: readonly WeatherSelection[]
-  fontColor: string
-}) {
-  const active = weather
+function legendableWeatherLayers(weather: readonly WeatherSelection[]): LegendableWeatherLayer[] {
+  return weather
     .map((selection) => weatherLayer(selection.id))
     .filter(
       (entry): entry is LegendableWeatherLayer =>
         entry?.legend === true && (entry.source === 'wms' || entry.source === 'wms-multi'),
     )
-  if (active.length === 0) return null
-  return (
-    <Box pos="absolute" bottom={44} right={8}>
-      <Stack gap="xs" align="stretch">
-        {active.map((entry) => (
-          <WeatherLegendCard key={entry.id} entry={entry} fontColor={fontColor} />
-        ))}
-      </Stack>
-    </Box>
-  )
 }
 
-/** The legend's max box height — a scroll region past this rather than a squash. DWD Blitzdichte's
+/** The legend image's max height in the rail — a scroll region past this rather than a squash. DWD Blitzdichte's
  * legend (formerly `lightning`'s own, before it moved to EUMETSAT's MTG-I imager) measured 344 px
  * tall; `mah={60}` (the old value) rendered it unreadably compressed. */
-const LEGEND_MAX_HEIGHT = 180
+const LEGEND_MAX_HEIGHT = 96
 
 /**
  * One legend card. The image is a third-party PNG on a host we don't control — `onError` hides it
@@ -1053,26 +1055,24 @@ function WeatherLegendCard({
     setImageFailed(false)
   }
   return (
-    <Paper>
-      <Stack gap={4} w={168}>
-        <Text size="xs" fw={600}>
-          {entry.label}
-        </Text>
-        {!imageFailed && (
-          <ScrollArea.Autosize mah={LEGEND_MAX_HEIGHT} type="auto">
-            <Image
-              src={src}
-              alt={`${entry.label} legend`}
-              fit="contain"
-              w="auto"
-              onError={() => setImageFailed(true)}
-            />
-          </ScrollArea.Autosize>
-        )}
-        <Text size="xs" c="dimmed">
-          {entry.emptyMeans}
-        </Text>
-      </Stack>
-    </Paper>
+    <Stack gap={4} w={LEGEND_WIDTH}>
+      <Text size="xs" fw={600}>
+        {entry.label}
+      </Text>
+      {!imageFailed && (
+        <ScrollArea.Autosize mah={LEGEND_MAX_HEIGHT} type="auto">
+          <Image
+            src={src}
+            alt={`${entry.label} legend`}
+            fit="contain"
+            w="auto"
+            onError={() => setImageFailed(true)}
+          />
+        </ScrollArea.Autosize>
+      )}
+      <Text size="xs" c="dimmed">
+        {entry.emptyMeans}
+      </Text>
+    </Stack>
   )
 }
