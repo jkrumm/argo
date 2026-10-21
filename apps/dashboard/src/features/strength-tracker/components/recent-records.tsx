@@ -74,7 +74,7 @@ export function RecentRecords({
           No PRs in this window
         </Text>
       ) : (
-        <ScrollArea h={320} type="hover">
+        <ScrollArea h={320} type="hover" offsetScrollbars="y">
           <Stack gap="sm">
             {groupByDay(records).map((day) => (
               <Stack key={day.date} gap={4}>
