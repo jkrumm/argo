@@ -87,7 +87,7 @@ export default function WeightChart({
 
   // One weigh-in is a dot on a day-wide axis, and the headline already states its value and day:
   // the card would hold one sentence in a full plot box, so it waits for the second weigh-in.
-  if (chartData.length === 1) return null
+  if (query.isSuccess && chartData.length === 1) return null
 
   return (
     <Box data-shot="weight-chart" data-shot-states="empty">

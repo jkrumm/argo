@@ -238,6 +238,8 @@ export default function SiteMap({
     ...openMeteoMapsQueries.meta(layers.omDomain),
     enabled: omModelActive,
   })
+  // No usable forecast hours: the metadata fetch failed and nothing cached survives it.
+  const forecastUnavailable = omModelActive && omMetaFailed && omMeta === undefined
   const omValidTimes = useMemo(
     () => (omModelActive ? (omMeta?.validTimes ?? []) : []),
     [omModelActive, omMeta],
@@ -747,7 +749,7 @@ export default function SiteMap({
       markersRef.current.forEach((marker) => marker.remove())
       markersRef.current = []
     }
-  }, [data, siteId])
+  }, [data, siteId, attempt])
 
   // Fit bounds to every site once, on first load only.
   useEffect(() => {
@@ -774,7 +776,7 @@ export default function SiteMap({
     return () => {
       map.off('style.load', fit)
     }
-  }, [data])
+  }, [data, attempt])
 
   const closeScoutPanel = useCallback(() => setScoutOpen(false), [])
   const compareSite = data.data.find((site) => site.id === siteId)
@@ -832,7 +834,11 @@ export default function SiteMap({
                       textKey={textKey}
                       // A dead forecast upstream paints nothing and has no hours to scrub: say so
                       // instead of the key's "blank means" line, which would read as clear sky.
-                      emptyMeans={omModelActive && omMetaFailed ? FORECAST_UNAVAILABLE : emptyMeans}
+                      emptyMeans={
+                        forecastUnavailable && weatherLayer(id)?.source === 'om-model'
+                          ? FORECAST_UNAVAILABLE
+                          : emptyMeans
+                      }
                     />
                   ))}
                   {hiddenAtlasBy !== undefined && (
@@ -985,12 +991,10 @@ function TimeScrubber({
   )
 }
 
-/** The rail's one line about what is hidden: the atlas stays in the URL while a weather layer is on,
- * and this is the way back to it without opening the drawer. */
 /**
  * The canvas while the style has not loaded, or after it failed: the loaded shape (a rail band over
- * a canvas), never a spinner in an empty card. Pending is a skeleton rail and canvas; failed states
- * the cause in the rail band with a Retry, over a blank canvas surface.
+ * a canvas), never a spinner in an empty card. Pending is a skeleton rail over a blank canvas;
+ * failed states the cause in the rail band with a Retry, over the same blank canvas.
  */
 function MapPendingOrFailed({
   failed,
@@ -1003,7 +1007,7 @@ function MapPendingOrFailed({
     <Flex pos="absolute" inset={0} direction="column">
       <Box px="sm" py="xs">
         {failed ? (
-          <Stack gap={4} align="flex-start">
+          <Stack gap={4} align="flex-start" role="alert">
             <Group gap="xs">
               <StatusDot color={VX.badSolid} />
               <Text size="sm" fw={600}>
@@ -1020,7 +1024,7 @@ function MapPendingOrFailed({
             )}
           </Stack>
         ) : (
-          <Stack gap="xs" aria-busy="true">
+          <Stack gap="xs" role="status" aria-busy="true">
             <VisuallyHidden>Loading map</VisuallyHidden>
             <Skeleton h={12} w={180} radius="xl" />
             <Skeleton h={12} w={260} radius="xl" />
@@ -1037,6 +1041,8 @@ function MapPendingOrFailed({
 const FORECAST_UNAVAILABLE =
   'Forecast unavailable: Open-Meteo did not answer, so nothing is painted.'
 
+/** The rail's one line about what is hidden: the atlas stays in the URL while a weather layer is on,
+ * and this is the way back to it without opening the drawer. */
 function HiddenAtlasNote({ layerName, onShow }: { layerName: string; onShow: () => void }) {
   return (
     <Stack gap="xs" w={LEGEND_WIDTH} maw="100%" align="flex-start">
