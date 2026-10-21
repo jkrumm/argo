@@ -58,7 +58,9 @@ export function RecentRecords({
           the filter and no hand-rolled `Group` decides the heading's weight. */}
       <WidgetHeader
         tier="widget"
-        title={records.length > 0 ? `Recent records, last ${records.length}` : 'Recent records'}
+        title={
+          records.length > 0 ? `Recent records, ${records.length} most recent` : 'Recent records'
+        }
         icon={<IconTrophy size={16} color={VX.muted} />}
         actions={<SelectFilter field={local.field.metric} label="Metric" />}
       />
