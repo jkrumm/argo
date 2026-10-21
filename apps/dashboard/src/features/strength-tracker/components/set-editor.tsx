@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ActionIcon, Box, Button, Flex } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
-import { VX, alpha } from 'basalt-ui/tokens'
+import { VX } from 'basalt-ui/tokens'
 import type { LoadingMode } from '../../../lib/plate-math'
 import type { SetType } from '../constants'
 import { WeightPopover } from './weight-popover'
@@ -17,9 +17,9 @@ export type SetEntry = {
 const TYPE_CYCLE: SetType[] = ['work', 'warmup', 'drop', 'amrap']
 const TYPE_ABBREV: Record<SetType, string> = { warmup: 'W', work: '', drop: 'D', amrap: 'A' }
 const TYPE_COLOR: Record<SetType, string> = {
-  warmup: alpha(VX.neutral, 0.5),
+  warmup: VX.muted,
   work: 'inherit',
-  drop: alpha(VX.neutral, 0.5),
+  drop: VX.muted,
   amrap: 'inherit',
 }
 
@@ -220,7 +220,7 @@ export function SetEditor({
                 component="span"
                 w={72}
                 fz={VX.text.micro}
-                style={{ color: alpha(VX.neutral, 0.4), whiteSpace: 'nowrap' }}
+                style={{ color: VX.muted, whiteSpace: 'nowrap' }}
               >
                 {prev !== undefined ? `${prev.weight_kg} × ${prev.reps}` : '—'}
               </Box>

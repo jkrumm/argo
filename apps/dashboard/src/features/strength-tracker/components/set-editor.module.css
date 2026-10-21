@@ -16,7 +16,7 @@
 
 .headCell {
   font-size: var(--vx-text-micro);
-  color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
+  color: var(--vx-muted);
 }
 
 .row {
@@ -44,7 +44,7 @@
 }
 
 .row[data-dimmed='true'] {
-  opacity: 0.5;
+  color: var(--vx-muted);
 }
 
 /* Set-type label — click to cycle. Color is per-type, so it stays a prop. */

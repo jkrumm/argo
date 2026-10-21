@@ -6,7 +6,7 @@ import { VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
-import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
+import { directionArrow, directionColor, directionFill, type StrengthDirection } from '../formulas'
 import { perMonth, signed } from '../model'
 
 const SPARK_W = 80
@@ -197,7 +197,7 @@ const columns = [
       return (
         <Box>
           <Group gap={6} wrap="nowrap">
-            <Box display="inline-block" w={10} h={10} bdrs="xl" bg={directionColor(dir)} />
+            <Box display="inline-block" w={10} h={10} bdrs="xl" bg={directionFill(dir)} />
             <Text size="sm">{dir}</Text>
           </Group>
           {velocityFolded && (

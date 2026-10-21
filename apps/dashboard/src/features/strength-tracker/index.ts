@@ -22,6 +22,7 @@ export {
   balanceTone,
   directionArrow,
   directionColor,
+  directionFill,
   directionTone,
   exerciseLabel,
   inolDotColor,

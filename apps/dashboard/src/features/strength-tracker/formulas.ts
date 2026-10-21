@@ -32,7 +32,13 @@ export function directionArrow(dir: StrengthDirection | null): string {
   }
 }
 
+/** Direction INK for text. `excellent` is a chart fill the text solver never tunes (~2.9:1), so text takes `good`. */
 export function directionColor(dir: StrengthDirection | null): string {
+  return dir === 'improving' ? ZONE_COLORS.good : directionFill(dir)
+}
+
+/** Direction FILL for dots and marks (no text-contrast floor). */
+export function directionFill(dir: StrengthDirection | null): string {
   switch (dir) {
     case 'improving':
       return ZONE_COLORS.excellent

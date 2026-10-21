@@ -37,8 +37,8 @@ type WeeklyVolumePoint = {
 const positive = (v: number): number | null => (v > 0 ? v : null)
 
 const barOpacityFor = (_: WeeklyVolumePoint, key: string): number => {
-  if (key === 'warmup') return 0.4
-  if (key === 'drop') return 0.6
+  if (key === 'warmup') return 0.55
+  if (key === 'drop') return 0.55
   if (key === 'amrap') return 0.95
   return 0.9
 }
@@ -75,7 +75,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
   )
 
   const allBars: BarsBar<WeeklyVolumePoint>[] = [
-    { key: 'warmup', label: 'Warm-up', color: exColor, getValue: (d) => positive(d.warmup) },
+    { key: 'warmup', label: 'Warm-up', color: VX.neutral, getValue: (d) => positive(d.warmup) },
     { key: 'work', label: 'Work', color: exColor, getValue: (d) => positive(d.work) },
     { key: 'drop', label: 'Drop', color: exColor, getValue: (d) => positive(d.drop) },
     { key: 'amrap', label: 'AMRAP', color: VX.warnSolid, getValue: (d) => positive(d.amrap) },
