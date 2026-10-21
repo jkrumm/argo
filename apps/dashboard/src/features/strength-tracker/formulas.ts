@@ -214,3 +214,12 @@ export function metricUnit(metric: MetricKey | string): string {
 export function metricLabel(metric: MetricKey | string): string {
   return METRICS.find((m) => m.value === (metric as MetricKey))?.label ?? metric
 }
+
+/** The INOL zone word for one session: the INOL chart's legend and the per-lift table share it. */
+export function inolZoneLabel(v: number): string {
+  if (v < 0.4) return 'Too Light'
+  if (v < 0.6) return 'Recovery'
+  if (v <= 1.0) return 'Optimal'
+  if (v <= 1.5) return 'Hard'
+  return 'Excessive'
+}

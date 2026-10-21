@@ -417,7 +417,7 @@ export function SetEditor({
       })}
 
       {typeKeyText && (
-        <Text size="xs" c="dimmed" mt={4}>
+        <Text size="sm" c="dimmed" mt={4}>
           {typeKeyText}
         </Text>
       )}

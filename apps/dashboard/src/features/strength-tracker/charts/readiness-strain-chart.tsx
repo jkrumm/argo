@@ -34,16 +34,16 @@ const READINESS_SERIES: ChartSeries<ReadinessPoint>[] = [
     color: VX.line,
     strokeOpacity: 0.45,
     getValue: (d) => d.readiness,
-    formatValue: (v) => String(Math.round(v)),
+    formatValue: (v) => `${Math.round(v)}/100`,
   },
   {
     key: 'smoothed',
-    label: `${SMOOTH_DAYS}-day average`,
+    label: `${SMOOTH_DAYS} d average`,
     color: VX.line,
     strokeWidth: 2.25,
     dash: 'dashed',
     getValue: (d) => d.smoothed,
-    formatValue: (v) => String(Math.round(v)),
+    formatValue: (v) => `${Math.round(v)}/100`,
   },
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
   {
@@ -133,7 +133,7 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
             ...(d.garminRecovery === null ||
             (d.readiness !== null && Math.round(d.garminRecovery) === Math.round(d.readiness))
               ? []
-              : [{ label: 'Garmin Recovery', value: String(Math.round(d.garminRecovery)) }]),
+              : [{ label: 'Garmin Recovery', value: `${Math.round(d.garminRecovery)}/100` }]),
             { label: 'Fatigue debt', value: d.fatigueDebt.toFixed(2) },
             ...(d.driver ? [{ label: 'Driver', value: d.driver }] : []),
           ],

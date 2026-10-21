@@ -172,7 +172,7 @@ function StrengthTrackerPage() {
                 <EmptyState
                   icon={<IconBarbell size={28} stroke={1.5} />}
                   title="No workouts logged"
-                  description="Log a set in the form to start the 28-day trend."
+                  description="Log a set to start the 28 d trend."
                 />
               </Card>
             ) : (
@@ -298,7 +298,7 @@ function ChartsPanel({
 
       <Box data-shot="sec-alignment" data-shot-absent="empty">
         <Section
-          title="Where training and recovery disagree, last 90 days"
+          title="Where training and recovery disagree, last 90 d"
           collapsible
           defaultOpen={false}
         >
