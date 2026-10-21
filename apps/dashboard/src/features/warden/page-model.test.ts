@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
 import { capFacts } from '../../components/upstream/decision-card-model'
 import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
-import { formatDuration } from '../../lib/format'
+import { NBSP, formatDuration } from '../../lib/format'
 import {
   titleSegments,
   cardFacts,
@@ -49,6 +49,11 @@ import {
   pollerFooter,
   transitionText,
   verdictsFooter,
+  splitAlertQueue,
+  alertGroupFacts,
+  alertGroupSubject,
+  alertMonitorName,
+  type AlertGroup,
 } from './page-model'
 
 const NOW = Date.parse('2026-01-01T12:00:00Z')
@@ -1363,5 +1368,131 @@ describe('titleSegments', () => {
   })
   it('returns nothing for an empty string', () => {
     expect(titleSegments('')).toEqual([])
+  })
+})
+
+describe('splitAlertQueue', () => {
+  const alert = (eventId: number, repo: string | null, ageDays: number | null, reason = 'Same.') =>
+    row({ eventId, repo, ageDays, origin: 'alert', reason })
+
+  it('keeps null-origin and non-alert rows in needs, in order', () => {
+    const rows = [
+      row({ eventId: 1, origin: null }),
+      alert(2, 'a', 1),
+      row({ eventId: 3, origin: 'github_issue' }),
+      alert(4, 'a', 2),
+    ]
+    const { needs, alertEntries } = splitAlertQueue(rows)
+    expect(needs.map((r) => r.eventId)).toEqual([1, 3])
+    expect(alertEntries).toHaveLength(1)
+    expect(alertEntries[0]).toMatchObject({ kind: 'group', repo: 'a' })
+  })
+
+  it('renders a repo with one alert as a single, two or more as one group', () => {
+    const { alertEntries } = splitAlertQueue([
+      alert(1, 'solo', 1),
+      alert(2, 'duo', 1),
+      alert(3, 'duo', 2),
+    ])
+    expect(alertEntries.map((e) => e.kind)).toEqual(['group', 'single'])
+    const group = alertEntries[0] as AlertGroup
+    expect(group.rows.map((r) => r.eventId)).toEqual([2, 3])
+  })
+
+  it('never groups alerts without a repo', () => {
+    const { alertEntries } = splitAlertQueue([alert(1, null, 1), alert(2, null, 2)])
+    expect(alertEntries.map((e) => e.kind)).toEqual(['single', 'single'])
+  })
+
+  it('orders entries by the oldest member wait, longest first, unknown age last', () => {
+    const { alertEntries } = splitAlertQueue([
+      alert(1, 'young', 0.5),
+      alert(2, 'old', 1),
+      alert(3, 'old', 9),
+      alert(4, 'mid', 4),
+      alert(5, 'unknown', null),
+    ])
+    expect(alertEntries.map((e) => (e.kind === 'group' ? e.repo : e.row.repo))).toEqual([
+      'old',
+      'mid',
+      'young',
+      'unknown',
+    ])
+    expect((alertEntries[0] as AlertGroup).oldestAgeDays).toBe(9)
+  })
+
+  it('shares the ask only when every member reads it word for word', () => {
+    const same = splitAlertQueue([
+      alert(1, 'a', 1, '[alert] Grant host access or close as transient. Disk at 91%.'),
+      alert(2, 'a', 2, 'Grant host access or close as transient. Queue deep.'),
+    ]).alertEntries[0] as AlertGroup
+    expect(same.sharedAsk).toBe('Grant host access or close as transient.')
+
+    const differing = splitAlertQueue([
+      alert(1, 'a', 1, 'Grant host access or close as transient.'),
+      alert(2, 'a', 2, 'Grant host access or close as Transient.'),
+    ]).alertEntries[0] as AlertGroup
+    expect(differing.sharedAsk).toBeNull()
+
+    const empty = splitAlertQueue([alert(1, 'a', 1, ''), alert(2, 'a', 2, '')])
+      .alertEntries[0] as AlertGroup
+    expect(empty.sharedAsk).toBeNull()
+  })
+})
+
+describe('alertGroupFacts', () => {
+  const group = (ages: (number | null)[]): AlertGroup => ({
+    kind: 'group',
+    repo: 'homelab',
+    rows: ages.map((ageDays, i) => row({ eventId: i + 1, ageDays, origin: 'alert' })),
+    oldestAgeDays: oldestAgeDays(ages.map((ageDays) => row({ ageDays }))),
+    sharedAsk: null,
+  })
+  const clock = { elapsedMs: 0, historyAgeMs: 0 }
+
+  it('reads repo, count and the oldest wait through the card clock', () => {
+    const oldest = row({ ageDays: 3, revisionCount: 0 })
+    expect(alertGroupFacts(group([1, 3]), () => clock)).toEqual([
+      'homelab',
+      `2${NBSP}alerts`,
+      cardFacts(oldest, '', clock)[0],
+    ])
+  })
+
+  it('warns past two days and stays plain below', () => {
+    expect(alertGroupFacts(group([1, 1.5]), () => clock)[2]).toBeTypeOf('string')
+    expect(alertGroupFacts(group([1, 2.5]), () => clock)[2]).toMatchObject({ tone: 'warn' })
+  })
+
+  it('carries each member own clock', () => {
+    const facts = alertGroupFacts(group([1, 1]), (r) => ({
+      elapsedMs: 0,
+      historyAgeMs: r.eventId === 2 ? 3 * 86_400_000 : 0,
+    }))
+    expect(facts[2]).toMatchObject({ tone: 'warn' })
+  })
+
+  it('omits the wait when no member knows its age', () => {
+    expect(alertGroupFacts(group([null, null]), () => clock)).toHaveLength(2)
+  })
+})
+
+describe('alertGroupSubject', () => {
+  it('lists up to four names and counts the rest', () => {
+    expect(alertGroupSubject(['a', 'b'])).toBe('a, b')
+    expect(alertGroupSubject(['a', 'b', 'c', 'd'])).toBe('a, b, c, d')
+    expect(alertGroupSubject(['a', 'b', 'c', 'd', 'e'])).toBe('a, b, c, d, +1 more')
+    expect(alertGroupSubject(['a', 'b', 'c', 'd', 'e', 'f', 'g'])).toBe('a, b, c, d, +3 more')
+  })
+})
+
+describe('alertMonitorName', () => {
+  const ask = (entity: string | null) =>
+    ({ copy: { entity } }) as unknown as Parameters<typeof alertMonitorName>[1]
+
+  it('prefers the resolved entity, then the title, then the item number', () => {
+    expect(alertMonitorName(row({ title: 'Raw' }), ask('Entity'))).toBe('Entity')
+    expect(alertMonitorName(row({ title: 'Raw' }), ask(null))).toBe('Raw')
+    expect(alertMonitorName(row({ eventId: 7, title: null }), ask(null))).toBe('Item #7')
   })
 })

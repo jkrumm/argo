@@ -631,19 +631,121 @@ export function cardFacts(
   repo = stripShortcodes(asText(row.repo)),
   clock: WaitClock = { elapsedMs: 0, historyAgeMs: 0 },
 ): DecisionCardFact[] {
-  let waiting: DecisionCardFact = ''
-  if (row.ageDays !== null) {
-    const waitMs = resolveWaitMs(row.ageDays, clock.elapsedMs, clock.historyAgeMs)
-    const text = waitingText(waitMs)
-    waiting = waitMs > WAIT_WARN_DAYS * DAY_MS ? { text, tone: 'warn' } : text
-  }
+  const waiting: DecisionCardFact =
+    row.ageDays === null
+      ? ''
+      : waitFact(resolveWaitMs(row.ageDays, clock.elapsedMs, clock.historyAgeMs))
   return [repo, waiting, historyFact(row)].filter((part) => part !== '')
+}
+
+/** A wait as a card fact: the one wording, in the warning tone past {@link WAIT_WARN_DAYS}. */
+function waitFact(waitMs: number): DecisionCardFact {
+  const text = waitingText(waitMs)
+  return waitMs > WAIT_WARN_DAYS * DAY_MS ? { text, tone: 'warn' } : text
 }
 
 /** Cards in one list: needs-decision first, then any awaiting entry in a state this page does not
  * know — every awaiting entry stays visible, none is dropped. */
 export function needsCards(view: AwaitingOwnerView): AwaitingOwnerRow[] {
   return [...view.needsDecision, ...view.other]
+}
+
+/** One repo's alerts folded into one card. */
+export type AlertGroup = {
+  kind: 'group'
+  /** The repo with shortcodes stripped. */
+  repo: string
+  /** At least two members, in warden's order. */
+  rows: AwaitingOwnerRow[]
+  oldestAgeDays: number | null
+  /** The members' ask when every one reads the same word for word, else `null`. */
+  sharedAsk: string | null
+}
+export type AlertSingle = { kind: 'single'; row: AwaitingOwnerRow }
+export type AlertEntry = AlertGroup | AlertSingle
+
+/** The sentence a row asks (its reason past the `[tag]`, up to the first full stop or `?`). */
+function askOf(row: AwaitingOwnerRow): string {
+  return splitReason(stripShortcodes(asText(row.reason))).question
+}
+
+function sharedAskOf(rows: readonly AwaitingOwnerRow[]): string | null {
+  const first = askOf(rows[0]!)
+  return first !== '' && rows.every((row) => askOf(row) === first) ? first : null
+}
+
+/**
+ * Needs-you rows split by `origin`: every non-alert row stays a card of its own in `needs`; the
+ * `alert` ones fold by repo into `alertEntries` (a repo with two or more is one group, a repo with
+ * one, or none, is that row alone), oldest wait first. A row past the board cap has no `origin` and
+ * stays in `needs` — it is never guessed into a group.
+ */
+export function splitAlertQueue(rows: readonly AwaitingOwnerRow[]): {
+  needs: AwaitingOwnerRow[]
+  alertEntries: AlertEntry[]
+} {
+  const needs: AwaitingOwnerRow[] = []
+  const byRepo = new Map<string, AwaitingOwnerRow[]>()
+  const entries: AlertEntry[] = []
+  for (const row of rows) {
+    if (row.origin !== 'alert') {
+      needs.push(row)
+      continue
+    }
+    const repo = stripShortcodes(asText(row.repo))
+    if (repo === '') {
+      entries.push({ kind: 'single', row })
+      continue
+    }
+    byRepo.set(repo, [...(byRepo.get(repo) ?? []), row])
+  }
+  for (const [repo, members] of byRepo) {
+    entries.push(
+      members.length === 1
+        ? { kind: 'single', row: members[0]! }
+        : {
+            kind: 'group',
+            repo,
+            rows: members,
+            oldestAgeDays: oldestAgeDays(members),
+            sharedAsk: sharedAskOf(members),
+          },
+    )
+  }
+  const age = (entry: AlertEntry): number =>
+    (entry.kind === 'group' ? entry.oldestAgeDays : entry.row.ageDays) ?? Number.NEGATIVE_INFINITY
+  return { needs, alertEntries: entries.toSorted((a, b) => age(b) - age(a)) }
+}
+
+/** `{repo} · {n} alerts · waiting {oldest}`: the oldest member's wait on the same clock and warn tone as a card. */
+export function alertGroupFacts(
+  group: AlertGroup,
+  clockOf: (row: AwaitingOwnerRow) => WaitClock,
+): DecisionCardFact[] {
+  const waits = group.rows.flatMap((row) => {
+    if (row.ageDays === null) return []
+    const clock = clockOf(row)
+    return [resolveWaitMs(row.ageDays, clock.elapsedMs, clock.historyAgeMs)]
+  })
+  return [
+    group.repo,
+    glue(`${group.rows.length} alerts`),
+    waits.length === 0 ? '' : waitFact(Math.max(...waits)),
+  ].filter((part) => part !== '')
+}
+
+const ALERT_SUBJECT_MAX = 4
+
+/** The members' monitor names, comma-joined; past four the rest read `+{k} more`. */
+export function alertGroupSubject(names: readonly string[]): string {
+  const shown = names.slice(0, ALERT_SUBJECT_MAX)
+  const more = names.length - shown.length
+  return (more > 0 ? [...shown, `+${more} more`] : shown).join(', ')
+}
+
+/** A member's monitor name: the resolved copy entity, else the title, else the item number. */
+export function alertMonitorName(row: AwaitingOwnerRow, ask: WardenAsk): string {
+  return ask.copy.entity ?? (stripShortcodes(asText(row.title)) || `Item #${row.eventId}`)
 }
 
 export function oldestAgeDays(rows: readonly AwaitingOwnerRow[]): number | null {
