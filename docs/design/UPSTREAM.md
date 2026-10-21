@@ -662,3 +662,4 @@ Full read (13 sheets, `w45-strength`): pass 68, no new basalt row. Carried, stil
 |-|-|-|-|
 | `Sparkline` target band | no `band`/`zones` prop: a micro-visual with a known productive range (INOL 0.6–1.0) can draw only its shape or one `reference` line, so the cell cannot show "is this in range" | strength per-lift table (INOL column) | argo prints the latest value with its zone word beside the spark; no local band drawn |
 | `Sparkline` reference label | the `PR` label is overprinted by the line's start at 390 (carried since w45) | strength lift strip | as rendered |
+| `ChartCard` `subtitle` at compact | the subtitle (the e1RM chart's line/dot key) is dropped at 390 and only reachable in the focus tooltip, so the dashed lines and PR dots are unlabelled on a phone | strength `Estimated 1RM` | as rendered; argo does not move the key into a local legend |
