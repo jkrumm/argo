@@ -2567,6 +2567,24 @@ reviewer. Known open: the "Fill from" chip prints bare numbers without `kg` (P1)
 - **Third reviewer (`w49-strength-r2`): fail, 48** (two reviews before it: 64 and 34). Pass not met: P1 "Recent records, last 30" had no unit (reworded to `<n> most recent`, not re-shot); P1 at 390 the scan drops Velocity and Status, leaving an unlabelled status dot (open). Remaining P2/P3 in `docs/design/strength-tracker.md` § Wave 49.
 - **Not verified:** no `detect.json`, no Keel read, collapsed diagnostics/alignment bodies never shot. Shots in `apps/dashboard/.design-shots/w49-strength{,-r2}` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 50 — Strength: concept first, then rounds <!-- status: active -->
+
+Waves 45–49 patched Strength one finding at a time and did not converge (68 → 19 → 83 → 59 → 64 / 34 / 48): fixes oscillate
+(the 390 scan keeps dropping Velocity and Status), and every fresh read finds new copy and unit gaps. The page carries more than
+its layout holds, so this wave works the method's way: **scenario → concept → encoding → rounds**, not finding-by-finding.
+
+- [ ] Scenario and concept: write in `docs/design/strength-tracker.md` § Wave 50 what the reader comes to this page for (the
+      questions, in order), which facts answer each, and what is dropped or moved behind a disclosure. Decide the 390 layout
+      explicitly (which scan columns survive at the phone width and why; a column that cannot fit becomes a row detail, never
+      a silently unlabelled cell). Read every `docs/design/strength-tracker.md` verdict since Wave 45 and the Keel shots first.
+- [ ] Encoding: one form per repeated fact (units on every figure, one period wording, one scope wording), the catalogue's
+      basalt components only, no local workaround for a basalt row (record it in `UPSTREAM.md`).
+- [ ] Implement by fan-out on disjoint files, two independent reviews per PR, CI `check` green on the PR head before merge,
+      deploy, shoot only once the served bundle carries it.
+- [ ] At least three rounds, each with TWO fresh `basalt-design-reviewer`s (all sheets, 1440 / 390, both schemes, plus Keel);
+      fix the union of P0–P2 between rounds. Pass = both reviewers find no P0/P1 and every component passes.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
