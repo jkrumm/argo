@@ -37,7 +37,7 @@ type WeeklyVolumePoint = {
 const positive = (v: number): number | null => (v > 0 ? v : null)
 
 const barOpacityFor = (_: WeeklyVolumePoint, key: string): number => {
-  if (key === 'warmup') return 0.5
+  if (key === 'warmup') return 0.4
   if (key === 'drop') return 0.6
   if (key === 'amrap') return 0.95
   return 0.9

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Box, Group, Text, Tooltip } from '@mantine/core'
+import { Box, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { ChartCard, Sparkline } from 'basalt-ui/charts'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { VX } from 'basalt-ui/tokens'
@@ -56,7 +56,7 @@ function SparkCell({
 }
 
 const MOMENTUM_COL = 'momentum'
-const FOLDED_SPARK_W = 56
+const FOLDED_SPARK_W = 44
 
 /** A column the table folded away at a narrow width. */
 function isFolded(
@@ -104,7 +104,7 @@ const columns = [
             {ctx.getValue()}
           </Text>
           {folded.length === 0 ? null : (
-            <Group gap="xs" wrap="wrap">
+            <Stack gap={2}>
               {folded.map((c) => (
                 <Group key={c.id} gap={4} wrap="nowrap">
                   <Text size="xs" c="dimmed">
@@ -118,7 +118,7 @@ const columns = [
                   />
                 </Group>
               ))}
-            </Group>
+            </Stack>
           )}
         </Box>
       )
