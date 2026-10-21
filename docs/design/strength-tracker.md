@@ -253,3 +253,12 @@ Follow-up (w30-r1):
 - **Open, P2:** page H1 "No scored e1RM in 28 d" reads as contradicting the strips' e1RM values; `strength-log`/`timer`/`recent` not captured at 390 (Train tab never opened by the shot).
 - **Open, P3:** stray dot left of the Vol/INOL minis in the 390 scan.
 - **Not verified:** no `detect.json`, no Keel read, no w46 comparison; bar-segment contrast judged by eye.
+
+### Wave 48 round (`w48-strength`, live; code `09b315e9`)
+
+- **Re-score (fresh reviewer, 20 sheets + 8 page shots, 0 failed):** score **59**; only `strength-log` fails. Font sizes on `strength-log` are now 11 / 13 / 15 (the 12 px size is gone), so the w47 P1 is closed. `strength-log`/`timer`/`recent` are captured at 390 by shooting `/strength-tracker?tab=train` as a second route (no code change; the same shot at 1440 shows the stack twice, an artefact of the extra route). No contrast failure (min 4.96).
+- **H1:** `Last scored e1RM shown, none in 28 d` no longer contradicts the strips, but still reads as UI narration with no as-of date, and the Momentum chip / scan still present 28 d figures beside it (P2).
+- **Open, P1 Communication:** the Log "Fill from Last · 110 / Best · 129.9 e1RM" chip prints bare numbers with no kg.
+- **Open, P2:** strip e1RM values carry no as-of date at rest; 390 scan loses the Vol/INOL unit and period; "Strength scan" and "Momentum" titles carry no scope; trophy glyph is gold with no meaning.
+- **Open, P3:** the stray "▸" dot in the 390 scan's unlabelled first column (not fixed this wave; source not located); "PR" label collides with the sparkline start at 390; ACWR ticks repeat the year; scrollbar overlaps Recent kg values.
+- **Not verified:** no `detect.json`, no Keel read, Diagnostics/Alignment bodies collapsed, `board.html` unread.

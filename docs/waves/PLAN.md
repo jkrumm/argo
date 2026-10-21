@@ -2532,17 +2532,23 @@ From Wave 46's verdict (Strength fail 19–23 on contrast only). Both causes are
 - **Verdict (`w47-strength`, fresh reviewer, all 17 anchors + 4 page shots, 0 failed): fail, 83** (up from 19-23). All three w46 contrast items closed (min contrast 4.9:1, no failures). One P1 left: `strength-log` has four font sizes (11/12/13/15, limit three). P2: the page H1 "No scored e1RM in 28 d" sits above strips that show e1RM values; log/timer/recent are not captured at 390. P3: stray dot beside the 390 Vol/INOL minis. Recorded in `docs/design/strength-tracker.md`.
 - **Not verified:** no `detect.json`, no Keel read, bar-segment contrast judged by eye. Shots in `apps/dashboard/.design-shots/w47-strength` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
-## Wave 48 — Strength: the last P1 and P2s <!-- status: active -->
+## Wave 48 — Strength: the last P1 and P2s <!-- status: done -->
 
 From Wave 47's verdict (Strength fail 83; contrast closed, min 4.9:1). Detail: `docs/design/strength-tracker.md` § Wave 47.
 
-- [ ] P1: `strength-log` holds four font sizes (11/12/13/15; the limit is three). Find which is argo's own (a raw `size`, a
+- [x] P1: `strength-log` holds four font sizes (11/12/13/15; the limit is three). Find which is argo's own (a raw `size`, a
       class) and fold it onto the shell's steps; if a basalt slot forces the fourth, record it as an `UPSTREAM.md` row instead.
-- [ ] P2: the page H1 "No scored e1RM in 28 d" contradicts the strips below that show e1RM values — make the headline state
+- [x] P2: the page H1 "No scored e1RM in 28 d" contradicts the strips below that show e1RM values — make the headline state
       what the page actually has (one fact, one form).
-- [ ] P2: capture log / timer / recent at 390 (shot anchors per viewport). P3: the stray dot beside the 390 Vol/INOL minis.
-- [ ] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
+- [x] P2: capture log / timer / recent at 390 (shot anchors per viewport). P3: the stray dot beside the 390 Vol/INOL minis.
+- [x] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 48 is `done`; no Wave 49 is authored.**
+
+- **Changed (master `09b315e9`, deploy green and the served bundle carried the headline before the shoot):** Log text and buttons fold onto 11/13/15 (`Text size xs` to `sm`, `compact-xs` to `compact-sm`, set-type label to `--vx-text-sm`); the all-stale headline reads `Last scored e1RM shown, none in 28 d` (tests updated); log/timer/recent now captured at 390 by also shooting `/strength-tracker?tab=train`. `make check` green (609 tests).
+- **Verdict (`w48-strength`, fresh reviewer, 0 failed): fail, 59** - only `strength-log` fails, on a new P1 Communication: the "Fill from" chip prints bare numbers with no kg. The w47 font-size P1 is closed. Not fixed: the stray dot at 390 (a "▸" in an unlabelled first column of the scan; source not located); the H1 is still P2 (no as-of date, 28 d figures beside it). Detail: `docs/design/strength-tracker.md` § Wave 48.
+- **Not verified:** no `detect.json`, no Keel read, collapsed diagnostics/alignment bodies never shot. Shots in `apps/dashboard/.design-shots/w48-strength` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 # Part 1, continued
 
