@@ -170,8 +170,10 @@ function RestTimerPanel() {
                 size="compact-xs"
                 px={4}
                 style={{ flex: 1 }}
-                variant={duration === seconds ? 'filled' : 'default'}
-                color="blue"
+                variant="default"
+                bg={duration === seconds ? VX.surface.rowSelected : ''}
+                fw={duration === seconds ? 700 : 400}
+                aria-pressed={duration === seconds}
                 onClick={() => selectPreset(seconds)}
               >
                 {presetLabel(seconds)}

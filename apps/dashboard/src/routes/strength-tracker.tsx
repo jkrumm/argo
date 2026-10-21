@@ -224,7 +224,9 @@ function ChartsPanel({
       </Suspense>
 
       <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={180} />}>
-        <SparklineGridChart params={params} />
+        <Box data-shot="strength-scan" data-shot-absent="empty">
+          <SparklineGridChart params={params} />
+        </Box>
       </Suspense>
 
       <Box data-shot="sec-strength" data-shot-states="empty" data-shot-absent="empty">
@@ -257,7 +259,7 @@ function ChartsPanel({
       </Box>
 
       <Box data-shot="sec-balance" data-shot-absent="empty">
-        <Section title="Balance">
+        <Section title={`Balance, ${period}`}>
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
               <RelativeProgressionChart params={params} />
@@ -282,7 +284,7 @@ function ChartsPanel({
           title={DIAGNOSTICS_TITLE}
           summary={
             <Text size="xs" c="dimmed">
-              {period}
+              Shown over {period}
             </Text>
           }
           collapsible
@@ -352,10 +354,18 @@ function TrainingTools({
   return (
     <Stack gap="md">
       <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-        <WorkoutForm />
+        <Box data-shot="strength-log">
+          <WorkoutForm />
+        </Box>
       </Suspense>
-      <TimerCard />
-      {hasWorkouts && <RecentRecords params={params} multiExercise={multiExercise} />}
+      <Box data-shot="strength-timer">
+        <TimerCard />
+      </Box>
+      {hasWorkouts && (
+        <Box data-shot="strength-recent" data-shot-absent="empty">
+          <RecentRecords params={params} multiExercise={multiExercise} />
+        </Box>
+      )}
     </Stack>
   )
 }

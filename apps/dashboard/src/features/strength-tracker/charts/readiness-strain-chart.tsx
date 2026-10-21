@@ -130,7 +130,8 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
                     color: readinessZoneLabel(d.readiness).color,
                   },
                 ]),
-            ...(d.garminRecovery === null
+            ...(d.garminRecovery === null ||
+            (d.readiness !== null && Math.round(d.garminRecovery) === Math.round(d.readiness))
               ? []
               : [{ label: 'Garmin Recovery', value: String(Math.round(d.garminRecovery)) }]),
             { label: 'Fatigue debt', value: d.fatigueDebt.toFixed(2) },

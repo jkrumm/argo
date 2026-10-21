@@ -78,6 +78,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
     <ChartCard
       title="Estimated 1RM"
       info={METRIC_TOOLTIPS.oneRmTrend}
+      subtitle="Dashed line: 30-day average · dot: new PR"
       state={chartStateOf(query, !hasAnyPoint ? 'No estimated 1RM in this window' : undefined)}
       placeholderHeight={HEIGHT}
     >
