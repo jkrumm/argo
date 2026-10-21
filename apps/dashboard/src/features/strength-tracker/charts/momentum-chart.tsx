@@ -94,8 +94,16 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   const latestVel = [...chartData].reverse().find((d) => d.velocity !== null)?.velocity ?? null
   const dir = directionFromVelocity(latestVel)
   // With no session in the window the last velocity describes an older window: say so instead.
+  // Freshness reads the full record (the table's query, prefetched by the loader): a page window
+  // shorter than the trend window holds no session old enough to call the lift stale.
+  const record = useQuery(
+    strengthQueries.seriesDetailed({ window: 'all', exercises: params.exercises }),
+  )
   const now = useNow()
-  const stale = activeExercise !== undefined && liftDelta(activeExercise.points, now).stale
+  const recordPoints = record.data?.byExercise.find(
+    (e) => e.exercise_id === activeExercise?.exercise_id,
+  )?.points
+  const stale = recordPoints !== undefined && liftDelta(recordPoints, now).stale
   const monthly = latestVel === null || stale ? null : perMonthRaw(latestVel)
 
   const selectOptions = (query.data?.byExercise ?? []).map((e) => ({
