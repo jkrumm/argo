@@ -54,7 +54,7 @@
   border: none;
   background: transparent;
   font: inherit;
-  font-size: var(--vx-text-xs);
+  font-size: var(--vx-text-sm);
   font-weight: 600;
   text-align: left;
   cursor: pointer;

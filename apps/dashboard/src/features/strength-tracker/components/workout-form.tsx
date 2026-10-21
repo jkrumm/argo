@@ -486,7 +486,7 @@ export function WorkoutForm() {
                 label={`Shared draft, last changed ${formatDistanceToNowStrict(new Date(remoteDraft.updated_at), { addSuffix: true })}. Your other devices pick this up automatically.`}
                 withArrow
               >
-                <Text size="xs" c="dimmed" ff="monospace">
+                <Text size="sm" c="dimmed" ff="monospace">
                   draft · {draftAge(remoteDraft.updated_at)}
                 </Text>
               </Tooltip>
@@ -499,7 +499,7 @@ export function WorkoutForm() {
           <Tooltip label="Gym equipment — bars, plate rack, per-exercise loading" withArrow>
             <UnstyledButton onClick={() => setGymSettingsOpen(true)} aria-label="Gym settings">
               <Group gap={6} wrap="nowrap" align="center">
-                <Text size="xs" c="dimmed">
+                <Text size="sm" c="dimmed">
                   {gymSummary}
                 </Text>
                 <Center component="span">
@@ -538,7 +538,7 @@ export function WorkoutForm() {
             form gets simpler the deeper into the session you are. */}
         {completedCount === 0 && sources.length > 0 && (
           <Group gap={6} align="center" wrap="wrap">
-            <Text size="xs" c="dimmed">
+            <Text size="sm" c="dimmed">
               Fill from
             </Text>
             {sources.map((source) => (
@@ -546,7 +546,7 @@ export function WorkoutForm() {
                 <Button
                   variant="subtle"
                   color="gray"
-                  size="compact-xs"
+                  size="compact-sm"
                   onClick={() => applyFill(source)}
                 >
                   {source.label} · {source.detail}
@@ -558,7 +558,7 @@ export function WorkoutForm() {
 
         {completedCount > 0 && (
           <Group justify="flex-end">
-            <Button variant="subtle" color="gray" size="compact-xs" onClick={handleReset}>
+            <Button variant="subtle" color="gray" size="compact-sm" onClick={handleReset}>
               Reset session
             </Button>
           </Group>
@@ -589,7 +589,7 @@ export function WorkoutForm() {
 
         {previewParts.length > 0 && (
           <Group gap={6} align="center" mt={2} wrap="nowrap">
-            <Text size="xs" c="dimmed">
+            <Text size="sm" c="dimmed">
               {previewParts.join(' · ')}
             </Text>
             {pendingPrs.map((pr) => (

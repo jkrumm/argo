@@ -161,7 +161,9 @@ describe('summaryParts', () => {
     )
   })
   test('every lift stale is the stale headline', () => {
-    expect(summaryParts([move(null), move(null)])?.sentence).toBe('No scored e1RM in 28\u00a0d')
+    expect(summaryParts([move(null), move(null)])?.sentence).toBe(
+      'Last scored e1RM shown, none in 28\u00a0d',
+    )
   })
   test('no lifts selected is no headline', () => {
     expect(summaryParts([])).toBeNull()
@@ -457,7 +459,7 @@ describe('staleCopy', () => {
   })
   test('every lift stale is the headline alone', () => {
     expect(staleCopy([{ id: 'squat', delta: stale }])).toEqual({
-      headline: 'No scored e1RM in 28\u00a0d',
+      headline: 'Last scored e1RM shown, none in 28\u00a0d',
       note: null,
     })
   })

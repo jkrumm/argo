@@ -403,7 +403,7 @@ export function SetEditor({
         <Button
           variant="subtle"
           color="gray"
-          size="xs"
+          size="compact-sm"
           fullWidth
           mt={6}
           leftSection={<IconPlus size={12} />}

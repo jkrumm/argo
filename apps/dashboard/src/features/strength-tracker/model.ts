@@ -299,7 +299,8 @@ export function staleCopy(lifts: readonly DeltaLift[]): {
   const stale = lifts.filter((l) => l.delta.stale)
   if (stale.length === 0) return { headline: null, note: null }
   const span = deltaSpan(lifts)
-  if (stale.length === lifts.length) return { headline: `No scored e1RM in ${span}`, note: null }
+  if (stale.length === lifts.length)
+    return { headline: `Last scored e1RM shown, none in ${span}`, note: null }
   return {
     headline: null,
     note: `No scored e1RM in ${span}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`,
