@@ -144,10 +144,11 @@ route (default `scripts/evidence/routes.txt`) × dark/light × desktop 1440 / mo
 desktop card/table, into `.design-shots/<label>/` with an `index.html` board and `manifest.json`. The shots show real
 personal data: `.design-shots/` is gitignored, never commit or upload the images. Code: `scripts/design-shot/`.
 
-`bun scripts/design-shot/fixture-proxy.ts --fixture goal|skinfold-one|skinfold-many|all [--port <n>]` is a loopback, GET-only
-`/api` proxy for `basalt-ui shot --dist <dist> --api /api=http://127.0.0.1:<port>`: it answers synthetic goal-weight and skinfold
-data (the body-composition states production cannot show) and forwards every other read to production, so its shots still
-carry real weights and follow the `.design-shots/` rules.
+`bun scripts/design-shot/fixture-proxy.ts --fixture <fixture> [--port <n>]` (`goal`, `at-goal`, `weight-fresh`, `weight-no-rate`,
+`skinfold-one`, `skinfold-close`, `skinfold-many`, `all`) is a loopback, GET-only `/api` proxy for `basalt-ui shot --dist <dist>
+--api /api=http://127.0.0.1:<port>`: it answers synthetic goal-weight, weigh-in and skinfold data (the body-composition states
+production cannot show) and forwards every other read to production, so its shots still carry real data and follow the
+`.design-shots/` rules.
 
 ## Gotchas
 
