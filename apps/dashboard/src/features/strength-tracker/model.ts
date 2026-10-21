@@ -297,7 +297,7 @@ function deltaSpan(lifts: readonly DeltaLift[]): string {
 /** The newest logged session and the clock the headline measures it against. */
 export type SinceLastSession = { date: string; now: number }
 
-/** `2 Sep, 49\u00a0d ago` in whole local calendar days; the same day (or a future-dated one) is `today`. */
+/** `14 Aug, 68\u00a0d ago` in whole local calendar days; the same day (or a future-dated one) is `today`. */
 export function sinceLabel({ date, now }: SinceLastSession): string {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number]
   const days = differenceInCalendarDays(now, new Date(y, m - 1, d))

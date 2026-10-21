@@ -169,9 +169,9 @@ describe('summaryParts', () => {
       'No e1RM scored in 28\u00a0d',
     )
     expect(
-      summaryParts([move(null)], { date: '2026-09-02', now: new Date(2026, 9, 21).getTime() })
+      summaryParts([move(null)], { date: '2026-08-14', now: new Date(2026, 9, 21).getTime() })
         ?.sentence,
-    ).toBe('Last session 2 Sep, 49\u00a0d ago')
+    ).toBe('Last session 14 Aug, 68\u00a0d ago')
   })
   test('no lifts selected is no headline', () => {
     expect(summaryParts([], null)).toBeNull()
@@ -485,10 +485,10 @@ describe('staleCopy', () => {
     })
     expect(
       staleCopy([{ id: 'squat', delta: stale }], {
-        date: '2026-09-02',
+        date: '2026-08-14',
         now: new Date(2026, 9, 21, 9).getTime(),
       }),
-    ).toEqual({ headline: 'Last session 2 Sep, 49\u00a0d ago', note: null })
+    ).toEqual({ headline: 'Last session 14 Aug, 68\u00a0d ago', note: null })
   })
   test('whole calendar days, across a DST change; a future date reads today', () => {
     expect(sinceLabel({ date: '2026-10-20', now: new Date(2026, 9, 21, 0, 30).getTime() })).toBe(
