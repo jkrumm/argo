@@ -50,6 +50,9 @@ function WalkingPadPage() {
     to: search.to,
   })
   const summary = useQuery(walkingPadQueries.summary(params))
+  // The loader already fetched this one-row page; its `total` is the all-time walk count.
+  const walks = useQuery(walkingPadQueries.list({ page: 1, limit: 1 }))
+  const hasWalks = (walks.data?.total ?? 0) > 0
 
   // Toast + confetti on new achievement unlocks. Side-effect hook.
   useAchievementWatcher()
@@ -79,6 +82,8 @@ function WalkingPadPage() {
             <Box data-shot="empty-window">
               <EmptyWindow />
             </Box>
+            {/* History and achievements read all time, so an empty window still has them to show. */}
+            {hasWalks && <HistoryRow />}
           </>
         ) : (
           <>
@@ -94,25 +99,30 @@ function WalkingPadPage() {
                 <HourGrid params={params} />
               </Box>
             </SimpleGrid>
-            <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-              <Grid.Col span={{ base: 12, lg: 8 }}>
-                <Suspense
-                  fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}
-                >
-                  <Box data-shot="history" data-shot-absent="empty">
-                    <HistoryTable />
-                  </Box>
-                </Suspense>
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, lg: 4 }}>
-                <Box data-shot="achievements" data-shot-absent="empty">
-                  <AchievementsList />
-                </Box>
-              </Grid.Col>
-            </Grid>
+            <HistoryRow />
           </>
         )}
       </Stack>
     </>
+  )
+}
+
+// Not window-scoped (both read all time), so the shot anchors are present in every state.
+function HistoryRow() {
+  return (
+    <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
+      <Grid.Col span={{ base: 12, lg: 8 }}>
+        <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}>
+          <Box data-shot="history">
+            <HistoryTable />
+          </Box>
+        </Suspense>
+      </Grid.Col>
+      <Grid.Col span={{ base: 12, lg: 4 }}>
+        <Box data-shot="achievements">
+          <AchievementsList />
+        </Box>
+      </Grid.Col>
+    </Grid>
   )
 }

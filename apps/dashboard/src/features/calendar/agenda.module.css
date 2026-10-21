@@ -57,6 +57,17 @@
     gap: var(--vx-space-stack-lg);
     min-width: 0;
   }
+
+  /* The side column stays in view under the shell header and page bar beside the long Next 7 days;
+     taller than the viewport, it releases at the end of the page. */
+  .side {
+    position: sticky;
+    top: calc(
+      var(--app-shell-header-height) + var(--basalt-page-bar-h, 0px) +
+        var(--vx-space-stack-md, 16px)
+    );
+    align-self: start;
+  }
 }
 
 .muted {

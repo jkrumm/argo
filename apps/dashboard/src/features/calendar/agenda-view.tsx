@@ -167,7 +167,7 @@ export function AgendaView({
               </Card>
             </Box>
           </Box>
-          <Box className={classes.col}>
+          <Box className={`${classes.col} ${classes.side}`}>
             <Box className={classes.oStrip}>
               <WeekStrip
                 title={`Booked hours, week ${format(keyToDate(summary.todayKey), 'I')}`}

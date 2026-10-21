@@ -6,6 +6,7 @@ declare const classes: {
   readonly frame: string
   readonly page: string
   readonly col: string
+  readonly side: string
   readonly oToday: string
   readonly oFree: string
   readonly oStrip: string
