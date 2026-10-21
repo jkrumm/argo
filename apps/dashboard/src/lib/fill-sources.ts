@@ -124,7 +124,7 @@ export function fillSources(
   add(last, {
     key: 'last',
     label: 'Last',
-    detail: `${KG.format(maxWorkWeight(last) || (last.sets[0]?.weight_kg ?? 0))}`,
+    detail: `${KG.format(maxWorkWeight(last) || (last.sets[0]?.weight_kg ?? 0))} kg`,
   })
 
   if (options.isBodyweight) return sources
@@ -137,7 +137,11 @@ export function fillSources(
       undefined,
     )
   if (best !== undefined) {
-    add(best, { key: 'best', label: 'Best', detail: `${KG.format(best.estimated_1rm ?? 0)} e1RM` })
+    add(best, {
+      key: 'best',
+      label: 'Best',
+      detail: `${KG.format(best.estimated_1rm ?? 0)} kg e1RM`,
+    })
   }
 
   const heaviest = usable

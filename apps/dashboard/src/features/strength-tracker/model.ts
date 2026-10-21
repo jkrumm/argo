@@ -300,7 +300,7 @@ export function staleCopy(lifts: readonly DeltaLift[]): {
   if (stale.length === 0) return { headline: null, note: null }
   const span = deltaSpan(lifts)
   if (stale.length === lifts.length)
-    return { headline: `Last scored e1RM shown, none in ${span}`, note: null }
+    return { headline: `No e1RM scored in ${span}; strips show the last one`, note: null }
   return {
     headline: null,
     note: `No scored e1RM in ${span}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`,
@@ -493,7 +493,7 @@ export function fmtTonnes(kg: number): string {
 }
 
 /** The diagnostics section's title: the three measures and their baseline, short enough to stay whole at 390. */
-export const DIAGNOSTICS_TITLE = 'Velocity, tonnage, INOL vs 90-day norm'
+export const DIAGNOSTICS_TITLE = 'Velocity, tonnage and INOL vs your norm'
 
 /** The balance card's one statement of the tolerance behind `borderline`. */
 export function borderlineNote(): string {

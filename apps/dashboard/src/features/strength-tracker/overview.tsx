@@ -275,6 +275,7 @@ function liftCell({
   return {
     key: id,
     caption: exerciseLabel(id),
+    ...(spark.length > 1 && { qualifier: `last ${spark.length} sessions` }),
     value: e1rm === null ? null : e1rm.toFixed(1),
     unit: 'kg e1RM',
     ...(move.delta !== null && {

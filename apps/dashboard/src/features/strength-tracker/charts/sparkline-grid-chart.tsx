@@ -95,7 +95,7 @@ const columns = [
       // Volume and INOL fold first at 390; their trends move in under the lift name, labelled, so
       // the narrow scan keeps every figure the wide one prints in a column.
       const folded = [
-        { id: 'volume', label: 'Vol', mark: 'bar' as const, data: row.volume },
+        { id: 'volume', label: 'Vol kg/wk', mark: 'bar' as const, data: row.volume },
         { id: 'inol', label: 'INOL', mark: 'line' as const, data: row.inol },
       ].filter((c) => isFolded(ctx.table, c.id))
       return (

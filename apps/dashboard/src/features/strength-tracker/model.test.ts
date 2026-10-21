@@ -162,7 +162,7 @@ describe('summaryParts', () => {
   })
   test('every lift stale is the stale headline', () => {
     expect(summaryParts([move(null), move(null)])?.sentence).toBe(
-      'Last scored e1RM shown, none in 28\u00a0d',
+      'No e1RM scored in 28\u00a0d; strips show the last one',
     )
   })
   test('no lifts selected is no headline', () => {
@@ -180,8 +180,8 @@ describe('fmtTonnes', () => {
 })
 
 describe('DIAGNOSTICS_TITLE', () => {
-  test('names the three measures and the baseline, short enough for 390', () => {
-    expect(DIAGNOSTICS_TITLE).toBe('Velocity, tonnage, INOL vs 90-day norm')
+  test('names the three measures and the baseline without claiming a window', () => {
+    expect(DIAGNOSTICS_TITLE).toBe('Velocity, tonnage and INOL vs your norm')
   })
 })
 
@@ -459,7 +459,7 @@ describe('staleCopy', () => {
   })
   test('every lift stale is the headline alone', () => {
     expect(staleCopy([{ id: 'squat', delta: stale }])).toEqual({
-      headline: 'Last scored e1RM shown, none in 28\u00a0d',
+      headline: 'No e1RM scored in 28\u00a0d; strips show the last one',
       note: null,
     })
   })

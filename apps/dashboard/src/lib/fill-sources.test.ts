@@ -128,7 +128,7 @@ describe('fillSources', () => {
   it('formats half-plate weights without trailing zeros', () => {
     const history = [session(1, '2026-07-20', 97.5, [['work', 92.5, 3]])]
     const [last] = fillSources(history, NOT_BW)
-    expect(last?.detail).toBe('92.5')
+    expect(last?.detail).toBe('92.5 kg')
     expect(last?.title).toContain('92.5×3')
   })
 })

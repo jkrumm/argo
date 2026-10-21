@@ -101,7 +101,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
 
   return (
     <ChartCard
-      title="Momentum"
+      title="Momentum, e1RM velocity"
       info={METRIC_TOOLTIPS.momentum}
       actions={
         <Group gap="xs" wrap="nowrap">

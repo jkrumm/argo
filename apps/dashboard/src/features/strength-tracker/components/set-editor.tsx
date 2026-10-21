@@ -168,7 +168,7 @@ export function SetEditor({
           Set
         </Box>
         {hasPrevious && (
-          <Box component="span" w={72}>
+          <Box component="span" w={88}>
             Previous
           </Box>
         )}
@@ -218,11 +218,11 @@ export function SetEditor({
             {hasPrevious && (
               <Box
                 component="span"
-                w={72}
+                w={88}
                 fz={VX.text.micro}
                 style={{ color: VX.muted, whiteSpace: 'nowrap' }}
               >
-                {prev !== undefined ? `${prev.weight_kg} × ${prev.reps}` : '—'}
+                {prev !== undefined ? `${prev.weight_kg} kg × ${prev.reps}` : '—'}
               </Box>
             )}
 

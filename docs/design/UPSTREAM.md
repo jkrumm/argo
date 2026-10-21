@@ -649,3 +649,9 @@ Hover crops still identical to rest (tooltips undeclared on Reading pace/ratings
 ### Wave 45 — Strength complete re-score on 2.27.2
 
 Full read (13 sheets, `w45-strength`): pass 68, no new basalt row. Carried, still open: bench sparkline through its `PR` label at 390 (P2); `Sept` beside `Sep` and mixed date-tick formats; INOL tooltip over the headline; target band as the faintest ink; hover crops identical to rest (tooltips undeclared); strip-card `padding-bottom` 0 with the footer flush on the edge (P3); collapsible section chevron on its own row at 390 (P3). Closed since w40: zone-only `+N` legend folds at 390.
+
+### Strength review — row-disclosure toggle in `BasaltDataTable`
+
+| Pattern | Friction | Pages | Note |
+|-|-|-|-|
+| `BasaltDataTable` row disclosure | at 390 a bare `▸` / `▾` (`FoldToggle`, `table/data-table.js`) sits left of each row under an unlabeled header cell; it reads as a stray glyph. Wants a chevron icon (or a labelled "Details" header) and the toggle on the row's far edge | strength scan (`sparkline-grid-chart.tsx`) | as rendered; argo does not work around it |
