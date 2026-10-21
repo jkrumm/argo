@@ -25,6 +25,7 @@ import {
   readinessReading,
   shortDate,
   signed,
+  lastLoggedDate,
   sinceLabel,
   staleCopy,
   statusWord,
@@ -139,37 +140,41 @@ const unscored = {
 
 describe('summaryParts', () => {
   test('counts lifts up out of those with a scored move, naming the basis', () => {
-    expect(summaryParts([move(10), move(-2.5), move(0), move(null)])?.sentence).toBe(
+    expect(summaryParts([move(10), move(-2.5), move(0), move(null)], null)?.sentence).toBe(
       '1 of 3 scored lifts up in 28\u00a0d',
     )
-    expect(summaryParts([move(10), move(null), move(null)])?.sentence).toBe(
+    expect(summaryParts([move(10), move(null), move(null)], null)?.sentence).toBe(
       '1 of 1 scored lift up in 28\u00a0d',
     )
-    expect(summaryParts([move(2.5)])?.sentence).toBe('1 of 1 scored lift up in 28\u00a0d')
+    expect(summaryParts([move(2.5)], null)?.sentence).toBe('1 of 1 scored lift up in 28\u00a0d')
   })
   test('nothing up with every lift scored says no lift moved up', () => {
-    expect(summaryParts([move(0), move(-1.5)])?.sentence).toBe('No lift moved up in 28\u00a0d')
+    expect(summaryParts([move(0), move(-1.5)], null)?.sentence).toBe(
+      'No lift moved up in 28\u00a0d',
+    )
   })
   test('nothing up with an unscored lift names the scored basis', () => {
-    expect(summaryParts([move(-1.5), unscored])?.sentence).toBe(
+    expect(summaryParts([move(-1.5), unscored], null)?.sentence).toBe(
       '0 of 1 scored lift up in 28\u00a0d',
     )
   })
   test('no scored move, not all stale, is never 0 of 0', () => {
-    expect(summaryParts([unscored])?.sentence).toBe('No lift has a scored move in 28\u00a0d')
-    expect(summaryParts([move(null), unscored])?.sentence).toBe(
+    expect(summaryParts([unscored], null)?.sentence).toBe('No lift has a scored move in 28\u00a0d')
+    expect(summaryParts([move(null), unscored], null)?.sentence).toBe(
       'No lift has a scored move in 28\u00a0d',
     )
   })
   test('every lift stale is the stale headline', () => {
-    expect(summaryParts([move(null), move(null)])?.sentence).toBe('No e1RM scored in 28\u00a0d')
+    expect(summaryParts([move(null), move(null)], null)?.sentence).toBe(
+      'No e1RM scored in 28\u00a0d',
+    )
     expect(
       summaryParts([move(null)], { date: '2026-09-02', now: new Date(2026, 9, 21).getTime() })
         ?.sentence,
     ).toBe('Last session 2 Sep, 49\u00a0d ago')
   })
   test('no lifts selected is no headline', () => {
-    expect(summaryParts([])).toBeNull()
+    expect(summaryParts([], null)).toBeNull()
   })
 })
 
@@ -276,7 +281,7 @@ describe('card and strip read one figure each', () => {
     expect(acwrReading(lifts, NOW).acwr).toBe(1.2)
     const delta = liftDelta(series, NOW)
     expect(delta.delta).toBe(10)
-    expect(summaryParts([{ id: 'squat', delta }])?.sentence).toBe(
+    expect(summaryParts([{ id: 'squat', delta }], null)?.sentence).toBe(
       '1 of 1 scored lift up in 28\u00a0d',
     )
   })
@@ -445,23 +450,36 @@ describe('callFacts', () => {
   })
 })
 
+describe('lastLoggedDate', () => {
+  test('counts unscored sessions, which lastSessionDate skips', () => {
+    const lifts = [
+      { exercise_id: 'squat', points: [pt('2026-09-02', 100), pt('2026-10-01', null)] },
+    ] as Parameters<typeof lastLoggedDate>[0]
+    expect(lastLoggedDate(lifts)).toBe('2026-10-01')
+    expect(lastSessionDate(lifts)).toBe('2026-09-02')
+  })
+})
+
 describe('staleCopy', () => {
   const fresh = { delta: 1, phrase: null, stale: false, days: 28 }
   const stale = { delta: null, phrase: null, stale: true, days: 28 }
   test('none stale is neither headline nor note', () => {
-    expect(staleCopy([{ id: 'squat', delta: fresh }])).toEqual({ headline: null, note: null })
+    expect(staleCopy([{ id: 'squat', delta: fresh }], null)).toEqual({ headline: null, note: null })
   })
   test('some stale is the strip note, naming the lifts once', () => {
     expect(
-      staleCopy([
-        { id: 'squat', delta: stale },
-        { id: 'deadlift', delta: fresh },
-        { id: 'bench_press', delta: stale },
-      ]),
+      staleCopy(
+        [
+          { id: 'squat', delta: stale },
+          { id: 'deadlift', delta: fresh },
+          { id: 'bench_press', delta: stale },
+        ],
+        null,
+      ),
     ).toEqual({ headline: null, note: 'No scored e1RM in 28\u00a0d: Squat, Bench Press' })
   })
   test('every lift stale is the headline alone, the last session as a fact', () => {
-    expect(staleCopy([{ id: 'squat', delta: stale }])).toEqual({
+    expect(staleCopy([{ id: 'squat', delta: stale }], null)).toEqual({
       headline: 'No e1RM scored in 28\u00a0d',
       note: null,
     })
@@ -471,6 +489,17 @@ describe('staleCopy', () => {
         now: new Date(2026, 9, 21, 9).getTime(),
       }),
     ).toEqual({ headline: 'Last session 2 Sep, 49\u00a0d ago', note: null })
+  })
+  test('whole calendar days, across a DST change; a future date reads today', () => {
+    expect(sinceLabel({ date: '2026-10-20', now: new Date(2026, 9, 21, 0, 30).getTime() })).toBe(
+      '20 Oct, 1\u00a0d ago',
+    )
+    expect(sinceLabel({ date: '2026-10-24', now: new Date(2026, 10, 2, 9).getTime() })).toBe(
+      '24 Oct, 9\u00a0d ago',
+    )
+    expect(sinceLabel({ date: '2026-10-22', now: new Date(2026, 9, 21).getTime() })).toBe(
+      '22 Oct, today',
+    )
   })
   test('a session today reads today, not 0 d ago', () => {
     expect(sinceLabel({ date: '2026-10-21', now: new Date(2026, 9, 21, 23).getTime() })).toBe(

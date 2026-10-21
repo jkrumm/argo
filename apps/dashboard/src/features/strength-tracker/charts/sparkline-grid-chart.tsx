@@ -7,7 +7,8 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
-import { perMonth, signed } from '../model'
+import { withUnit } from '../../../lib/format'
+import { DELTA_DAYS, perMonth, signed } from '../model'
 
 const SPARK_W = 80
 const SPARK_H = 28
@@ -77,7 +78,7 @@ const columns = [
   }),
   columnHelper.display({
     id: 'trend',
-    header: '28 d trend, %/mo',
+    header: `${withUnit(DELTA_DAYS, 'd')} trend, %/mo`,
     enableSorting: false,
     meta: { priority: 1 },
     cell: (ctx) => {
