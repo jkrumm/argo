@@ -215,7 +215,7 @@ describe('Open-Meteo domain catalogue', () => {
   it('builds the om:// tile URL around the same metadata URL the protocol reads', () => {
     const metaUrl = openMeteoMetaUrl('dwd_icon_d2', 'cloud_cover')
     expect(metaUrl).toBe(
-      'https://map-tiles.open-meteo.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover',
+      'https://openmeteo.s3.amazonaws.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover',
     )
     expect(omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep: 3 })).toBe(
       `om://${metaUrl}&time_step=valid_times_3&interpolation=linear&dark=true`,

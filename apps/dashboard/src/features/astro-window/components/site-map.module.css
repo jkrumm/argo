@@ -1,0 +1,13 @@
+/* The selected site's name, next to its marker on the canvas: plain text with a panel-coloured halo
+   so it reads over any base or overlay, no surface (a chip would nest a radius inside the card). */
+.siteLabel {
+  font-size: var(--vx-text-xs);
+  font-weight: 600;
+  color: var(--vx-ink);
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow:
+    0 0 2px var(--vx-surface-panel),
+    0 0 4px var(--vx-surface-panel),
+    0 0 6px var(--vx-surface-panel);
+}

@@ -8,10 +8,11 @@ import {
   Flex,
   Group,
   Image,
-  Loader,
+  Skeleton,
   Slider,
   Stack,
   Text,
+  VisuallyHidden,
   useComputedColorScheme,
 } from '@mantine/core'
 import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
@@ -34,7 +35,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 // The map primitive's own stylesheet — imported here (not globally) so it only ships to the
 // bundle when this lazy-loaded component is actually reached.
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { PageAside } from 'basalt-ui'
+import { PageAside, StatusDot } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { astroQueries } from '../../../lib/queries/astro'
 import { rainviewerQueries } from '../../../lib/queries/rainviewer'
@@ -85,6 +86,7 @@ import {
 } from './map-overlays'
 import { MapLayerSections } from './map-settings-panel'
 import { ScoutPanel } from './scout-panel'
+import classes from './site-map.module.css'
 
 /*
  * Attribution is contractually required and comes from the SOURCE, not the style: OpenFreeMap's
@@ -232,7 +234,7 @@ export default function SiteMap({
    * already reads as "mount nothing" via `omTimeStep === null` — a dead upstream must not break
    * the map, same contract `radarFrames` already keeps.
    */
-  const { data: omMeta } = useQuery({
+  const { data: omMeta, isError: omMetaFailed } = useQuery({
     ...openMeteoMapsQueries.meta(layers.omDomain),
     enabled: omModelActive,
   })
@@ -473,6 +475,12 @@ export default function SiteMap({
   // Whether the first style has loaded: until then the canvas shows a pending note and the rail
   // keys nothing (there is no canvas for a key to explain).
   const [styleLoaded, setStyleLoaded] = useState(false)
+  // Bumped by the failed state's Retry: the create effect below re-runs and builds a fresh map.
+  const [attempt, setAttempt] = useState(0)
+  const retry = () => {
+    setFailed(false)
+    setAttempt((current) => current + 1)
+  }
 
   // Create/destroy exactly once. React 19 StrictMode double-invokes effects, so the create and
   // the teardown must live in the SAME effect with an empty dep array — never split across two.
@@ -539,7 +547,7 @@ export default function SiteMap({
       hasFitRef.current = false
       isFirstStyleRef.current = true
     }
-  }, [forcedState])
+  }, [forcedState, attempt])
 
   // Click-anywhere scouting. Registered in its own effect (same empty-deps timing as the create
   // effect above — `mapRef.current` is already set by the time this one runs, same commit, same
@@ -686,8 +694,12 @@ export default function SiteMap({
         const el = document.createElement('button')
         el.type = 'button'
         el.setAttribute('aria-label', `Select ${site.name}`)
-        el.style.width = '12px'
-        el.style.height = '12px'
+        const selected = site.id === siteId
+        // The selected site is larger as well as accent-filled, and named on the canvas below: fill
+        // alone disappears into a blue overlay (radar, the atlas's dark end).
+        const size = selected ? '16px' : '12px'
+        el.style.width = size
+        el.style.height = size
         el.style.borderRadius = '50%'
         el.style.cursor = 'pointer'
         el.style.padding = '0'
@@ -696,7 +708,7 @@ export default function SiteMap({
         // scheme flip by itself. Resolving them here (as the ramp has to, because MapLibre's
         // colour parser cannot) would freeze the markers in whichever scheme was current.
         el.style.border = `2px solid ${VX.surface.panel}`
-        el.style.background = site.id === siteId ? VX.accentFill : VX.muted
+        el.style.background = selected ? VX.accentFill : VX.muted
         el.addEventListener('click', (event) => {
           // A `Marker` element mounts INSIDE `map.getCanvasContainer()` (verified against the
           // installed maplibre-gl 6.3.0 source), the same node MapLibre's own click handler
@@ -708,6 +720,17 @@ export default function SiteMap({
         })
         return new Marker({ element: el }).setLngLat([site.lon, site.lat]).addTo(map)
       })
+      const selectedSite = data.data.find((site) => site.id === siteId)
+      if (selectedSite !== undefined) {
+        const label = document.createElement('span')
+        label.className = classes.siteLabel
+        label.textContent = selectedSite.name
+        markersRef.current.push(
+          new Marker({ element: label, anchor: 'left', offset: [12, 0] })
+            .setLngLat([selectedSite.lon, selectedSite.lat])
+            .addTo(map),
+        )
+      }
     }
 
     // The guard is our OWN ref, set by the create effect's `style.load` handler — never
@@ -804,7 +827,13 @@ export default function SiteMap({
                     <WeatherLegendCard key={entry.id} entry={entry} />
                   ))}
                   {textKeys.map(({ id, textKey, emptyMeans }) => (
-                    <WeatherTextKey key={id} textKey={textKey} emptyMeans={emptyMeans} />
+                    <WeatherTextKey
+                      key={id}
+                      textKey={textKey}
+                      // A dead forecast upstream paints nothing and has no hours to scrub: say so
+                      // instead of the key's "blank means" line, which would read as clear sky.
+                      emptyMeans={omModelActive && omMetaFailed ? FORECAST_UNAVAILABLE : emptyMeans}
+                    />
                   ))}
                   {hiddenAtlasBy !== undefined && (
                     <HiddenAtlasNote
@@ -823,24 +852,8 @@ export default function SiteMap({
               h="100%"
               style={{ visibility: failed ? 'hidden' : 'visible' }}
             />
-            {failed && (
-              <Box pos="absolute" inset={0}>
-                <Stack justify="center" align="center" h="100%" gap={4}>
-                  <Text size="sm" c="dimmed">
-                    Map unavailable — could not reach the tile server.
-                  </Text>
-                </Stack>
-              </Box>
-            )}
-            {!styleLoaded && !failed && (
-              <Box pos="absolute" inset={0}>
-                <Stack justify="center" align="center" h="100%" gap="xs">
-                  <Loader size="sm" />
-                  <Text size="sm" c="dimmed">
-                    Loading map…
-                  </Text>
-                </Stack>
-              </Box>
+            {(failed || !styleLoaded) && (
+              <MapPendingOrFailed failed={failed} onRetry={forcedState === null ? retry : null} />
             )}
           </Box>
         </Flex>
@@ -974,6 +987,56 @@ function TimeScrubber({
 
 /** The rail's one line about what is hidden: the atlas stays in the URL while a weather layer is on,
  * and this is the way back to it without opening the drawer. */
+/**
+ * The canvas while the style has not loaded, or after it failed: the loaded shape (a rail band over
+ * a canvas), never a spinner in an empty card. Pending is a skeleton rail and canvas; failed states
+ * the cause in the rail band with a Retry, over a blank canvas surface.
+ */
+function MapPendingOrFailed({
+  failed,
+  onRetry,
+}: {
+  failed: boolean
+  onRetry: (() => void) | null
+}) {
+  return (
+    <Flex pos="absolute" inset={0} direction="column">
+      <Box px="sm" py="xs">
+        {failed ? (
+          <Stack gap={4} align="flex-start">
+            <Group gap="xs">
+              <StatusDot color={VX.badSolid} />
+              <Text size="sm" fw={600}>
+                Could not load map
+              </Text>
+            </Group>
+            <Text size="xs" c="dimmed">
+              The base map&apos;s tile server did not answer.
+            </Text>
+            {onRetry !== null && (
+              <Button variant="light" onClick={onRetry}>
+                Retry
+              </Button>
+            )}
+          </Stack>
+        ) : (
+          <Stack gap="xs" aria-busy="true">
+            <VisuallyHidden>Loading map</VisuallyHidden>
+            <Skeleton h={12} w={180} radius="xl" />
+            <Skeleton h={12} w={260} radius="xl" />
+          </Stack>
+        )}
+      </Box>
+      <Divider />
+      {/* A blank canvas surface in both states: a skeleton here would draw its radius inside the card. */}
+      <Box bg={VX.surface.subtle} style={{ flex: 1 }} />
+    </Flex>
+  )
+}
+
+const FORECAST_UNAVAILABLE =
+  'Forecast unavailable: Open-Meteo did not answer, so nothing is painted.'
+
 function HiddenAtlasNote({ layerName, onShow }: { layerName: string; onShow: () => void }) {
   return (
     <Stack gap="xs" w={LEGEND_WIDTH} maw="100%" align="flex-start">

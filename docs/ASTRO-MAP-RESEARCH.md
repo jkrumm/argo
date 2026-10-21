@@ -805,6 +805,10 @@ no forecast.
 Open-Meteo domains, each probed live from this machine on 2026-08-20 against
 `https://map-tiles.open-meteo.com/data_spatial/{domain}/latest.json?variable=cloud_cover`:
 
+**Host moved (2026-10-21):** `map-tiles.open-meteo.com` no longer resolves (NXDOMAIN); the app reads the same files from
+`https://openmeteo.s3.amazonaws.com/data_spatial` (CORS `*`), the endpoint the package README now documents. The POC pages below
+still carry the old host.
+
 | domain                        | resolution | bbox (lat/lon)             | steps            | cloud total + low/mid/high  |
 | ----------------------------- | ---------- | -------------------------- | ---------------- | --------------------------- |
 | `dwd_icon_d2`                 | 2.2 km     | 43.18/-3.94 → 58.08/20.34  | 49 hourly (48 h) | ✅                          |

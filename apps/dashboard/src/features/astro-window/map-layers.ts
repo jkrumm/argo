@@ -1038,7 +1038,10 @@ export function omDomain(id: OmDomainId): OmDomain {
  */
 export const OM_MAXZOOM = 12
 
-const OPEN_METEO_TILES_HOST = 'https://map-tiles.open-meteo.com/data_spatial'
+// `map-tiles.open-meteo.com` stopped resolving (NXDOMAIN, checked 2026-10-21); the package README
+// names the raw S3 bucket as the public endpoint (CORS `*`, range requests exposed).
+// `data-spatial.open-meteo.com` refuses any referer outside `*.open-meteo.com`.
+const OPEN_METEO_TILES_HOST = 'https://openmeteo.s3.amazonaws.com/data_spatial'
 
 /**
  * Open-Meteo's own metadata endpoint for a domain — `completed`, `crs_wkt` (a `BBOX[...]` this
@@ -1398,8 +1401,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
       title: 'Cloud cover, forecast',
       lines: ['Total cloud, 0–100 %: transparent clear → pale grey overcast'],
     },
-    emptyMeans:
-      "Blank means the selected forecast domain's own box does not reach this location — see the domain picker below — or a clear-sky forecast step, which is real data, not a broken layer.",
+    emptyMeans: 'Blank means a clear forecast hour, or a place outside the forecast domain.',
     coverage:
       "Follows whichever domain is picked below: ICON-D2/ICON-EU stop hard at their own European box, ECMWF IFS is the only one of the three that's actually global.",
   },
@@ -1419,7 +1421,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
       lines: ['Low layer only, 0–100 %: transparent clear → pale grey overcast'],
     },
     emptyMeans:
-      "Blank means a clear low layer at this forecast step, or the selected domain's box does not reach this location — same two readings as the total-cloud row above.",
+      'Blank means a clear low layer at that hour, or a place outside the forecast domain.',
     coverage:
       "Follows whichever domain is picked below: ICON-D2/ICON-EU stop hard at their own European box, ECMWF IFS is the only one of the three that's actually global.",
   },
@@ -1436,10 +1438,10 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     // Scale checked 2026-10-21 against the package's `precipitation` ramp: first breakpoint 0.01 mm at alpha 0, 0.055 mm light blue, 1 mm blue, 2–3 mm green, 4.5–6 mm yellow, 20 mm and up red.
     textKey: {
       title: 'Precipitation, forecast',
-      lines: ['mm/h: light blue → blue → green → yellow → red heavy; transparent under 0.06 mm'],
+      lines: ['mm/h: light blue → blue → green → yellow → red heavy; transparent under 0.06 mm/h'],
     },
     emptyMeans:
-      "Blank means the model forecasts no precipitation there at this step, or the selected domain's box does not reach this location.",
+      'Blank means no precipitation forecast at that hour, or a place outside the forecast domain.',
     coverage:
       "Follows whichever domain is picked below: ICON-D2/ICON-EU stop hard at their own European box, ECMWF IFS is the only one of the three that's actually global.",
   },

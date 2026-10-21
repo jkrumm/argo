@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { openMeteoMetaUrl, type OmDomainId } from '../../features/astro-window/map-layers'
 
 /**
- * Open-Meteo's own domain metadata — `https://map-tiles.open-meteo.com/data_spatial/{domain}/
+ * Open-Meteo's own domain metadata — `https://openmeteo.s3.amazonaws.com/data_spatial/{domain}/
  * latest.json?variable={variable}`.
  *
  * A THIRD-PARTY fetch, deliberately NOT an Eden Treaty call against the Argo API (`lib/eden.ts`'s
