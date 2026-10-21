@@ -518,6 +518,9 @@ export function fmtTonnes(kg: number): string {
   return withUnit(kg > 0 && t === 0 ? '< 0.1' : t.toFixed(1), 't')
 }
 
+/** A week's tonnage, `{t} t/wk`: the per-lift table's figure and readout. */
+export const fmtWeeklyTonnes = (kg: number): string => `${fmtTonnes(kg)}/wk`
+
 /** The diagnostics section's title: the three measures and their baseline, short enough to stay whole at 390. */
 export const DIAGNOSTICS_TITLE = 'Velocity, tonnage and INOL vs your norm'
 
