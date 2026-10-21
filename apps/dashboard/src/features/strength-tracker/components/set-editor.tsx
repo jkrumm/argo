@@ -191,7 +191,7 @@ export function SetEditor({
           </Box>
         )}
         <Box component="span" className={cls['cell']} ta="center">
-          KG
+          kg
         </Box>
         <Box component="span" className={cls['cell']} ta="center">
           Reps
