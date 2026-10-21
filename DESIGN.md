@@ -265,6 +265,13 @@ empty section is the correct default; do not invent deviations to fill it.
   `OmProtocolSettings`, passed as `omProtocol`'s third argument) and is the right follow-up if
   these layers ever need to sit alongside our own series ink rather than replace the view.
 
+- **The EUMETSAT weather legends are third-party rasters on their own white plate, in both
+  schemes.** The GeoServer `GetLegendGraphic` ignores `fontColor` and `fontSize` (checked
+  2026-10-21: text is always black on a fixed 640×80 canvas), so the legend cannot follow the
+  palette. It is requested opaque (`bgColor:0xffffff`, `WIDTH=300`) and cropped to its content in
+  the key rail: black text on a white plate stays legible in dark and light. The colours are the
+  provider's, like the Open-Meteo entry above; the hook is not ours to build.
+
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`

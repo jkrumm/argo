@@ -20,6 +20,7 @@ import {
   LP_STACK_INDEX,
   lpTileUrl,
   OM_MAXZOOM,
+  RAINVIEWER_MAXZOOM,
   omTileUrl,
   remapLpRampStops,
   TERRAIN_3D_EXAGGERATION,
@@ -381,27 +382,6 @@ function buildContourColors(): { line: string; halo: string } {
   }
 }
 
-/** `--vx-muted` — the same opaque secondary-ink token DESIGN.md documents using in place of
- * `VX.tooltipMuted` for bespoke labels, which this WMS legend caption is. */
-const LEGEND_FONT_VAR = '--vx-muted'
-
-/** Neutral zinc-400 — never actually reached (`--vx-muted` always resolves to a 6-digit hex in
- * both schemes), but a `0x`-prefixed literal keeps the return type honest if a future palette
- * swap ever hands back something `SIX_DIGIT_HEX` cannot parse. */
-const LEGEND_FONT_FALLBACK = '0xa1a1aa'
-
-/**
- * The DWD `LEGEND_OPTIONS` `fontColor`, resolved from the live palette rather than hardcoded — the
- * one probed 2026-08-19 (`0xd4d4d8`) was the DARK scheme's `--vx-muted` value, not a constant, and
- * hardcoding it would leave the legend's own caption unreadable the moment the page is in light
- * mode. Same `getComputedStyle(document.documentElement)` read `resolveStopColor` already uses,
- * converting the palette's `#rrggbb` to the `0xrrggbb` GeoServer's `LEGEND_OPTIONS` expects.
- */
-export function resolveLegendFontColor(): string {
-  const hex = getComputedStyle(document.documentElement).getPropertyValue(LEGEND_FONT_VAR).trim()
-  return SIX_DIGIT_HEX.test(hex) ? `0x${hex.slice(1)}` : LEGEND_FONT_FALLBACK
-}
-
 // ── The desired stack ──────────────────────────────────────────────────────
 
 /**
@@ -713,6 +693,7 @@ function desiredStack(state: OverlayState): StackEntry[] {
             attribution: entry.attribution,
             // Every frame starts invisible; `paintOverlayState`/`paintRadarFrame` reveal exactly one.
             opacity: 0,
+            maxzoom: RAINVIEWER_MAXZOOM,
           }),
         )
       })

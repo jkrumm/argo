@@ -345,3 +345,16 @@ in or near that corner, and nothing in the key rail depends on its size.
 2. Every key names its unit or meaning in words; the light-pollution key states the atlas year and the site threshold.
 3. At 390 the key rail is fully visible above the canvas at rest, nothing overflows the viewport width.
 4. With no keyed layer on, there is no empty rail.
+
+**Round 1 fixes.** Four defects from the first review round, recorded against the concept above (the key-rail list's "height-capped,
+scrolls past the cap" and the 390 note's "the card does not grow past the viewport" are superseded by items 2 and 3).
+
+1. The radar raster sources cap at zoom 7 (`RAINVIEWER_MAXZOOM`, the free-tier limit), so MapLibre overzooms z7 tiles instead of
+   drawing the provider's "Zoom Level Not Supported" placeholder.
+2. The EUMETSAT weather key is requested opaque with `WIDTH=300` and shown cropped to 320 × 80 on its own white plate in both
+   schemes: the GeoServer legend ignores `fontColor` / `fontSize`, so the font-colour plumbing is gone (`DESIGN.md`, App deviations).
+3. The key rail is unbounded, so every key is fully visible at rest at 390; the canvas keeps a floor (`mih` 240) and the card keeps
+   `MAP_MIN_HEIGHT`.
+4. `MAP_FULL_BLEED_HEIGHT` now subtracts the footer offset, the bottom safe-area inset, the page-bar band and twice the main's block
+   padding, so the card no longer runs under the mobile tab bar; at desktop widths the footer and inset terms are 0 and it equals
+   the scrollport's content box.

@@ -279,6 +279,12 @@ export function wmsTileUrl({
   return `${host}?${query.toString()}&bbox={bbox-epsg-3857}`
 }
 
+/** The legend width asked of GeoServer; the graphic it draws at this width is ~320 px wide. */
+const LEGEND_REQUEST_WIDTH = 300
+
+/** The drawn legend's box inside GeoServer's fixed 640×80 canvas, which the card crops to. */
+export const LEGEND_IMAGE_CROP = { width: 320, height: 80 } as const
+
 /**
  * `GetLegendGraphic` for a WMS layer — a plain PNG, no bbox/tile plumbing needed. `GetLegendGraphic`
  * is a generic GeoServer request, not a DWD-specific one — confirmed working against EUMETSAT's own
@@ -290,25 +296,25 @@ export function wmsTileUrl({
  * Callers must still not call this for a `WeatherLayer` with `legend` unset — the guard exists for
  * a future host that does not run GeoServer at all.
  *
- * `transparent=true` plus `LEGEND_OPTIONS` are both required, not cosmetic: the plain URL returns
- * colour-type 2 (RGB, no alpha) with a solid WHITE background — a glaring slab on this app's dark
- * zinc surface — and `fontColor` is what makes the labels legible against it once it is gone.
- * Re-verified with `LEGEND_OPTIONS` run through `URLSearchParams` (its `;` separators arrive
- * percent-encoded as `%3B`, not literal): GeoServer decodes the query string before parsing the
- * option list, so the encoded form returns the identical colour-type-6 RGBA PNG as a raw `;` —
- * probed both ways 2026-08-19, 112×344 px either way. `fontColor` is caller-supplied rather than
- * hardcoded so it can be resolved from the live palette (`resolveLegendFontColor` in
- * `components/map-overlays.ts`) and re-requested on a scheme flip.
+ * The server ignores `fontColor` and `fontSize` in `LEGEND_OPTIONS` (checked 2026-10-21: text is
+ * always black on a fixed 640×80 canvas), so the graphic is a third-party raster we cannot
+ * recolour: it is requested opaque (`transparent=false`, `bgColor:0xffffff`) and shown on its own
+ * white plate in both schemes. `WIDTH=300` makes it draw one complete ~320 px wide legend (label,
+ * ramp, ticks) at the left of that canvas; the card crops to it (`LEGEND_IMAGE_CROP` in
+ * `components/site-map.tsx`). `LEGEND_OPTIONS` is run through `URLSearchParams` (its `;`
+ * separators arrive percent-encoded as `%3B`); GeoServer decodes the query string before parsing
+ * the option list, so that is the same request as a raw `;`.
  */
-export function legendUrl(source: { host: string; wmsLayer: string }, fontColor: string): string {
+export function legendUrl(source: { host: string; wmsLayer: string }): string {
   const query = new URLSearchParams({
     service: 'WMS',
     version: '1.1.1',
     request: 'GetLegendGraphic',
     format: 'image/png',
     layer: source.wmsLayer,
-    transparent: 'true',
-    LEGEND_OPTIONS: `fontColor:${fontColor};fontAntiAliasing:true;bgColor:0x000000;fontSize:10;dpi:96`,
+    transparent: 'false',
+    WIDTH: String(LEGEND_REQUEST_WIDTH),
+    LEGEND_OPTIONS: 'bgColor:0xffffff;fontAntiAliasing:true;dpi:96',
   })
   return `${source.host}?${query.toString()}`
 }
@@ -865,6 +871,10 @@ export function weatherLayerTime(entry: { timeGrid: WeatherTimeGrid }, now: Date
 }
 
 // ── RainViewer (global radar) ────────────────────────────────────────────────
+
+/** RainViewer's free tier serves tiles to zoom 7 only; deeper requests return a "Zoom Level Not
+ * Supported" placeholder PNG, so the radar sources cap here and MapLibre overzooms the z7 tile. */
+export const RAINVIEWER_MAXZOOM = 7
 
 /**
  * The pure half of `lib/queries/rainviewer.ts`'s frame resolution — same reason `wmsTileUrl`/

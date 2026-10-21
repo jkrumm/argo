@@ -7,7 +7,6 @@ import {
   Flex,
   Group,
   Image,
-  ScrollArea,
   Slider,
   Stack,
   Text,
@@ -50,6 +49,7 @@ import {
   fallbackDotImage,
   gibsTime,
   legendSource,
+  LEGEND_IMAGE_CROP,
   legendUrl,
   LP_RAMP,
   LP_SITE_BAND,
@@ -75,7 +75,6 @@ import {
   refreshContours,
   refreshHillshade,
   refreshLpRamp,
-  resolveLegendFontColor,
   syncTerrain,
   type OverlayState,
 } from './map-overlays'
@@ -137,20 +136,6 @@ export default function SiteMap({
   // resolves to what the CSS vars actually are — the ramp is read from those vars, so a guess
   // here would paint the light shades onto the dark basemap.
   const resolvedScheme = useComputedColorScheme('dark')
-
-  /**
-   * The EUMETSAT legend's `LEGEND_OPTIONS` `fontColor`, re-resolved from the live palette whenever
-   * the scheme flips. Producing a NEW string on the dependency change is what makes the legend
-   * `<Image>` re-request: React re-renders with a different `src`, which is enough on its own —
-   * see `legendUrl` in `map-layers.ts` for why a hardcoded colour was wrong in the first place.
-   */
-  // `resolvedScheme` is not read inside the callback (the resolver reads the DOM directly) — it
-  // is the dependency that forces this memo to re-run when the CSS vars it reads have changed.
-  const legendFontColor = useMemo(
-    () => resolveLegendFontColor(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [resolvedScheme],
-  )
 
   const base = baseLayer(layers.base)
   /**
@@ -768,35 +753,33 @@ export default function SiteMap({
         <Flex direction="column" style={{ flex: 1, minWidth: 0 }}>
           {showRail && (
             <>
-              {/* Bounded so a short viewport with several keys still leaves the canvas most of the
-                  card; past the cap the rail scrolls rather than squeezing the map. */}
-              <ScrollArea.Autosize mah={RAIL_MAX_HEIGHT} type="auto">
-                <Box px="sm" py="xs">
-                  <Group gap="md" wrap="wrap" align="flex-start">
-                    {tickCount > 0 && (
-                      <TimeScrubber
-                        ticks={ticks}
-                        tickIndex={tickIndex}
-                        playing={playing}
-                        onToggle={() => setPlaying((current) => !current)}
-                        onScrub={scrubToTick}
-                        radarActive={radarActive}
-                        radarNewestTime={radarNewestTime}
-                      />
-                    )}
-                    {layers.lpYear !== null && (
-                      <LpLegend year={layers.lpYear} range={layers.lpRange} />
-                    )}
-                    {weatherLegends.map((entry) => (
-                      <WeatherLegendCard key={entry.id} entry={entry} fontColor={legendFontColor} />
-                    ))}
-                  </Group>
-                </Box>
-              </ScrollArea.Autosize>
+              {/* Unbounded: every key stays fully visible at rest, at 390 too. The canvas below
+                  keeps a floor (`mih`) instead, and the card's own `mih` gives it room to grow. */}
+              <Box px="sm" py="xs">
+                <Group gap="md" wrap="wrap" align="flex-start">
+                  {tickCount > 0 && (
+                    <TimeScrubber
+                      ticks={ticks}
+                      tickIndex={tickIndex}
+                      playing={playing}
+                      onToggle={() => setPlaying((current) => !current)}
+                      onScrub={scrubToTick}
+                      radarActive={radarActive}
+                      radarNewestTime={radarNewestTime}
+                    />
+                  )}
+                  {layers.lpYear !== null && (
+                    <LpLegend year={layers.lpYear} range={layers.lpRange} />
+                  )}
+                  {weatherLegends.map((entry) => (
+                    <WeatherLegendCard key={entry.id} entry={entry} />
+                  ))}
+                </Group>
+              </Box>
               <Divider />
             </>
           )}
-          <Box pos="relative" style={{ flex: 1, minHeight: 0 }}>
+          <Box pos="relative" mih={CANVAS_MIN_HEIGHT} style={{ flex: 1 }}>
             <Box
               ref={containerRef}
               h="100%"
@@ -839,8 +822,8 @@ const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
  * tick list without wrapping, narrow enough to sit comfortably in the key rail. */
 const SCRUBBER_WIDTH = 220
 
-/** The key rail's cap: about one scrubber row plus one key row at 390, so the canvas keeps the card. */
-const RAIL_MAX_HEIGHT = 168
+/** The map canvas's floor under an unbounded key rail: below this the map stops being usable. */
+const CANVAS_MIN_HEIGHT = 240
 
 /**
  * Replaces the old `RadarClock`. Where that component only ever read `radar`'s own frames, this
@@ -1023,52 +1006,35 @@ function legendableWeatherLayers(weather: readonly WeatherSelection[]): Legendab
     )
 }
 
-/** The legend image's max height in the rail — a scroll region past this rather than a squash. DWD Blitzdichte's
- * legend (formerly `lightning`'s own, before it moved to EUMETSAT's MTG-I imager) measured 344 px
- * tall; `mah={60}` (the old value) rendered it unreadably compressed. */
-const LEGEND_MAX_HEIGHT = 96
+/** The weather key's size. The EUMETSAT GetLegendGraphic canvas is a fixed 640×80, and with
+ * `WIDTH=300` (`legendUrl`) the whole legend sits in its left ~320 px: the image is cropped to that. */
 
 /**
  * One legend card. The image is a third-party PNG on a host we don't control — `onError` hides it
  * quietly rather than letting a broken-image glyph sit on the map; the label and `emptyMeans` line
  * still render either way, so the card degrades to text instead of vanishing.
  *
- * `imageFailed` tracks the `src` it failed FOR, not a bare boolean latch: this component is keyed
- * by `entry.id` and stays mounted across a colour-scheme flip, but `fontColor` — and so `src` —
- * changes on every flip. A latch with no `src` awareness would hide the legend for the rest of the
- * session after one transient failure against EUMETSAT, even once a scheme flip produces a URL
- * that would load fine. Same derive-during-render reset `OpacitySlider` uses in
- * `map-settings-panel.tsx` for its `committed`/`draft` pair, preferred over a `useEffect`.
+ * The raster is black text on an opaque white plate in BOTH schemes by design: the server ignores
+ * `fontColor`, so a legible key means keeping the provider's own plate (DESIGN.md, App deviations).
  */
-function WeatherLegendCard({
-  entry,
-  fontColor,
-}: {
-  entry: LegendableWeatherLayer
-  fontColor: string
-}) {
-  const src = legendUrl(legendSource(entry), fontColor)
-  const [trackedSrc, setTrackedSrc] = useState(src)
+function WeatherLegendCard({ entry }: { entry: LegendableWeatherLayer }) {
   const [imageFailed, setImageFailed] = useState(false)
-  if (trackedSrc !== src) {
-    setTrackedSrc(src)
-    setImageFailed(false)
-  }
   return (
-    <Stack gap={4} w={LEGEND_WIDTH}>
+    <Stack gap={4} w={LEGEND_IMAGE_CROP.width} maw="100%">
       <Text size="xs" fw={600}>
         {entry.label}
       </Text>
       {!imageFailed && (
-        <ScrollArea.Autosize mah={LEGEND_MAX_HEIGHT} type="auto">
-          <Image
-            src={src}
-            alt={`${entry.label} legend`}
-            fit="contain"
-            w="auto"
-            onError={() => setImageFailed(true)}
-          />
-        </ScrollArea.Autosize>
+        <Image
+          src={legendUrl(legendSource(entry))}
+          alt={`${entry.label} legend`}
+          w={LEGEND_IMAGE_CROP.width}
+          maw="100%"
+          h={LEGEND_IMAGE_CROP.height}
+          fit="cover"
+          style={{ objectPosition: 'left top' }}
+          onError={() => setImageFailed(true)}
+        />
       )}
       <Text size="xs" c="dimmed">
         {entry.emptyMeans}

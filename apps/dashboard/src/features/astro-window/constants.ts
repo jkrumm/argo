@@ -25,16 +25,21 @@ export const SIDE_PANEL_HEIGHT = 620
 
 /**
  * Full-bleed height for the Map tab, expressed in BasaltShell's OWN variables rather than a raw
- * viewport guess. The shell's `AppShell` is `h="100dvh"` and `AppShell.Main` pads by the header
- * and footer offsets plus `--app-shell-padding` on each side — subtracting exactly those hands
- * the map the whole content box and keeps tracking it when the header height changes or the
- * mobile footer appears.
+ * viewport guess. The shell is a column (`app-main.module.css`): the header offset, the page-bar
+ * band, then `AppShell.Main` as the scrollport, with `margin-bottom` of the footer offset plus
+ * `env(safe-area-inset-bottom)` and a block padding of `--basalt-main-pad-block` (inherited by
+ * this card) on each side. Subtracting exactly those hands the map the whole content box, on
+ * desktop (no footer, no inset) and on a phone (tab bar plus home-indicator inset) alike.
  *
- * `h="100%"` cannot be used instead: `AppShell.Main` sizes itself with `min-height`, so a
- * percentage height on a child resolves against `auto` and collapses to nothing.
+ * The page-bar band is `--basalt-page-bar-h` (its CONTENT box, published on `documentElement`)
+ * plus its own 1px `border-bottom`, which the var never counts. `var(--basalt-page-bar-h, -1px)
+ * + 1px` adds that pixel only while a band exists and nets to 0px without one.
+ *
+ * `h="100%"` cannot be used instead: `AppShell.Main` sizes itself with `flex` and `min-height`,
+ * so a percentage height on a child does not resolve against the scrollport.
  */
 export const MAP_FULL_BLEED_HEIGHT =
-  'calc(100dvh - var(--app-shell-header-offset, 0px) - var(--app-shell-footer-offset, 0px) - 2 * var(--app-shell-padding, 0px))'
+  'calc(100dvh - var(--app-shell-header-offset, 0px) - var(--app-shell-footer-offset, 0px) - env(safe-area-inset-bottom, 0px) - (var(--basalt-page-bar-h, -1px) + 1px) - 2 * var(--basalt-main-pad-block, 0px))'
 
 /** Floor for a short viewport (a landscape phone) — below this the map stops being usable. */
 export const MAP_MIN_HEIGHT = 420
