@@ -2486,6 +2486,23 @@ Strength's pass (90, w42) is provisional: its reviewer read 4 of 13 sheets. No c
 - **Not verified:** Keel not read, no `detect.json`; the w42 shots are gone from disk, so the comparison is to the recorded verdict; ~90 single crops judged from their sheets.
 - **Shots:** auth seeded via env from `secrets-run` (zustand `argo-auth` JSON), never printed or written. No background task left.
 
+## Wave 46 — Strength's argo P2s <!-- status: active -->
+
+From Wave 45's complete 13-sheet re-score (`docs/design/strength-tracker.md`, `UPSTREAM.md` § "Wave 45"). Same shape as Wave 38
+(fan-out on disjoint files, two independent reviews per PR, CI `check` green on the PR head before the merge, `bun install` in a
+worktree after its rebase, live re-shoot once the served bundle carries the change, fresh `basalt-design-reviewer`s told to read
+every sheet). **Subtract before you add**; a removal that leaves a reader without a fact is a defect. Basalt rows: no workaround.
+
+- [ ] The lost fact first: the scan folds Volume/INOL at 390 — keep both figures readable at the phone width.
+- [ ] The Estimated 1RM dashed companion line and dot get a legend entry (or a direct label), so no mark is unexplained.
+- [ ] The "Balance" title names its scope; the selected timer preset uses the selected-state token, not the accent; the dark
+      Warm-up bars reach the contrast floor.
+- [ ] Shot anchors for scan, Log, Timer, Recent and the expanded diagnostics/alignment, so the scorer sees them.
+- [ ] The P3s if cheap: the "90-day norm" vs "all time" caption, the scan title's period, the duplicated "Daily 62" /
+      "Garmin Recovery 62", the unitless "Fatigue debt".
+- [ ] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
