@@ -258,8 +258,7 @@ empty section is the correct default; do not invent deviations to fill it.
   source to find). Measured from the shipped scales on 2026-08-20 rather than assumed: cloud runs
   white-to-slate with alpha `0 → .925` across 0–100 % (the package's light palette, requested in
   both schemes since 2026-10-21: its dark palette ends near-white and buried the dark base's labels),
-  precipitation is the conventional
-  blue → green → red radar ramp with alpha `0` below 0.055 mm. **Both are fully transparent at
+  precipitation is the conventional blue → green → red radar ramp with alpha `0` below 0.055 mm. **Both are fully transparent at
   zero**, which is the property that actually matters here — a forecast layer that washed the
   whole viewport at 0 % would bury the pollution ramp the same way the ramp was burying the
   hillshade. Accepted as-is for the first version because the package's scales are legible and

@@ -680,3 +680,10 @@ Full read (13 sheets, `w45-strength`): pass 68, no new basalt row. Carried, stil
 | `RefLine` legend glyph | a goal reference line's legend swatch is the same solid stroke as the series it sits beside; only stroke weight separates them | body weight chart (goal state) | carried; argo keeps the neutral ink, the label names it |
 | `BasaltDataTable` danger row action | `danger: true` paints every row's delete icon red at rest, a status hue on chrome repeated per row | skinfold history | red only on hover/focus would keep the warning without the repetition |
 | Map / geographic raster field | basalt's chart catalogue has no row for a geographic raster drawn on a map canvas, so a reviewer scores the Map tab against no catalogue form (Expression 1) | astro Map tab | a `map` catalogue row (canvas + key rail) would give the form a standard |
+
+## Wave 53
+
+| Pattern | Friction | Pages | Note |
+|-|-|-|-|
+| `Meter` reading at the track start | when the reading sits at the track start (`readingAt="start"`, or `'fill'` with a fill too short to hold it), the start caption's descender is clipped at 390 (`low 72.3 kg` reads `kq`), and at 1440 the end caption drops to a second line with room to spare | body Weight cell, no-goal low–high meter at the window low | as rendered; argo keeps the marker form (`stops`) |
+| Shot harness: anchors inside a strip cell | `strip-footer-weight-goal` and `empty-row` render inside the rest Weight cell but are recorded `not captured` at rest and "only present in this state" under `empty` | body composition | harness; no argo change |

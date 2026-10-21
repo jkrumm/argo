@@ -348,3 +348,31 @@ readout shows the latest value while the ring sits on the first point (basalt); 
 and the headline repeats the strip's weight and rate (kept by decision); `abdominal` in the empty-row copy vs `Abdomen` in the table;
 `Average` vs `session average`; basalt carried rows (end labels over the line, off-step top tick at 390, goal legend glyph, hover = rest).
 Not verified: the at-goal and no-rate headlines, two sessions under 3 d apart, a fresh (non-stale) weigh-in, loading / error states.
+
+## Wave 53 — the Wave 52 "Not verified" states (2026-10-21)
+
+Four states production cannot show, shot through `scripts/design-shot/fixture-proxy.ts` over a local dist of the live master
+(weights real except where the fixture replaces them): `at-goal` (goal set to production's own current weight), `weight-fresh`
+(synthetic weigh-ins every other day through today, today at the window low), `weight-no-rate` (one weigh-in today),
+`skinfold-close` (two caliper sessions 2 d apart). Dirs `w53-body-*`, `w53-r2-body-*`, `w53-r3-body-*` (gitignored).
+
+**Fixes (argo P1s only).**
+
+1. The no-goal low–high Weight meter drew nothing when today's weight was the window low (a fill at 0 %): it is now a marker on one
+   flat neutral track (`Meter` `stops`), so the position shows at either extreme.
+2. One weigh-in drew a dot on a day-wide axis in a full plot box: the weight chart renders nothing until the second weigh-in (only once
+   the query succeeded); the headline already states the value and day.
+
+| Round | Live / dist | Reviewer A | Reviewer B | Argo P1s fixed after it |
+|-|-|-|-|-|
+| r1 | `460740a0` | fail 56 | fail 47 | low-end meter drew nothing; one-weigh-in chart |
+| r2 | `93e71a2a` | pass 83 | fail 59 | one-weigh-in card held one sentence in a full plot box (`empty-region`) |
+| r3 | `1f120b66` | **fail 71** | **fail 74** | none: the one P1 left is basalt's |
+
+**Result: fails the bar on one basalt P1.** Both final reviewers fail only the fresh state's Weight cell at 390: the `Meter` start
+caption's descender is clipped (`low 72.3 kg` reads `kq`), which `UPSTREAM.md` § Wave 53 records; `readingAt`'s default falls back to
+the same start position for a short fill, so there is no argo-side choice that avoids it without a workaround. Every other component
+passes in all four states; `shot detect` 100 on each. Open (argo, P2/P3): `7 d mean —` with no reason for a single weigh-in; the
+no-rate sentence printed in both the headline and the Rate cell; the 2-day skinfold deltas take the good-trend green while the cell
+says the gap is too short for a rate; `Sept` in the tooltip header vs `Sep` elsewhere. Not verified: loading / error (undeclared, the
+route loader awaits its data).

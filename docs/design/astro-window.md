@@ -426,8 +426,9 @@ forecast fields (Wave 52 drew no key for those five). The scrubber names its clo
 **390.** One key and one note, each a full-width row; the scrubber its own row above them. The rail never holds three keys again,
 so the canvas keeps most of the card.
 
-**States shot.** `loading` (the style has not loaded: the canvas shows `Loading map…`, the rail keys nothing) and `error` (the
-map failed before its style loaded: `Map unavailable`, the existing failed-tiles message). Not through `data-shot-states`: the
+**States shot.** `loading` (the style has not loaded: a skeleton rail over an empty graticule, the loaded shape) and `error`
+(the map failed before its style loaded: a status dot, `Could not load map`, the cause and a Retry in the rail band, over the same
+graticule). Not through `data-shot-states`: the
 route's loader awaits the API, so `?shot-state=loading|error` replaces the whole route and the map card never renders. The map
 reads its own read-once param instead, `?shot-map=loading|error` (`lib/shot-state.ts`), shot as two extra routes
 `/astro-window?tab=map&shot-map=loading|error`. The weather-layer states (each forecast key; radar with the atlas hidden) are
@@ -439,3 +440,32 @@ routes with `wx=` set.
 2. At most one coloured answer field on the canvas in every shot.
 3. Every weather layer that can be selected has a titled key naming its unit or meaning.
 4. Wave 52's criteria 1–4 still hold.
+
+## Wave 53 rounds (2026-10-21, live production bundle; two fresh `basalt-design-reviewer`s per round)
+
+Shots `w53-r1-map-{a,b,c}`, `w53-r2b-map-{a,b,c,d}`, `w53-r3-map-{a,b,c,d}`, `w53-r4-map` (gitignored): atlas default, radar,
+lightning, forecast cloud, forecast precipitation, `shot-map=loading`, `shot-map=error`, 1440 / 390, both schemes. Round 4 re-shot
+only the two forecast routes after the palette fix.
+
+| Round | Live | Reviewer A | Reviewer B | Argo P1s fixed after it |
+|-|-|-|-|-|
+| r1 | `93e71a2a` | fail 0 | fail 0 | forecast layers painted nothing (`map-tiles.open-meteo.com` is NXDOMAIN, moved to the S3 bucket); spinner and one muted line for pending / failed; site markers told apart by fill only |
+| r2 | `1607d567`–`4a313d91` | fail 0 | fail 0 | failed state without Retry; lightning named no frame time; forecast cloud invisible on the light base |
+| r3 | `2b959b4b` | fail 0, no argo P1 | fail 48 | dark palette's near-white overcast buried the dark base's labels |
+| r4 | `b302cf0d` | **fail 20, no argo P0/P1** | **fail 32, no argo P0/P1** | — |
+
+Found on the way, not by a reviewer: a map opened with `wx=model-*` in the URL autoplayed through all 48 forecast steps and never
+went network-idle (the paused-on-switch reset only fires on a change); it opens paused now. The scrubber names the weekday when its
+span crosses midnight (`Wed 20:00–Fri 20:00`) and calls every model hour a forecast.
+
+**Result: fails the bar, on carried rows only.** Every remaining P1 in the final round is MapLibre's 12 px compact attribution
+(`craft-1/off-scale-radius`, `nested-radius-step`, 390; `UPSTREAM.md` § Wave 51 row 2, third-party) or basalt's missing catalogue
+form for a geographic raster (Expression 1; `UPSTREAM.md` § Wave 52). Neither is worked around. Wave 53 criteria 1–4 hold in every
+shot: one coloured answer field, the atlas unpainted under any weather layer and the rail saying so with `Show light pollution`,
+every shot key titled with a unit or meaning, Wave 52's criteria intact; pending and failed states pass Communication 6.
+
+Open (argo, P2/P3): small canvas labels faint under the slate overcast and the light-rain band in dark; unselected site dots have no
+name or key line; the aside footer narrates the URL state; "blue" in the precipitation key renders periwinkle in light; at 390 the
+selected-site label can collide with a basemap label, and with a forecast key the rail takes close to half the card. Third-party P2:
+the EUMETSAT legend's `Count / 5 minutes` runs into its `1` tick. Not shot: the cloud mask, infrared cloud, cloud top and forecast low
+cloud keys (catalogue test pins that each has one); a real tile failure after the style loaded.
