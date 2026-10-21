@@ -8,7 +8,7 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, inolZoneLabel, type StrengthDirection } from '../formulas'
 import { NBSP, withUnit } from '../../../lib/format'
-import { DELTA_DAYS, fmtTonnes, liftDelta, perMonth, signed } from '../model'
+import { DELTA_DAYS, fmtWeeklyTonnes, liftDelta, perMonth, signed } from '../model'
 import { useNow } from '../../../lib/use-now'
 
 const SPARK_W = 80
@@ -140,8 +140,8 @@ const columns = [
       <FigureSpark
         data={ctx.row.original.volume}
         mark="bar"
-        figure={(v) => `${fmtTonnes(v)}/wk`}
-        format={(v) => `${fmtTonnes(v)}/wk`}
+        figure={fmtWeeklyTonnes}
+        format={fmtWeeklyTonnes}
         ariaLabel={`${ctx.row.original.exercise_name} weekly volume in tonnes, last 10 training weeks`}
       />
     ),
