@@ -411,7 +411,7 @@ export function summaryParts(
 const NAMES: Record<string, string> = {
   DL: 'Deadlift',
   Squat: 'Squat',
-  Bench: 'Bench press',
+  Bench: 'Bench Press',
   'Pull-up': 'Pull-up',
   BW: 'body weight',
 }

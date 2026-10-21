@@ -12,6 +12,8 @@ import {
   UnstyledButton,
 } from '@mantine/core'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { shotState } from '../../../lib/shot-state'
+import { NBSP } from '../../../lib/format'
 import { IconSettings, IconTrophy } from '@tabler/icons-react'
 import { VX } from 'basalt-ui/tokens'
 import { overlays } from 'basalt-ui/commands'
@@ -214,7 +216,11 @@ export function WorkoutForm() {
         : 'Free entry'
   const gymSummary = `${gyms.active.name} · ${loadingSummary}`
 
-  const recentWorkouts = (recentResult.data?.data ?? []) as ReadonlyArray<WorkoutRowLite>
+  // `?shot-state=empty` renders the Log as a first-time user sees it: no prior session, no fills.
+  const shotEmpty = shotState() === 'empty'
+  const recentWorkouts = (
+    shotEmpty ? [] : (recentResult.data?.data ?? [])
+  ) as ReadonlyArray<WorkoutRowLite>
   const previousSets = findLastSession(recentWorkouts, exercise)
 
   // All-time history for the selected exercise, bounded to `date` the way the backend bounds it
@@ -224,7 +230,7 @@ export function WorkoutForm() {
   const historyResult = useQuery(
     workoutsQueries.list({ page: 1, limit: 200, exercise, dateTo: date }),
   )
-  const history = (historyResult.data?.data ?? []) as ReadonlyArray<HistoryRow>
+  const history = (shotEmpty ? [] : (historyResult.data?.data ?? [])) as ReadonlyArray<HistoryRow>
 
   // Bodyweight exercises (pull-ups) score weight as `weight_kg + bodyweight` on the backend, and
   // this form has no bodyweight to add — so every claim about a "best" or "max" is suppressed for
@@ -439,10 +445,10 @@ export function WorkoutForm() {
     previewParts.push(`best ${KG_FORMAT.format(preview.topWeight)} kg × ${preview.topReps}`)
   }
   if (preview.totalVolume > 0) {
-    previewParts.push(`${KG_FORMAT.format(Math.round(preview.totalVolume))} kg volume`)
+    previewParts.push(`${KG_FORMAT.format(Math.round(preview.totalVolume))}${NBSP}kg volume`)
   }
   if (preview.bestE1rm !== null) {
-    previewParts.push(`${Math.round(preview.bestE1rm)} kg e1RM`)
+    previewParts.push(`${Math.round(preview.bestE1rm)}${NBSP}kg${NBSP}e1RM`)
   }
 
   // Predicting a PR for a bodyweight exercise would be wrong (see `isBodyweight`

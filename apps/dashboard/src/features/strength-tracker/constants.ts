@@ -65,7 +65,7 @@ export const SET_TYPE_OPTIONS: { value: SetType; label: string }[] = [
 ]
 
 export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
-  { value: 'estimated_1rm', label: 'Est. 1RM', unit: 'kg' },
+  { value: 'estimated_1rm', label: 'e1RM', unit: 'kg' },
   { value: 'max_weight', label: 'Max Weight', unit: 'kg' },
   { value: 'total_volume', label: 'Total Volume', unit: 'kg' },
   { value: 'total_reps', label: 'Total Reps', unit: 'reps' },

@@ -11,7 +11,7 @@ import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
-import { exerciseLabel, inolDotColor } from '../formulas'
+import { exerciseLabel, inolDotColor, inolZoneLabel } from '../formulas'
 import { pickActiveExercise } from './active-exercise'
 import { trailingMA } from './trailing-ma'
 
@@ -28,14 +28,6 @@ type InolPoint = {
   day: Date
   inol: number | null
   ma: number | null
-}
-
-function inolZoneLabel(v: number): string {
-  if (v < 0.4) return 'Too Light'
-  if (v < 0.6) return 'Recovery'
-  if (v <= 1.0) return 'Optimal'
-  if (v <= 1.5) return 'Hard'
-  return 'Excessive'
 }
 
 export default function InolChart({ params }: { params: StrengthQueryParams }) {
@@ -78,7 +70,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
       },
       {
         key: 'ma',
-        label: `${MA_WINDOW}-session MA`,
+        label: `${MA_WINDOW}-session average`,
         color: exerciseColor,
         dash: 'dashed',
         strokeWidth: 2.25,

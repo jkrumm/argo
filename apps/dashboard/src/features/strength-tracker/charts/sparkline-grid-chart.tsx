@@ -6,9 +6,10 @@ import { VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
-import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
-import { withUnit } from '../../../lib/format'
-import { DELTA_DAYS, perMonth, signed } from '../model'
+import { directionArrow, directionColor, inolZoneLabel, type StrengthDirection } from '../formulas'
+import { NBSP, withUnit } from '../../../lib/format'
+import { DELTA_DAYS, fmtTonnes, liftDelta, perMonth, signed } from '../model'
+import { useNow } from '../../../lib/use-now'
 
 const SPARK_W = 80
 const SPARK_H = 28
@@ -21,43 +22,59 @@ type SparkRow = {
   inol: number[]
   vel: number | null
   dir: StrengthDirection
+  /** No scored session in the trend window: the API's velocity is then an old window's. */
+  stale: boolean
 }
 
-/** A sparkline needs a trend to draw; a lift with no history in the window gets a dash. */
-function SparkCell({
+/**
+ * The latest figure with its unit, then its recent shape. A lift with no history in the window
+ * gets a dash. Single-series sparklines carry no separation, so they stay neutral; colour lives
+ * only in the trend cell.
+ */
+function FigureSpark({
   data,
   mark,
   ariaLabel,
+  figure,
+  format,
 }: {
   data: readonly number[]
   mark: 'line' | 'bar'
   ariaLabel: string
+  figure: (latest: number) => string
+  format: (value: number) => string
 }) {
-  if (data.length === 0) {
+  const latest = data.at(-1)
+  if (latest === undefined) {
     return (
       <Text size="sm" c="dimmed">
         —
       </Text>
     )
   }
-  // Single-series sparklines carry no separation — neutral. Color lives only in the direction
-  // arrow / status dot (trend signal).
   return (
-    <Sparkline
-      ariaLabel={ariaLabel}
-      data={data}
-      mark={mark}
-      width={SPARK_W}
-      height={SPARK_H}
-      color={VX.line}
-    />
+    <Group gap="xs" wrap="nowrap">
+      <Sparkline
+        ariaLabel={ariaLabel}
+        data={data}
+        mark={mark}
+        width={SPARK_W}
+        height={SPARK_H}
+        color={VX.line}
+        format={format}
+        emphasizeLast
+      />
+      <Text size="sm">{figure(latest)}</Text>
+    </Group>
   )
 }
+
+const inolFigure = (v: number) => `${v.toFixed(2)}${NBSP}${inolZoneLabel(v).toLowerCase()}`
 
 /** The page's one velocity wording: `+1.2 %/mo`, a dash when the lift has no fit. */
 function velocityFigure(vel: number | null): string {
   const monthly = perMonth(vel)
-  return monthly === null ? '—' : `${signed(monthly)} %/mo`
+  return monthly === null ? '—' : `${signed(monthly)}${NBSP}%/mo`
 }
 
 const columnHelper = createColumnHelper<SparkRow>()
@@ -78,11 +95,18 @@ const columns = [
   }),
   columnHelper.display({
     id: 'trend',
-    header: `${withUnit(DELTA_DAYS, 'd')} trend, %/mo`,
+    header: `Trend, ${withUnit(DELTA_DAYS, 'd')}`,
     enableSorting: false,
     meta: { priority: 1 },
     cell: (ctx) => {
-      const { dir, vel } = ctx.row.original
+      const { dir, vel, stale } = ctx.row.original
+      if (stale) {
+        return (
+          <Text size="xs" c="dimmed">
+            no session in {withUnit(DELTA_DAYS, 'd')}
+          </Text>
+        )
+      }
       return (
         <Box>
           <Group gap={4} wrap="nowrap">
@@ -102,26 +126,30 @@ const columns = [
   }),
   columnHelper.display({
     id: 'volume',
-    header: 'Volume, kg/wk · 10 wk',
+    header: 'Volume per week, last 10 wk',
     enableSorting: false,
     meta: { priority: 2 },
     cell: (ctx) => (
-      <SparkCell
+      <FigureSpark
         data={ctx.row.original.volume}
         mark="bar"
-        ariaLabel={`${ctx.row.original.exercise_name} weekly volume in kg, last 10 weeks`}
+        figure={fmtTonnes}
+        format={fmtTonnes}
+        ariaLabel={`${ctx.row.original.exercise_name} weekly volume in tonnes, last 10 weeks`}
       />
     ),
   }),
   columnHelper.display({
     id: 'inol',
-    header: 'INOL · 15 sessions',
+    header: 'INOL, last 15 sessions',
     enableSorting: false,
     meta: { priority: 3 },
     cell: (ctx) => (
-      <SparkCell
+      <FigureSpark
         data={ctx.row.original.inol}
         mark="line"
+        figure={inolFigure}
+        format={(v) => v.toFixed(2)}
         ariaLabel={`${ctx.row.original.exercise_name} INOL per session, last 15 sessions`}
       />
     ),
@@ -130,8 +158,19 @@ const columns = [
 
 export default function SparklineGridChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.sparklines(params))
+  // The trend's freshness reads the full record, as the strip's 28 d delta does.
+  const series = useQuery(
+    strengthQueries.seriesDetailed({ window: 'all', exercises: params.exercises }),
+  )
+  const now = useNow()
 
-  const rows = (query.data?.byExercise ?? []) as SparkRow[]
+  const rows: SparkRow[] = (query.data?.byExercise ?? []).map((r) => {
+    const points = series.data?.byExercise.find((l) => l.exercise_id === r.exercise_id)?.points
+    return {
+      ...(r as Omit<SparkRow, 'stale'>),
+      stale: points !== undefined && liftDelta(points, now).stale,
+    }
+  })
   const hasData = rows.some((r) => r.e1rm.length > 0 || r.volume.length > 0 || r.inol.length > 0)
 
   return (

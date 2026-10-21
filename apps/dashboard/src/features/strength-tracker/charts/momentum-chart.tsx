@@ -13,7 +13,8 @@ import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
 import { withUnit } from '../../../lib/format'
-import { DELTA_DAYS, fmtMonthly, perMonthRaw } from '../model'
+import { DELTA_DAYS, fmtMonthly, liftDelta, perMonthRaw } from '../model'
+import { useNow } from '../../../lib/use-now'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
 
 /** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
@@ -92,7 +93,10 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
 
   const latestVel = [...chartData].reverse().find((d) => d.velocity !== null)?.velocity ?? null
   const dir = directionFromVelocity(latestVel)
-  const monthly = latestVel === null ? null : perMonthRaw(latestVel)
+  // With no session in the window the last velocity describes an older window: say so instead.
+  const now = useNow()
+  const stale = activeExercise !== undefined && liftDelta(activeExercise.points, now).stale
+  const monthly = latestVel === null || stale ? null : perMonthRaw(latestVel)
 
   const selectOptions = (query.data?.byExercise ?? []).map((e) => ({
     value: e.exercise_id,
@@ -117,6 +121,10 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
                 {directionArrow(dir)}
               </Text>
             </Group>
+          ) : stale ? (
+            <Text span size="xs" c="dimmed">
+              no session in {withUnit(DELTA_DAYS, 'd')}
+            </Text>
           ) : null}
           {selectOptions.length > 1 && (
             <SelectFilter field={local.field.exercise} label="Exercise" options={selectOptions} />
