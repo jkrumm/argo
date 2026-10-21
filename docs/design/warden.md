@@ -313,3 +313,41 @@ Shots `w51-warden` (gitignored; `shot detect` run on each dir). Two fresh `basal
   - P2 `strip-fixes` (harness): The rest and hover crops cut off the cell's last line ('+ 332 closed = 396 items' sits on the crop edge) and show only one cell. This is probably the crop box, not the page, and I could not tell…
 
 **Result: passes the bar** (both reviewers, no P0/P1, every component passes).
+
+## Wave 54 — concept: the alerts fold out of Needs you
+
+Wave 51's shared P2: Needs you renders ~50 decision cards in one flat list (7650 px at 1440, ~16000 px at 390), and many read
+the same. Measured on the live snapshot (2026-10-21): 54 asks, 51 `needs_decision` + 3 `failed`. By board `origin`, **30 of
+the 51 are monitor alerts** (homelab 10, vps 8, free-planning-poker 3, rollhook 2, homelab-private 2, five repos with one),
+most of them two co-fired outages (17 Oct 21:22 UTC on the VPS, 21 Oct on the homelab HDD) whose asks all say "grant host
+access or close as transient". The other 21 are real choices: product forks, security findings, data-loss fixes, chronic jobs.
+
+**What the reader triages first.** The 21 real choices: each is one decision only the owner can make, and they are what a
+50-card wall buries. Then Failed (something broke). Then the alerts, which are read per host as one question — "is this
+outage over, or do I look?" — not as 30 questions.
+
+**Decision.**
+
+1. `Needs you {n}` holds every non-alert ask, as today (one card each, warden's order, the surface's copy resolution unchanged).
+2. `Failed {n}` stays where it is.
+3. A new `Alerts {n}` section follows, grouped **by repo**: a repo with two or more alert asks renders ONE group card; a repo
+   with one renders that alert's own card, unchanged. Groups are ordered by their oldest member's wait, longest first.
+4. A group card is a `DecisionCard`: question `Decide on {n} {repo} alerts?`; facts `{repo} · {n} alerts · waiting {oldest}`
+   (the same wait clock and warn tone as a single card); subject = the members' monitor names, comma-joined, cut after four
+   with `+{k} more`; evidence line = the members' shared ask when every member's ask reads the same word for word, else none.
+   Primary `Show {n} alerts` / `Hide alerts` toggles the members; there is no secondary and no menu. **No bulk write:** every
+   verb stays on the member's own card, so the write contract (`use-warden-actions`) is untouched and a group cannot dismiss
+   ten alerts by one click.
+5. Expanded, the members render as their ordinary cards in the same grid, directly after the group card (siblings in the grid,
+   never nested inside it — no card-in-card radius).
+6. Which ask is an alert: the board item's `origin === 'alert'` (`AwaitingOwnerRow.origin`). A row past the board cap has
+   `origin: null` and stays in Needs you — it is never guessed into a group.
+7. The page summary keeps counting every ask (`{n} items need you`); the Home inbox is not touched.
+
+Live numbers this lands on: Needs you 21 cards, Failed 3, Alerts 10 rows (5 groups + 5 single alerts) collapsed — 34 cards
+instead of 54, and the 25 grouped alerts one click away.
+
+390: unchanged rules — one column; a group card stacks like any decision card; expanded members follow it.
+
+Shot anchors: group card `alert-group-{repo}` (absent when `empty`); members keep `decision-{eventId}`. Expansion is not
+shot-declared; the collapsed state is the page at rest.

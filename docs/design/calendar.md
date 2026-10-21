@@ -237,3 +237,16 @@ Shots `w51-calendar` (gitignored; `shot detect` run on each dir). Two fresh `bas
 - **Reviewer B: pass, 84.** No P0–P2.
 
 **Result: passes the bar** (both reviewers, no P0/P1, every component passes).
+
+## Wave 54 — concept: the side column stays in view
+
+Wave 51 P2 (A): at 1440 the side column (week strip, free block, tasks) ends near y=920 while Next 7 days runs to y≈1950, and
+the side cards scroll away with it. Nothing else earns that space — a second list or a repeated figure would be filler — and
+Next 7 days is long because a week of meetings is long. **Decision: reflow, not fill.** From the two-column container width
+(≥800 px) the side column is `position: sticky` under the shell header and the page bar, so the strip, free block and tasks
+stay beside whichever day the reader is on. Below 800 px nothing changes (one column, source order). A side column taller than
+the viewport (a long task list) degrades to today's behaviour: it releases at the end of the page, so nothing becomes
+unreachable.
+
+Harness note: `basalt-ui shot` captures the full page in one frame, where sticky has nothing to stick to; the empty band
+below the side column still appears in the full-page shot. The fix is read in a scrolled viewport, not in the full-page frame.

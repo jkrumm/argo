@@ -242,3 +242,15 @@ Shots `w51-walking-pad` (gitignored; `shot detect` run on each dir). Two fresh `
   - P2 `page / empty-window` (argo): At 1440 about 55-60% of the page is blank below the empty-window card. Pace and Totals cells hold only the short sentence 'No walks in the last 30 days' and no visual. Keel's equivalent pages fill…
 
 **Result: passes the bar** (both reviewers, no P0/P1, every component passes).
+
+## Wave 54 — concept: what an empty window still knows
+
+Wave 51 P2 (B): with no walk in the window, ~55–60 % of the 1440 page is blank under the empty-window card. The window is
+empty; the page is not. `HistoryTable` (`list`, newest first) and `AchievementsList` are **not** window-scoped — both read
+all time. In an empty window they answer the reader's next question ("when did I last walk, and what does the record look
+like?"), which the headline already starts (`Last walk {d}, {n} d ago`).
+
+**Decision.** An empty window renders, under the dimmed strip and the empty-window card, the same bottom row the full page has:
+Session history (8 of 12) and Achievements (4 of 12), unchanged components and anchors. The four window-scoped charts
+(weeks, distance, hours) stay absent: an empty chart card is filler. When the history itself is empty (no walk ever) the row
+is not rendered — the empty-window card is then the whole answer. No new copy.
