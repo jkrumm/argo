@@ -953,7 +953,8 @@ function TimeScrubber({
   // A span that crosses midnight (a 48 h forecast) names the weekday on every time, or its two
   // ends read as the same `20:00`.
   const clock = first.toDateString() === last.toDateString() ? CLOCK_FORMAT : DAY_CLOCK_FORMAT
-  const forecast = at.getTime() > now
+  // Without radar every tick is a model hour: a forecast even at or before now, never "observed".
+  const forecast = !radarActive || at.getTime() > now
   // Radar has no forecast of its own (RainViewer discontinued its nowcast 2026-01-01) — once the
   // scrubber moves past radar's own newest frame, `nearestTimeIndex` (map-layers.ts) already
   // clamps radar's paint to that frame with no special case; this caption is the one place that
