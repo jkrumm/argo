@@ -27,10 +27,12 @@ function SparkCell({
   data,
   mark,
   ariaLabel,
+  width = SPARK_W,
 }: {
   data: readonly number[]
   mark: 'line' | 'bar'
   ariaLabel: string
+  width?: number
 }) {
   if (data.length === 0) {
     return (
@@ -46,7 +48,7 @@ function SparkCell({
       ariaLabel={ariaLabel}
       data={data}
       mark={mark}
-      width={SPARK_W}
+      width={width}
       height={SPARK_H}
       color={VX.line}
     />
@@ -54,6 +56,15 @@ function SparkCell({
 }
 
 const MOMENTUM_COL = 'momentum'
+const FOLDED_SPARK_W = 56
+
+/** A column the table folded away at a narrow width. */
+function isFolded(
+  table: { getColumn: (id: string) => { getIsVisible: () => boolean } | undefined },
+  id: string,
+) {
+  return table.getColumn(id)?.getIsVisible() === false
+}
 
 /** The page's one velocity wording: `+1.2 %/mo`, a dash when the lift has no fit. */
 function velocityFigure(vel: number | null): string {
@@ -79,11 +90,39 @@ const columns = [
   columnHelper.accessor('exercise_name', {
     header: 'Exercise',
     meta: { priority: 0 },
-    cell: (ctx) => (
-      <Text size="sm" fw={600} c={VX.line} truncate="end" title={ctx.getValue()}>
-        {ctx.getValue()}
-      </Text>
-    ),
+    cell: (ctx) => {
+      const row = ctx.row.original
+      // Volume and INOL fold first at 390; their trends move in under the lift name, labelled, so
+      // the narrow scan keeps every figure the wide one prints in a column.
+      const folded = [
+        { id: 'volume', label: 'Vol', mark: 'bar' as const, data: row.volume },
+        { id: 'inol', label: 'INOL', mark: 'line' as const, data: row.inol },
+      ].filter((c) => isFolded(ctx.table, c.id))
+      return (
+        <Box>
+          <Text size="sm" fw={600} c={VX.line} truncate="end" title={ctx.getValue()}>
+            {ctx.getValue()}
+          </Text>
+          {folded.length === 0 ? null : (
+            <Group gap="xs" wrap="wrap">
+              {folded.map((c) => (
+                <Group key={c.id} gap={4} wrap="nowrap">
+                  <Text size="xs" c="dimmed">
+                    {c.label}
+                  </Text>
+                  <SparkCell
+                    data={c.data}
+                    mark={c.mark}
+                    width={FOLDED_SPARK_W}
+                    ariaLabel={`${row.exercise_name} ${c.label} trend`}
+                  />
+                </Group>
+              ))}
+            </Group>
+          )}
+        </Box>
+      )
+    },
   }),
   columnHelper.display({
     id: 'e1rm',
