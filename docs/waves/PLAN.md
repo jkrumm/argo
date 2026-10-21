@@ -2510,6 +2510,22 @@ every sheet). **Subtract before you add**; a removal that leaves a reader withou
 - **P2:** the 390 scan delta lacks the up/down glyph and the Vol/INOL minis carry no unit; `PR` label on the sparkline in two strips (basalt, carried); `strength-log`/`strength-timer`/`strength-recent` are not captured at 390 (under the Train tab, which the shot never opens); expanded diagnostics/alignment still have no anchor (collapsed by default).
 - **Not verified:** the `Window:` copy edit was not re-shot; no `detect.json`, no Keel read. Shots in `apps/dashboard/.design-shots/w46-strength{,-b}` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 47 — Strength contrast <!-- status: active -->
+
+From Wave 46's verdict (Strength fail 19–23 on contrast only). Both causes are argo code, traced:
+
+- [ ] P0, the green delta ink: `features/strength-tracker/formulas.ts:38` `directionColor('improving')` returns
+      `ZONE_COLORS.excellent` → `VX.status.excellent`, a chart FILL (`forest[2]` `#29a634`, ~2.9:1) that basalt's text solver
+      never tunes. Text must use `VX.status.good` (solver-tuned) — fix `directionColor` (or split a text vs fill helper) and its
+      text call sites (`charts/momentum-chart.tsx:110/116`, `charts/sparkline-grid-chart.tsx:176/204`); fills keep `excellent`.
+- [ ] P0, the Log set table: the header (`components/set-editor.module.css:19`, `--vx-neutral` at 50 % alpha) and the
+      "Previous" cells (`components/set-editor.tsx:223`, `alpha(VX.neutral, 0.4)`) fade a chart neutral instead of using the
+      ink ramp; the dimmed-row `opacity: 0.5` halves it again. Use `VX.muted` / `var(--vx-muted)` (or `c="dimmed"`) and keep the
+      dimmed-row cue without dropping text below 4.5:1 (measure it in both schemes).
+- [ ] P1, dark Warm-up vs Drop bars/legend: one `exColor` at .4/.6 opacity reads as one series. Give them distinct shades.
+- [ ] Re-shoot Strength (1440 / 390, both schemes) and re-score it with a fresh reviewer reading every sheet.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
