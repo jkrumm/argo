@@ -354,7 +354,7 @@ function TrainingTools({
   return (
     <Stack gap="md">
       <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-        <Box data-shot="strength-log">
+        <Box data-shot="strength-log" data-shot-states="empty">
           <WorkoutForm />
         </Box>
       </Suspense>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActionIcon, Box, Button, Flex } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, Text } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
 import { VX } from 'basalt-ui/tokens'
 import type { LoadingMode } from '../../../lib/plate-math'
@@ -21,6 +21,23 @@ const TYPE_COLOR: Record<SetType, string> = {
   work: 'inherit',
   drop: VX.muted,
   amrap: 'inherit',
+}
+
+const TYPE_NAME: Record<SetType, string> = {
+  warmup: 'warm-up',
+  work: 'work',
+  drop: 'drop',
+  amrap: 'AMRAP',
+}
+
+/** The key for the set-type letters the table shows (`W warm-up · D drop`); null when none shows. */
+function typeKey(sets: readonly SetEntry[]): string | null {
+  const shown = TYPE_CYCLE.filter(
+    (t) => TYPE_ABBREV[t] !== '' && sets.some((s) => s.set_type === t),
+  )
+  return shown.length === 0
+    ? null
+    : shown.map((t) => `${TYPE_ABBREV[t]} ${TYPE_NAME[t]}`).join(' · ')
 }
 
 export interface SetEditorProps {
@@ -159,6 +176,7 @@ export function SetEditor({
     }
     return TYPE_ABBREV[s.set_type]
   })
+  const key = typeKey(sets)
 
   return (
     <Box>
@@ -397,6 +415,12 @@ export function SetEditor({
           </Flex>
         )
       })}
+
+      {key === null ? null : (
+        <Text size="xs" c="dimmed" mt={4}>
+          {key}
+        </Text>
+      )}
 
       {/* Add set button */}
       {!readOnly && (
