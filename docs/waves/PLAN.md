@@ -2583,7 +2583,7 @@ its layout holds, so this wave works the method's way: **scenario → concept �
       deploy, shoot only once the served bundle carries it.
 - [x] At least three rounds, each with TWO fresh `basalt-design-reviewer`s (all sheets, 1440 / 390, both schemes, plus Keel);
       fix the union of P0–P2 between rounds. Pass = both reviewers find no P0/P1 and every component passes.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 50 is `done`; no Wave 51 is authored.**
 
@@ -2606,7 +2606,7 @@ of them under the bar Strength now meets, on the live 2.27.2 bundle.
 - [x] Pass = both reviewers find no P0/P1 and every component passes. List the pages that fail with their union of P0–P2.
 - [x] Fix only argo P0/P1 items that are small and local (copy, units, a label); a page whose findings oscillate or pile up
       gets its own concept-first wave in the Wave 50 shape (author it, do not run it). Basalt causes → `UPSTREAM.md` rows.
-**Left behind:**
+      **Left behind:**
 
 **Closed out (orchestrated): Wave 51 is `done`; Wave 52 is authored, not run.**
 
@@ -2617,15 +2617,24 @@ of them under the bar Strength now meets, on the live 2.27.2 bundle.
 - **Open argo P2 across passing pages (named, not fixed):** Warden's ~49 near-identical Needs-you cards (no grouping or fold); m365 headline `Chats span {n} d`, bare `Chats` list title at 390, mismatched source-kind glyphs in the Labeled pane; Home Dispatch cell without a figure, ragged strip; Calendar right column half empty at 1440; Garmin `Improving` qualifier beside a red VO2max delta; Walking empty page ~55 % blank. Basalt/harness carried rows unchanged.
 - **Not verified:** m365 detail pane with a source open, goal/skinfold states, loading/error/tooltip states not declared on several anchors, Keel captures not opened by every reviewer. Shots `apps/dashboard/.design-shots/w51-*` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
-## Wave 52 — Concept-first: astro Map tab and body-composition <!-- status: active -->
+## Wave 52 — Concept-first: astro Map tab and body-composition <!-- status: done -->
 
 Both pages fail the two-reviewer bar in Wave 51 for reasons a one-finding patch does not close. Work them in the Wave 50 shape.
 
-- [ ] Astro Map tab: scenario and concept in `docs/design/astro-window.md` § Wave 52 (what a reader scouting a site needs on the map; which overlays are panels over the canvas and how they sit without nesting a card radius); resolve the overlay-radius and attribution P1s (a `UPSTREAM.md` row if basalt, otherwise a documented layout that clears `shot detect`).
-- [ ] Body-composition: concept in `docs/design/body-composition.md` § Wave 52 — the headline states value, rate and distance to goal; the 390 strip decision (stack or fix the Rate meter); stale and no-goal states; shoot the goal/skinfold/history states with a documented seed or mock overlay.
-- [ ] At least two rounds, each with TWO fresh `basalt-design-reviewer`s; pass = both find no P0/P1 and every component passes. Shoot only after the served bundle carries the change.
-**Left behind:**
+- [x] Astro Map tab: scenario and concept in `docs/design/astro-window.md` § Wave 52 (what a reader scouting a site needs on the map; which overlays are panels over the canvas and how they sit without nesting a card radius); resolve the overlay-radius and attribution P1s (a `UPSTREAM.md` row if basalt, otherwise a documented layout that clears `shot detect`).
+- [x] Body-composition: concept in `docs/design/body-composition.md` § Wave 52 — the headline states value, rate and distance to goal; the 390 strip decision (stack or fix the Rate meter); stale and no-goal states; shoot the goal/skinfold/history states with a documented seed or mock overlay.
+- [x] At least two rounds, each with TWO fresh `basalt-design-reviewer`s; pass = both find no P0/P1 and every component passes. Shoot only after the served bundle carries the change.
+      **Left behind:**
 
+**Closed out (orchestrated): Wave 52 is `done`; no Wave 53 is authored.**
+
+- **Concepts first:** `docs/design/astro-window.md` § "Wave 52 — Map tab concept" (every argo key moves off the canvas into a key rail above it, no floating `Paper`) and `docs/design/body-composition.md` § "Wave 52 — concept" (headline states value, rate, goal distance; stale in warn ink plus the word; the 390 Rate cell cut to fit, since basalt's strip never drops below two columns; a no-goal low–high meter). Each doc carries its Round 1 and Round 2 fixes and the § "Wave 52 rounds" table.
+- **Commits (direct to master, each deploy green and the served chunk grepped before shooting):** `8df0b1d6` concepts, `e5cfa4fc` map key rail, `87b641a3` body headline/strip, `603dd251` fixture proxy, `0837084b` + `11cd2f8b` round-1 fixes, `1de613c1` + `9d211dd0` round-2 fixes. `make check` green (1699 dashboard + 609 API tests). `/review` on each change set: clean after fixes. The `11cd2f8b` dashboard deploy stalled after the image build and timed out; a re-run of the failed job went green.
+- **Final round (r3), two fresh reviewers each:** **body-composition pass 92 / pass 89**, meeting the bar (r1 47 / 45, r2 60 / 79). **Astro Map tab fail 23 / fail 29** (r1 27 / 14, r2 21 / 43).
+- **Map tab, what is left (no argo craft fix remains without a decision):** (1) **owner decision:** radar (RainViewer Universal Blue, the only scheme left), lightning and the light-pollution atlas share yellow → red and blue on one canvas; choose one-question-at-a-time (a weather layer lowers or hides the atlas) or an off-palette radar. (2) MapLibre's 12 px attribution, third-party, `UPSTREAM.md` § Wave 51, not worked around as instructed. (3) basalt has no catalogue form for a map raster, `UPSTREAM.md` § Wave 52. The upstream items decided nothing in the concept: the nested-radius P1 on argo surfaces is gone.
+- **Also fixed on the way:** radar sources cap at z7 (RainViewer's free-tier limit since 2026-01-01; it drew "Zoom Level Not Supported" tiles above it); `MAP_FULL_BLEED_HEIGHT` now subtracts the page-bar band, main padding and the safe-area inset (the 390 card ran under the tab bar). New `UPSTREAM.md` § Wave 52 rows: full-bleed content height, `RefLine` legend glyph, `danger` row action, map catalogue form. DESIGN.md gains the EUMETSAT legend plate deviation.
+- **New tool:** `scripts/design-shot/fixture-proxy.ts` (AGENTS.md § Verify): synthetic goal / skinfold data for `basalt-ui shot --dist`, every other GET forwarded to production; the shots still carry real weights.
+- **Not verified:** loading / error states (undeclared on both pages); the failed-tiles message; the forecast-model layer keys; body headline forms at-goal / no-rate / fresh weigh-in; two skinfold sessions under 3 d apart. Shots `apps/dashboard/.design-shots/w52-*` (gitignored, never committed). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 # Part 1, continued
 

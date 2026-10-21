@@ -372,3 +372,20 @@ scrolls past the cap" and the 390 note's "the card does not grow past the viewpo
 3. The light-pollution key gets the title `Light pollution`, so every key in the rail opens with a title.
 4. The scrubber states its span under the slider in dimmed mono, `{first}–{last}`, so the slider's ends are named.
 5. `UPSTREAM.md` § Wave 52 records that basalt's chart catalogue has no form for a geographic raster on a map canvas.
+
+## Wave 52 rounds (2026-10-21, live production bundle; two fresh `basalt-design-reviewer`s per round)
+
+Shots `w52-r{1,2,3}-map` (gitignored): the default Map tab and the Map tab with radar + lightning on, 1440 / 390, both schemes.
+
+| Round | Live       | Reviewer A  | Reviewer B  | Argo P1s fixed after it                                                                                                    |
+| ----- | ---------- | ----------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| r1    | `603dd251` | fail 27     | fail 14     | radar placeholder tiles above z7; lightning raster clipped; capped rail hid keys at 390; card ran under the tab bar at 390 |
+| r2    | `11cd2f8b` | fail 21     | fail 43     | no plate behind the lightning raster in dark (the server ignores `bgColor`/`transparent`); no radar key                    |
+| r3    | `1de613c1` | **fail 23** | **fail 29** | none left that argo can fix without an owner decision                                                                      |
+
+**Result: fails the bar.** Concept pass criteria 1–4 hold (no argo surface nests in the card; every key is titled and names its unit; the rail is fully visible at 390; no empty rail). What both final reviewers still fail it on:
+
+- **Owner decision (argo P1, both reviewers):** with radar, lightning and the light-pollution atlas on together, three third-party ramps share one canvas: RainViewer's Universal Blue (the only scheme left since 2026-01-01) reuses the atlas's "dark sky" blue, and its yellow → dark red heavy end overlaps both the lightning ramp and the atlas's warm half. Colour alone cannot separate them. The fix is a product choice, not a style one: either the map answers one question at a time (a weather layer lowers or hides the atlas), or radar is drawn off-palette (desaturated, at the cost of its provider ramp). Not taken without the owner.
+- **Third-party (P1 by rubric):** MapLibre's compact attribution control is 12 px (`craft-1/off-scale-radius`, `nested-radius-step`), at 390 on the default route and at every width once weather sources lengthen the credits. `UPSTREAM.md` § Wave 51 row 2; not restyled locally.
+- **Basalt (P1 by rubric):** the catalogue has no form for a geographic raster on a map canvas (Expression 1). `UPSTREAM.md` § Wave 52.
+- **Open P2/P3 (argo):** at 390 with three keys the rail takes most of the card; at 1440 the radar key wraps alone onto a second row; the white plate is the brightest block in dark; the clock has no time zone; the aside footer narrates the URL state. Third-party P2: the EUMETSAT raster's `Count / 5 minutes` runs into its `1` tick.

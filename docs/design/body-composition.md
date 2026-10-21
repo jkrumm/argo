@@ -331,3 +331,20 @@ Two reviewers failed round 1. Fixed in the dashboard (argo defects only):
   is needed. Two sessions under 3 d apart keep the footer `Sessions under 3 d apart — a wider gap sets the rate`.
 - Kept by decision: the headline repeats the strip's weight and rate (pass criterion 1 asks for both in the headline; the strip
   carries their scales).
+
+## Wave 52 rounds (2026-10-21, live production bundle; two fresh `basalt-design-reviewer`s per round)
+
+Shots `w52-r{1,2,3}-body` (production data) and `w52-r{1,2,3}-body-{all,skinfold-one}` (synthetic goal and skinfold fixtures through
+`scripts/design-shot/fixture-proxy.ts` over a local dist of the same commit; weights still real), all gitignored.
+
+| Round | Live       | Reviewer A  | Reviewer B  | Argo P1s fixed after it                                                                                 |
+| ----- | ---------- | ----------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| r1    | `603dd251` | fail 47     | fail 45     | low/high caption at the fill end; bare `0 kg` on the goal meter; one-session footer claimed a direction |
+| r2    | `11cd2f8b` | fail 60     | fail 79     | one session stated twice in two wordings; red delete icon on every row                                  |
+| r3    | `9d211dd0` | **pass 92** | **pass 89** | —                                                                                                       |
+
+**Result: passes the bar** (both reviewers, no P0/P1, every component passes). Pass criteria 1–5 hold. Open, P2/P3: the sparkline focus
+readout shows the latest value while the ring sits on the first point (basalt); the goal figure prints three times with a goal set,
+and the headline repeats the strip's weight and rate (kept by decision); `abdominal` in the empty-row copy vs `Abdomen` in the table;
+`Average` vs `session average`; basalt carried rows (end labels over the line, off-step top tick at 390, goal legend glyph, hover = rest).
+Not verified: the at-goal and no-rate headlines, two sessions under 3 d apart, a fresh (non-stale) weigh-in, loading / error states.
