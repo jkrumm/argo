@@ -671,3 +671,11 @@ Full read (13 sheets, `w45-strength`): pass 68, no new basalt row. Carried, stil
 | Floating `Paper` over a `Card variant="flush"` | the overlay `Paper` and the flush `Card` share the 10 px card radius, so `shot detect` fails `craft-1/nested-radius-step` (P1); the strict surface system leaves no radius step for a panel floating over a card-sized canvas | astro Map tab scrubber and legends | as rendered |
 | MapLibre compact attribution | the third-party control is 12 px (`craft-1/off-scale-radius` and a nested step, 390 only); no basalt hook styles a map control | astro Map tab | as rendered |
 | `Lines` end labels | `Weight` / `7 d mean` end labels sit on the last segment with no collision avoidance (carried from cloud layers) | body weight chart, astro cloud layers | as rendered |
+
+## Wave 52
+
+| Pattern | Friction | Pages | Note |
+|-|-|-|-|
+| Full-bleed content height | basalt publishes no "content box height" for a page that wants to fill the scrollport; argo computes it from the shell vars (`--app-shell-header-offset`, `--app-shell-footer-offset`, the safe-area inset, `--basalt-page-bar-h`, `--basalt-main-pad-block`) and adds 1 px for the band's `border-bottom`, which `--basalt-page-bar-h` does not count | astro Map tab | a `--basalt-main-content-h` (or a `fill` prop on the main region) would retire `MAP_FULL_BLEED_HEIGHT` |
+| `RefLine` legend glyph | a goal reference line's legend swatch is the same solid stroke as the series it sits beside; only stroke weight separates them | body weight chart (goal state) | carried; argo keeps the neutral ink, the label names it |
+| `BasaltDataTable` danger row action | `danger: true` paints every row's delete icon red at rest, a status hue on chrome repeated per row | skinfold history | red only on hover/focus would keep the warning without the repetition |

@@ -9,7 +9,6 @@ import { Sparkline } from 'basalt-ui/charts'
 import { format } from 'date-fns'
 import { NBSP, withUnit } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
-import { skinfoldDirectionLabel } from '../formulas'
 import {
   deltaFromMean,
   fixed,
@@ -20,6 +19,7 @@ import {
   rateFooter,
   RATE_SCALE_KG_WK,
   signed,
+  skinfoldRateFooter,
   weightDeltaPolarity,
   type SiteRow,
   withKg,
@@ -118,7 +118,13 @@ export function weightCell({
             max={progress.span}
             target={progress.span}
             format={(v) => withKg(v)}
-            startCaption={`start ${withKg(startWeight)}${startDate === null ? '' : ` \u00b7 ${dateLabel(startDate)}`}`}
+            startCaption={null}
+            ticks={[
+              {
+                at: 0,
+                caption: `start ${withKg(startWeight)}${startDate === null ? '' : ` \u00b7 ${dateLabel(startDate)}`}`,
+              },
+            ]}
             endCaption={`${withKg(goal)} goal`}
             tone="muted"
           />
@@ -134,6 +140,7 @@ export function weightCell({
             min={range.min}
             max={range.max}
             format={(v) => withKg(v)}
+            readingAt="start"
             startCaption={`low ${withKg(range.min)}`}
             endCaption={`high ${withKg(range.max)}`}
             tone="muted"
@@ -221,10 +228,15 @@ export function skinfoldCell({
   return {
     key: 'skinfold',
     caption: 'Skinfold',
+    // The page drops this cell when it is emptied (no sessions to read), so its anchor says so.
+    shotAbsent: ['empty'],
     ...(latest !== undefined && { qualifier: `latest session ${latest}` }),
     value: summary.current === null ? null : fixed(summary.current),
     unit: 'mm session average',
-    footer: `${skinfoldDirectionLabel(summary.direction)} · ${signed(summary.mmPerWeek, 2)} mm/wk over 28 d`,
+    footer: skinfoldRateFooter({
+      ...summary,
+      sessions: Math.max(0, ...rows.map((row) => row.values.length)),
+    }),
     rows: rows.map((row) => ({
       key: row.site,
       label: row.label,
@@ -237,6 +249,7 @@ export function skinfoldCell({
             height={24}
             color={SITE_COLORS[row.site]}
             emphasizeLast
+            format={(v) => `${v.toFixed(1)} mm`}
           />
         ),
       }),

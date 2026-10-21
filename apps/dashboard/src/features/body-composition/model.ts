@@ -6,6 +6,7 @@ import { NBSP, withUnit } from '../../lib/format'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
+import { skinfoldDirectionLabel, type SkinfoldDirection } from './formulas'
 import type { WeightSummary, WeightWindowStats } from './types'
 
 /** The API's trailing-rate lookback. */
@@ -131,8 +132,8 @@ const RATE_NEEDS_TWO_WEIGH_INS = `A rate needs two weigh-ins at least ${withUnit
 /** The one wording for a window with no weigh-ins: what is missing and the next step. */
 export const NO_WEIGHT_ENTRIES = 'No entries in this window — log a weight to start the trend.'
 
-/** The cause alone, for strip cells that sit under a headline already carrying the next step. */
-export const NO_WEIGHT_ENTRIES_SHORT = 'No entries in this window'
+/** The cause and the next step in few words, for strip cells and the chart's empty state. */
+export const NO_WEIGHT_ENTRIES_SHORT = 'No entries in this window — log a weight'
 
 /** Exactly what `GET /weight-log/summary` answers for a window with no entries. */
 export const NO_WEIGHT_SUMMARY: WeightSummary = {
@@ -232,24 +233,68 @@ const entriesFact = (entries: number, span: number | null): string =>
   `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'} ${span === null ? 'over all time' : `in ${withUnit(span, 'd')}`}`
 
 /**
- * The weight chart header's fact, one the strip does not show: the net change across the window's
- * entries, naming the window and both ends of its span; a single entry shows that weight and its day. `null` with no entries.
+ * A chart header's fact, one the strip does not show: the net change across the window's entries,
+ * naming the window and both ends of its span; a single entry shows its value and day. `null` with
+ * no entries. `noun` names the entry in the single-entry period.
  */
-export function weightHeaderFact(
-  points: readonly { date: string; weightKg: number }[],
-  { now = new Date(), window }: { now?: Date; window: string },
+function netChangeFact(
+  points: readonly { date: string; value: number }[],
+  { now = new Date(), window, noun }: { now?: Date; window: string; noun: string },
 ): { value: string; period: string } | null {
   const sorted = points.toSorted(compareByDate)
   const first = sorted[0]
   const last = sorted.at(-1)
   if (first === undefined || last === undefined) return null
   if (first === last) {
-    return { value: fixed(first.weightKg), period: `single entry on ${shortDay(first.date, now)}` }
+    return { value: fixed(first.value), period: `single ${noun} on ${shortDay(first.date, now)}` }
   }
   return {
-    value: signed(last.weightKg - first.weightKg, 1),
+    value: signed(last.value - first.value, 1),
     period: `net change over ${window}, ${shortDay(first.date, now)} to ${shortDay(last.date, now)}`,
   }
+}
+
+/** The weight chart header's fact: net change in kg across the window's weigh-ins. */
+export function weightHeaderFact(
+  points: readonly { date: string; weightKg: number }[],
+  options: { now?: Date; window: string },
+): { value: string; period: string } | null {
+  return netChangeFact(
+    points.map((p) => ({ date: p.date, value: p.weightKg })),
+    { ...options, noun: 'entry' },
+  )
+}
+
+/** The skinfold chart header's fact: net change in mm of the session average across the window. */
+export function skinfoldHeaderFact(
+  points: readonly { date: string; average: number }[],
+  options: { now?: Date; window: string },
+): { value: string; period: string } | null {
+  return netChangeFact(
+    points.map((p) => ({ date: p.date, value: p.average })),
+    { ...options, noun: 'session' },
+  )
+}
+
+/**
+ * The SKINFOLD cell footer: the direction and its mm/wk rate over the API's lookback, or what a
+ * rate needs when there is none (a single session has no direction to name).
+ */
+export function skinfoldRateFooter({
+  direction,
+  mmPerWeek,
+  sessions,
+}: {
+  direction: SkinfoldDirection
+  mmPerWeek: number | null
+  /** Sessions in the window; with two or more, a missing rate means they sit too close together. */
+  sessions: number
+}): string {
+  if (mmPerWeek === null)
+    return sessions < 2
+      ? 'One session — a second sets the rate'
+      : `Sessions under ${withUnit(3, 'd')} apart — a wider gap sets the rate`
+  return `${skinfoldDirectionLabel(direction)} \u00b7 ${signed(mmPerWeek, 2)} mm/wk over ${withUnit(RATE_LOOKBACK_DAYS, 'd')}`
 }
 
 /** The API's trailing rate looks back 28 d but only sees rows in the selected window. */

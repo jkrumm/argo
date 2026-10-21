@@ -16,7 +16,10 @@ describe('weight cell with no entries', () => {
       startDate: null,
       latestDate: null,
     })
-    expect(cell.state).toEqual({ kind: 'empty', reason: 'No entries in this window' })
+    expect(cell.state).toEqual({
+      kind: 'empty',
+      reason: 'No entries in this window \u2014 log a weight',
+    })
     const entries = weightFooterEntries(input(null))
     expect(entries).toHaveLength(1)
     const [entry] = entries

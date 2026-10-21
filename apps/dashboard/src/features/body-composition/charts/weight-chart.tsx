@@ -109,7 +109,7 @@ export default function WeightChart({
                 value: goal,
                 color: VX.muted,
                 dashed: false,
-                legend: { label: `goal ${goal.toFixed(1)}` },
+                legend: { label: `goal ${withKg(goal)}` },
               },
             ],
           })}

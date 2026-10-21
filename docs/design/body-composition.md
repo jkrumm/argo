@@ -307,3 +307,18 @@ wording, the two-line pace footer.
 3. At 390 no Rate-cell caption touches another; the qualifier is one line.
 4. The no-goal Weight cell carries a meter; the goal state carries the start-to-goal meter and the chart goal line.
 5. The goal, skinfold and history states are shot and reviewed, not assumed.
+
+### Round 1 fixes
+
+Two reviewers failed round 1. Fixed in the dashboard (argo defects only):
+
+1. No-goal Weight meter: `low {min} kg` sits at the track start (`readingAt="start"`), `high {max} kg` at the end.
+2. Goal Weight meter: the bare `0.0 kg` start figure is dropped (`startCaption={null}`); the ends are named under the track,
+   `start {kg} · {d MMM}` at the start and `{goal} kg goal` at the target.
+3. Skinfold cell with one session: the footer reads `One session — a second sets the rate`, no direction word, never `— mm/wk`.
+4. Skinfold chart header states the window's net change of the session average (`{±d} mm`, `net change over {window}, {from} to
+   {to}`), like the weight chart, so the strip's session average and its delta are not printed twice.
+5. Skinfold history table carries a title, `Caliper readings` (its rows are readings, and the automatic count tag counts rows).
+6. The skinfold cell's sparkline readout carries the unit (`{v} mm`).
+7. The empty-state short reason names the next step: `No entries in this window — log a weight` (strip cells and weight chart).
+8. The weight chart's goal legend label carries the unit: `goal {goal} kg`.

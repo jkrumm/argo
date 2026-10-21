@@ -64,6 +64,7 @@ export function SkinfoldHistoryTable() {
   return (
     <Stack gap="xs" data-shot="skinfold-history" data-shot-absent="empty">
       <BasaltDataTable
+        title="Caliper readings"
         data={readings}
         columns={columns}
         rowActions={[

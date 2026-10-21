@@ -1,13 +1,11 @@
 import { useMemo } from 'react'
 import { Box } from '@mantine/core'
-import { DeltaBadge } from 'basalt-ui'
-import { format } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../../lib/series'
 import { skinfoldLogQueries, type SkinfoldWindowParams } from '../../../lib/queries/skinfold-log'
-import { windowLabel } from '../model'
+import { skinfoldHeaderFact, windowLabel } from '../model'
 import { METRIC_TOOLTIPS, SKINFOLD_SITES } from '../constants'
 import {
   axisDateFormat,
@@ -43,9 +41,11 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   const query = useQuery(skinfoldLogQueries.series(params))
   const apiPoints = query.data?.points
   const chartData = useMemo(() => toSkinfoldChartPoints(apiPoints ?? []), [apiPoints])
-  const latest = chartData[chartData.length - 1] ?? null
-  const prior = chartData[chartData.length - 2] ?? null
-  const priorDelta = latest !== null && prior !== null ? latest.average - prior.average : null
+  const label = windowLabel(params)
+  const headerFact = useMemo(
+    () => skinfoldHeaderFact(apiPoints ?? [], { window: label }),
+    [apiPoints, label],
+  )
   const dotR = markerRadiusFor(chartData.length)
 
   const series: ChartSeries<SkinfoldChartPoint>[] = [
@@ -73,25 +73,10 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   return (
     <Box data-shot="skinfold-chart" data-shot-absent="empty">
       <ChartCard
-        title={`Skinfold, ${windowLabel(params)}`}
+        title={`Skinfold, ${label}`}
         info={METRIC_TOOLTIPS.skinfoldChart}
-        {...(latest && {
-          facts: {
-            value: latest.average.toFixed(1),
-            unit: 'mm',
-            period: 'session average',
-            ...(priorDelta !== null &&
-              prior !== null && {
-                comparison: (
-                  <DeltaBadge
-                    value={priorDelta}
-                    polarity="up-bad"
-                    format={(v) => `${Math.abs(v).toFixed(1)} mm`}
-                    period={format(prior.date, 'd MMM')}
-                  />
-                ),
-              }),
-          },
+        {...(headerFact !== null && {
+          facts: { value: headerFact.value, unit: 'mm', period: headerFact.period },
           subtitle: `${chartData.length} sessions`,
         })}
         state={{ pending: query.isPending, error: query.isError ? query.error : undefined }}

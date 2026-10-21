@@ -22,6 +22,8 @@ import {
   summaryParts,
   weightDeltaPolarity,
   weightWindowStats,
+  skinfoldHeaderFact,
+  skinfoldRateFooter,
   weightHeaderFact,
   weightRange,
   shortDay,
@@ -227,6 +229,47 @@ describe('weightHeaderFact', () => {
   })
   test('no entries has no fact', () => {
     expect(weightHeaderFact([], { now, window: '90\u00a0d' })).toBeNull()
+  })
+})
+
+describe('skinfoldHeaderFact', () => {
+  const now = new Date(2026, 5, 20)
+  test('net change of the session average, naming the window and the dates', () => {
+    expect(
+      skinfoldHeaderFact(
+        [
+          { date: '2026-06-10', average: 14.5 },
+          { date: '2026-06-01', average: 15 },
+        ],
+        { now, window: '90\u00a0d' },
+      ),
+    ).toEqual({ value: '\u22120.5', period: 'net change over 90\u00a0d, 1 Jun to 10 Jun' })
+  })
+  test('a single session shows its average and its day', () => {
+    expect(
+      skinfoldHeaderFact([{ date: '2026-06-01', average: 15 }], { now, window: '90\u00a0d' }),
+    ).toEqual({ value: '15.0', period: 'single session on 1 Jun' })
+  })
+  test('no sessions has no fact', () => {
+    expect(skinfoldHeaderFact([], { now, window: '90\u00a0d' })).toBeNull()
+  })
+})
+
+describe('skinfoldRateFooter', () => {
+  test('names the direction and the rate over the lookback', () => {
+    expect(skinfoldRateFooter({ direction: 'reducing', mmPerWeek: -0.25, sessions: 5 })).toBe(
+      'Reducing \u00b7 \u22120.25 mm/wk over 28\u00a0d',
+    )
+  })
+  test('a single session has no rate and no direction word', () => {
+    expect(skinfoldRateFooter({ direction: 'stable', mmPerWeek: null, sessions: 1 })).toBe(
+      'One session \u2014 a second sets the rate',
+    )
+  })
+  test('two sessions too close together say so, not "one session"', () => {
+    expect(skinfoldRateFooter({ direction: 'stable', mmPerWeek: null, sessions: 2 })).toBe(
+      'Sessions under 3\u00a0d apart \u2014 a wider gap sets the rate',
+    )
   })
 })
 
@@ -461,9 +504,9 @@ describe('one fixture, two live-review items', () => {
 })
 
 describe('no-entries wording', () => {
-  test('headline carries cause and next step; strip and chart carry the cause only', () => {
+  test('headline carries cause and next step; strip and chart say it in few words', () => {
     expect(NO_WEIGHT_ENTRIES).toBe('No entries in this window — log a weight to start the trend.')
-    expect(NO_WEIGHT_ENTRIES_SHORT).toBe('No entries in this window')
+    expect(NO_WEIGHT_ENTRIES_SHORT).toBe('No entries in this window — log a weight')
   })
 
   test('rate qualifier names the slope window only', () => {
