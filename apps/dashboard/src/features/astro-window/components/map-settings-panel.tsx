@@ -39,6 +39,7 @@ import {
   type LpResampling,
   type MapLayerState,
   type TerrainSelection,
+  type WeatherLayer,
   type WeatherLayerId,
 } from '../map-layers'
 
@@ -50,6 +51,12 @@ import {
  * region owns the docked-column-vs-overlay chrome (desktop column, phone `Panel` pill) that this
  * module used to hand-roll as `MapSettingsPanel`; every control below still repaints the map
  * live, so configuring never happens with the map covered.
+ *
+ * The map answers one question at a time: the light-pollution atlas OR exactly one weather layer,
+ * never both. The atlas years and the weather layers are one choice seen from three lists, so a
+ * year radio clears the weather layer and a weather radio replaces it (`Off` in a weather section
+ * clears it only if the active layer is that section's). The atlas year, opacity, smoothing and
+ * range stay in the URL while a weather layer hides it, so leaving weather restores them.
  *
  * The base map and the pollution ramp are independent controls — a raster base (Satellite,
  * Topographic) and the ramp can be on together. Readability across that combination is the
@@ -78,6 +85,9 @@ const DEFAULT_OPEN_SECTIONS = ['base', 'lp']
  */
 const OBSERVATION_WEATHER_LAYERS = WEATHER_LAYERS.filter((entry) => entry.source !== 'om-model')
 const MODEL_WEATHER_LAYERS = WEATHER_LAYERS.filter((entry) => entry.source === 'om-model')
+
+/** The `Off` radio's value in a weather section — not a `WeatherLayerId`, so it can never collide. */
+const WEATHER_OFF = 'off'
 
 /**
  * The section stack itself — every layer control, mounted verbatim inside `site-map.tsx`'s
@@ -108,7 +118,9 @@ export function MapLayerSections({
     // `:<percent>[:<smooth|sharp>[:<min>-<max>]]` suffixes `parseLpParam` also understands — so
     // only the decoded year matters here.
     const { year: lpYear } = parseLpParam(next)
-    onChange({ ...state, lpYear })
+    // The year radio and the weather radios are one choice (the map answers one question at a
+    // time): picking a year leaves weather, `Off` leaves it as it was.
+    onChange({ ...state, lpYear, weather: lpYear === null ? state.weather : [] })
   }
 
   const handleLpOpacity = (opacity: number) => {
@@ -123,13 +135,18 @@ export function MapLayerSections({
     onChange({ ...state, lpRange: range })
   }
 
-  const handleWeatherToggle = (id: WeatherLayerId, active: boolean) => {
-    const entry = weatherLayer(id)
+  // Weather is single-select: picking a layer REPLACES whatever weather layer was on.
+  const handleWeatherPick = (next: string, section: readonly WeatherLayer[]) => {
+    if (next === WEATHER_OFF) {
+      // `Off` in a section clears weather only if the active layer belongs to that section.
+      if (state.weather.some((selection) => section.some((entry) => entry.id === selection.id))) {
+        onChange({ ...state, weather: [] })
+      }
+      return
+    }
+    const entry = section.find((candidate) => candidate.id === next)
     if (entry === undefined) return
-    const weather = active
-      ? [...state.weather, { id, opacity: entry.defaultOpacity }]
-      : state.weather.filter((selection) => selection.id !== id)
-    onChange({ ...state, weather })
+    onChange({ ...state, weather: [{ id: entry.id, opacity: entry.defaultOpacity }] })
   }
 
   const handleOpacity = (id: WeatherLayerId, opacity: number) => {
@@ -158,6 +175,10 @@ export function MapLayerSections({
     // hand-edited URL or a stray value must not smuggle an unknown domain id into a tile request.
     if (isOmDomainId(next)) onChange({ ...state, omDomain: next })
   }
+
+  const activeWeather = state.weather[0]
+  const activeWeatherLayer =
+    activeWeather === undefined ? undefined : weatherLayer(activeWeather.id)
 
   return (
     <Stack gap="sm">
@@ -204,12 +225,18 @@ export function MapLayerSections({
                   // Always encoded at the default opacity/resampling/range: the radio's own
                   // values are bare years (or `off`), never the
                   // `:<percent>[:<smooth|sharp>[:<min>-<max>]]` suffixes — see `handleLp`.
-                  value={formatLpParam({
-                    year: state.lpYear,
-                    opacity: LP_OPACITY_DEFAULT,
-                    resampling: LP_RESAMPLING_DEFAULT,
-                    range: LP_RANGE_FULL,
-                  })}
+                  // While a weather layer hides the atlas no year reads as selected, so picking
+                  // the stored year again is a change that brings the atlas back.
+                  value={
+                    state.lpYear !== null && activeWeatherLayer !== undefined
+                      ? null
+                      : formatLpParam({
+                          year: state.lpYear,
+                          opacity: LP_OPACITY_DEFAULT,
+                          resampling: LP_RESAMPLING_DEFAULT,
+                          range: LP_RANGE_FULL,
+                        })
+                  }
                   onChange={handleLp}
                   label={<VisuallyHidden>Light pollution</VisuallyHidden>}
                 >
@@ -225,6 +252,12 @@ export function MapLayerSections({
                     <Radio value={LP_PARAM_OFF} label="Off" description="Basemap only." />
                   </Stack>
                 </Radio.Group>
+                {state.lpYear !== null && activeWeatherLayer !== undefined && (
+                  <Text size="xs" c="dimmed">
+                    Hidden while {activeWeatherLayer.textKey?.title ?? activeWeatherLayer.label} is
+                    on.
+                  </Text>
+                )}
                 {state.lpYear !== null && (
                   <>
                     <OpacitySlider
@@ -336,30 +369,14 @@ export function MapLayerSections({
               <Text size="xs" c="dimmed">
                 Live overlays on free third-party servers; leave on only what you read.
               </Text>
-              <Stack gap="sm">
-                {OBSERVATION_WEATHER_LAYERS.map((entry) => {
-                  const selection = state.weather.find((active) => active.id === entry.id)
-                  return (
-                    <Stack key={entry.id} gap={4}>
-                      <Checkbox
-                        checked={selection !== undefined}
-                        onChange={(event) =>
-                          handleWeatherToggle(entry.id, event.currentTarget.checked)
-                        }
-                        label={entry.label}
-                        description={entry.description}
-                      />
-                      {selection !== undefined && (
-                        <OpacitySlider
-                          label={entry.label}
-                          value={selection.opacity}
-                          onCommit={(opacity) => handleOpacity(entry.id, opacity)}
-                        />
-                      )}
-                    </Stack>
-                  )
-                })}
-              </Stack>
+              <WeatherChoice
+                label="Weather now"
+                layers={OBSERVATION_WEATHER_LAYERS}
+                state={state}
+                onPick={handleWeatherPick}
+                onOpacity={handleOpacity}
+                offDescription="The light-pollution atlas shows."
+              />
             </Stack>
           </Accordion.Panel>
         </Accordion.Item>
@@ -388,30 +405,14 @@ export function MapLayerSections({
                   ))}
                 </Stack>
               </Radio.Group>
-              <Stack gap="sm">
-                {MODEL_WEATHER_LAYERS.map((entry) => {
-                  const selection = state.weather.find((active) => active.id === entry.id)
-                  return (
-                    <Stack key={entry.id} gap={4}>
-                      <Checkbox
-                        checked={selection !== undefined}
-                        onChange={(event) =>
-                          handleWeatherToggle(entry.id, event.currentTarget.checked)
-                        }
-                        label={entry.label}
-                        description={entry.description}
-                      />
-                      {selection !== undefined && (
-                        <OpacitySlider
-                          label={entry.label}
-                          value={selection.opacity}
-                          onCommit={(opacity) => handleOpacity(entry.id, opacity)}
-                        />
-                      )}
-                    </Stack>
-                  )
-                })}
-              </Stack>
+              <WeatherChoice
+                label="Forecast layer"
+                layers={MODEL_WEATHER_LAYERS}
+                state={state}
+                onPick={handleWeatherPick}
+                onOpacity={handleOpacity}
+                offDescription="No forecast layer; the light-pollution atlas shows."
+              />
             </Stack>
           </Accordion.Panel>
         </Accordion.Item>
@@ -422,6 +423,55 @@ export function MapLayerSections({
         The pollution ramp defaults to {DEFAULT_LP_YEAR}, the latest published atlas.
       </Text>
     </Stack>
+  )
+}
+
+/**
+ * One weather section as a single-select: an `Off` radio first, then one radio per layer, the
+ * selected layer's opacity slider right under it. The group's value is the active weather layer's
+ * id if it belongs to THIS section, else `Off` — so the other section's radio reads Off while a
+ * layer from this one is on, the same single choice seen from two lists.
+ */
+function WeatherChoice({
+  label,
+  layers,
+  state,
+  onPick,
+  onOpacity,
+  offDescription,
+}: {
+  label: string
+  layers: readonly WeatherLayer[]
+  state: MapLayerState
+  onPick: (next: string, section: readonly WeatherLayer[]) => void
+  onOpacity: (id: WeatherLayerId, opacity: number) => void
+  offDescription: string
+}) {
+  const active = state.weather.find((selection) =>
+    layers.some((entry) => entry.id === selection.id),
+  )
+  return (
+    <Radio.Group
+      value={active?.id ?? WEATHER_OFF}
+      onChange={(next) => onPick(next, layers)}
+      label={<VisuallyHidden>{label}</VisuallyHidden>}
+    >
+      <Stack gap="sm">
+        <Radio value={WEATHER_OFF} label="Off" description={offDescription} />
+        {layers.map((entry) => (
+          <Stack key={entry.id} gap={4}>
+            <Radio value={entry.id} label={entry.label} description={entry.description} />
+            {active?.id === entry.id && (
+              <OpacitySlider
+                label={entry.label}
+                value={active.opacity}
+                onCommit={(opacity) => onOpacity(entry.id, opacity)}
+              />
+            )}
+          </Stack>
+        ))}
+      </Stack>
+    </Radio.Group>
   )
 }
 

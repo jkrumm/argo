@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActionIcon,
   Box,
+  Button,
   Card,
   Divider,
   Flex,
   Group,
   Image,
+  Loader,
   Slider,
   Stack,
   Text,
@@ -39,6 +41,7 @@ import { rainviewerQueries } from '../../../lib/queries/rainviewer'
 import { openMeteoMapsQueries } from '../../../lib/queries/open-meteo-maps'
 import { apiBase } from '../../../lib/api-base'
 import { getToken } from '../../../lib/auth'
+import { mapShotState } from '../../../lib/shot-state'
 import { useNow } from '../../../lib/use-now'
 import { MAP_MIN_HEIGHT } from '../constants'
 import {
@@ -56,6 +59,7 @@ import {
   MODEL_FRAME_MS,
   nearestTimeIndex,
   nextTickMs,
+  paintedAtlasYear,
   RADAR_FRAME_MS,
   RADAR_REFRESH_MS,
   remapLpRampStops,
@@ -425,9 +429,13 @@ export default function SiteMap({
     [omModelActive, omValidTimes, currentTick],
   )
 
+  // The one place the answer-field rule meets the map: while a weather layer is on the atlas is
+  // not painted (`paintedAtlasYear`), so `map-overlays.ts` never sees a year to mount. The URL
+  // state (`layers`) keeps the atlas settings, so leaving weather restores them.
   const overlayState = useMemo<OverlayState>(
     () => ({
       ...layers,
+      lpYear: paintedAtlasYear(layers),
       radarFrames,
       nowMs,
       gibsTime: gibsTimeValue,
@@ -458,12 +466,18 @@ export default function SiteMap({
   // index became a DERIVED value (`nearestRadarFrame`) rather than independently-cycled state.
   const radarFrameRef = useRef(nearestRadarFrame ?? 0)
   radarFrameRef.current = nearestRadarFrame ?? 0
-  const [failed, setFailed] = useState(false)
+  // `shot-map=error` starts failed and never creates the map; `shot-map=loading` never creates it
+  // either, so `styleLoaded` stays false and the pending note stays up.
+  const forcedState = mapShotState()
+  const [failed, setFailed] = useState(forcedState === 'error')
+  // Whether the first style has loaded: until then the canvas shows a pending note and the rail
+  // keys nothing (there is no canvas for a key to explain).
+  const [styleLoaded, setStyleLoaded] = useState(false)
 
   // Create/destroy exactly once. React 19 StrictMode double-invokes effects, so the create and
   // the teardown must live in the SAME effect with an empty dep array — never split across two.
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current || forcedState !== null) return
     const map = new MapLibreMap({
       container: containerRef.current,
       style: initialStyleRef.current,
@@ -494,6 +508,7 @@ export default function SiteMap({
     // effect below for why that event is guaranteed to fire on a swap.
     map.on('style.load', () => {
       hasStyleLoadedRef.current = true
+      setStyleLoaded(true)
       installOverlays(map, overlayStateRef.current)
       paintOverlayState(map, overlayStateRef.current, radarFrameRef.current)
       // AFTER installOverlays: `syncTerrain` reads the DEM source `installOverlays` just added,
@@ -520,10 +535,11 @@ export default function SiteMap({
       // first map down and builds a second one on the same refs, so a latch left set would skip
       // the real map's `fitBounds` and force a redundant full style reload on it.
       hasStyleLoadedRef.current = false
+      setStyleLoaded(false)
       hasFitRef.current = false
       isFirstStyleRef.current = true
     }
-  }, [])
+  }, [forcedState])
 
   // Click-anywhere scouting. Registered in its own effect (same empty-deps timing as the create
   // effect above — `mapRef.current` is already set by the time this one runs, same commit, same
@@ -741,10 +757,21 @@ export default function SiteMap({
   const compareSite = data.data.find((site) => site.id === siteId)
   const weatherLegends = legendableWeatherLayers(layers.weather)
   const textKeys = textKeyedWeatherLayers(layers.weather)
-  // A failed map shows no keys: there is no canvas for them to explain.
+  const paintedYear = paintedAtlasYear(layers)
+  // The weather layer that is hiding a chosen atlas, if any — the rail says so in words.
+  const activeWeather =
+    layers.weather[0] === undefined ? undefined : weatherLayer(layers.weather[0].id)
+  const hiddenAtlasBy = layers.lpYear !== null ? activeWeather : undefined
+  // A map whose style has not loaded, or has failed, shows no keys: there is no canvas for them
+  // to explain.
   const showRail =
+    styleLoaded &&
     !failed &&
-    (tickCount > 0 || layers.lpYear !== null || weatherLegends.length > 0 || textKeys.length > 0)
+    (tickCount > 0 ||
+      paintedYear !== null ||
+      weatherLegends.length > 0 ||
+      textKeys.length > 0 ||
+      hiddenAtlasBy !== undefined)
 
   return (
     <Card variant="flush" h={height} mih={MAP_MIN_HEIGHT} style={{ overflow: 'hidden' }}>
@@ -772,15 +799,19 @@ export default function SiteMap({
                       radarNewestTime={radarNewestTime}
                     />
                   )}
-                  {layers.lpYear !== null && (
-                    <LpLegend year={layers.lpYear} range={layers.lpRange} />
-                  )}
+                  {paintedYear !== null && <LpLegend year={paintedYear} range={layers.lpRange} />}
                   {weatherLegends.map((entry) => (
                     <WeatherLegendCard key={entry.id} entry={entry} />
                   ))}
                   {textKeys.map(({ id, textKey, emptyMeans }) => (
                     <WeatherTextKey key={id} textKey={textKey} emptyMeans={emptyMeans} />
                   ))}
+                  {hiddenAtlasBy !== undefined && (
+                    <HiddenAtlasNote
+                      layerName={hiddenAtlasBy.textKey?.title ?? hiddenAtlasBy.label}
+                      onShow={() => onLayersChange({ ...layers, weather: [] })}
+                    />
+                  )}
                 </Group>
               </Box>
               <Divider />
@@ -797,6 +828,16 @@ export default function SiteMap({
                 <Stack justify="center" align="center" h="100%" gap={4}>
                   <Text size="sm" c="dimmed">
                     Map unavailable — could not reach the tile server.
+                  </Text>
+                </Stack>
+              </Box>
+            )}
+            {!styleLoaded && !failed && (
+              <Box pos="absolute" inset={0}>
+                <Stack justify="center" align="center" h="100%" gap="xs">
+                  <Loader size="sm" />
+                  <Text size="sm" c="dimmed">
+                    Loading map…
                   </Text>
                 </Stack>
               </Box>
@@ -824,6 +865,12 @@ const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
   minute: '2-digit',
   hour12: false,
 })
+
+/** The clock's zone name (`CEST`) — the scrubber's times are the viewer's local time, and the
+ * clock says so. */
+const ZONE_FORMAT = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' })
+const zoneName = (at: Date) =>
+  ZONE_FORMAT.formatToParts(at).find((part) => part.type === 'timeZoneName')?.value ?? ''
 
 /** The `Slider`'s own fixed width — wide enough to read the two ends of a mixed 5-minutely/hourly
  * tick list without wrapping, narrow enough to sit comfortably in the key rail. */
@@ -895,7 +942,7 @@ function TimeScrubber({
           {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
         </ActionIcon>
         <Text ff="monospace" size="xs">
-          {CLOCK_FORMAT.format(at)}
+          {CLOCK_FORMAT.format(at)} {zoneName(at)}
         </Text>
         <Text size="xs" c="dimmed">
           {forecast ? 'forecast' : 'observed'}
@@ -921,6 +968,21 @@ function TimeScrubber({
           Radar holds at its latest frame past now — it has no forecast of its own.
         </Text>
       )}
+    </Stack>
+  )
+}
+
+/** The rail's one line about what is hidden: the atlas stays in the URL while a weather layer is on,
+ * and this is the way back to it without opening the drawer. */
+function HiddenAtlasNote({ layerName, onShow }: { layerName: string; onShow: () => void }) {
+  return (
+    <Stack gap="xs" w={LEGEND_WIDTH} maw="100%" align="flex-start">
+      <Text size="xs" c="dimmed">
+        Light pollution hidden while {layerName} is on
+      </Text>
+      <Button variant="light" onClick={onShow}>
+        Show light pollution
+      </Button>
     </Stack>
   )
 }

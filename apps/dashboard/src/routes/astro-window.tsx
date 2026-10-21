@@ -336,6 +336,7 @@ function AstroWindowPage() {
             </Center>
           }
         >
+          {/* No data-shot-states: the map's loading/error states are shot as their own routes (?tab=map&shot-map=loading|error), see lib/shot-state.ts. */}
           <Box data-shot="site-map">
             <SiteMap
               siteId={search.site}

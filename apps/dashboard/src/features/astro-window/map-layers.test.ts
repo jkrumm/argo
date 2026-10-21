@@ -45,6 +45,7 @@ const {
   omDomain,
   omTileUrl,
   openMeteoMetaUrl,
+  paintedAtlasYear,
   parseLpParam,
   parseTerrainParam,
   parseWeatherParam,
@@ -65,17 +66,16 @@ describe('weather param codec', () => {
   })
 
   it('round-trips a selection with a default and an overridden opacity', () => {
-    // cloud (stackIndex 20) sits before lightning (stackIndex 50) — already
-    // in the order `parseWeatherParam` sorts to, so a clean round-trip proves
-    // the codec rather than incidentally proving the sort too.
-    const weather: WeatherSelection[] = [
-      { id: 'cloud', opacity: 1 }, // matches the catalogue default — encodes bare
-      { id: 'lightning', opacity: 0.3 }, // overrides the catalogue default (0.9) — encodes `:30`
-    ]
+    const lightning: WeatherSelection[] = [{ id: 'lightning', opacity: 0.3 }] // overrides the default (0.9)
+    const cloud: WeatherSelection[] = [{ id: 'cloud', opacity: 1 }] // matches the default — encodes bare
 
-    const encoded = formatWeatherParam({ weather, omDomain: DEFAULT_OM_DOMAIN })
-    expect(encoded).toBe('cloud.lightning:30')
-    expect(parseWeatherParam(encoded)).toEqual({ weather, omDomain: DEFAULT_OM_DOMAIN })
+    const encodedLightning = formatWeatherParam({ weather: lightning, omDomain: DEFAULT_OM_DOMAIN })
+    expect(encodedLightning).toBe('lightning:30')
+    expect(parseWeatherParam(encodedLightning)).toEqual({
+      weather: lightning,
+      omDomain: DEFAULT_OM_DOMAIN,
+    })
+    expect(formatWeatherParam({ weather: cloud, omDomain: DEFAULT_OM_DOMAIN })).toBe('cloud')
   })
 
   it('round-trips every catalogue id at its default opacity — the eight-row catalogue', () => {
@@ -97,46 +97,28 @@ describe('weather param codec', () => {
     expect(WEATHER_LAYERS).toHaveLength(8)
   })
 
-  it('sorts a decoded selection into stack order regardless of URL order', () => {
-    // lightning (50) written before radar (30) in the URL — the decode must
-    // still hand back bottom-first stack order, not URL order.
-    const decoded = parseWeatherParam('lightning.radar')
-    expect(decoded.weather.map((s) => s.id)).toEqual(['radar', 'lightning'])
-  })
-
-  it('sorts cloud-top (24) above cloud-ir (22) and below radar (30) — the new cloud group slot', () => {
-    const decoded = parseWeatherParam('radar.cloud-top.cloud-ir')
-    expect(decoded.weather.map((s) => s.id)).toEqual(['cloud-ir', 'cloud-top', 'radar'])
-  })
-
-  it('sorts the three model rows (26/27/28) between cloud-top (24) and radar (30)', () => {
-    const decoded = parseWeatherParam('radar.model-precip.cloud-top.model-cloud.model-cloud-low')
-    expect(decoded.weather.map((s) => s.id)).toEqual([
-      'cloud-top',
-      'model-cloud',
-      'model-cloud-low',
-      'model-precip',
+  it('keeps only the first valid layer token in URL order', () => {
+    expect(parseWeatherParam('lightning.radar').weather.map((s) => s.id)).toEqual(['lightning'])
+    expect(parseWeatherParam('radar.cloud-top.cloud-ir').weather.map((s) => s.id)).toEqual([
       'radar',
+    ])
+    expect(
+      parseWeatherParam('lightning.cloud-top.model-precip.cloud-ir.radar.cloud').weather,
+    ).toEqual([{ id: 'lightning', opacity: 0.9 }])
+  })
+
+  it('skips an unknown token and keeps the first VALID layer after it', () => {
+    expect(parseWeatherParam('nope.cloud-top:40.radar').weather).toEqual([
+      { id: 'cloud-top', opacity: 0.4 },
     ])
   })
 
-  it('sorts the full eight-layer catalogue into the derived stack order', () => {
-    // cloud (20) < cloud-ir (22) < cloud-top (24) < model-cloud (26) < model-cloud-low (27) <
-    // model-precip (28) < radar (30) < lightning (50) — see map-layers.ts's "Stack order" section
-    // for the derivation. radar-de/cells were deleted 2026-08-19 (Germany-only, module docstring).
-    const decoded = parseWeatherParam(
-      'lightning.cloud-top.model-precip.cloud-ir.radar.cloud.model-cloud-low.model-cloud',
-    )
-    expect(decoded.weather.map((s) => s.id)).toEqual([
-      'cloud',
-      'cloud-ir',
-      'cloud-top',
-      'model-cloud',
-      'model-cloud-low',
-      'model-precip',
-      'radar',
-      'lightning',
-    ])
+  it('parses the `dom:` token wherever it sits relative to the kept layer', () => {
+    expect(parseWeatherParam('dom:ecmwf_ifs025.radar.cloud')).toEqual({
+      weather: [{ id: 'radar', opacity: 0.75 }],
+      omDomain: 'ecmwf_ifs025',
+    })
+    expect(parseWeatherParam('radar.cloud.dom:dwd_icon_eu').omDomain).toBe('dwd_icon_eu')
   })
 
   it('drops an id the catalogue does not know, without throwing', () => {
@@ -190,6 +172,27 @@ describe('weather param codec', () => {
       weather: [{ id: 'radar', opacity: 0.75 }],
       omDomain: DEFAULT_OM_DOMAIN,
     })
+  })
+})
+
+describe('paintedAtlasYear', () => {
+  it('is the chosen year while no weather layer is on', () => {
+    expect(paintedAtlasYear({ lpYear: 2025, weather: [] })).toBe(2025)
+    expect(paintedAtlasYear({ lpYear: null, weather: [] })).toBeNull()
+  })
+
+  it('is null while a weather layer is on, whatever the year', () => {
+    const weather = [{ id: 'radar', opacity: 0.75 }] as const
+    expect(paintedAtlasYear({ lpYear: 2025, weather })).toBeNull()
+    expect(paintedAtlasYear({ lpYear: null, weather })).toBeNull()
+  })
+})
+
+describe('weather catalogue keys', () => {
+  it('every selectable weather layer carries a key: an image legend or a text key', () => {
+    for (const entry of WEATHER_LAYERS) {
+      expect(entry.legend || entry.textKey !== undefined).toBe(true)
+    }
   })
 })
 

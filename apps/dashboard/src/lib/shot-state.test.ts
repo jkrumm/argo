@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { parseShotState, shotFetcher } from './shot-state'
+import { parseMapShotState, parseShotState, shotFetcher } from './shot-state'
 
 describe('parseShotState', () => {
   it('reads the three declared states', () => {
@@ -11,6 +11,19 @@ describe('parseShotState', () => {
   it('ignores anything else', () => {
     expect(parseShotState('')).toBeNull()
     expect(parseShotState('?shot-state=hover')).toBeNull()
+  })
+})
+
+describe('parseMapShotState', () => {
+  it('reads the two declared map states from `shot-map`', () => {
+    expect(parseMapShotState('?tab=map&shot-map=loading')).toBe('loading')
+    expect(parseMapShotState('?shot-map=error')).toBe('error')
+  })
+
+  it('ignores anything else, including the page-level `shot-state`', () => {
+    expect(parseMapShotState('')).toBeNull()
+    expect(parseMapShotState('?shot-map=empty')).toBeNull()
+    expect(parseMapShotState('?shot-state=loading')).toBeNull()
   })
 })
 

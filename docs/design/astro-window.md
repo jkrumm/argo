@@ -389,3 +389,53 @@ Shots `w52-r{1,2,3}-map` (gitignored): the default Map tab and the Map tab with 
 - **Third-party (P1 by rubric):** MapLibre's compact attribution control is 12 px (`craft-1/off-scale-radius`, `nested-radius-step`), at 390 on the default route and at every width once weather sources lengthen the credits. `UPSTREAM.md` § Wave 51 row 2; not restyled locally.
 - **Basalt (P1 by rubric):** the catalogue has no form for a geographic raster on a map canvas (Expression 1). `UPSTREAM.md` § Wave 52.
 - **Open P2/P3 (argo):** at 390 with three keys the rail takes most of the card; at 1440 the radar key wraps alone onto a second row; the white plate is the brightest block in dark; the clock has no time zone; the aside footer narrates the URL state. Third-party P2: the EUMETSAT raster's `Count / 5 minutes` runs into its `1` tick.
+
+## Wave 53 — one question at a time
+
+**Owner decision (2026-10-21).** The map answers one question at a time. Wave 52's last two rounds failed on three third-party
+ramps sharing one canvas (the atlas's red → gold → blue, RainViewer's Universal Blue, the lightning raster's yellow → red); no
+style choice separates them, so the canvas stops showing more than one coloured field.
+
+**Scenario.** The reader scouting a site tonight asks, in order: (1) where is the sky dark enough; (2) is weather there now;
+(3) what does the model expect over the next hours. Each is one question with its own coloured field. Relief, contours and trails
+are neutral context for any of the three and never compete for hue.
+
+**Which layers exclude, which combine.**
+
+| Group | Members | Rule |
+|-|-|-|
+| The answer field | the light-pollution atlas, or exactly ONE weather layer (radar, lightning, cloud mask, infrared cloud, cloud top, the three forecast fields) | Mutually exclusive. One coloured field on the canvas, ever. |
+| Context | base map, hillshade, 3D terrain, contours, trails | Combine freely with the answer field and each other. Neutral ink, no hue to collide. |
+
+- **A weather layer hides the atlas; it does not lower it.** Lowered, the atlas's blue still reads as radar's blue. The atlas
+  year, opacity, smoothing and range stay in the URL while hidden, so leaving weather restores exactly the atlas that was set.
+- **Weather layers are single-select.** Radar and lightning share yellow → red, the same collision one level down. Picking a second
+  weather layer replaces the first. A shared link carrying several `wx` tokens opens on the first valid one.
+- **Picking an atlas year leaves weather.** In the drawer the atlas years and the weather layers are one choice, so a year radio
+  clears the weather layer, and `Off` in a weather section clears it too.
+
+**Default.** The atlas (latest year) with no weather layer, as today: "where is it dark" is the question a scouting reader opens
+the tab with, and the weather questions only make sense once a site is in view.
+
+**How the key rail says what is shown and what is hidden.** The rail keys exactly the one answer field, so it never holds more
+than: the time scrubber (time-following layers only), one key, and while a weather layer is on, one line naming what is hidden:
+`Light pollution hidden while {layer} is on`, with a `Show light pollution` button that leaves weather. Every weather layer has a
+key now: the image keys (lightning, cloud top), radar's text key, and text keys for the cloud mask, infrared cloud and the three
+forecast fields (Wave 52 drew no key for those five). The scrubber names its clock's zone.
+
+**390.** One key and one note, each a full-width row; the scrubber its own row above them. The rail never holds three keys again,
+so the canvas keeps most of the card.
+
+**States shot.** `loading` (the style has not loaded: the canvas shows `Loading map…`, the rail keys nothing) and `error` (the
+map failed before its style loaded: `Map unavailable`, the existing failed-tiles message). Not through `data-shot-states`: the
+route's loader awaits the API, so `?shot-state=loading|error` replaces the whole route and the map card never renders. The map
+reads its own read-once param instead, `?shot-map=loading|error` (`lib/shot-state.ts`), shot as two extra routes
+`/astro-window?tab=map&shot-map=loading|error`. The weather-layer states (each forecast key; radar with the atlas hidden) are
+routes with `wx=` set.
+
+**Pass criteria (Map tab, Wave 53).**
+
+1. With any weather layer on, the atlas is not painted and the rail says so in words.
+2. At most one coloured answer field on the canvas in every shot.
+3. Every weather layer that can be selected has a titled key naming its unit or meaning.
+4. Wave 52's criteria 1–4 still hold.

@@ -26,6 +26,29 @@ export function shotState(): ShotState | null {
   return LOADED_WITH
 }
 
+/**
+ * The `shot-map` URL param: the map's own forced states, read once at load like `shot-state`.
+ * The Map tab's `SiteMap` is lazy and its canvas is MapLibre's, not the API client's, so
+ * `shot-state` cannot reach it. `loading` never creates the map, so the pending note stays;
+ * `error` never creates it either and renders the failed message. They are shot as their own
+ * routes (`?tab=map&shot-map=loading|error`), never through `data-shot-states`. Honoured in the
+ * production bundle for the same reason as `shot-state`, and it writes nothing.
+ */
+export type MapShotState = 'loading' | 'error'
+
+const MAP_STATES: readonly MapShotState[] = ['loading', 'error']
+
+export function parseMapShotState(search: string): MapShotState | null {
+  const value = new URLSearchParams(search).get('shot-map')
+  return MAP_STATES.find((state) => state === value) ?? null
+}
+
+const MAP_LOADED_WITH = parseMapShotState(globalThis.location?.search ?? '')
+
+export function mapShotState(): MapShotState | null {
+  return MAP_LOADED_WITH
+}
+
 /** `fetch` for the API client: never settles under `loading`, answers 503 under `error`. */
 export function shotFetcher(state: ShotState | null): typeof fetch {
   if (state === 'loading') return (() => new Promise<Response>(() => {})) as unknown as typeof fetch

@@ -1327,6 +1327,10 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 1,
     stackIndex: 20,
     legend: false,
+    textKey: {
+      title: 'Cloud mask',
+      lines: ['Grey where EUMETSAT sees cloud, transparent where clear; yes/no, no amount'],
+    },
     emptyMeans:
       'Transparent means clear sky inside the two discs — this layer decodes to real transparency now, never a blank rectangle the way the old opaque wash did.',
     coverage:
@@ -1347,6 +1351,12 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 0.6,
     stackIndex: 22,
     legend: false,
+    textKey: {
+      title: 'Infrared cloud',
+      lines: [
+        'Brighter is colder, higher cloud; coloured tops are cold storm cores. Low cloud barely shows',
+      ],
+    },
     emptyMeans:
       "A tile past a satellite's disc edge returns nothing and MapLibre renders it blank — the edge of coverage, not a broken layer.",
     coverage:
@@ -1383,6 +1393,11 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 0.7,
     stackIndex: 26,
     legend: false,
+    // Scale checked 2026-10-21 against @openmeteo/weather-map-layer's `cloud_cover` ramp (the `dark=true` palette `omTileUrl` requests): alpha 0 → .925, dark navy tint → pale grey.
+    textKey: {
+      title: 'Cloud cover, forecast',
+      lines: ['Total cloud, 0–100 %: transparent clear → pale grey overcast'],
+    },
     emptyMeans:
       "Blank means the selected forecast domain's own box does not reach this location — see the domain picker below — or a clear-sky forecast step, which is real data, not a broken layer.",
     coverage:
@@ -1398,6 +1413,11 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 0.7,
     stackIndex: 27,
     legend: false,
+    // Same `cloud_cover` ramp as the total-cloud row (the package resolves `cloud_cover_low` to it).
+    textKey: {
+      title: 'Low cloud, forecast',
+      lines: ['Low layer only, 0–100 %: transparent clear → pale grey overcast'],
+    },
     emptyMeans:
       "Blank means a clear low layer at this forecast step, or the selected domain's box does not reach this location — same two readings as the total-cloud row above.",
     coverage:
@@ -1413,6 +1433,11 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 0.75,
     stackIndex: 28,
     legend: false,
+    // Scale checked 2026-10-21 against the package's `precipitation` ramp: first breakpoint 0.01 mm at alpha 0, 0.055 mm light blue, 1 mm blue, 2–3 mm green, 4.5–6 mm yellow, 20 mm and up red.
+    textKey: {
+      title: 'Precipitation, forecast',
+      lines: ['mm/h: light blue → blue → green → yellow → red heavy; transparent under 0.06 mm'],
+    },
     emptyMeans:
       "Blank means the model forecasts no precipitation there at this step, or the selected domain's box does not reach this location.",
     coverage:
@@ -1429,7 +1454,7 @@ export type WeatherSelection = { id: WeatherLayerId; opacity: number }
 /** The whole map configuration, decoded from the route's search params. */
 export type MapLayerState = {
   base: BaseLayerId
-  /** `null` = the ramp is off. */
+  /** `null` = the ramp is off. Not what is painted while a weather layer is on: `paintedAtlasYear`. */
   lpYear: LpYear | null
   /** The ramp's own opacity — carried even while the ramp is off, the same "remembers the last
    * value" shape `hillshadeExaggeration` already uses, so re-enabling it inside the same session
@@ -1442,7 +1467,8 @@ export type MapLayerState = {
    * above: it is INTENSITY's sibling control, not a per-request value, so it survives the ramp
    * being toggled off and only resets on a fresh URL. */
   lpRange: readonly [number, number]
-  /** Active overlays, already in stack order (bottom first). */
+  /** The active weather layer: zero or one entry (the map answers one question at a time), and a
+   * non-empty list hides the atlas — see `paintedAtlasYear`. */
   weather: readonly WeatherSelection[]
   /** Hillshade and 3D terrain — two independent toggles over the same DEM source. */
   terrain: TerrainSelection
@@ -1461,9 +1487,10 @@ export type WeatherAndDomainSelection = {
 }
 
 /**
- * The active overlay set as ONE compact search param: `radar.cloud:30` — ids joined by `.`,
- * each optionally carrying `:<percent>` when its opacity differs from the catalogue default.
- * Six booleans and six floats would otherwise be twelve query keys for one control panel.
+ * The active weather layer as ONE compact search param: `radar` or `cloud:30` — the id, optionally
+ * carrying `:<percent>` when its opacity differs from the catalogue default. The map answers one
+ * question at a time (Wave 53), so at most ONE layer survives the decode: the first valid layer
+ * token in URL order. A shared link carrying several opens on the first; the rest are dropped.
  *
  * The forecast domain rides the SAME param as a `dom:<id>` token (2026-08-20) — `dom:` is not a
  * `WeatherLayerId`, so it can never collide with a layer token, and folding it in here means one
@@ -1477,8 +1504,7 @@ export type WeatherAndDomainSelection = {
  */
 export function parseWeatherParam(raw: string | undefined): WeatherAndDomainSelection {
   if (raw === undefined || raw === '') return { weather: [], omDomain: DEFAULT_OM_DOMAIN }
-  const seen = new Set<WeatherLayerId>()
-  const parsed: WeatherSelection[] = []
+  let layer: WeatherSelection | undefined
   let omDomainId: OmDomainId = DEFAULT_OM_DOMAIN
   for (const token of raw.split('.')) {
     if (token.startsWith('dom:')) {
@@ -1486,20 +1512,23 @@ export function parseWeatherParam(raw: string | undefined): WeatherAndDomainSele
       if (isOmDomainId(candidate)) omDomainId = candidate
       continue
     }
+    if (layer !== undefined) continue
     const [rawId, rawOpacity] = token.split(':')
     const entry = rawId === undefined ? undefined : WEATHER_BY_ID.get(rawId as WeatherLayerId)
-    if (entry === undefined || seen.has(entry.id)) continue
-    seen.add(entry.id)
-    parsed.push({ id: entry.id, opacity: parseOpacity(rawOpacity) ?? entry.defaultOpacity })
+    if (entry === undefined) continue
+    layer = { id: entry.id, opacity: parseOpacity(rawOpacity) ?? entry.defaultOpacity }
   }
-  return {
-    weather: parsed.toSorted((a, b) => stackIndexOf(a.id) - stackIndexOf(b.id)),
-    omDomain: omDomainId,
-  }
+  return { weather: layer === undefined ? [] : [layer], omDomain: omDomainId }
 }
 
-function stackIndexOf(id: WeatherLayerId): number {
-  return WEATHER_BY_ID.get(id)?.stackIndex ?? 0
+/**
+ * The atlas year the canvas actually paints: `null` while a weather layer is on (the atlas and a
+ * weather layer are one choice — a weather layer HIDES the atlas, it does not lower it), else the
+ * chosen `lpYear`. `lpYear`, `lpOpacity`, `lpResampling` and `lpRange` stay in the state while
+ * hidden, so leaving weather restores exactly the atlas that was set.
+ */
+export function paintedAtlasYear(state: Pick<MapLayerState, 'lpYear' | 'weather'>): LpYear | null {
+  return state.weather.length > 0 ? null : state.lpYear
 }
 
 /** Inverse of `parseWeatherParam`. Returns `undefined` for an empty set at the default domain so
