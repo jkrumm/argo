@@ -12,7 +12,7 @@ import { localDay } from '../../garmin-health/charts/local-day'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
-import { withUnit } from '../../../lib/format'
+import { NBSP, withUnit } from '../../../lib/format'
 import { DELTA_DAYS, fmtMonthly, liftDelta, perMonthRaw } from '../model'
 import { useNow } from '../../../lib/use-now'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
@@ -155,8 +155,8 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
           getValue: (d) => (d.velocity === null ? null : perMonthRaw(d.velocity)),
           positive: VX.goodSolid,
           negative: VX.badSolid,
-          format: (v) => fmtVelocity(v, '%/mo'),
-          tooltipFormat: (v) => fmtVelocity(v, ' %/mo'),
+          format: (v) => fmtVelocity(v, `${NBSP}%/mo`),
+          tooltipFormat: (v) => fmtVelocity(v, `${NBSP}%/mo`),
           maxAbsFloor: BOTTOM_MAX_ABS_FLOOR,
         }}
       />

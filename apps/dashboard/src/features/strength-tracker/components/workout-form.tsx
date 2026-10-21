@@ -257,7 +257,7 @@ export function WorkoutForm() {
   // next one is 5s out, and by then the local copy has been written up and the
   // two agree anyway.
   const drafts = useWorkoutDrafts()
-  // A first-time user has no draft either; the shot's empty state reads none (and so writes none).
+  // Under the shot harness's empty state the remote draft reads as absent, so none is adopted.
   const remoteDraft = shotEmpty ? undefined : drafts.drafts[exercise]
   const qc = useQueryClient()
 
