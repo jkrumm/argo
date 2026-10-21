@@ -1,7 +1,8 @@
-import { Box, Button, Paper, Stack } from '@mantine/core'
+import { Box, Button, Paper, Stack, Text } from '@mantine/core'
 import { StatGroup, type StatStripCell, PageSummary } from 'basalt-ui'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { overlays } from 'basalt-ui/commands'
+import { VX } from 'basalt-ui/tokens'
 import { skinfoldLogQueries, type SkinfoldWindowParams } from '../../../lib/queries/skinfold-log'
 import { userProfileQueries } from '../../../lib/queries/user-profile'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
@@ -18,6 +19,7 @@ import {
   rateDays,
   siteRows,
   summaryParts,
+  weightRange,
   weightWindowStats,
   windowDays,
 } from '../model'
@@ -70,11 +72,11 @@ export function BodyCompositionPage({ params }: { params: Params }) {
       startWeight: startPoint?.weightKg ?? null,
       startDate: startPoint?.date ?? null,
       latestDate: latestDate(weightPoints),
+      range: weightRange(weightPoints),
     }),
     rateCell({
       summary,
       rateDays: rateDays(days),
-      latestDate: latestDate(weightPoints),
       entries: weightPoints.length,
       status: weightStatus,
     }),
@@ -85,7 +87,17 @@ export function BodyCompositionPage({ params }: { params: Params }) {
 
   return (
     <Stack gap="md">
-      <PageSummary sentence={headline.sentence} facts={headline.facts} />
+      <PageSummary
+        sentence={headline.sentence}
+        facts={[
+          ...headline.facts,
+          headline.staleFact !== undefined && (
+            <Text key="stale" span inherit c={VX.status.warn}>
+              {headline.staleFact}
+            </Text>
+          ),
+        ]}
+      />
 
       <StatGroup
         variant="strip"

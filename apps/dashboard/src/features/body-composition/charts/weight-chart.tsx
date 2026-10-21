@@ -41,7 +41,11 @@ export default function WeightChart({
   const span = windowDays(params)
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
   // The strip and headline carry the current weight and its age; the header adds what they do not.
-  const headerFact = useMemo(() => weightHeaderFact(apiPoints ?? []), [apiPoints])
+  const label = windowLabel(params)
+  const headerFact = useMemo(
+    () => weightHeaderFact(apiPoints ?? [], { window: label }),
+    [apiPoints, label],
+  )
   const dotR = markerRadiusFor(chartData.length)
 
   const series: ChartSeries<WeightChartPoint>[] = [
@@ -84,7 +88,7 @@ export default function WeightChart({
   return (
     <Box data-shot="weight-chart" data-shot-states="empty">
       <ChartCard
-        title={`Body weight, ${windowLabel(params)}`}
+        title={`Body weight, ${label}`}
         info={goal === null ? METRIC_TOOLTIPS.bodyWeight : METRIC_TOOLTIPS.bodyWeightGoal}
         {...(headerFact !== null && {
           facts: { value: headerFact.value, unit: 'kg', period: headerFact.period },

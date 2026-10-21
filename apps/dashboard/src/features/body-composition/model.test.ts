@@ -23,6 +23,7 @@ import {
   weightDeltaPolarity,
   weightWindowStats,
   weightHeaderFact,
+  weightRange,
   shortDay,
   windowDays,
   windowLabel,
@@ -121,88 +122,80 @@ test('deltaFromMean', () => {
 })
 
 describe('summaryParts', () => {
-  test('the headline is direction over a window, then the goal; the rate and weight stay in their cells', () => {
-    expect(
-      summaryParts({
-        current: 80,
-        kgPerWeek: -0.5,
-        rateDays: 28,
-        goal: 75,
-        ageDays: 1,
-        entries: 12,
-        windowDays: 30,
-      }),
-    ).toEqual({
-      sentence: 'Weight falling over 28 d, 5.0 kg from the 75.0 kg goal',
-      facts: ['12 weigh-ins in 30\u00a0d', 'last weigh-in 1\u00a0d ago'],
+  const base = { rateDays: 28, entries: 12, windowDays: 90 }
+  test('with a goal the headline is value, rate over its window, distance to the goal', () => {
+    expect(summaryParts({ ...base, current: 80, kgPerWeek: -0.5, goal: 75, ageDays: 1 })).toEqual({
+      sentence:
+        '80.0\u00a0kg, \u22120.50\u00a0kg/wk over 28\u00a0d, 5.0\u00a0kg from the 75.0\u00a0kg goal',
+      facts: ['12 weigh-ins in 90\u00a0d', 'last weigh-in 1\u00a0d ago'],
     })
   })
-  test('an old last weigh-in dates the rate window', () => {
+  test('a stale last weigh-in dates the window and moves the age fact to staleFact', () => {
     expect(
       summaryParts({
-        current: 80,
-        kgPerWeek: 0.4,
-        rateDays: 28,
+        ...base,
+        current: 72.8,
+        kgPerWeek: 0.16,
         goal: null,
-        ageDays: 20,
-        latestKey: '2026-06-03',
-        entries: 5,
-        windowDays: 30,
+        ageDays: 49,
+        latestKey: '2026-09-02',
       }),
     ).toEqual({
-      sentence: 'Weight rising over the 28 d to 3 Jun',
-      facts: ['5 weigh-ins in 30\u00a0d', 'last weigh-in 20\u00a0d ago · stale'],
+      sentence: '72.8\u00a0kg, +0.16\u00a0kg/wk over the 28\u00a0d to 2 Sep',
+      facts: ['12 weigh-ins in 90\u00a0d'],
+      staleFact: 'last weigh-in 49\u00a0d ago \u00b7 stale',
     })
   })
-  test('inside the maintenance band the weight is holding steady', () => {
+  test('a recent last weigh-in leaves the window undated', () => {
     expect(
       summaryParts({
+        ...base,
         current: 80,
         kgPerWeek: 0.05,
-        rateDays: 7,
         goal: null,
-        ageDays: 0,
-        entries: 5,
-        windowDays: 30,
+        ageDays: 1,
+        latestKey: '2026-06-03',
       }).sentence,
-    ).toBe('Weight holding steady over 7 d')
+    ).toBe('80.0\u00a0kg, +0.05\u00a0kg/wk over 28\u00a0d')
   })
   test('at the goal is within the module tolerance, not exact equality', () => {
     expect(
-      summaryParts({
-        current: 75.02,
-        kgPerWeek: 0,
-        rateDays: 28,
-        goal: 75,
-        ageDays: 0,
-        entries: 5,
-        windowDays: 30,
-      }).sentence,
-    ).toContain('0.0 kg at the 75.0 kg goal')
+      summaryParts({ ...base, current: 75.02, kgPerWeek: 0, goal: 75, ageDays: 0 }).sentence,
+    ).toBe('75.0\u00a0kg, 0.00\u00a0kg/wk over 28\u00a0d, at the 75.0\u00a0kg goal')
   })
-  test('unknown rate says there is no trend yet, never 0', () => {
+  test('unknown rate names the weight and its day, never a 0 rate', () => {
     expect(
       summaryParts({
+        ...base,
+        entries: 5,
         current: 80,
         kgPerWeek: null,
-        rateDays: 28,
         goal: null,
-        ageDays: null,
-        entries: 5,
-        windowDays: 30,
+        ageDays: 3,
+        latestKey: '2026-06-03',
       }),
-    ).toEqual({ sentence: 'Weight trend not available yet', facts: ['5 weigh-ins in 30\u00a0d'] })
+    ).toEqual({
+      sentence: '80.0\u00a0kg on 3 Jun; a rate needs two weigh-ins at least 3\u00a0d apart',
+      facts: ['5 weigh-ins in 90\u00a0d', 'last weigh-in 3\u00a0d ago'],
+    })
+    expect(
+      summaryParts({ ...base, current: 80, kgPerWeek: null, goal: null, ageDays: null }).sentence,
+    ).toBe('80.0\u00a0kg; a rate needs two weigh-ins at least 3\u00a0d apart')
+    expect(
+      summaryParts({ ...base, current: 80, kgPerWeek: null, goal: 75, ageDays: null }).sentence,
+    ).toBe(
+      '80.0\u00a0kg, 5.0\u00a0kg from the 75.0\u00a0kg goal; a rate needs two weigh-ins at least 3\u00a0d apart',
+    )
   })
   test('empty window', () => {
     expect(
       summaryParts({
+        ...base,
         current: null,
         kgPerWeek: null,
-        rateDays: 28,
         goal: 75,
         ageDays: null,
         entries: 0,
-        windowDays: 30,
       }),
     ).toEqual({ sentence: NO_WEIGHT_ENTRIES, facts: [] })
   })
@@ -210,25 +203,52 @@ describe('summaryParts', () => {
 
 describe('weightHeaderFact', () => {
   const now = new Date(2026, 5, 20)
-  test('net change from the first to the last entry, dated', () => {
+  test('net change from the first to the last entry, naming the window and the dates', () => {
     expect(
       weightHeaderFact(
         [
           { date: '2026-06-10', weightKg: 79 },
           { date: '2026-06-01', weightKg: 81 },
         ],
-        { now },
+        { now, window: '90\u00a0d' },
       ),
-    ).toEqual({ value: '−2.0', period: 'net change, 1 Jun to 10 Jun' })
+    ).toEqual({
+      value: '\u22122.0',
+      period: 'net change over 90\u00a0d, 1 Jun to 10 Jun',
+    })
   })
   test('a single entry shows that weight and its day', () => {
-    expect(weightHeaderFact([{ date: '2026-06-01', weightKg: 81 }], { now })).toEqual({
+    expect(
+      weightHeaderFact([{ date: '2026-06-01', weightKg: 81 }], { now, window: '90\u00a0d' }),
+    ).toEqual({
       value: '81.0',
       period: 'single entry on 1 Jun',
     })
   })
   test('no entries has no fact', () => {
-    expect(weightHeaderFact([], now)).toBeNull()
+    expect(weightHeaderFact([], { now, window: '90\u00a0d' })).toBeNull()
+  })
+})
+
+describe('weightRange', () => {
+  test('lowest and highest weigh-in', () => {
+    expect(
+      weightRange([
+        { date: '2026-06-01', weightKg: 81 },
+        { date: '2026-06-02', weightKg: 79.5 },
+        { date: '2026-06-03', weightKg: 80 },
+      ]),
+    ).toEqual({ min: 79.5, max: 81 })
+  })
+  test('no spread to draw with one entry or one repeated weight', () => {
+    expect(weightRange([])).toBeNull()
+    expect(weightRange([{ date: '2026-06-01', weightKg: 81 }])).toBeNull()
+    expect(
+      weightRange([
+        { date: '2026-06-01', weightKg: 81 },
+        { date: '2026-06-02', weightKg: 81 },
+      ]),
+    ).toBeNull()
   })
 })
 
@@ -393,17 +413,22 @@ describe('one fixture, two live-review items', () => {
 
   test('the RATE footer is the tier, or why there is no rate; loading and failure are their own', () => {
     expect(rateFooter({ rate: -0.5, entries: 9 })).toBe(
-      'Standard pace, losing 0.4–\u20600.8\u00a0kg/wk',
+      'Standard cut \u00b7 0.4\u2013\u20600.8\u00a0kg/wk',
     )
     expect(rateFooter({ rate: 0.2, entries: 9 })).toBe(
-      'Lean pace, gaining 0.1–\u20600.3\u00a0kg/wk',
+      'Lean bulk \u00b7 0.1\u2013\u20600.3\u00a0kg/wk',
     )
-    expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Within the maintenance band')
+    expect(rateFooter({ rate: 0.7, entries: 9 })).toBe(
+      'Aggressive bulk \u00b7 \u2265\u00a00.6\u00a0kg/wk',
+    )
+    expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Maintenance \u00b7 under 0.1\u00a0kg/wk')
     // Decided from the number: the footer needs no label from the API.
     expect(rateFooter({ rate: 0.1, entries: 9 })).toBe(
-      'Lean pace, gaining 0.1–\u20600.3\u00a0kg/wk',
+      'Lean bulk \u00b7 0.1\u2013\u20600.3\u00a0kg/wk',
     )
-    expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Within the maintenance band')
+    expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe(
+      'Maintenance \u00b7 under 0.1\u00a0kg/wk',
+    )
     expect(rateFooter({ rate: null, entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3\u00a0d apart',
     )
@@ -441,10 +466,8 @@ describe('no-entries wording', () => {
     expect(NO_WEIGHT_ENTRIES_SHORT).toBe('No entries in this window')
   })
 
-  test('rate qualifier claims no slope window without an entry', () => {
-    expect(rateQualifier(28, undefined)).toBe('maintain \u00b10.1\u00a0kg/wk')
-    expect(rateQualifier(28, '3 Mar')).toBe(
-      '28\u00a0d slope to 3 Mar, maintain \u00b10.1\u00a0kg/wk',
-    )
+  test('rate qualifier names the slope window only', () => {
+    expect(rateQualifier(28)).toBe('28\u00a0d slope')
+    expect(rateQualifier(7)).toBe('7\u00a0d slope')
   })
 })

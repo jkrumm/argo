@@ -125,11 +125,8 @@ export function shortDay(key: string, now: Date = new Date()): string {
   return Number(key.slice(0, 4)) === now.getFullYear() ? day : `${day} ${key.slice(0, 4)}`
 }
 
-/** The direction word for a trailing rate; inside the maintenance band the weight is holding. */
-function trend(kgPerWeek: number): string {
-  if (Math.abs(kgPerWeek) < RATE_NEUTRAL_KG_WK) return 'holding steady'
-  return kgPerWeek < 0 ? 'falling' : 'rising'
-}
+/** Why a window with entries has no rate: the API needs two weigh-ins this far apart. */
+const RATE_NEEDS_TWO_WEIGH_INS = `A rate needs two weigh-ins at least ${withUnit(3, 'd')} apart`
 
 /** The one wording for a window with no weigh-ins: what is missing and the next step. */
 export const NO_WEIGHT_ENTRIES = 'No entries in this window — log a weight to start the trend.'
@@ -153,17 +150,14 @@ export const NO_WEIGHT_SUMMARY: WeightSummary = {
 /** Stable empty series for the shot-state substitution (memo deps downstream). */
 export const NO_WEIGHT_POINTS: readonly never[] = []
 
-/** The rate cell's qualifier; claims a slope window only when there is an entry to end it on. */
-export function rateQualifier(days: number, latest: string | undefined): string {
-  const band = `maintain \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`
-  return latest === undefined ? band : `${days}${NBSP}d slope to ${latest}, ${band}`
-}
+/** The rate cell's qualifier: the slope window alone; the band is drawn by the meter. */
+export const rateQualifier = (days: number): string => `${withUnit(days, 'd')} slope`
 
 /**
- * Headline: direction over a stated window, then the distance to the goal. The rate figure and the
- * current weight live in their strip cells and are not repeated. The window ends at the last
- * weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
- * Facts: the weigh-in count and the last weigh-in's age.
+ * Headline: the current weight, its rate over a stated window, then the distance to the goal. The
+ * window ends at the last weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
+ * Facts: the weigh-in count; the last weigh-in's age is a fact too, but a stale one comes back as
+ * `staleFact` so the page can draw it in the warn ink (the words say `stale` either way).
  */
 export function summaryParts({
   current,
@@ -187,45 +181,63 @@ export function summaryParts({
   entries: number
   /** Days the selected window spans; `null` for all time. */
   windowDays: number | null
-}): { sentence: string; facts: string[] } {
+}): { sentence: string; facts: string[]; staleFact?: string } {
   if (current === null) return { sentence: NO_WEIGHT_ENTRIES, facts: [] }
+  const stale = isStale(ageDays)
+  const age = ageDays === null ? null : `last weigh-in ${ageLabel(ageDays)}`
+  return {
+    sentence: headlineSentence({ current, kgPerWeek, rateDays, goal, ageDays, latestKey }),
+    facts: [entriesFact(entries, windowSpan), ...(age === null || stale ? [] : [age])],
+    ...(age !== null && stale && { staleFact: `${age} \u00b7 stale` }),
+  }
+}
+
+function headlineSentence({
+  current,
+  kgPerWeek,
+  rateDays,
+  goal,
+  ageDays,
+  latestKey,
+}: {
+  current: number
+  kgPerWeek: number | null
+  rateDays: number
+  goal: number | null
+  ageDays: number | null
+  latestKey?: string | null | undefined
+}): string {
   const span =
     ageDays !== null && ageDays > 1 && latestKey != null
-      ? `the ${rateDays} d to ${shortDay(latestKey)}`
-      : `${rateDays} d`
-  const rate = rateClause({ kgPerWeek, span })
-  const sentence =
-    goal === null
-      ? rate
-      : `${rate}, ${fixed(Math.abs(current - goal))} kg ${Math.abs(current - goal) < GOAL_TOLERANCE_KG ? 'at' : 'from'} the ${fixed(goal)} kg goal`
-  return {
-    sentence,
-    facts: [
-      entriesFact(entries, windowSpan),
-      ...(ageDays === null
-        ? []
-        : [`last weigh-in ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`]),
-    ],
-  }
+      ? `the ${withUnit(rateDays, 'd')} to ${shortDay(latestKey)}`
+      : withUnit(rateDays, 'd')
+  const rate =
+    kgPerWeek === null
+      ? `${withKg(current)}${latestKey == null ? '' : ` on ${shortDay(latestKey)}`}`
+      : `${withKg(current)}, ${signed(kgPerWeek, 2)}${NBSP}kg/wk over ${span}`
+  const distance = goal === null ? null : Math.abs(current - goal)
+  const goalClause =
+    goal === null || distance === null
+      ? ''
+      : distance < GOAL_TOLERANCE_KG
+        ? `, at the ${withKg(goal)} goal`
+        : `, ${withKg(distance)} from the ${withKg(goal)} goal`
+  // No rate: the same cause the Rate cell's footer gives, lower-cased into the sentence.
+  const noRate = kgPerWeek === null ? `; ${RATE_NEEDS_TWO_WEIGH_INS.toLowerCase()}` : ''
+  return `${rate}${goalClause}${noRate}`
 }
 
 /** "12 weigh-ins in 30 d": the count and the window it was counted over. */
 const entriesFact = (entries: number, span: number | null): string =>
   `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'} ${span === null ? 'over all time' : `in ${withUnit(span, 'd')}`}`
 
-/** The headline's opening clause: the trend over its window, or that there is none yet. */
-function rateClause({ kgPerWeek, span }: { kgPerWeek: number | null; span: string }): string {
-  if (kgPerWeek === null) return 'Weight trend not available yet'
-  return `Weight ${trend(kgPerWeek)} over ${span}`
-}
-
 /**
  * The weight chart header's fact, one the strip does not show: the net change across the window's
- * entries, stated with both ends of its span; a single entry shows that weight and its day. `null` with no entries.
+ * entries, naming the window and both ends of its span; a single entry shows that weight and its day. `null` with no entries.
  */
 export function weightHeaderFact(
   points: readonly { date: string; weightKg: number }[],
-  { now = new Date() }: { now?: Date } = {},
+  { now = new Date(), window }: { now?: Date; window: string },
 ): { value: string; period: string } | null {
   const sorted = points.toSorted(compareByDate)
   const first = sorted[0]
@@ -236,7 +248,7 @@ export function weightHeaderFact(
   }
   return {
     value: signed(last.weightKg - first.weightKg, 1),
-    period: `net change, ${shortDay(first.date, now)} to ${shortDay(last.date, now)}`,
+    period: `net change over ${window}, ${shortDay(first.date, now)} to ${shortDay(last.date, now)}`,
   }
 }
 
@@ -330,9 +342,7 @@ export function rateFooter(input: {
   if (status === 'pending') return 'Loading the rate'
   if (status === 'error') return 'The rate failed to load'
   if (rate !== null) return paceFooter(rate)
-  return entries === 0
-    ? NO_WEIGHT_ENTRIES_SHORT
-    : `A rate needs two weigh-ins at least ${withUnit(3, 'd')} apart`
+  return entries === 0 ? NO_WEIGHT_ENTRIES_SHORT : RATE_NEEDS_TWO_WEIGH_INS
 }
 
 /** A kg/week range, absolute; one end may be open (`null`), never both. */
@@ -373,14 +383,27 @@ export function formatRange({ lo, hi }: RangeBounds, unit: string): string {
 }
 
 /**
- * The pace class in plain words: `Lean pace, gaining 0.1–0.3 kg/wk`. The meter's zone already names
- * cut/bulk/maintenance, so the footer carries the class and the range it covers instead.
+ * The pace class and its range on one line: `Lean bulk · 0.1–0.3 kg/wk`. The meter's zone already
+ * names cut/bulk/maintenance, so the footer carries the class and the range it covers instead.
  */
 function paceFooter(rate: number): string {
   const bounds = intensityTier(rate)
   const { tier } = bounds
-  if (tier === 'maintenance') return 'Within the maintenance band'
-  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${formatRange(bounds, 'kg/wk')}`
+  if (tier === 'maintenance')
+    return `${TIER_NAME[tier]} \u00b7 under ${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`
+  return `${TIER_NAME[tier]} ${rate < 0 ? 'cut' : 'bulk'} \u00b7 ${formatRange(bounds, 'kg/wk')}`
+}
+
+/**
+ * The window's lowest and highest weigh-in, for a Weight cell with no goal to measure against;
+ * `null` when there is no spread to draw (fewer than two entries, or all the same weight).
+ */
+export function weightRange(points: readonly DatedWeight[]): { min: number; max: number } | null {
+  if (points.length < 2) return null
+  const weights = points.map((p) => p.weightKg)
+  const min = Math.min(...weights)
+  const max = Math.max(...weights)
+  return min === max ? null : { min, max }
 }
 
 /** The day-based means and slopes the strip and the chart header both state. */

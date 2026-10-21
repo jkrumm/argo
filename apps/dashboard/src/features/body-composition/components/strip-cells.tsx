@@ -65,6 +65,7 @@ export function weightCell({
   startWeight,
   startDate,
   latestDate,
+  range,
 }: {
   summary: WeightSummary
   stats: WeightWindowStats
@@ -72,6 +73,8 @@ export function weightCell({
   startWeight: number | null
   startDate: string | null
   latestDate: string | null
+  /** The window's lowest and highest weigh-in; the no-goal meter's extent. */
+  range: { min: number; max: number } | null
 }): StatStripCell {
   const delta = deltaFromMean(summary.current, stats.mean30)
   const progress = goalProgress({ start: startWeight, current: summary.current, goal })
@@ -121,6 +124,22 @@ export function weightCell({
           />
         ),
       }),
+    ...(goal === null &&
+      summary.current !== null &&
+      range !== null && {
+        visual: (
+          <Meter
+            label="Current weight within the window's lowest and highest weigh-in"
+            value={summary.current}
+            min={range.min}
+            max={range.max}
+            format={(v) => withKg(v)}
+            startCaption={`low ${withKg(range.min)}`}
+            endCaption={`high ${withKg(range.max)}`}
+            tone="muted"
+          />
+        ),
+      }),
     footer: (
       <>
         <span>{meanFooter}</span>
@@ -137,7 +156,6 @@ export function weightCell({
 export function rateCell({
   summary,
   rateDays,
-  latestDate,
   entries,
   status,
 }: {
@@ -147,7 +165,6 @@ export function rateCell({
   entries: number
   /** The summary query's state; a loading or failed rate is never a data gap. */
   status: 'pending' | 'error' | 'success'
-  latestDate: string | null
 }): StatStripCell {
   const rate = summary.kgPerWeek
   // A settled cell with no rate says why in the strip's empty state; a pending or failed one keeps the meter line.
@@ -156,14 +173,14 @@ export function rateCell({
     return {
       key: 'rate',
       caption: 'Rate',
-      qualifier: rateQualifier(rateDays, dateLabel(latestDate)),
+      qualifier: rateQualifier(rateDays),
       state: { kind: 'empty', reason: line },
     }
   }
   return {
     key: 'rate',
     caption: 'Rate',
-    qualifier: rateQualifier(rateDays, dateLabel(latestDate)),
+    qualifier: rateQualifier(rateDays),
     value: rate === null ? null : signed(rate, 2),
     unit: 'kg/wk',
     visual: (
@@ -178,8 +195,8 @@ export function rateCell({
           {
             from: -RATE_NEUTRAL_KG_WK,
             to: RATE_NEUTRAL_KG_WK,
-            label: 'Maintenance',
-            short: 'Maintain',
+            label: 'Maintain',
+            short: `\u00b1${RATE_NEUTRAL_KG_WK}`,
           },
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}
