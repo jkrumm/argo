@@ -270,3 +270,78 @@ Follow-up (w30-r1):
 - **Third reviewer (`w49-strength-r2`, fresh): fail, 48.** Not met: P1 Communication, "Recent records, last 30" has no unit (my title from this pass; reworded afterwards to `<n> most recent`, not re-shot); P1 Craft/Expression, at 390 the scan drops the Velocity and Status columns, leaving Status as an unlabelled dot (never scored before; not fixed). The prior P1 (chip kg) and the ACWR P1 are closed.
 - **Open, P2:** set-type letters W/D unexplained in Log; balance target band faint (basalt); scrollbar over Recent kg values; `PR` label on the sparkline start (basalt); Train-route states undeclared. **P3:** balance captions nearer the next row; strip padding-bottom 0; chevron own row at 390; `Sept`; empty right-rail column.
 - **Not verified:** no `detect.json`, no Keel read, collapsed Diagnostics/Alignment bodies never shot, the `most recent` reword.
+
+## Wave 50 — concept (scenario → concept → encoding)
+
+Waves 45–49 patched one finding at a time and oscillated (68 → 19 → 83 → 59 → 64 / 34 / 48). The cause is structural: the
+page states several facts twice in different forms (the e1RM trend in the strip AND the scan; the direction as an arrow, a %/mo
+figure, a coloured dot AND a word), and the 390 scan tried to keep every wide column by folding minis under the lift name.
+This section is the contract the code is built to; later rounds judge against it, not against the previous verdict.
+
+### Scenario: what the reader comes for, in order
+
+| # | Question | Facts that answer it | Where |
+|-|-|-|-|
+| 1 | Am I training, and is it working? | when the last session was; how many lifts moved up in 28 d | page headline |
+| 2 | Which lifts are moving? | per lift: latest e1RM (kg), 28 d delta (kg), the last N sessions as a line against the PR, PR date | lift strip |
+| 3 | How hard should today be? | readiness score against Rest / Push thresholds, ACWR against its zones, deload signal | call card |
+| 4 | Is each lift's load right? | per lift: 28 d velocity (%/mo) with its direction word, weekly volume (kg/wk), INOL per session | per-lift table (was "Strength scan") |
+| 5 | How did I get here? | the charts, by section: Strength, Load, Balance, Readiness | sections, page period in every title |
+| 6 | Why does the model say so? | composite z-scores, training/recovery alignment | `Diagnostics`, collapsed |
+
+The right rail (Log, Timer, Recent records) is the working tool, not a reading surface; it answers "what do I lift now".
+
+### Concept: one fact, one form
+
+- **Headline answers Q1 as a fact, never as narration of the UI.** All lifts stale (no scored e1RM in 28 d):
+  `Last session {d MMM}, {n} d ago`. Otherwise unchanged: `{up} of {n} scored lifts up in 28 d`. The old
+  `No e1RM scored in 28 d; strips show the last one` described the page instead of the training and is dropped.
+- **The e1RM trend lives in the strip only.** The strip already draws the last N sessions per lift with its PR line; the
+  per-lift table's `e1RM, kg` sparkline column was the same fact a second time and is removed.
+- **Direction is one cell.** Velocity and status are one fact (status is derived from the velocity's sign and size). The
+  table's `Velocity` and `Status` columns merge into one `28 d trend` cell: `▲ +{v} %/mo` in direction ink over the status
+  word (`improving / stable / declining`) in muted ink. The coloured status dot is removed: the arrow and the word carry it,
+  and a dot alone was the unlabelled mark reviewers flagged at 390.
+- **Every column header carries its unit and scope:** `28 d trend, %/mo`, `Volume, kg/wk · 10 wk`, `INOL · 15 sessions`.
+  The card title names what the table is, `Per-lift trend and load`.
+
+### The 390 layout (decided)
+
+Columns by fold priority, the highest folds first:
+
+| Column | Priority | 390 | Why |
+|-|-|-|-|
+| Exercise | 0 | stays | the row's identity |
+| 28 d trend (%/mo + word) | 1 | stays | the table's answer to Q4; ~150 px fits beside the name |
+| Volume, kg/wk · 10 wk | 2 | row detail | a bar spark needs ~80 px with its header to mean anything |
+| INOL · 15 sessions | 3 | row detail | as above |
+
+A column that cannot fit becomes **row detail** through `BasaltDataTable`'s own disclosure, which renders the folded column
+under its header label, so nothing is a silently unlabelled cell. The previous local fold (unlabelled-scale minis under the
+lift name) is removed: it was a workaround for a table that already folds. The disclosure's bare `▸` toggle is basalt's
+(`UPSTREAM.md` § "Strength review — row-disclosure toggle"); argo does not restyle it.
+
+The rest of 390 is unchanged from the Layout section above: rail under the Train tab, strip 2×2, charts stacked, Diagnostics
+collapsed.
+
+### Encoding rules (all components)
+
+- Units on every figure: `kg`, `kg e1RM`, `%/mo`, `kg/wk`, `t`; a bare number is a defect.
+- One period wording: the page window as `{period}` (`all time`, `last 90 days`) in section titles; fixed spans as `28 d`,
+  `10 wk`, `{n} sessions`. Never `last 30` without its noun.
+- One scope wording per surface: per lift (`{lift}`), per session, per week.
+- The Log's set-type letters (`W`, `D`, `A`) get a one-line key under the set table (`W warm-up · D drop · A AMRAP`); a letter
+  with no key was a P2 in w49.
+- Recent records' scroll region keeps its scrollbar off the right-pinned kg values (`offsetScrollbars`).
+- The Train route declares its shot states (`empty` on `strength-log`) so the scorer sees its empty render.
+- Basalt components only (`StatGroup` strip, `Meter`, `ChartCard`, `BasaltDataTable`, `DeltaBadge`, `Sparkline`, `Section`);
+  a basalt defect is an `UPSTREAM.md` row, never a local workaround.
+
+### Dropped or moved
+
+| What | Fate | Reason |
+|-|-|-|
+| Scan `e1RM, kg` sparkline column | dropped | the strip draws the same series with its PR line |
+| Scan `Status` column and its dot | merged into the trend cell | same fact as velocity |
+| Local Vol/INOL minis under the lift name at 390 | dropped | the table's row detail carries them, labelled |
+| Headline narration of the strips | replaced by the last-session fact | facts only |
