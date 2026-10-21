@@ -22,8 +22,8 @@ type SparkRow = {
   inol: number[]
   vel: number | null
   dir: StrengthDirection
-  /** No scored session in the trend window: the API's velocity is then an old window's. */
-  stale: boolean
+  /** No scored session in the trend window (the API's velocity is then an old window's); null until the record loads. */
+  stale: boolean | null
 }
 
 /**
@@ -100,6 +100,13 @@ const columns = [
     meta: { priority: 1 },
     cell: (ctx) => {
       const { dir, vel, stale } = ctx.row.original
+      if (stale === null) {
+        return (
+          <Text size="sm" c="dimmed">
+            —
+          </Text>
+        )
+      }
       if (stale) {
         return (
           <Text size="xs" c="dimmed">
@@ -168,7 +175,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
     const points = series.data?.byExercise.find((l) => l.exercise_id === r.exercise_id)?.points
     return {
       ...(r as Omit<SparkRow, 'stale'>),
-      stale: points !== undefined && liftDelta(points, now).stale,
+      stale: points === undefined ? null : liftDelta(points, now).stale,
     }
   })
   const hasData = rows.some((r) => r.e1rm.length > 0 || r.volume.length > 0 || r.inol.length > 0)

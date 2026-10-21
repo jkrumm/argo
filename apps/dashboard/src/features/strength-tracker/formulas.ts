@@ -1,6 +1,7 @@
 import type { Tone } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
+import { INOL_OPTIMAL_FROM, INOL_OPTIMAL_TO } from './bands'
 import { EXERCISES, METRICS, ZONE_COLORS, type ExerciseKey, type MetricKey } from './constants'
 
 /**
@@ -176,8 +177,8 @@ export function readinessVerdictColor(verdict: ReadinessVerdict | null): string 
 export function inolDotColor(inol: number | null): string {
   if (inol === null) return SERIES.acwr
   if (inol < 0.4) return SERIES.acwr
-  if (inol < 0.6) return VX.warnSolid
-  if (inol <= 1.0) return VX.goodSolid
+  if (inol < INOL_OPTIMAL_FROM) return VX.warnSolid
+  if (inol <= INOL_OPTIMAL_TO) return VX.goodSolid
   if (inol <= 1.5) return SERIES.calories
   return VX.badSolid
 }
@@ -218,8 +219,8 @@ export function metricLabel(metric: MetricKey | string): string {
 /** The INOL zone word for one session: the INOL chart's legend and the per-lift table share it. */
 export function inolZoneLabel(v: number): string {
   if (v < 0.4) return 'Too Light'
-  if (v < 0.6) return 'Recovery'
-  if (v <= 1.0) return 'Optimal'
+  if (v < INOL_OPTIMAL_FROM) return 'Recovery'
+  if (v <= INOL_OPTIMAL_TO) return 'Optimal'
   if (v <= 1.5) return 'Hard'
   return 'Excessive'
 }
