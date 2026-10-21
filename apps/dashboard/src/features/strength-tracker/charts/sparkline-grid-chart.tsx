@@ -69,7 +69,7 @@ function FigureSpark({
   )
 }
 
-const inolFigure = (v: number) => `${v.toFixed(2)}${NBSP}${inolZoneLabel(v).toLowerCase()}`
+const inolFigure = (v: number) => `${v.toFixed(2)}${NBSP}${inolZoneLabel(v)}`
 
 /** The page's one velocity wording: `+1.2 %/mo`, a dash when the lift has no fit. */
 function velocityFigure(vel: number | null): string {
@@ -133,7 +133,7 @@ const columns = [
   }),
   columnHelper.display({
     id: 'volume',
-    header: 'Volume per week, last 10 wk',
+    header: 'Volume, last 10 training weeks',
     enableSorting: false,
     meta: { priority: 2 },
     cell: (ctx) => (
@@ -142,7 +142,7 @@ const columns = [
         mark="bar"
         figure={fmtTonnes}
         format={fmtTonnes}
-        ariaLabel={`${ctx.row.original.exercise_name} weekly volume in tonnes, last 10 weeks`}
+        ariaLabel={`${ctx.row.original.exercise_name} weekly volume in tonnes, last 10 training weeks`}
       />
     ),
   }),

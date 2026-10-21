@@ -155,7 +155,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
           getValue: (d) => (d.velocity === null ? null : perMonthRaw(d.velocity)),
           positive: VX.goodSolid,
           negative: VX.badSolid,
-          format: (v) => fmtVelocity(v, '%'),
+          format: (v) => fmtVelocity(v, '%/mo'),
           tooltipFormat: (v) => fmtVelocity(v, ' %/mo'),
           maxAbsFloor: BOTTOM_MAX_ABS_FLOOR,
         }}
