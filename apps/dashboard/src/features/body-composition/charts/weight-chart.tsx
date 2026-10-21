@@ -109,7 +109,7 @@ export default function WeightChart({
               },
             ],
           })}
-          y={{ domain: yDomain, format: (v) => withKg(v, 0) }}
+          y={{ domain: yDomain, format: (v) => withKg(v, Number.isInteger(v) ? 0 : 1) }}
         />
       </ChartCard>
     </Box>
