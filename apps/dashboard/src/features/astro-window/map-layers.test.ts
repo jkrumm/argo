@@ -34,6 +34,7 @@ const {
   TERRAIN_DEFAULT,
   TRAILS_DEFAULT_OPACITY,
   WEATHER_LAYERS,
+  weatherLayerInlineName,
   baseLayer,
   formatLpParam,
   formatTerrainParam,
@@ -885,5 +886,14 @@ describe('fallbackDotImage', () => {
     expect(dot.data.length).toBe(11 * 11 * 4)
     expect(dot.data[(5 * 11 + 5) * 4 + 3]).toBe(255)
     expect(dot.data[3]).toBe(0)
+  })
+})
+
+describe('weatherLayerInlineName', () => {
+  it('lowers the first letter of the key title for use mid-sentence', () => {
+    const radar = WEATHER_LAYERS.find((entry) => entry.id === 'radar')
+    const precip = WEATHER_LAYERS.find((entry) => entry.id === 'model-precip')
+    expect(radar && weatherLayerInlineName(radar)).toBe('radar')
+    expect(precip && weatherLayerInlineName(precip)).toBe('forecast precipitation')
   })
 })

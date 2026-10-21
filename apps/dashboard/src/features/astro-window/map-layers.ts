@@ -1552,6 +1552,13 @@ export function formatWeatherParam(selection: WeatherAndDomainSelection): string
   return tokens.length === 0 ? undefined : tokens.join('.')
 }
 
+/** A layer's name inside a sentence ("hidden while forecast cloud cover is on"): its key title, or
+ * its label, with the first letter lowered. */
+export function weatherLayerInlineName(entry: WeatherLayer): string {
+  const name = entry.textKey?.title ?? entry.label
+  return name.charAt(0).toLowerCase() + name.slice(1)
+}
+
 export function weatherLayer(id: WeatherLayerId): WeatherLayer | undefined {
   return WEATHER_BY_ID.get(id)
 }

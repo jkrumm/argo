@@ -66,6 +66,7 @@ import {
   remapLpRampStops,
   SCHEME_STYLE_URL,
   weatherLayer,
+  weatherLayerInlineName,
   weatherLayerTime,
   type LegendableWeatherLayer,
   type WeatherLayer,
@@ -850,7 +851,7 @@ export default function SiteMap({
                   ))}
                   {hiddenAtlasBy !== undefined && (
                     <HiddenAtlasNote
-                      layerName={hiddenAtlasBy.textKey?.title ?? hiddenAtlasBy.label}
+                      layerName={weatherLayerInlineName(hiddenAtlasBy)}
                       onShow={() => onLayersChange({ ...layers, weather: [] })}
                     />
                   )}

@@ -36,6 +36,7 @@ import {
   TRAILS_LABEL,
   WEATHER_LAYERS,
   weatherLayer,
+  weatherLayerInlineName,
   type LpResampling,
   type MapLayerState,
   type TerrainSelection,
@@ -254,8 +255,7 @@ export function MapLayerSections({
                 </Radio.Group>
                 {state.lpYear !== null && activeWeatherLayer !== undefined && (
                   <Text size="xs" c="dimmed">
-                    Hidden while {activeWeatherLayer.textKey?.title ?? activeWeatherLayer.label} is
-                    on.
+                    Hidden while {weatherLayerInlineName(activeWeatherLayer)} is on.
                   </Text>
                 )}
                 {state.lpYear !== null && (
