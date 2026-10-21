@@ -2567,23 +2567,32 @@ reviewer. Known open: the "Fill from" chip prints bare numbers without `kg` (P1)
 - **Third reviewer (`w49-strength-r2`): fail, 48** (two reviews before it: 64 and 34). Pass not met: P1 "Recent records, last 30" had no unit (reworded to `<n> most recent`, not re-shot); P1 at 390 the scan drops Velocity and Status, leaving an unlabelled status dot (open). Remaining P2/P3 in `docs/design/strength-tracker.md` § Wave 49.
 - **Not verified:** no `detect.json`, no Keel read, collapsed diagnostics/alignment bodies never shot. Shots in `apps/dashboard/.design-shots/w49-strength{,-r2}` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
-## Wave 50 — Strength: concept first, then rounds <!-- status: active -->
+## Wave 50 — Strength: concept first, then rounds <!-- status: done -->
 
 Waves 45–49 patched Strength one finding at a time and did not converge (68 → 19 → 83 → 59 → 64 / 34 / 48): fixes oscillate
 (the 390 scan keeps dropping Velocity and Status), and every fresh read finds new copy and unit gaps. The page carries more than
 its layout holds, so this wave works the method's way: **scenario → concept → encoding → rounds**, not finding-by-finding.
 
-- [ ] Scenario and concept: write in `docs/design/strength-tracker.md` § Wave 50 what the reader comes to this page for (the
+- [x] Scenario and concept: write in `docs/design/strength-tracker.md` § Wave 50 what the reader comes to this page for (the
       questions, in order), which facts answer each, and what is dropped or moved behind a disclosure. Decide the 390 layout
       explicitly (which scan columns survive at the phone width and why; a column that cannot fit becomes a row detail, never
       a silently unlabelled cell). Read every `docs/design/strength-tracker.md` verdict since Wave 45 and the Keel shots first.
-- [ ] Encoding: one form per repeated fact (units on every figure, one period wording, one scope wording), the catalogue's
+- [x] Encoding: one form per repeated fact (units on every figure, one period wording, one scope wording), the catalogue's
       basalt components only, no local workaround for a basalt row (record it in `UPSTREAM.md`).
-- [ ] Implement by fan-out on disjoint files, two independent reviews per PR, CI `check` green on the PR head before merge,
+- [x] Implement by fan-out on disjoint files, two independent reviews per PR, CI `check` green on the PR head before merge,
       deploy, shoot only once the served bundle carries it.
-- [ ] At least three rounds, each with TWO fresh `basalt-design-reviewer`s (all sheets, 1440 / 390, both schemes, plus Keel);
+- [x] At least three rounds, each with TWO fresh `basalt-design-reviewer`s (all sheets, 1440 / 390, both schemes, plus Keel);
       fix the union of P0–P2 between rounds. Pass = both reviewers find no P0/P1 and every component passes.
 **Left behind:**
+
+**Closed out (orchestrated): Wave 50 is `done`; no Wave 51 is authored.**
+
+- **Concept first:** `docs/design/strength-tracker.md` § "Wave 50 — concept" (scenario in question order, one fact one form, the decided 390 layout, encoding rules, what was dropped). Built to it: the all-stale headline states the last session (`Last session {d MMM}, {n} d ago`); the scan became `Per-lift trend and load` without the repeated e1RM spark or the status dot, velocity and status in one `Trend, 28 d` cell, Volume and INOL as figure + spark that `BasaltDataTable` folds into labelled row detail at 390 (the local folded minis removed).
+- **PRs (each: two independent reviews, CI `check` green on the head, rebase-merged, deploy live and the served chunk grepped before shooting):** #195 concept build, #196 Log set-type key / Recent scrollbar / Train shot state, #197 round-1 union, #198 round-2 union, #199 round-3 union. Master `65a127c9` live. `make check` green (609 tests), dashboard build green, strength unit tests 89 pass.
+- **Rounds (two fresh `basalt-design-reviewer`s each, all sheets, both routes, Keel side by side):** r1 fail 3 / 9 → r2 fail 54 / pass 74 → r3 pass 82 / fail 67 → **r4 pass 84 / pass 74**. `shot detect` 80 → 100 → 100 → 100. Pass met: both reviewers find no P0/P1 and every component passes. One r2 P1 (Balance band) was disputed with a measurement; the r3 reviewer re-measured and agreed.
+- **Open, P2 (named, not fixed):** ACWR lift hues equal the zone fills (needs a series-dictionary decision); two wordings for the 28-day gap (call card's ACWR vs the trend); the empty Log's pre-filled default set; e1RM key hidden at 390 (basalt `ChartCard`). P3s and basalt rows in `docs/design/strength-tracker.md` § round 4 and `UPSTREAM.md` § Wave 50 (new rows: `Sparkline` band, `ChartCard` compact subtitle).
+- **Deviation from the plan's mechanics:** changes were small and sequential, so they ran as one branch + PR at a time from this pane rather than `rd fan` worktrees; every other gate held.
+- **Not verified:** hover tooltips are identical to rest in the harness; collapsed Diagnostics/Alignment bodies never shot; the `?tab=train` 1440 double stack is a harness artefact. Shots `apps/dashboard/.design-shots/w50-r{0..4}` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
 # Part 1, continued
 

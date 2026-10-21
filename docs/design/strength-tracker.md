@@ -360,3 +360,16 @@ collapsed.
 - **Union of P0–P2 (argo):** Momentum velocity axis ticks without `/mo` (A P1, B P2); the empty Log shows a ticked default set from the live draft (P2); the Volume column is the last 10 training weeks, not 10 calendar weeks (P2); the e1RM chart's key is hidden at 390 (P2, `ChartCard` drops `subtitle` on compact: basalt); ACWR hue collision (carried P2).
 - **Fixed (#198):** axis ticks `{v}%/mo`; under `?shot-state=empty` the Log adopts no remote draft (and so writes none); header `Volume, last 10 training weeks`; INOL zone word cased as in the INOL chart.
 - **Open P3s:** the stale fact repeated across the 390 table, Momentum header and headline; call card repeats the last-session date; timer `m`; diagnostics period on its own line; balance caption spacing (the `Meter` reserves a zone-label row under each track); `borderline` undefined at 390; mixed month-tick formats.
+
+### Wave 50 round 3 (`w50-r3`, live after #198)
+
+- **A pass 82, B fail 67** (one P1). `shot detect` 100. A measured the disputed Balance row independently and agrees the render is correct.
+- **Union of P0–P2:** P1 (B) the per-lift Volume figure `{t} t` has no period and reads as a 10-week total; P2 (both) the empty Log's preview line counts the pre-filled default set as if it were logged; P2 carried: `ChartCard` key at 390 (basalt), ACWR hue collision.
+- **Fixed (#199):** the Volume figure and readout read `{t} t/wk` (one formatter, `fmtWeeklyTonnes`); the Log's preview line reads `On save: …` (saving records exactly the sets it summarises); set-table header `kg` cased like `Reps`.
+
+### Wave 50 round 4 (`w50-r4`, live after #199) — pass
+
+- **Both fresh reviewers pass: A 84, B 74.** No P0/P1; every component passes on both routes, both schemes, 1440 and 390. `shot detect` 100 (trend 80 → 100 → 100 → 100). No contrast failure, three font sizes or fewer per anchor, no error shot.
+- **Open, P2 (named, not fixed):** ACWR lift lines share hues with the zone fills (Squat/Optimal, Deadlift/Danger, Pull-ups/Caution) — a series-dictionary decision, not a patch; the 28-day gap is worded two ways (`no training week in the last 28 d` on the call card's ACWR, `no session in 28 d` on the trend); the empty Log still shows the pre-filled default set as the active row; the e1RM key is hidden at 390 (basalt `ChartCard`, `UPSTREAM.md` § Wave 50).
+- **Open, P3:** the stale fact repeated across the 390 table, Momentum header and headline; the call card repeats the last-session date; volume in `kg` (Recent, Log) beside `t` (table, chart); `Recent records, {n} most recent`; timer `{n}m`; `Fatigue debt` unitless; diagnostics period on its own line; mixed month-tick formats; strip hero has no as-of date at rest. Basalt, carried: `Sparkline` `PR` label overprint, `BasaltDataTable` `▸`, `Section` chevron wrap at 390, `Meter` caption spacing, hover crops identical to rest.
+- **Against Keel:** both reviewers read the anatomy as close (headline fact, value + unit + micro-visual cells); the gap is the 390 per-lift table in a fully stale data state, which then shows one phrase per row.
