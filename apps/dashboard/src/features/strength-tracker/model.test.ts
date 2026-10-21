@@ -25,6 +25,7 @@ import {
   readinessReading,
   shortDate,
   signed,
+  sinceLabel,
   staleCopy,
   statusWord,
   summaryParts,
@@ -161,9 +162,11 @@ describe('summaryParts', () => {
     )
   })
   test('every lift stale is the stale headline', () => {
-    expect(summaryParts([move(null), move(null)])?.sentence).toBe(
-      'No e1RM scored in 28\u00a0d; strips show the last one',
-    )
+    expect(summaryParts([move(null), move(null)])?.sentence).toBe('No e1RM scored in 28\u00a0d')
+    expect(
+      summaryParts([move(null)], { date: '2026-09-02', now: new Date(2026, 9, 21).getTime() })
+        ?.sentence,
+    ).toBe('Last session 2 Sep, 49\u00a0d ago')
   })
   test('no lifts selected is no headline', () => {
     expect(summaryParts([])).toBeNull()
@@ -457,10 +460,21 @@ describe('staleCopy', () => {
       ]),
     ).toEqual({ headline: null, note: 'No scored e1RM in 28\u00a0d: Squat, Bench Press' })
   })
-  test('every lift stale is the headline alone', () => {
+  test('every lift stale is the headline alone, the last session as a fact', () => {
     expect(staleCopy([{ id: 'squat', delta: stale }])).toEqual({
-      headline: 'No e1RM scored in 28\u00a0d; strips show the last one',
+      headline: 'No e1RM scored in 28\u00a0d',
       note: null,
     })
+    expect(
+      staleCopy([{ id: 'squat', delta: stale }], {
+        date: '2026-09-02',
+        now: new Date(2026, 9, 21, 9).getTime(),
+      }),
+    ).toEqual({ headline: 'Last session 2 Sep, 49\u00a0d ago', note: null })
+  })
+  test('a session today reads today, not 0 d ago', () => {
+    expect(sinceLabel({ date: '2026-10-21', now: new Date(2026, 9, 21, 23).getTime() })).toBe(
+      '21 Oct, today',
+    )
   })
 })
