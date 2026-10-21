@@ -23,17 +23,17 @@ const TYPE_COLOR: Record<SetType, string> = {
   amrap: 'inherit',
 }
 
-const TYPE_NAME: Record<SetType, string> = {
+const TYPE_NAME: Record<Exclude<SetType, 'work'>, string> = {
   warmup: 'warm-up',
-  work: 'work',
   drop: 'drop',
   amrap: 'AMRAP',
 }
 
 /** The key for the set-type letters the table shows (`W warm-up · D drop`); null when none shows. */
 function typeKey(sets: readonly SetEntry[]): string | null {
+  // Work sets are numbered, not lettered, so they need no key.
   const shown = TYPE_CYCLE.filter(
-    (t) => TYPE_ABBREV[t] !== '' && sets.some((s) => s.set_type === t),
+    (t): t is Exclude<SetType, 'work'> => t !== 'work' && sets.some((s) => s.set_type === t),
   )
   return shown.length === 0
     ? null
@@ -176,7 +176,7 @@ export function SetEditor({
     }
     return TYPE_ABBREV[s.set_type]
   })
-  const key = typeKey(sets)
+  const typeKeyText = typeKey(sets)
 
   return (
     <Box>
@@ -416,9 +416,9 @@ export function SetEditor({
         )
       })}
 
-      {key === null ? null : (
+      {typeKeyText && (
         <Text size="xs" c="dimmed" mt={4}>
-          {key}
+          {typeKeyText}
         </Text>
       )}
 
