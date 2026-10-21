@@ -66,6 +66,7 @@ import {
   remapLpRampStops,
   SCHEME_STYLE_URL,
   weatherLayer,
+  weatherLayerTime,
   type LegendableWeatherLayer,
   type WeatherLayer,
   type MapLayerState,
@@ -446,8 +447,9 @@ export default function SiteMap({
       nowMs,
       gibsTime: gibsTimeValue,
       omTimeStep,
+      omDark: resolvedScheme === 'dark',
     }),
-    [layers, radarFrames, nowMs, gibsTimeValue, omTimeStep],
+    [layers, radarFrames, nowMs, gibsTimeValue, omTimeStep, resolvedScheme],
   )
   // The last clicked coordinate — held even after the panel closes, so reopening it (or clicking
   // the same spot again) reads from cache instead of re-fetching. `null` until the first click.
@@ -862,9 +864,7 @@ export default function SiteMap({
               h="100%"
               style={{ visibility: failed ? 'hidden' : 'visible' }}
             />
-            {(failed || !styleLoaded) && (
-              <MapPendingOrFailed failed={failed} onRetry={forcedState === null ? retry : null} />
-            )}
+            {(failed || !styleLoaded) && <MapPendingOrFailed failed={failed} onRetry={retry} />}
           </Box>
         </Flex>
       </Flex>
@@ -1255,10 +1255,16 @@ const LEGEND_PLATE = 'white'
  */
 function WeatherLegendCard({ entry }: { entry: LegendableWeatherLayer }) {
   const [imageFailed, setImageFailed] = useState(false)
+  const frameAt = new Date(weatherLayerTime(entry, new Date(useNow())))
   return (
     <Stack gap={4} w={LEGEND_IMAGE_CROP.width} maw="100%">
       <Text size="xs" fw={600}>
         {entry.label}
+      </Text>
+      {/* These layers do not follow the scrubber: they show the provider's latest published frame,
+          so the key names its time (the same instant the tile request asks for). */}
+      <Text ff="monospace" size="xs" c="dimmed">
+        frame {CLOCK_FORMAT.format(frameAt)} {zoneName(frameAt)}
       </Text>
       {!imageFailed && (
         <Box bg={LEGEND_PLATE} w={LEGEND_IMAGE_CROP.width} maw="100%">

@@ -217,9 +217,9 @@ describe('Open-Meteo domain catalogue', () => {
     expect(metaUrl).toBe(
       'https://openmeteo.s3.amazonaws.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover',
     )
-    expect(omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep: 3 })).toBe(
-      `om://${metaUrl}&time_step=valid_times_3&interpolation=linear&dark=true`,
-    )
+    expect(
+      omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep: 3, dark: true }),
+    ).toBe(`om://${metaUrl}&time_step=valid_times_3&interpolation=linear&dark=true`)
   })
 
   it('spells time_step in the grammar the protocol actually parses', () => {
@@ -233,7 +233,7 @@ describe('Open-Meteo domain catalogue', () => {
       /(?<capture>current_time|valid_times)(_)?(?<modifier>[+-])?(?<amountAndUnit>.*)?/
     for (const timeStep of [0, 3, 48]) {
       const step = new URL(
-        omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep }).replace(
+        omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep, dark: true }).replace(
           'om://',
           '',
         ),

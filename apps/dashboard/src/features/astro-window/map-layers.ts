@@ -1082,12 +1082,15 @@ export function omTileUrl({
   domain,
   variable,
   timeStep,
+  dark,
 }: {
   domain: OmDomainId
   variable: string
   timeStep: number
+  /** The package's palette per scheme (its `dark` cloud ramp ends pale grey, the `light` one slate). */
+  dark: boolean
 }): string {
-  return `om://${openMeteoMetaUrl(domain, variable)}&time_step=valid_times_${timeStep}&interpolation=linear&dark=true`
+  return `om://${openMeteoMetaUrl(domain, variable)}&time_step=valid_times_${timeStep}&interpolation=linear&dark=${dark}`
 }
 
 /** Required by the data's CC BY 4.0 licence — wired through the same `attribution` field every
@@ -1396,10 +1399,11 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     defaultOpacity: 0.7,
     stackIndex: 26,
     legend: false,
-    // Scale checked 2026-10-21 against @openmeteo/weather-map-layer's `cloud_cover` ramp (the `dark=true` palette `omTileUrl` requests): alpha 0 → .925, dark navy tint → pale grey.
+    // Scale checked 2026-10-21 against @openmeteo/weather-map-layer's `cloud_cover` ramp, alpha 0 → .925:
+    // the `dark=true` palette ends pale grey, the `light` one slate (`omTileUrl` follows the scheme).
     textKey: {
-      title: 'Cloud cover, forecast',
-      lines: ['Total cloud, 0–100 %: transparent clear → pale grey overcast'],
+      title: 'Forecast cloud cover',
+      lines: ['Total cloud, 0–100 %: transparent clear → grey overcast'],
     },
     emptyMeans: 'Blank means a clear forecast hour, or a place outside the forecast domain.',
     coverage:
@@ -1417,8 +1421,8 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     legend: false,
     // Same `cloud_cover` ramp as the total-cloud row (the package resolves `cloud_cover_low` to it).
     textKey: {
-      title: 'Low cloud, forecast',
-      lines: ['Low layer only, 0–100 %: transparent clear → pale grey overcast'],
+      title: 'Forecast low cloud',
+      lines: ['Low layer only, 0–100 %: transparent clear → grey overcast'],
     },
     emptyMeans:
       'Blank means a clear low layer at that hour, or a place outside the forecast domain.',
@@ -1437,7 +1441,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     legend: false,
     // Scale checked 2026-10-21 against the package's `precipitation` ramp: first breakpoint 0.01 mm at alpha 0, 0.055 mm light blue, 1 mm blue, 2–3 mm green, 4.5–6 mm yellow, 20 mm and up red.
     textKey: {
-      title: 'Precipitation, forecast',
+      title: 'Forecast precipitation',
       lines: ['mm/h: light blue → blue → green → yellow → red heavy; transparent under 0.06 mm/h'],
     },
     emptyMeans:
