@@ -2550,6 +2550,20 @@ From Wave 47's verdict (Strength fail 83; contrast closed, min 4.9:1). Detail: `
 - **Verdict (`w48-strength`, fresh reviewer, 0 failed): fail, 59** - only `strength-log` fails, on a new P1 Communication: the "Fill from" chip prints bare numbers with no kg. The w47 font-size P1 is closed. Not fixed: the stray dot at 390 (a "▸" in an unlabelled first column of the scan; source not located); the H1 is still P2 (no as-of date, 28 d figures beside it). Detail: `docs/design/strength-tracker.md` § Wave 48.
 - **Not verified:** no `detect.json`, no Keel read, collapsed diagnostics/alignment bodies never shot. Shots in `apps/dashboard/.design-shots/w48-strength` (gitignored); auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 49 — Strength: converge on the union of two reviews <!-- status: active -->
+
+Strength's single-reviewer verdicts swing (68 → 19 → 83 → 59) because each fresh reviewer surfaces a different real item. To
+converge instead of chasing one finding per wave: start from TWO independent fresh reviewers on the current live page (all
+sheets, 1440 / 390, both schemes), take the UNION of their P0–P2 findings, fix them in one pass, then confirm with a THIRD fresh
+reviewer. Known open: the "Fill from" chip prints bare numbers without `kg` (P1); the H1 has no as-of date beside 28 d figures
+(P2); a stray `▸` in an unlabelled first column of the 390 scan (P3, locate the source).
+
+- [ ] Two independent fresh reviews of the live Strength page; write the union of P0–P2 findings into
+      `docs/design/strength-tracker.md` § Wave 49.
+- [ ] Fix the union (argo items); a basalt cause becomes an `UPSTREAM.md` row, no workaround. Check/test green, deploy.
+- [ ] A third fresh reviewer on the re-shoot. Pass = no P0/P1 and every component passes.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
