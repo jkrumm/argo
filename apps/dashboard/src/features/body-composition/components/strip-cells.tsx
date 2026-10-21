@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { format } from 'date-fns'
 import { NBSP, withUnit } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
@@ -141,6 +142,13 @@ export function weightCell({
             max={range.max}
             format={(v) => withKg(v)}
             readingAt="start"
+            // A position between the window's extremes, not an amount: a marker on one flat neutral
+            // track, so a current weight equal to the low still shows where it sits (a fill at 0 %
+            // draws nothing).
+            stops={[
+              { at: range.min, color: alpha(VX.line, 0.35) },
+              { at: range.max, color: alpha(VX.line, 0.35) },
+            ]}
             startCaption={`low ${withKg(range.min)}`}
             endCaption={`high ${withKg(range.max)}`}
             tone="muted"
