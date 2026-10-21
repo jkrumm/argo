@@ -284,7 +284,7 @@ function ChartsPanel({
           title={DIAGNOSTICS_TITLE}
           summary={
             <Text size="xs" c="dimmed">
-              Shown over {period}
+              Window: {period}
             </Text>
           }
           collapsible
