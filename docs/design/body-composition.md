@@ -252,3 +252,58 @@ Shots `w51-body` (gitignored; `shot detect` run on each dir). Two fresh `basalt-
   - P2 `headline / weight-chart` (argo): The headline says 'Weight rising over the 28 d to 2 Sep', while the chart card directly below says '-0.2 kg net change, 23 Jul to 2 Sep'. Two windows (28 d and 90 d) give opposite directions with no…
 
 The `weight-chart` y-axis repeat (`74, 73, 73, 72, …`, both reviewers) was fixed in 37ddf42f (half-kg ticks keep one decimal) and a second pair re-scored: **A fail 78** (P1 `strip-rate` at 390: Weight and Rate cells sit side by side instead of stacking, the Cut / Maintenance / Bulk captions nearly touch), **B pass 84**. The tick defect is closed in both. Open (argo, P2): the headline `Weight rising over the 28 d to 2 Sep` carries no value and reads against the 90 d net change below it; the stale qualifier is not in the warn colour; the no-goal Weight cell is sparse. Not verifiable on production data: goal meter, goal ref line, skinfold cell/chart, history table. **Result: fails the bar** — it gets its own concept-first wave (Wave 52).
+
+## Wave 52 — concept
+
+**Scenario.** The page answers, in order: (1) what do I weigh now, how fast is it moving, and how far is the goal; (2) is that
+figure fresh; (3) is the rate inside the band I want (cut, maintain, bulk); (4) is the waist getting leaner (skinfold); (5) what
+did the last 90 days look like. The decision is still: eat more or less this week, and whether a caliper session is due.
+
+**Headline: value, rate, distance.** The Wave 51 headline (`Weight rising over the 28 d to 2 Sep`) carried no figure and read
+against the chart's 90 d net change. It now states the three figures with their windows:
+
+- with a goal: `{weight} kg, {±rate} kg/wk over the 28 d to {date}, {distance} kg from the {goal} kg goal`
+- no goal: `{weight} kg, {±rate} kg/wk over the 28 d to {date}`
+- no rate yet: `{weight} kg on {date}; the rate needs a second weigh-in`
+- at the goal (within the tolerance): `… , at the {goal} kg goal`
+
+`to {date}` appears only when the last weigh-in is not today or yesterday, as before. Facts under it: `{n} weigh-ins in 90 d`,
+`last weigh-in {n} d ago`. The **stale** state (≥ 14 days) renders that second fact in the warn status ink and says
+`stale` in words, so the colour is never the only signal.
+
+**One window per figure, named every time.** Rate is the 28 d slope (strip and headline); the chart header's net change is
+labelled `net change over {window}, {from} to {to}`. Both windows are stated; the two can legitimately disagree in sign (a
+90 d dip and a 28 d rise), and naming the window is what makes that readable.
+
+**390 strip: Weight and Rate stay side by side; the Rate cell is cut to fit.** basalt's strip never drops below two columns
+(`stat-strip.module.css`: two columns under 480 px, by design), so "stack" is not an argo choice. The Wave 51 P1 was the Rate
+cell's load at ~180 px: a two-line qualifier, three zone captions that nearly touch, and a two-line pace footer. The Rate cell now
+carries:
+
+- qualifier `28 d slope` (the date is in the headline; the band is drawn by the meter, so `maintain ±0.1 kg/wk` is not
+  repeated in words);
+- value `{±rate} kg/wk`;
+- the band `Meter` with zone labels `Cut` / `Maintain` / `Bulk` (the middle one shorter than `Maintenance`, with basalt's
+  narrow fallback `±0.1`, which names the band numerically);
+- footer: the pace tier and its range on one line: `{Tier} {cut|bulk} · {lo}–{hi} kg/wk` (`Maintenance · under 0.1 kg/wk`).
+
+**No-goal Weight cell.** It was a bare figure beside a Rate cell with a meter. It now carries a visual of its own that needs no
+goal: a `Meter` over the window's lowest to highest weigh-in with the current weight marked (`low {min} kg` / `high {max} kg`),
+which says where today sits in the window. With a goal it keeps the start-to-goal meter. `Set a goal` stays in the footer.
+
+**States that production data cannot show.** Goal set, skinfold sessions (one, and two or more), and the history table render only
+with data that production does not have today. They are shot with a mock overlay: `scripts/design-shot/fixture-proxy.ts`
+answers the profile goal and the three skinfold reads with synthetic values and forwards every other GET to production. The
+fixtures are synthetic, not personal data.
+
+**Kept.** Strip (Weight, Rate, Skinfold when sessions exist), the weight chart with goal line, the skinfold chart at ≥ 2 sessions,
+the empty row at 0–1 sessions, the history table when it has rows, the two log modals. **Dropped.** The rate qualifier's band
+wording, the two-line pace footer.
+
+**Pass criteria (Wave 52).**
+
+1. The headline contains the current weight in kg and the rate in kg/wk, and the distance to the goal when a goal is set.
+2. A stale weigh-in is in the warn ink and says `stale`.
+3. At 390 no Rate-cell caption touches another; the qualifier is one line.
+4. The no-goal Weight cell carries a meter; the goal state carries the start-to-goal meter and the chart goal line.
+5. The goal, skinfold and history states are shot and reviewed, not assumed.

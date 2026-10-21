@@ -299,3 +299,49 @@ Shots `w51-astro-{tonight,forecast,map}` (gitignored; `shot detect` run on each 
   - P2 `annual-budget (Forecast)` (basalt): The `Flat atmospheric floor` and `Flat + measured skyline` bars are two greys that differ by shade only, so they are hard to tell apart, especially in light mode. Carried (basalt `Bars` has no…
 
 **Result: fails the bar.** Both reviewers fail `site-map` on `shot detect` P1s (score 70): the map overlays (`Paper` scrubber and legends, 10 px) nest inside the 10 px map `Card` (`craft-1/nested-radius-step`), and the MapLibre compact attribution control is 12 px (`craft-1/off-scale-radius`, 390 only). Neither is a copy, unit or label fix: the strict surface system collapses `Paper` radii, so a local override would be a workaround. Recorded in `UPSTREAM.md` § Wave 51 and handed to the Map tab concept wave (Wave 52). Tonight and Forecast otherwise pass.
+
+## Wave 52 — Map tab concept
+
+**Scenario.** A reader opens the Map tab to scout: where is the sky dark enough, and what is the weather doing over there now or
+in the next hours? In order, they need (1) the canvas, as large as the viewport allows; (2) what the colours mean, for each
+layer that is on; (3) when the time-following layers are showing (observed or forecast, and the hour); (4) the data credits,
+which the licences require. Layer choice lives in the `Map layers` aside and scouting a point in the scout drawer; neither sits
+on the canvas.
+
+**Decision: nothing argo draws floats over the canvas.** The Wave 51 P1 (`craft-1/nested-radius-step`) was the light-pollution
+legend `Paper` (and, when a time layer is on, the scrubber `Paper` and the weather legend `Paper`s) floating inside the flush
+map `Card`: two surfaces with the same 10 px radius, one inside the other. Instead of asking basalt for a radius step for a
+floating panel (`UPSTREAM.md` § Wave 51, row 1, kept), the map card gets a **key rail**: one band at the top of the card, above
+the canvas, separated from it by a divider, holding in order:
+
+1. the time scrubber, only while a time-following layer is on (play, mono clock, `observed` / `forecast`, slider, the radar
+   hold note);
+2. the light-pollution key, only while the atlas is on: the ramp bar with its two mono ends, then one line
+   `mag/arcsec² · blue from {mpsas}, where the sites sit · {year} atlas`;
+3. one key per active weather layer with a legend: its label, the legend image (height-capped, scrolls past the cap), and its
+   `emptyMeans` line.
+
+The rail is plain layout inside the card (`Group`, wrapping), not a surface: no `Paper`, no radius, no shadow. With no layer
+that needs a key, the rail is absent and the canvas takes the whole card. The canvas is the rest of the card's height; MapLibre
+re-measures its container when the rail appears or wraps.
+
+**Why the top, not the bottom.** A key is read before the field it explains; at 390 the bottom edge of a full-height card sits
+under the mobile tab bar, which is where the legend was cut off in Wave 51; and the bottom-right corner belongs to the
+attribution control.
+
+**390.** The rail wraps: the scrubber takes its own row, each key takes one row at full width. The canvas keeps at least
+`MAP_MIN_HEIGHT` minus the rail; the card does not grow past the viewport.
+
+**Attribution.** MapLibre's compact attribution control stays where the licences put it, on the canvas. Its 12 px radius is a
+third-party style (`UPSTREAM.md` § Wave 51, row 2), not restyled locally. The concept does not depend on it: no argo surface sits
+in or near that corner, and nothing in the key rail depends on its size.
+
+**Kept.** Site markers on the canvas (the data itself), the `Map layers` aside, the scout drawer, the failed-tiles message.
+**Dropped.** Every absolutely positioned `Paper` over the canvas.
+
+**Pass criteria (Map tab).**
+
+1. `shot detect` reports no `nested-radius-step` on an argo surface in `site-map`.
+2. Every key names its unit or meaning in words; the light-pollution key states the atlas year and the site threshold.
+3. At 390 the key rail is fully visible above the canvas at rest, nothing overflows the viewport width.
+4. With no keyed layer on, there is no empty rail.
