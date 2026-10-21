@@ -28,8 +28,6 @@ const PLACEHOLDER_HEIGHT = 280
 
 const fmtKg = (v: number): string => withKg(v, 1)
 
-const ONE_WEIGH_IN = 'One weigh-in in this window; the line starts with the second.'
-
 export default function WeightChart({
   params,
   goal,
@@ -85,14 +83,11 @@ export default function WeightChart({
     return [min - pad, max + pad]
   }, [chartData, goal])
 
-  // One weigh-in is a dot on a day-wide axis: the header already states its value and day, so the
-  // body says why there is no line instead of drawing one.
-  const empty =
-    chartData.length === 0
-      ? NO_WEIGHT_ENTRIES_SHORT
-      : chartData.length === 1
-        ? ONE_WEIGH_IN
-        : undefined
+  const empty = chartData.length === 0 ? NO_WEIGHT_ENTRIES_SHORT : undefined
+
+  // One weigh-in is a dot on a day-wide axis, and the headline already states its value and day:
+  // the card would hold one sentence in a full plot box, so it waits for the second weigh-in.
+  if (chartData.length === 1) return null
 
   return (
     <Box data-shot="weight-chart" data-shot-states="empty">
