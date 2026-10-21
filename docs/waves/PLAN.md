@@ -2594,6 +2594,20 @@ its layout holds, so this wave works the method's way: **scenario → concept �
 - **Deviation from the plan's mechanics:** changes were small and sequential, so they ran as one branch + PR at a time from this pane rather than `rd fan` worktrees; every other gate held.
 - **Not verified:** hover tooltips are identical to rest in the harness; collapsed Diagnostics/Alignment bodies never shot; the `?tab=train` 1440 double stack is a harness artefact. Shots `apps/dashboard/.design-shots/w50-r{0..4}` (gitignored). Auth seeded via env from `secrets-run`, never printed or written. No background task left.
 
+## Wave 51 — Every page under the two-reviewer bar <!-- status: active -->
+
+Strength (Waves 45–50) showed a single fresh reviewer's pass is not stable: verdicts swung 90 → 19 → 83 → 59 until the page was
+reworked concept-first and held under TWO reviewers. The other 13 pages passed under one reviewer each. This wave re-verifies all
+of them under the bar Strength now meets, on the live 2.27.2 bundle.
+
+- [ ] Shoot every route + both m365 presets (1440 / 390, both schemes) with `basalt-ui shot`; give each page TWO fresh
+      `basalt-design-reviewer`s (all sheets, Keel side by side). Record both verdicts per page in `docs/design/<page>.md`
+      § Wave 51.
+- [ ] Pass = both reviewers find no P0/P1 and every component passes. List the pages that fail with their union of P0–P2.
+- [ ] Fix only argo P0/P1 items that are small and local (copy, units, a label); a page whose findings oscillate or pile up
+      gets its own concept-first wave in the Wave 50 shape (author it, do not run it). Basalt causes → `UPSTREAM.md` rows.
+**Left behind:**
+
 # Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
