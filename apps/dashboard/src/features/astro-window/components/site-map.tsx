@@ -484,6 +484,8 @@ export default function SiteMap({
   // Bumped by the failed state's Retry: the create effect below re-runs and builds a fresh map.
   const [attempt, setAttempt] = useState(0)
   const retry = () => {
+    // A forced `shot-map=error` builds no map, so its Retry leaves the failed state standing.
+    if (forcedState !== null) return
     setFailed(false)
     setAttempt((current) => current + 1)
   }
@@ -832,7 +834,7 @@ export default function SiteMap({
                   )}
                   {paintedYear !== null && <LpLegend year={paintedYear} range={layers.lpRange} />}
                   {weatherLegends.map((entry) => (
-                    <WeatherLegendCard key={entry.id} entry={entry} />
+                    <WeatherLegendCard key={entry.id} entry={entry} nowMs={nowMs} />
                   ))}
                   {textKeys.map(({ id, textKey, emptyMeans }) => (
                     <WeatherTextKey
@@ -1253,16 +1255,16 @@ const LEGEND_PLATE = 'white'
  * with `bg="white"`, no radius, shadow or border — a key, not a surface; DESIGN.md, App
  * deviations).
  */
-function WeatherLegendCard({ entry }: { entry: LegendableWeatherLayer }) {
+function WeatherLegendCard({ entry, nowMs }: { entry: LegendableWeatherLayer; nowMs: number }) {
   const [imageFailed, setImageFailed] = useState(false)
-  const frameAt = new Date(weatherLayerTime(entry, new Date(useNow())))
+  const frameAt = new Date(weatherLayerTime(entry, new Date(nowMs)))
   return (
     <Stack gap={4} w={LEGEND_IMAGE_CROP.width} maw="100%">
       <Text size="xs" fw={600}>
         {entry.label}
       </Text>
       {/* These layers do not follow the scrubber: they show the provider's latest published frame,
-          so the key names its time (the same instant the tile request asks for). */}
+          so the key names its time, from the same `nowMs` the tile request is built from. */}
       <Text ff="monospace" size="xs" c="dimmed">
         frame {CLOCK_FORMAT.format(frameAt)} {zoneName(frameAt)}
       </Text>
