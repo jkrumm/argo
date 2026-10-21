@@ -325,6 +325,8 @@ function fixtureResponse(route: string, url: URL): Response | null {
 const server = Bun.serve({
   port,
   hostname: '127.0.0.1',
+  // Bun's 10 s default cuts slow upstream reads (M365, Google) before UPSTREAM_TIMEOUT_MS does.
+  idleTimeout: Math.ceil(UPSTREAM_TIMEOUT_MS / 1000) + 5,
   async fetch(req) {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       return new Response('fixture proxy is GET-only', { status: 405 })
