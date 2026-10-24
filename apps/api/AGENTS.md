@@ -227,6 +227,10 @@ OTEL_SERVICE_VERSION=                              # optional; falls back to pac
 
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.
 
+## Usage quota + picker decisions
+
+`usage-tracker` POSTs Claude account quota samples (`/usage/quota-samples`, key `(account, sampledAt, machine)`) and picker decisions (`/usage/account-picks`, key `(ts, lane, machine)`); picker spec: `dotfiles/docs/claude-accounts.md` §The picker. Both are append-only (`ON CONFLICT DO NOTHING`, nothing pruned, ~200 rows/day) and validate **per row**: an invalid row is dropped and counted in `rejected`, never a 422 for the batch (the body schema only fixes the envelope). `picked` is opaque: an account id or `spill`. Reads: `GET /usage/quota` (15-min buckets, last sample wins; resets as markers) and `GET /usage/account-picks/summary`. The routes live in `src/routes/usage-quota.ts`, mounted inside `usageRoutes` (no prefix of their own, so the `/usage` auth guard and Eden path are shared). Tests: `src/routes/usage.quota.test.ts`.
+
 ## Google (Gmail + Calendar)
 
 In-browser OAuth, refresh-token based. Local and prod are independent grants — each holds its own `google` slice in `data/oauth-tokens.json` (alongside the M365 slice).

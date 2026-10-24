@@ -162,6 +162,13 @@
       "when": 1792859085971,
       "tag": "0022_cool_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792861495664,
+      "tag": "0023_goofy_ben_urich",
+      "breakpoints": true
     }
   ]
 }
