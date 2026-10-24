@@ -30,6 +30,7 @@ export const TimeseriesGroupByEnum = z.enum([
   'workspace',
   'billing',
   'account',
+  'payer',
   'outcome',
   'none',
 ])
@@ -40,6 +41,7 @@ export const BreakdownDimensionEnum = z.enum([
   'model_norm',
   'billing',
   'account',
+  'payer',
   'outcome',
   'source',
   'machine',
@@ -47,6 +49,24 @@ export const BreakdownDimensionEnum = z.enum([
 ])
 /** Claude account id as usage-tracker's registry spells it (`iu`, `me`, …). */
 export const ACCOUNT_PATTERN = /^[a-z][a-z0-9-]{0,15}$/
+
+/**
+ * Who pays for a row, derived from (billing, account) at query time so it works on all history and
+ * needs no column: `iu-sub` / `me-sub` are the two Max subscriptions, `iu-api` the IU metered API,
+ * `me-api` the personal pay-per-token API (OpenRouter today), `unknown` anything else (including
+ * Max rows whose account is not yet known).
+ */
+export const PAYERS = ['iu-sub', 'me-sub', 'iu-api', 'me-api', 'unknown'] as const
+export const PayerEnum = z.enum(PAYERS)
+
+/** SQL for the payer of a `usage_record` row; keep in step with `PAYERS`. */
+export const PAYER_SQL = `CASE
+  WHEN billing = 'max' AND account = 'iu' THEN 'iu-sub'
+  WHEN billing = 'max' AND account = 'me' THEN 'me-sub'
+  WHEN billing = 'iu' THEN 'iu-api'
+  WHEN billing = 'openrouter' THEN 'me-api'
+  ELSE 'unknown'
+END`
 
 export const WorkspaceEnum = z.enum(['work', 'private'])
 
