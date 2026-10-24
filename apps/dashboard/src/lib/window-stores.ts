@@ -22,6 +22,7 @@
  */
 import { format, startOfYear, subMonths, subYears } from 'date-fns'
 import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
+import { ACCOUNT_IDS, ACCOUNT_LABELS } from '../features/usage-tracking/accounts'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
@@ -151,10 +152,6 @@ export const walkingStore = createSearchStore({
   metrics: { distance: 'Distance', duration: 'Duration', steps: 'Steps' },
 })
 
-/** The Claude accounts the usage page can filter to; the API accepts any id, the page names these. */
-export const ACCOUNTS = ['iu', 'me'] as const
-export type AccountValue = (typeof ACCOUNTS)[number]
-
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
   fields: {
@@ -164,7 +161,7 @@ export const usageStore = createSearchStore({
     grain: field.enum(['day', 'week'], 'day'),
     billing: field.multi(['max', 'iu', 'openrouter', 'unknown'], []),
     workspace: field.multi(['work', 'private'], []),
-    account: field.multi(ACCOUNTS, []),
+    account: field.multi(ACCOUNT_IDS, []),
     costGroupBy: field.enum(['source', 'machine', 'billing', 'account'], 'source'),
     tokensGroupBy: field.enum(['sub_tool', 'model_norm', 'project', 'source'], 'sub_tool'),
   },
@@ -173,7 +170,7 @@ export const usageStore = createSearchStore({
   grain: { day: 'Day', week: 'Week' },
   billing: { max: 'Max', iu: 'IU', openrouter: 'OpenRouter', unknown: 'Unknown' },
   workspace: { work: 'Work', private: 'Private' },
-  account: { iu: 'iu', me: 'me' },
+  account: ACCOUNT_LABELS,
   costGroupBy: { source: 'Source', machine: 'Machine', billing: 'Billing', account: 'Account' },
   tokensGroupBy: {
     sub_tool: 'Tool',

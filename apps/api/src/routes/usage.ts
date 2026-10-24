@@ -45,8 +45,8 @@ const UsageRecordInputSchema = z.object({
   sub_tool: z.string().nullable(),
   machine: z.string().nullable(),
   billing: z.string(),
-  // Permissive on purpose: one odd value must not 422 a whole batch. The strict pattern guards filters only.
-  account: z.string().max(32).nullable().optional(),
+  // Any string: it is normalised in the handler (see `normalizeAccount`), never rejected, so one odd value cannot 422 a batch.
+  account: z.string().nullable().optional(),
   outcome: z.string().default('ok'),
   input_tokens: z.number().int().default(0),
   output_tokens: z.number().int().default(0),
@@ -59,6 +59,15 @@ const UsageRecordInputSchema = z.object({
   raw: z.unknown().nullable(),
   ingested_at: z.string().describe('Source-local ingest time, ISO 8601'),
 })
+
+/**
+ * Trimmed account id, or null when it is absent, empty or not a valid id. Null never overwrites a
+ * stored account (the upsert COALESCEs), so a blank or odd value from a collector is dropped, not stored.
+ */
+function normalizeAccount(raw: string | null | undefined): string | null {
+  const id = raw?.trim()
+  return id !== undefined && ACCOUNT_PATTERN.test(id) ? id : null
+}
 
 function groupColumnSql(groupBy: string) {
   switch (groupBy) {
@@ -177,8 +186,15 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       // classification for sources that emit a cwd per record (claude-code,
       // litellm). classifyWorkspace must run on the *original* cwd before
       // normalizeProject collapses it to a bare repo name.
+      const dropped = body.records.filter(
+        (r) => r.account != null && normalizeAccount(r.account) === null,
+      ).length
+      if (dropped > 0) {
+        console.warn(`usage ingest: ${dropped} record(s) with an invalid account stored as null`)
+      }
       const records = body.records.map((r) => ({
         ...r,
+        account: normalizeAccount(r.account),
         workspace: r.workspace ?? classifyWorkspace(r.project),
         project: normalizeProject(r.project),
       }))
@@ -228,7 +244,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Batch upsert usage records',
         description:
-          'Idempotent batch insert-or-update for usage records. Keyed on (source, source_id, machine) so the same logical event from different machines stays distinct. A matching triple overwrites all mutable columns (tokens, cost, duration, raw, …). Called by the usage-tracker LaunchAgent every 15 min to sync local SQLite rows into Argo. Accepts 1–1000 records per call (client batches at 500). `account` (the Claude account id, null off Max billing) is stored verbatim up to 32 characters so one odd value cannot reject a batch; a null or absent value never clears a stored account. Only the `account` query filters enforce the id pattern.',
+          'Idempotent batch insert-or-update for usage records. Keyed on (source, source_id, machine) so the same logical event from different machines stays distinct. A matching triple overwrites all mutable columns (tokens, cost, duration, raw, …). Called by the usage-tracker LaunchAgent every 15 min to sync local SQLite rows into Argo. Accepts 1–1000 records per call (client batches at 500). `account` (the Claude account id, null off Max billing) is trimmed and must match `^[a-z][a-z0-9-]{0,15}$`; an empty or non-matching value is stored as null (logged once per batch) instead of rejecting the batch, and a null or absent value never clears a stored account.',
         security: [{ BearerAuth: [] }],
       },
     },

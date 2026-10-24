@@ -23,6 +23,7 @@
  *    theme lab (provider-mounted in dev).
  */
 import { BP, defineSeries, groupTokens, p, type SeriesMap } from 'basalt-ui/tokens'
+import { USAGE_ACCOUNTS } from '../features/usage-tracking/accounts'
 
 /** Per-metric series identity — see the module doctrine above for the family choices. */
 const SERIES_MAP = defineSeries({
@@ -138,10 +139,9 @@ const USAGE_BILLING_MAP = defineSeries({
   unknown: p(BP.gray),
 } satisfies SeriesMap)
 
-/** Usage tracker — Claude account identity (`iu` Max 20x, `me` Max 5x). */
-const USAGE_ACCOUNT_MAP = defineSeries({
-  iu: p(BP.blue),
-  me: p(BP.violet),
+/** Usage tracker — Claude account identity, one hue per `USAGE_ACCOUNTS` entry plus `unknown`. */
+const USAGE_ACCOUNT_MAP: SeriesMap = defineSeries({
+  ...Object.fromEntries(USAGE_ACCOUNTS.map((a) => [a.token, p(a.hue)])),
   unknown: p(BP.gray),
 } satisfies SeriesMap)
 
