@@ -151,6 +151,10 @@ export const walkingStore = createSearchStore({
   metrics: { distance: 'Distance', duration: 'Duration', steps: 'Steps' },
 })
 
+/** The Claude accounts the usage page can filter to; the API accepts any id, the page names these. */
+export const ACCOUNTS = ['iu', 'me'] as const
+export type AccountValue = (typeof ACCOUNTS)[number]
+
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
   fields: {
@@ -160,7 +164,7 @@ export const usageStore = createSearchStore({
     grain: field.enum(['day', 'week'], 'day'),
     billing: field.multi(['max', 'iu', 'openrouter', 'unknown'], []),
     workspace: field.multi(['work', 'private'], []),
-    account: field.multi(['iu', 'me'], []),
+    account: field.multi(ACCOUNTS, []),
     costGroupBy: field.enum(['source', 'machine', 'billing', 'account'], 'source'),
     tokensGroupBy: field.enum(['sub_tool', 'model_norm', 'project', 'source'], 'sub_tool'),
   },

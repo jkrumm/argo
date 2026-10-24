@@ -2,7 +2,8 @@ import type { Grain, Range } from '../../lib/queries/usage'
 import { colorForGroup } from './constants'
 import { FoldedChart } from './folded-chart'
 import { foldInfo, fmtUsdWhole } from './model'
-import type { AccountValue, BillingValue, CostGroupBy, WorkspaceValue } from './types'
+import type { BillingValue, CostGroupBy, WorkspaceValue } from './types'
+import type { AccountValue } from '../../lib/window-stores'
 
 const GROUP_NOUN: Record<CostGroupBy, string> = {
   source: 'source',
