@@ -5,6 +5,7 @@ import {
   integer,
   bigint,
   real,
+  doublePrecision,
   timestamp,
   jsonb,
   boolean,
@@ -317,8 +318,9 @@ export const usageRecord = argoSchema.table(
 //
 // usage-tracker (src/sync.ts) POSTs a quota sample per account/machine and every picker decision
 // (dotfiles docs/claude-accounts.md §The picker). Both are append-only and idempotent on their
-// natural key; ~200 rows/day, kept forever. The unique index leads with the (account, sampled_at)
-// and (ts) pairs the read queries scan, so no second index is needed.
+// natural key; ~200 rows/day, kept forever. Indexes: quota_sample's unique key leads with `account`
+// (per-account reads) and `sampled_at` is indexed alone for the all-accounts window read; account_pick's
+// unique key leads with `ts`, so it also serves the window read and needs no second index.
 
 export const quotaSample = argoSchema.table(
   'quota_sample',
@@ -327,8 +329,8 @@ export const quotaSample = argoSchema.table(
     account: text('account').notNull(),
     sampled_at: timestamp('sampled_at', { withTimezone: true, mode: 'string' }).notNull(),
     machine: text('machine').notNull(),
-    five_hour_pct: real('five_hour_pct'),
-    seven_day_pct: real('seven_day_pct'),
+    five_hour_pct: doublePrecision('five_hour_pct'),
+    seven_day_pct: doublePrecision('seven_day_pct'),
     five_hour_resets_at: timestamp('five_hour_resets_at', { withTimezone: true, mode: 'string' }),
     seven_day_resets_at: timestamp('seven_day_resets_at', { withTimezone: true, mode: 'string' }),
     auth_ok: boolean('auth_ok').notNull(),
@@ -338,7 +340,10 @@ export const quotaSample = argoSchema.table(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex('uq_quota_sample_account_at_machine').on(t.account, t.sampled_at, t.machine)],
+  (t) => [
+    uniqueIndex('uq_quota_sample_account_at_machine').on(t.account, t.sampled_at, t.machine),
+    index('idx_quota_sample_sampled_at').on(t.sampled_at),
+  ],
 )
 
 export const accountPick = argoSchema.table(
@@ -357,10 +362,7 @@ export const accountPick = argoSchema.table(
       .notNull()
       .defaultNow(),
   },
-  (t) => [
-    uniqueIndex('uq_account_pick_ts_lane_machine').on(t.ts, t.lane, t.machine),
-    index('idx_account_pick_ts').on(t.ts),
-  ],
+  (t) => [uniqueIndex('uq_account_pick_ts_lane_machine').on(t.ts, t.lane, t.machine)],
 )
 
 // ── WalkingPad achievements (unlocked milestones, surfaced by the dashboard) ─
