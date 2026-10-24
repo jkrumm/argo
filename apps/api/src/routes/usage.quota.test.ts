@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
 import { inArray, like } from 'drizzle-orm'
 import { usageRoutes } from './usage.js'
+import { quotaBucketMinutes } from './usage-quota.js'
 import { db, runMigrations } from '../db/index.js'
 import { accountPick, quotaSample } from '../db/schema.js'
 
@@ -131,6 +132,55 @@ describe('POST /usage/quota-samples', () => {
     expect(await res.json()).toEqual({ received: 1, inserted: 1, rejected: 0 })
   })
 
+  it('stores fractional percentages exactly', async () => {
+    await post('quota-samples', { samples: [sample({ fiveHourPct: 12.3, sevenDayPct: 45.67 })] })
+    const rows = await db
+      .select()
+      .from(quotaSample)
+      .where(inArray(quotaSample.account, [A]))
+    expect(rows[0]?.five_hour_pct).toBe(12.3)
+    expect(rows[0]?.seven_day_pct).toBe(45.67)
+    const res = await getJson<QuotaResponse>(`/usage/quota?hours=6&account=${A}`)
+    expect(res.series[0]?.points[0]).toMatchObject({ fiveHourPct: 12.3, sevenDayPct: 45.67 })
+  })
+
+  it('normalises timestamps so spellings of one instant dedupe', async () => {
+    const utc = at(1)
+    const offset = new Date(Date.parse(utc) + 2 * 3_600_000)
+      .toISOString()
+      .replace(/\.\d{3}Z$/, '+02:00')
+    const noMs = utc.replace('.000Z', 'Z')
+    const res = await post('quota-samples', {
+      samples: [
+        sample({ sampledAt: utc, fiveHourResetsAt: offset }),
+        sample({ sampledAt: offset }),
+        sample({ sampledAt: noMs }),
+      ],
+    })
+    expect(await res.json()).toEqual({ received: 3, inserted: 1, rejected: 0 })
+    const rows = await db
+      .select()
+      .from(quotaSample)
+      .where(inArray(quotaSample.account, [A]))
+    expect(rows).toHaveLength(1)
+    expect(new Date(rows[0]?.sampled_at ?? '').toISOString()).toBe(utc)
+    expect(new Date(rows[0]?.five_hour_resets_at ?? '').toISOString()).toBe(
+      utc.replace(/:\d{2}\.\d{3}Z$/, ':00.000Z'),
+    )
+  })
+
+  it('rejects timestamps without a zone or that do not round-trip', async () => {
+    const res = await post('quota-samples', {
+      samples: [
+        sample({ sampledAt: '2026-10-01T10:00:00' }),
+        sample({ sampledAt: '2026-10-01' }),
+        sample({ sampledAt: '2026-13-45T10:00:00Z' }),
+        sample({ sampledAt: at(5), sevenDayResetsAt: 'tomorrow' }),
+      ],
+    })
+    expect(await res.json()).toEqual({ received: 4, inserted: 0, rejected: 4 })
+  })
+
   it('rejects an empty or oversized batch', async () => {
     expect((await post('quota-samples', { samples: [] })).status).toBe(422)
     const big = Array.from({ length: 1001 }, () => sample())
@@ -148,6 +198,12 @@ describe('POST /usage/account-picks', () => {
     })
     const again = await post('account-picks', { picks: [...batch.picks, pick({ machine: 'm2' })] })
     expect(await again.json()).toEqual({ received: 3, inserted: 1, rejected: 0 })
+  })
+
+  it('dedupes a pick re-sent in another timestamp spelling', async () => {
+    const offset = new Date(Date.parse(at(1)) + 3_600_000).toISOString().replace(/Z$/, '+01:00')
+    const res = await post('account-picks', { picks: [pick(), pick({ ts: offset })] })
+    expect(await res.json()).toEqual({ received: 2, inserted: 1, rejected: 0 })
   })
 
   it('drops bad rows only and stores an opaque picked value', async () => {
@@ -223,6 +279,51 @@ describe('GET /usage/quota', () => {
     expect(res.resets).toEqual([{ account: A, window: 'five_hour', at: at(-30) }])
   })
 
+  it('ignores samples stamped in the future', async () => {
+    const future = new Date(Date.now() + 3_600_000).toISOString()
+    await post('quota-samples', { samples: [sample(), sample({ sampledAt: future })] })
+    const res = await getJson<QuotaResponse>(`/usage/quota?hours=6&account=${A}`)
+    expect(res.series[0]?.points.map((p) => p.at)).toEqual([at(0)])
+  })
+
+  it('widens buckets with the window and reports the width', async () => {
+    expect([1, 72, 73, 720, 721, 8760].map(quotaBucketMinutes)).toEqual([
+      15, 15, 60, 60, 1440, 1440,
+    ])
+    // Two samples 30 min apart: separate 15-min buckets, one hourly bucket.
+    const hourStart = Math.floor(T0 / 3_600_000) * 3_600_000
+    const inHour = (min: number) => new Date(hourStart + min * 60_000).toISOString()
+    await post('quota-samples', {
+      samples: [
+        sample({ sampledAt: inHour(1), fiveHourPct: 10 }),
+        sample({ sampledAt: inHour(31), fiveHourPct: 50 }),
+      ],
+    })
+    const fine = await getJson<QuotaResponse>(`/usage/quota?hours=72&account=${A}`)
+    expect(fine.bucketMinutes).toBe(15)
+    expect(fine.series[0]?.points).toHaveLength(2)
+
+    const coarse = await getJson<QuotaResponse>(`/usage/quota?hours=200&account=${A}`)
+    expect(coarse.bucketMinutes).toBe(60)
+    expect(coarse.series[0]?.points).toEqual([{ at: inHour(0), fiveHourPct: 50, sevenDayPct: 20 }])
+
+    const daily = await getJson<QuotaResponse>(`/usage/quota?hours=2000&account=${A}`)
+    expect(daily.bucketMinutes).toBe(1440)
+    expect(daily.series[0]?.points).toHaveLength(1)
+  })
+
+  it('bins resets with the same width as the points', async () => {
+    const hourStart = Math.floor(T0 / 3_600_000) * 3_600_000
+    const reset = new Date(hourStart + 20 * 60_000).toISOString()
+    await post('quota-samples', {
+      samples: [sample({ sampledAt: at(1), fiveHourResetsAt: reset })],
+    })
+    const res = await getJson<QuotaResponse>(`/usage/quota?hours=200&account=${A}`)
+    expect(res.resets).toEqual([
+      { account: A, window: 'five_hour', at: new Date(hourStart).toISOString() },
+    ])
+  })
+
   it('rejects a malformed account or hours', async () => {
     expect((await app.handle(new Request('http://localhost/usage/quota?account=IU!'))).status).toBe(
       422,
@@ -270,6 +371,13 @@ describe('GET /usage/account-picks/summary', () => {
     expect(sum(B)).toBe(1)
     expect(sum('spill')).toBe(1)
     expect(res.total).toBeGreaterThanOrEqual(4)
+  })
+
+  it('ignores picks stamped in the future', async () => {
+    const future = new Date(Date.now() + 3_600_000).toISOString()
+    await post('account-picks', { picks: [pick(), pick({ ts: future, picked: B })] })
+    const res = await getJson<SummaryResponse>('/usage/account-picks/summary?hours=6')
+    expect(res.counts.filter((c) => c.lane === LANE).map((c) => c.picked)).toEqual([A])
   })
 
   it('buckets daily beyond 72 hours and respects the window', async () => {

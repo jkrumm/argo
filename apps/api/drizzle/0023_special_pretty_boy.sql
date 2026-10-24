@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS "argo"."quota_sample" (
 	"account" text NOT NULL,
 	"sampled_at" timestamp with time zone NOT NULL,
 	"machine" text NOT NULL,
-	"five_hour_pct" real,
-	"seven_day_pct" real,
+	"five_hour_pct" double precision,
+	"seven_day_pct" double precision,
 	"five_hour_resets_at" timestamp with time zone,
 	"seven_day_resets_at" timestamp with time zone,
 	"auth_ok" boolean NOT NULL,
@@ -26,5 +26,5 @@ CREATE TABLE IF NOT EXISTS "argo"."quota_sample" (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "uq_account_pick_ts_lane_machine" ON "argo"."account_pick" USING btree ("ts","lane","machine");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_account_pick_ts" ON "argo"."account_pick" USING btree ("ts");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "uq_quota_sample_account_at_machine" ON "argo"."quota_sample" USING btree ("account","sampled_at","machine");
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_quota_sample_account_at_machine" ON "argo"."quota_sample" USING btree ("account","sampled_at","machine");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_quota_sample_sampled_at" ON "argo"."quota_sample" USING btree ("sampled_at");

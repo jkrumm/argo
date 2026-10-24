@@ -1,5 +1,5 @@
 {
-  "id": "c52b3525-e662-42b1-bc92-b39a967ded0f",
+  "id": "69f78fbd-aae4-4659-82da-9e757fda388f",
   "prevId": "58eb9b1b-d694-4f65-9670-e321682ebaca",
   "version": "7",
   "dialect": "postgresql",
@@ -88,21 +88,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_account_pick_ts": {
-          "name": "idx_account_pick_ts",
-          "columns": [
-            {
-              "expression": "ts",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1141,13 +1126,13 @@
         },
         "five_hour_pct": {
           "name": "five_hour_pct",
-          "type": "real",
+          "type": "double precision",
           "primaryKey": false,
           "notNull": false
         },
         "seven_day_pct": {
           "name": "seven_day_pct",
-          "type": "real",
+          "type": "double precision",
           "primaryKey": false,
           "notNull": false
         },
@@ -1213,6 +1198,21 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_quota_sample_sampled_at": {
+          "name": "idx_quota_sample_sampled_at",
+          "columns": [
+            {
+              "expression": "sampled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}

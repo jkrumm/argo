@@ -1,14 +1,21 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { accountPick, quotaSample } from '../db/schema.js'
 import { ACCOUNT_PATTERN, toArray } from '../lib/usage-query.js'
 
 const HoursSchema = z.coerce.number().int().min(1).max(8760).default(168)
 
-/** Quota series bucket width: the sampler runs every 15 min, so finer buckets only add gaps. */
-const QUOTA_BUCKET_MINUTES = 15
+/**
+ * Quota series bucket width, widening with the window so a long range stays a few thousand points:
+ * 15 min (the sampler's cadence) up to 72 h, 1 h up to 30 d, 1 d beyond.
+ */
+export function quotaBucketMinutes(hours: number): number {
+  if (hours <= 72) return 15
+  if (hours <= 720) return 60
+  return 1440
+}
 /** A picks series up to this many hours is hourly, longer is daily. */
 const HOURLY_PICKS_MAX_HOURS = 72
 
@@ -27,7 +34,28 @@ const IngestResponse = z.object({
 
 const trimmed = z.string().transform((s) => s.trim())
 const nonEmpty = trimmed.pipe(z.string().min(1))
-const isoTime = nonEmpty.pipe(z.string().refine((s) => !Number.isNaN(Date.parse(s))))
+
+/** An ISO 8601 instant with an explicit zone; a zone-less value would read in the server's timezone. */
+const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/
+
+/**
+ * The canonical `toISOString()` form of the instant, or null when the value is not a zoned ISO
+ * string or does not survive the round trip. Equal instants in different spellings (`+02:00`, `Z`,
+ * with or without milliseconds) land on one string, so the unique keys dedupe them.
+ */
+function canonicalIso(value: string): string | null {
+  if (!ISO_WITH_ZONE.test(value)) return null
+  const ms = Date.parse(value)
+  if (!Number.isFinite(ms)) return null
+  try {
+    const iso = new Date(ms).toISOString()
+    return Date.parse(iso) === ms ? iso : null
+  } catch {
+    return null
+  }
+}
+
+const isoTime = nonEmpty.transform(canonicalIso).pipe(z.string())
 const pct = z.number().finite().nullable()
 const optionalIso = isoTime.nullable()
 
@@ -160,7 +188,9 @@ export const usageQuotaRoutes = new Elysia()
               sql`, `,
             )})`
           : sql``
-      const bin = sql`date_bin(${`${QUOTA_BUCKET_MINUTES} minutes`}::interval, sampled_at, ${BIN_ORIGIN})`
+      const bucketMinutes = quotaBucketMinutes(hours)
+      const width = `${bucketMinutes} minutes`
+      const bin = (column: SQL) => sql`date_bin(${width}::interval, ${column}, ${BIN_ORIGIN})`
 
       const [pointRows, resetRows] = await Promise.all([
         db.execute(sql`
@@ -171,9 +201,9 @@ export const usageQuotaRoutes = new Elysia()
           FROM (
             SELECT DISTINCT ON (account, bucket) account, bucket, five_hour_pct, seven_day_pct
             FROM (
-              SELECT account, ${bin} AS bucket, sampled_at, five_hour_pct, seven_day_pct
+              SELECT account, ${bin(sql`sampled_at`)} AS bucket, sampled_at, five_hour_pct, seven_day_pct
               FROM argo.quota_sample
-              WHERE sampled_at >= ${fromIso}::timestamptz ${accountSql}
+              WHERE sampled_at >= ${fromIso}::timestamptz AND sampled_at <= now() ${accountSql}
             ) s
             ORDER BY account, bucket, sampled_at DESC
           ) last
@@ -183,17 +213,17 @@ export const usageQuotaRoutes = new Elysia()
           SELECT DISTINCT account, win, extract(epoch FROM at)::bigint AS epoch
           FROM (
             SELECT account, 'five_hour' AS win,
-                   date_bin(${`${QUOTA_BUCKET_MINUTES} minutes`}::interval, five_hour_resets_at, ${BIN_ORIGIN}) AS at,
+                   ${bin(sql`five_hour_resets_at`)} AS at,
                    five_hour_resets_at AS raw
             FROM argo.quota_sample
-            WHERE sampled_at >= ${fromIso}::timestamptz ${accountSql}
+            WHERE sampled_at >= ${fromIso}::timestamptz AND sampled_at <= now() ${accountSql}
               AND five_hour_resets_at IS NOT NULL
             UNION ALL
             SELECT account, 'seven_day' AS win,
-                   date_bin(${`${QUOTA_BUCKET_MINUTES} minutes`}::interval, seven_day_resets_at, ${BIN_ORIGIN}) AS at,
+                   ${bin(sql`seven_day_resets_at`)} AS at,
                    seven_day_resets_at AS raw
             FROM argo.quota_sample
-            WHERE sampled_at >= ${fromIso}::timestamptz ${accountSql}
+            WHERE sampled_at >= ${fromIso}::timestamptz AND sampled_at <= now() ${accountSql}
               AND seven_day_resets_at IS NOT NULL
           ) r
           WHERE raw >= ${fromIso}::timestamptz AND raw <= now()
@@ -218,7 +248,7 @@ export const usageQuotaRoutes = new Elysia()
       }
 
       return {
-        bucketMinutes: QUOTA_BUCKET_MINUTES,
+        bucketMinutes,
         series: Array.from(byAccount, ([account, points]) => ({ account, points })),
         resets: (
           resetRows as unknown as Array<{ account: string; win: string; epoch: unknown }>
@@ -253,7 +283,7 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Claude account quota history',
         description:
-          'Per-account 5-hour and weekly quota utilisation (percent) over the last ?hours=1..8760 (default 168), bucketed to 15 minutes taking the last sample in each bucket (several machines sampling one account collapse to the latest). A null percent is a sample without a reading (auth failed), not zero. Buckets without any sample are absent, not zero-filled. `resets` lists window resets that fell inside the range (distinct reset instants reported by the samples, binned to the bucket width), per account and window. Filter with account[]. Series are ordered by account, points by time.',
+          'Per-account 5-hour and weekly quota utilisation (percent) over the last ?hours=1..8760 (default 168), bucketed taking the last sample in each bucket (15 minutes up to 72 h, 1 hour up to 30 d, 1 day beyond; `bucketMinutes` says which) (several machines sampling one account collapse to the latest). A null percent is a sample without a reading (auth failed), not zero. Buckets without any sample are absent, not zero-filled. `resets` lists window resets that fell inside the range (distinct reset instants reported by the samples, binned to the same bucket width), per account and window. Filter with account[]. Samples stamped in the future are ignored. Series are ordered by account, points by time.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -270,7 +300,7 @@ export const usageQuotaRoutes = new Elysia()
         db.execute(sql`
           SELECT lane, picked, reason, count(*)::int AS n, count(*) FILTER (WHERE stale)::int AS stale_n
           FROM argo.account_pick
-          WHERE ts >= ${fromIso}::timestamptz
+          WHERE ts >= ${fromIso}::timestamptz AND ts <= now()
           GROUP BY lane, picked, reason
           ORDER BY lane, picked, reason
         `),
@@ -279,7 +309,7 @@ export const usageQuotaRoutes = new Elysia()
                  picked,
                  count(*)::int AS n
           FROM argo.account_pick
-          WHERE ts >= ${fromIso}::timestamptz
+          WHERE ts >= ${fromIso}::timestamptz AND ts <= now()
           GROUP BY 1, 2
           ORDER BY 1, 2
         `),
