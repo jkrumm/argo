@@ -30,6 +30,8 @@ import {
   fmtTokensDay,
   fmtUsdWhole,
   meanOf,
+  NO_MATCH_CELL,
+  NO_MATCH_STRIP,
   NO_USAGE_CELL,
   NO_USAGE_STRIP,
   pctDelta,
@@ -65,9 +67,9 @@ type Series = { days: Daily[]; loading: boolean; failed: boolean }
  * every trend, mean, peak and day count below leaves it out. The headline figures are a rolling
  * window and include today.
  */
-function useDaily(metric: Metric, now: number): Series {
+function useDaily(metric: Metric, now: number, account?: string[]): Series {
   const query = useQuery(
-    usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none' }),
+    usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none', account }),
   )
   const all: Daily[] =
     query.data?.buckets.map((b) => ({
@@ -79,16 +81,18 @@ function useDaily(metric: Metric, now: number): Series {
 }
 
 /** The cell with its readings replaced by the one empty reason. */
-const emptied = ({ key, caption, qualifier, info }: StatStripCell): StatStripCell => ({
-  key,
-  caption,
-  ...(qualifier === undefined ? {} : { qualifier }),
-  ...(info === undefined ? {} : { info }),
-  state: { kind: 'empty', reason: NO_USAGE_CELL },
-})
+const emptied =
+  (reason: string) =>
+  ({ key, caption, qualifier, info }: StatStripCell): StatStripCell => ({
+    key,
+    caption,
+    ...(qualifier === undefined ? {} : { qualifier }),
+    ...(info === undefined ? {} : { info }),
+    state: { kind: 'empty', reason },
+  })
 
 /** What every cell builder reads: the headline (undefined until it loads) and the loading flag. */
-type Ctx = { h: Headline | undefined; loading: boolean; now: number }
+type Ctx = { h: Headline | undefined; loading: boolean; now: number; scoped: boolean }
 
 /** Footer lines, one per row, as the strip's single footer node; a `null` line is skipped. */
 const footerOf = (lines: readonly (string | null)[]) => (
@@ -342,7 +346,7 @@ const BILLING_COLOR: Record<BillingPart['key'], string> = {
   other: USAGE_BILLING.unknown,
 }
 
-function billingFooter({ h, loading }: Ctx) {
+function billingFooter({ h, loading, scoped }: Ctx) {
   const parts = h
     ? billingParts({
         max: h.costMaxBilling30d,
@@ -362,7 +366,11 @@ function billingFooter({ h, loading }: Ctx) {
           <Skeleton height={28} radius="sm" />
         ) : h === undefined || parts.every((p) => p.value <= 0) ? (
           <Text size="sm" c="dimmed">
-            {noUsage(h) ? NO_USAGE_STRIP : `No cost recorded in the last ${D30}`}
+            {noUsage(h)
+              ? scoped
+                ? NO_MATCH_STRIP
+                : NO_USAGE_STRIP
+              : `No cost recorded in the last ${D30}`}
           </Text>
         ) : (
           <Meter
@@ -379,15 +387,16 @@ function billingFooter({ h, loading }: Ctx) {
   }
 }
 
-export function UsageStrip() {
-  const headline = useUsageHeadline()
+export function UsageStrip({ account }: { account?: string[] | undefined }) {
+  const headline = useUsageHeadline(account)
   const now = useNow()
-  const cost = useDaily('cost', now)
-  const tokens = useDaily('tokens', now)
-  const p95 = useDaily('latency_p95', now)
-  const errors = useDaily('error_rate', now)
-  const cache = useDaily('cache_ratio', now)
-  const ctx: Ctx = { h: headline.data, loading: headline.isPending, now }
+  const cost = useDaily('cost', now, account)
+  const tokens = useDaily('tokens', now, account)
+  const p95 = useDaily('latency_p95', now, account)
+  const errors = useDaily('error_rate', now, account)
+  const cache = useDaily('cache_ratio', now, account)
+  const scoped = (account?.length ?? 0) > 0
+  const ctx: Ctx = { h: headline.data, loading: headline.isPending, now, scoped }
   const cells = [
     costCell(ctx, cost),
     tokensCell(ctx, tokens),
@@ -401,7 +410,7 @@ export function UsageStrip() {
       variant="strip"
       label="Usage over the last 30 days"
       cols={5}
-      cells={noUsage(ctx.h) ? cells.map(emptied) : cells}
+      cells={noUsage(ctx.h) ? cells.map(emptied(scoped ? NO_MATCH_CELL : NO_USAGE_CELL)) : cells}
       footer={[billingFooter(ctx)]}
     />
   )

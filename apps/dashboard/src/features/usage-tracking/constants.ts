@@ -39,9 +39,7 @@ function colorForBilling(billing: string): string {
 }
 
 function colorForAccount(account: string): string {
-  if (account === 'iu') return USAGE_ACCOUNT.iu
-  if (account === 'me') return USAGE_ACCOUNT.me
-  return USAGE_ACCOUNT.unknown
+  return USAGE_ACCOUNT[account] ?? USAGE_ACCOUNT['unknown'] ?? USAGE_SOURCE.other
 }
 
 // Deterministic fallback color picker for unknown grouping keys (e.g. machines,

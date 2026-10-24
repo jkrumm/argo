@@ -38,7 +38,8 @@ function UsageTrackingPage() {
   const account = search.account.length > 0 ? [...search.account] : undefined
   const filtered = isFiltered(billing, workspace, account)
   // The same (shot-substituted) headline the strip reads; it speaks for the charts only inside its 30 d.
-  const stripEmpty = useUsageHeadline().data?.calls30d === 0 && stripCoversRange(search.range)
+  const stripEmpty =
+    useUsageHeadline(account).data?.calls30d === 0 && stripCoversRange(search.range)
   const showTotal = printTotal({ range: search.range, filtered })
   const tsBase = { range: search.range, grain: search.grain, billing, workspace, account }
 
@@ -69,8 +70,8 @@ function UsageTrackingPage() {
       />
 
       <Stack gap="md">
-        <UsageHeadline />
-        <UsageStrip />
+        <UsageHeadline account={account} />
+        <UsageStrip account={account} />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
           <CostChart

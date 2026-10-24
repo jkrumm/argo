@@ -6,8 +6,7 @@ import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { useUsageHeadline } from './use-headline'
 import classes from './usage.module.css'
-import type { BillingValue, WorkspaceValue } from './types'
-import type { AccountValue } from '../../lib/window-stores'
+import type { AccountValue, BillingValue, WorkspaceValue } from './types'
 import {
   EM_DASH,
   footerTotal,
@@ -55,7 +54,7 @@ export default function TopProjects({
   })
   // The strip owns the unfiltered 30 d total: when this card does not print its own, its footer
   // reads that same figure, so the two never round different sums.
-  const headline = useUsageHeadline().data
+  const headline = useUsageHeadline(account).data
   const total = footerTotal({
     printTotal,
     headlineCostUsd30d: headline?.costUsd30d,

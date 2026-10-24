@@ -84,13 +84,20 @@ describe('usage account attribution', () => {
     expect(rows[0]?.account).toBe(A)
   })
 
-  it('ingest stays permissive: an odd account is stored, only an overlong one is rejected', async () => {
-    const odd = await ingest([payload('o1', 'IU Max!'), payload('o2', A)])
-    expect(odd.status).toBe(200)
-    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'o1'))
-    expect(rows[0]?.account).toBe('IU Max!')
-    const tooLong = await ingest([payload('o3', 'x'.repeat(33))])
-    expect(tooLong.status).toBe(422)
+  it('re-sending an empty or blank account keeps the stored one', async () => {
+    await ingest([payload('e1', A)])
+    await ingest([payload('e1', '')])
+    await ingest([payload('e1', '  ')])
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'e1'))
+    expect(rows[0]?.account).toBe(A)
+  })
+
+  it('trims the account and stores a bad value as null without rejecting the batch', async () => {
+    const res = await ingest([payload('n1', ` ${A} `), payload('n2', 'IU Max!'), payload('n3', B)])
+    expect(res.status).toBe(200)
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, SOURCE))
+    const byId = Object.fromEntries(rows.map((r) => [r.source_id, r.account]))
+    expect(byId).toEqual({ n1: A, n2: null, n3: B })
   })
 
   it('a malformed account filter is rejected', async () => {
