@@ -13,6 +13,7 @@ import { UsageStrip } from '../features/usage-tracking/usage-strip'
 import { UsageHeadline } from '../features/usage-tracking/page-headline'
 import CostChart from '../features/usage-tracking/cost-chart'
 import TokensChart from '../features/usage-tracking/tokens-chart'
+import ClaudeAccounts from '../features/usage-tracking/claude-accounts'
 import HealthCard from '../features/usage-tracking/health-card'
 import classes from '../features/usage-tracking/usage.module.css'
 import TopProjects from '../features/usage-tracking/top-projects'
@@ -82,6 +83,8 @@ function UsageTrackingPage() {
             printTotal={showTotal}
           />
         </Suspense>
+
+        <ClaudeAccounts range={search.range} account={account} />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
           <TokensChart

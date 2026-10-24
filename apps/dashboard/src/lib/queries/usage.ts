@@ -70,6 +70,17 @@ export const usageQueries = {
       queryKey: [...usageQueries.all(), 'timeseries', params] as const,
       queryFn: async () => unwrap(await api.usage.timeseries.get({ query: params })),
     }),
+  quota: (hours: number, account?: string[]) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'quota', hours, account] as const,
+      queryFn: async () => unwrap(await api.usage.quota.get({ query: { hours, account } })),
+    }),
+  pickSummary: (hours: number) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'pick-summary', hours] as const,
+      queryFn: async () =>
+        unwrap(await api.usage['account-picks'].summary.get({ query: { hours } })),
+    }),
   breakdown: (params: BreakdownParams) =>
     queryOptions({
       queryKey: [...usageQueries.all(), 'breakdown', params] as const,
