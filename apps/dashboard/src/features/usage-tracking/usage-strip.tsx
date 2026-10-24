@@ -4,18 +4,18 @@
  * is `caption · period`, a hero value, one micro-visual and a comparison or target. A failed or
  * missing reading is `—`, never 0.
  */
+import type { PayerValue } from './types'
 import { useQuery } from '@tanstack/react-query'
 import { Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { NBSP } from '../../lib/format'
 import { usageQueries, type Metric } from '../../lib/queries/usage'
-import { USAGE_BILLING } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
-import { dayToDate } from './constants'
+import { colorForPayer, dayToDate } from './constants'
 import {
   errorDaysLine,
   peakOf,
-  billingParts,
+  payerParts,
   CACHE_HIT_TARGET,
   EM_DASH,
   errorRateReading,
@@ -51,7 +51,6 @@ import {
   secondsDelta,
   secondsQuantity,
   tokensQuantity,
-  type BillingPart,
   type Prior,
 } from './model'
 
@@ -67,9 +66,9 @@ type Series = { days: Daily[]; loading: boolean; failed: boolean }
  * every trend, mean, peak and day count below leaves it out. The headline figures are a rolling
  * window and include today.
  */
-function useDaily(metric: Metric, now: number, account?: string[]): Series {
+function useDaily(metric: Metric, now: number, payer?: PayerValue[]): Series {
   const query = useQuery(
-    usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none', account }),
+    usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none', payer }),
   )
   const all: Daily[] =
     query.data?.buckets.map((b) => ({
@@ -340,27 +339,22 @@ function cacheCell({ h, loading, now }: Ctx, cache: Series): StatStripCell {
 /** A 30 d window without a single call: every cell empties, as the charts do. */
 const noUsage = (h: Headline | undefined) => h?.calls30d === 0
 
-const BILLING_COLOR: Record<BillingPart['key'], string> = {
-  max: USAGE_BILLING.max,
-  iu: USAGE_BILLING.iu,
-  other: USAGE_BILLING.unknown,
-}
-
-function billingFooter({ h, loading, scoped }: Ctx) {
+function payerFooter({ h, loading, scoped }: Ctx) {
   const parts = h
-    ? billingParts({
-        max: h.costMaxBilling30d,
-        iu: h.costIuBilling30d,
-        openrouter: h.costOpenrouterBilling30d,
+    ? payerParts({
+        'iu-sub': h.costIuSub30d,
+        'iu-api': h.costIuApi30d,
+        'me-sub': h.costMeSub30d,
+        'me-api': h.costMeApi30d,
         total: h.costUsd30d,
       })
     : []
   return {
-    key: 'billing',
+    key: 'payer',
     content: (
       <Stack gap="xs">
         <Text size="xs" c="dimmed">
-          Billing split · {D30}
+          Payer split · {D30}
         </Text>
         {loading ? (
           <Skeleton height={28} radius="sm" />
@@ -374,12 +368,12 @@ function billingFooter({ h, loading, scoped }: Ctx) {
           </Text>
         ) : (
           <Meter
-            label="Cost by billing lane over the last 30 days"
+            label="Cost by payer over the last 30 days"
             max={h.costUsd30d}
             format={(v) => `${fmtUsdWhole(v)} · ${fmtShare(v / h.costUsd30d)}`}
             segments={parts
               .filter((p) => p.value > 0)
-              .map((p) => ({ label: p.label, value: p.value, color: BILLING_COLOR[p.key] }))}
+              .map((p) => ({ label: p.label, value: p.value, color: colorForPayer(p.key) }))}
           />
         )}
       </Stack>
@@ -387,15 +381,15 @@ function billingFooter({ h, loading, scoped }: Ctx) {
   }
 }
 
-export function UsageStrip({ account }: { account?: string[] | undefined }) {
-  const headline = useUsageHeadline(account)
+export function UsageStrip({ payer }: { payer?: PayerValue[] | undefined }) {
+  const headline = useUsageHeadline(payer)
   const now = useNow()
-  const cost = useDaily('cost', now, account)
-  const tokens = useDaily('tokens', now, account)
-  const p95 = useDaily('latency_p95', now, account)
-  const errors = useDaily('error_rate', now, account)
-  const cache = useDaily('cache_ratio', now, account)
-  const scoped = (account?.length ?? 0) > 0
+  const cost = useDaily('cost', now, payer)
+  const tokens = useDaily('tokens', now, payer)
+  const p95 = useDaily('latency_p95', now, payer)
+  const errors = useDaily('error_rate', now, payer)
+  const cache = useDaily('cache_ratio', now, payer)
+  const scoped = (payer?.length ?? 0) > 0
   const ctx: Ctx = { h: headline.data, loading: headline.isPending, now, scoped }
   const cells = [
     costCell(ctx, cost),
@@ -411,7 +405,7 @@ export function UsageStrip({ account }: { account?: string[] | undefined }) {
       label="Usage over the last 30 days"
       cols={5}
       cells={noUsage(ctx.h) ? cells.map(emptied(scoped ? NO_MATCH_CELL : NO_USAGE_CELL)) : cells}
-      footer={[billingFooter(ctx)]}
+      footer={[payerFooter(ctx)]}
     />
   )
 }

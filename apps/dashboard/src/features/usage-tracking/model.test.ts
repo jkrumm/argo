@@ -13,7 +13,7 @@ import {
   healthInfo,
   peakOf,
   topSourceNote,
-  billingParts,
+  payerParts,
   errorRateReading,
   meanOf,
   errorComparison,
@@ -107,18 +107,18 @@ describe('deltas', () => {
   })
 })
 
-describe('billingParts', () => {
-  it('folds openrouter and untagged cost into Other so the parts sum to the total', () => {
-    const parts = billingParts({ max: 60, iu: 30, openrouter: 5, total: 100 })
-    expect(parts.map((p) => p.key)).toEqual(['max', 'iu', 'other'])
-    expect(parts[2]?.value).toBe(10)
+describe('payerParts', () => {
+  const costs = { 'iu-sub': 50, 'iu-api': 10, 'me-sub': 30, 'me-api': 5, total: 100 }
+  it('lists the four payers and folds unclaimed cost into unknown so the parts sum to the total', () => {
+    const parts = payerParts(costs)
+    expect(parts.map((p) => p.key)).toEqual(['iu-sub', 'iu-api', 'me-sub', 'me-api', 'unknown'])
+    expect(parts[4]?.value).toBe(5)
     expect(parts.reduce((a, p) => a + p.value, 0)).toBe(100)
-    expect(parts[0]?.share).toBeCloseTo(0.6)
+    expect(parts[0]?.share).toBeCloseTo(0.5)
   })
   it('has zero shares for a zero total', () => {
-    expect(
-      billingParts({ max: 0, iu: 0, openrouter: 0, total: 0 }).every((p) => p.share === 0),
-    ).toBe(true)
+    const zero = { 'iu-sub': 0, 'iu-api': 0, 'me-sub': 0, 'me-api': 0, total: 0 }
+    expect(payerParts(zero).every((p) => p.share === 0)).toBe(true)
   })
 })
 

@@ -61,7 +61,7 @@ const SERIES_MAP = defineSeries({ hrv: p(BP.blue) /* … */ } satisfies SeriesMa
 
 export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
-// …USAGE_SOURCE / USAGE_BILLING / USAGE_OUTCOME follow the same groupTokens() shape.
+// …USAGE_SOURCE / USAGE_BILLING / USAGE_PAYER / USAGE_OUTCOME follow the same groupTokens() shape.
 ```
 
 ### Recovery / sleep / effort / movement (`series-` prefix — `SERIES.*`, vars `--vx-series-*`)
@@ -144,22 +144,29 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | IU          | `#0284c7` | `#38bdf8` | `iu`               | Sky                  |
 | Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral              |
 
+### Usage tracker — payer (`payer-` prefix — `USAGE_PAYER.*`)
+
+The page's default split and filter. The API derives the payer from billing + account; IU's family is warm (gold / orange), the personal one cool (blue / cerulean), the subscription the saturated step and the metered API its sibling hue.
+
+| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                              |
+| ----------- | --------- | --------- | ------------------ | ------------------------------------------------- |
+| IU Max      | `#d1980b` | `#f0b726` | `iuSub`            | IU-paid Max 20x (billing max, account iu) — gold  |
+| IU API      | `#c87619` | `#ec9a3c` | `iuApi`            | IU metered API (billing iu) — orange              |
+| Me Max      | `#0284c7` | `#38bdf8` | `meSub`            | Personal Max 5x (billing max, account me) — sky   |
+| Me API      | `#147eb3` | `#3fa6da` | `meApi`            | Personal pay-per-token API (OpenRouter) — cerulean |
+| Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else) |
+
+Contrast against the page surface (marks, not text): gold 2.6:1 light / 10.9:1 dark, orange 3.5 / 8.8, sky 4.1 / 9.3, cerulean 4.5 / 7.3. Gold in light mode is under the 3:1 mark guide, as everywhere else gold is drawn (agent-gateway, Max plan); the legend, list and hover name every series, so colour is never the only carrier.
+
 ### Usage tracker — account (`account-` prefix — `USAGE_ACCOUNT.*`)
+
+An account takes the hue of its subscription payer, so a quota line and the spend it pays for read as one thing.
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                       |
 | ----------- | --------- | --------- | ------------------ | ------------------------------------------ |
-| iu          | `#0284c7` | `#38bdf8` | `iu`               | Max 20x account — sky                      |
-| me          | `#9d3f9d` | `#bd6bbd` | `me`               | Max 5x account — violet, no status reading |
+| iu          | `#d1980b` | `#f0b726` | `iu`               | Max 20x account — gold (= IU Max)          |
+| me          | `#0284c7` | `#38bdf8` | `me`               | Max 5x account — sky (= Me Max)            |
 | Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (non-Max billing, no account)      |
-
-### Usage tracker — Claude accounts section (reuses `account-` series, no new hex)
-
-| Mark | Colour source | Encoding | Role / earned reason |
-| ---- | ------------- | -------- | -------------------- |
-| Quota lines (`iu`, `me`) | `USAGE_ACCOUNT.*` | solid = 5 h window, dashed = 7 d window | Account identity stays the colour; the window is the dash, never a second hue |
-| Limit guides (85 % 5 h, 90 % 7 d) | `VX.muted` | dashed rule | The picker's eligibility limits (docs/claude-accounts.md Rule v1); annotation, not a series |
-| Reset dot | the line's own colour | dot on the line where a window reset | Marks the drop; 5 h resets only for windows up to 72 h |
-| Picks bars | `USAGE_ACCOUNT.*`, `spill` = `USAGE_ACCOUNT.unknown` | stacked per bucket | `spill` is the non-Max IU fallback, so it takes the neutral, not an account hue |
 
 ### Usage tracker — Claude accounts section (reuses `account-` series, no new hex)
 

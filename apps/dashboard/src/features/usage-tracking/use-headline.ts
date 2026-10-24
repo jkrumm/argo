@@ -1,20 +1,21 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import type { PayerValue } from './types'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries } from '../../lib/queries/usage'
 
-const useHeadlineQuery = (account: readonly string[] | undefined) =>
-  useQuery(usageQueries.headline(account && account.length > 0 ? [...account] : undefined))
+const useHeadlineQuery = (payer: readonly PayerValue[] | undefined) =>
+  useQuery(usageQueries.headline(payer && payer.length > 0 ? [...payer] : undefined))
 type Headline = NonNullable<ReturnType<typeof useHeadlineQuery>['data']>
 
 /**
- * The 30 d headline the summary and the strip both read for the page's account scope (the strip ignores the billing and workspace filters). `basalt-ui shot`'s `empty` state
+ * The 30 d headline the summary and the strip both read for the page's payer scope (the strip ignores the workspace filter). `basalt-ui shot`'s `empty` state
  * substitutes a window with no ingested usage, so both empty with the charts, as production does
  * when nothing was pushed.
  */
 export function useUsageHeadline(
-  account?: readonly string[],
+  payer?: readonly PayerValue[],
 ): Pick<UseQueryResult<Headline>, 'data' | 'isPending'> {
-  const query = useHeadlineQuery(account)
+  const query = useHeadlineQuery(payer)
   if (shotState() !== 'empty' || query.data === undefined) return query
   return {
     isPending: query.isPending,
@@ -25,6 +26,10 @@ export function useUsageHeadline(
       costMaxBilling30d: 0,
       costIuBilling30d: 0,
       costOpenrouterBilling30d: 0,
+      costIuSub30d: 0,
+      costMeSub30d: 0,
+      costIuApi30d: 0,
+      costMeApi30d: 0,
       tokens30d: 0,
       errorRate30d: 0,
       p95Ms30d: null,

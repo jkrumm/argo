@@ -79,8 +79,8 @@ describe('lanes opted out', () => {
 
 describe('multi fields', () => {
   it('a URL list beats storage, unknown members are dropped', () => {
-    persist('usage-tracking', { billing: ['max'] })
-    expect(usageStore.validateSearch({ billing: ['iu', 'nope'] }).billing).toEqual(['iu'])
+    persist('usage-tracking', { payer: ['me-sub'] })
+    expect(usageStore.validateSearch({ payer: ['iu-api', 'nope'] }).payer).toEqual(['iu-api'])
   })
 })
 

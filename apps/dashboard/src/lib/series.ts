@@ -16,14 +16,14 @@
  *  - `p(family, lightIndex, darkIndex)` (re-exported from basalt) picks the theme-shade pair;
  *    default indices (2 light / 3 dark) match basalt's own dark-mode-lift convention.
  *  - Every series lives in a named group, so the emitted vars are `--vx-series-*`,
- *    `--vx-activity-*`, `--vx-usage-*`, `--vx-billing-*`, `--vx-outcome-*` and `--vx-lp-*`
+ *    `--vx-activity-*`, `--vx-usage-*`, `--vx-billing-*`, `--vx-payer-*`, `--vx-outcome-*` and `--vx-lp-*`
  *    (basalt-ui 2.0 has no unprefixed group). Read series through the `SERIES.*` / group refs,
  *    never by literal var name.
  *  - Values here are a mechanical carry-over, not a final visual pass — iterate live via the
  *    theme lab (provider-mounted in dev).
  */
 import { BP, defineSeries, groupTokens, p, type SeriesMap } from 'basalt-ui/tokens'
-import { USAGE_ACCOUNTS } from '../features/usage-tracking/accounts'
+import { USAGE_ACCOUNTS, USAGE_PAYERS } from '../features/usage-tracking/accounts'
 
 /** Per-metric series identity — see the module doctrine above for the family choices. */
 const SERIES_MAP = defineSeries({
@@ -145,6 +145,12 @@ const USAGE_ACCOUNT_MAP: SeriesMap = defineSeries({
   unknown: p(BP.gray),
 } satisfies SeriesMap)
 
+/** Usage tracker — payer identity, one hue per `USAGE_PAYERS` entry plus `unknown`. */
+const USAGE_PAYER_MAP: SeriesMap = defineSeries({
+  ...Object.fromEntries(USAGE_PAYERS.map((x) => [x.token, p(x.hue)])),
+  unknown: p(BP.gray),
+} satisfies SeriesMap)
+
 /** Usage tracker — outcome identity. */
 const USAGE_OUTCOME_MAP = defineSeries({
   ok: p(BP.forest),
@@ -183,6 +189,7 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
 export const USAGE_BILLING = groupTokens('billing', USAGE_BILLING_MAP)
 export const USAGE_ACCOUNT = groupTokens('account', USAGE_ACCOUNT_MAP)
+export const USAGE_PAYER = groupTokens('payer', USAGE_PAYER_MAP)
 export const USAGE_OUTCOME = groupTokens('outcome', USAGE_OUTCOME_MAP)
 export const LP = groupTokens('lp', LP_MAP)
 
@@ -196,6 +203,7 @@ export const argoPaletteGroups = [
   USAGE_SOURCE,
   USAGE_BILLING,
   USAGE_ACCOUNT,
+  USAGE_PAYER,
   USAGE_OUTCOME,
   LP,
 ]

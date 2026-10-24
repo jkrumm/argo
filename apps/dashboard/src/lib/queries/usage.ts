@@ -14,6 +14,7 @@ export type TimeseriesGroupBy =
   | 'workspace'
   | 'billing'
   | 'account'
+  | 'payer'
   | 'outcome'
   | 'none'
 export type BreakdownMetric = 'cost' | 'tokens' | 'errors'
@@ -23,11 +24,14 @@ export type BreakdownDimension =
   | 'model_norm'
   | 'billing'
   | 'account'
+  | 'payer'
   | 'outcome'
   | 'source'
   | 'machine'
   | 'sub_tool'
 type WorkspaceValue = 'work' | 'private'
+
+export type PayerFilter = 'iu-sub' | 'me-sub' | 'iu-api' | 'me-api' | 'unknown'
 
 export type TimeseriesParams = {
   range: Range
@@ -39,6 +43,7 @@ export type TimeseriesParams = {
   billing?: ('max' | 'iu' | 'openrouter' | 'unknown')[] | undefined
   workspace?: WorkspaceValue[] | undefined
   account?: string[] | undefined
+  payer?: PayerFilter[] | undefined
 }
 
 export type BreakdownParams = {
@@ -51,14 +56,15 @@ export type BreakdownParams = {
   billing?: ('max' | 'iu' | 'openrouter' | 'unknown')[] | undefined
   workspace?: WorkspaceValue[] | undefined
   account?: string[] | undefined
+  payer?: PayerFilter[] | undefined
 }
 
 export const usageQueries = {
   all: () => ['usage'] as const,
-  headline: (account?: string[]) =>
+  headline: (payer?: PayerFilter[]) =>
     queryOptions({
-      queryKey: [...usageQueries.all(), 'headline', account] as const,
-      queryFn: async () => unwrap(await api.usage.headline.get({ query: { account } })),
+      queryKey: [...usageQueries.all(), 'headline', payer] as const,
+      queryFn: async () => unwrap(await api.usage.headline.get({ query: { payer } })),
     }),
   summary: () =>
     queryOptions({

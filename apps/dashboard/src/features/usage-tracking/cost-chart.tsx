@@ -3,13 +3,12 @@ import { colorForGroup } from './constants'
 import { FoldedChart } from './folded-chart'
 import { USAGE_TIME_GROUP } from './quota-model'
 import { foldInfo, fmtUsdWhole } from './model'
-import type { AccountValue, BillingValue, CostGroupBy, WorkspaceValue } from './types'
+import type { PayerValue, CostGroupBy, WorkspaceValue } from './types'
 
 const GROUP_NOUN: Record<CostGroupBy, string> = {
   source: 'source',
   machine: 'machine',
-  billing: 'billing lane',
-  account: 'account',
+  payer: 'payer',
 }
 
 export default function CostChart({
@@ -21,9 +20,8 @@ export default function CostChart({
 }: {
   range: Range
   grain: Grain
-  billing?: BillingValue[] | undefined
+  payer?: PayerValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
-  account?: AccountValue[] | undefined
   printTotal: boolean
   stripEmpty: boolean
   leading: boolean

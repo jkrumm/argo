@@ -1,5 +1,6 @@
 import type { StackedAreaBand } from 'basalt-ui/charts'
-import { USAGE_ACCOUNT, USAGE_BILLING, USAGE_SOURCE } from '../../lib/series'
+import { USAGE_PAYER, USAGE_SOURCE } from '../../lib/series'
+import { USAGE_PAYERS } from './accounts'
 import type { CostGroupBy, TimePoint } from './types'
 
 const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
@@ -31,15 +32,9 @@ function colorForSource(source: string): string {
   return USAGE_SOURCE.other
 }
 
-function colorForBilling(billing: string): string {
-  if (billing === 'max') return USAGE_BILLING.max
-  if (billing === 'iu') return USAGE_BILLING.iu
-  if (billing === 'openrouter') return USAGE_BILLING.openrouter
-  return USAGE_BILLING.unknown
-}
-
-function colorForAccount(account: string): string {
-  return USAGE_ACCOUNT[account] ?? USAGE_ACCOUNT['unknown'] ?? USAGE_SOURCE.other
+export function colorForPayer(payer: string): string {
+  const token = USAGE_PAYERS.find((p) => p.id === payer)?.token ?? 'unknown'
+  return USAGE_PAYER[token] ?? USAGE_SOURCE.other
 }
 
 // Deterministic fallback color picker for unknown grouping keys (e.g. machines,
@@ -96,8 +91,7 @@ export function colorForGroup(
   groupBy: CostGroupBy | 'sub_tool' | 'model_norm' | 'project',
 ): (key: string) => string {
   if (groupBy === 'source') return colorForSource
-  if (groupBy === 'billing') return colorForBilling
-  if (groupBy === 'account') return colorForAccount
+  if (groupBy === 'payer') return colorForPayer
   return colorForKey
 }
 

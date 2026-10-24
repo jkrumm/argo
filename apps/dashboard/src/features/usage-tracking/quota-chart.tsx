@@ -6,7 +6,6 @@ import { usageQueries, type Range } from '../../lib/queries/usage'
 import { USAGE_ACCOUNT } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
 import { ACCOUNT_LABELS } from './accounts'
-import type { AccountValue } from './types'
 import { periodNoun, shortDay } from './model'
 import {
   FIVE_HOUR_LIMIT,
@@ -42,7 +41,7 @@ export default function QuotaChart({
   height = 280,
 }: {
   range: Range
-  account?: AccountValue[] | undefined
+  account?: string[] | undefined
   height?: number
 }) {
   const hours = rangeHours(range)
