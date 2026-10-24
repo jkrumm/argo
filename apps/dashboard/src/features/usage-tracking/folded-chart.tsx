@@ -57,6 +57,8 @@ type Props = {
   info: string
   listTitle: string
   height?: number
+  /** Joins the plot to a sibling chart's cursor, so one hover reads both. */
+  cursorGroup?: string
   /** Whether the list header prints the window's total; decided once, in the route. */
   printTotal: boolean
   /** The first chart card in reading order: its plot carries the full empty sentence. */
@@ -80,6 +82,7 @@ export function FoldedChart({
   info,
   listTitle,
   height = 280,
+  cursorGroup,
   printTotal,
   leading,
   stripEmpty,
@@ -142,6 +145,7 @@ export function FoldedChart({
             height={height}
             x={(d) => d.date}
             cursorResolution="leading"
+            {...(cursorGroup === undefined ? {} : { cursorGroup })}
             series={series}
             legend={false}
             formatX={(d) => shortDay(d)}

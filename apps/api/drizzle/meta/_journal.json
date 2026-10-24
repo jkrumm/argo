@@ -162,6 +162,13 @@
       "when": 1792859085971,
       "tag": "0022_cool_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792862189896,
+      "tag": "0023_special_pretty_boy",
+      "breakpoints": true
     }
   ]
 }

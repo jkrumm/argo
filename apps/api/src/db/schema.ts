@@ -5,8 +5,10 @@ import {
   integer,
   bigint,
   real,
+  doublePrecision,
   timestamp,
   jsonb,
+  boolean,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
@@ -310,6 +312,57 @@ export const usageRecord = argoSchema.table(
     index('idx_usage_workspace').on(t.workspace),
     index('idx_usage_account').on(t.account),
   ],
+)
+
+// ── Claude account quota history + picker decisions ──────────────────────────
+//
+// usage-tracker (src/sync.ts) POSTs a quota sample per account/machine and every picker decision
+// (dotfiles docs/claude-accounts.md §The picker). Both are append-only and idempotent on their
+// natural key; ~200 rows/day, kept forever. Indexes: quota_sample's unique key leads with `account`
+// (per-account reads) and `sampled_at` is indexed alone for the all-accounts window read; account_pick's
+// unique key leads with `ts`, so it also serves the window read and needs no second index.
+
+export const quotaSample = argoSchema.table(
+  'quota_sample',
+  {
+    id: serial('id').primaryKey(),
+    account: text('account').notNull(),
+    sampled_at: timestamp('sampled_at', { withTimezone: true, mode: 'string' }).notNull(),
+    machine: text('machine').notNull(),
+    five_hour_pct: doublePrecision('five_hour_pct'),
+    seven_day_pct: doublePrecision('seven_day_pct'),
+    five_hour_resets_at: timestamp('five_hour_resets_at', { withTimezone: true, mode: 'string' }),
+    seven_day_resets_at: timestamp('seven_day_resets_at', { withTimezone: true, mode: 'string' }),
+    auth_ok: boolean('auth_ok').notNull(),
+    exhausted_until: timestamp('exhausted_until', { withTimezone: true, mode: 'string' }),
+    source: text('source'),
+    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('uq_quota_sample_account_at_machine').on(t.account, t.sampled_at, t.machine),
+    index('idx_quota_sample_sampled_at').on(t.sampled_at),
+  ],
+)
+
+export const accountPick = argoSchema.table(
+  'account_pick',
+  {
+    id: serial('id').primaryKey(),
+    ts: timestamp('ts', { withTimezone: true, mode: 'string' }).notNull(),
+    lane: text('lane').notNull(),
+    // Opaque: an account id, or `spill` when no Max account had headroom.
+    picked: text('picked').notNull(),
+    reason: text('reason').notNull(),
+    stale: boolean('stale').notNull(),
+    snapshot: jsonb('snapshot').notNull(),
+    machine: text('machine').notNull(),
+    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex('uq_account_pick_ts_lane_machine').on(t.ts, t.lane, t.machine)],
 )
 
 // ── WalkingPad achievements (unlocked milestones, surfaced by the dashboard) ─
