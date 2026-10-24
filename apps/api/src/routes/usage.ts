@@ -12,6 +12,8 @@ import {
   BreakdownDimensionEnum,
   WorkspaceEnum,
   ACCOUNT_PATTERN,
+  PAYER_SQL,
+  PayerEnum,
   USAGE_DATA_FLOOR_ISO,
   resolveRange,
   toArray,
@@ -30,6 +32,7 @@ const BillingEnum = z.enum(['max', 'iu', 'openrouter', 'unknown'])
  */
 const stringFilter = z.union([z.string(), z.array(z.string())]).optional()
 const billingFilter = z.union([BillingEnum, z.array(BillingEnum)]).optional()
+const payerFilter = z.union([PayerEnum, z.array(PayerEnum)]).optional()
 const workspaceFilter = z.union([WorkspaceEnum, z.array(WorkspaceEnum)]).optional()
 const AccountSchema = z.string().regex(ACCOUNT_PATTERN)
 const accountFilter = z.union([AccountSchema, z.array(AccountSchema)]).optional()
@@ -88,6 +91,8 @@ function groupColumnSql(groupBy: string) {
       return sql.raw('billing')
     case 'account':
       return sql.raw('account')
+    case 'payer':
+      return sql.raw(`(${PAYER_SQL})`)
     case 'outcome':
       return sql.raw('outcome')
     default:
@@ -152,12 +157,14 @@ function buildFilterSql({
   billing,
   workspace,
   account,
+  payer,
 }: {
   sources?: string[] | undefined
   machines?: string[] | undefined
   billing?: string[] | undefined
   workspace?: string[] | undefined
   account?: string[] | undefined
+  payer?: string[] | undefined
 }) {
   const parts: SQL[] = []
   if (sources && sources.length > 0) {
@@ -174,6 +181,9 @@ function buildFilterSql({
   }
   if (account && account.length > 0) {
     parts.push(inList(sql`account`, account))
+  }
+  if (payer && payer.length > 0) {
+    parts.push(inList(sql.raw(`(${PAYER_SQL})`), payer))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`
@@ -291,7 +301,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .get(
     '/headline',
     async ({ query }) => {
-      const accountFilterSql = buildFilterSql({ account: toArray(query.account) })
+      const accountFilterSql = buildFilterSql({
+        account: toArray(query.account),
+        payer: toArray(query.payer),
+      })
       const now = new Date()
       const floor = USAGE_DATA_FLOOR_ISO
       const d7 = new Date(now.getTime() - 7 * 86_400_000).toISOString()
@@ -310,6 +323,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'max' AND ts >= ${f30}), 0)::float AS cost_max_billing_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'iu' AND ts >= ${f30}), 0)::float AS cost_iu_billing_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'openrouter' AND ts >= ${f30}), 0)::float AS cost_openrouter_billing_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'iu-sub' AND ts >= ${f30}), 0)::float AS cost_iu_sub_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'me-sub' AND ts >= ${f30}), 0)::float AS cost_me_sub_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'iu-api' AND ts >= ${f30}), 0)::float AS cost_iu_api_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'me-api' AND ts >= ${f30}), 0)::float AS cost_me_api_30d,
           -- cache_read_tokens excluded: it's the full re-read prior context on every
           -- turn, not a delta, so summing it across rows re-counts the same tokens.
           COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0)::bigint AS tokens_30d,
@@ -332,7 +349,9 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             / NULLIF(COUNT(*) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0) AS error_rate_prior_30d,
           percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)
             FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${d60} AND ts < ${f30}) AS p95_ms_prior_30d
-        FROM argo.usage_record
+        FROM (
+          SELECT *, ${sql.raw(`(${PAYER_SQL})`)} AS payer FROM argo.usage_record
+        ) u
         WHERE true ${accountFilterSql}
       `)
 
@@ -344,6 +363,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         costMaxBilling30d: Number(r['cost_max_billing_30d'] ?? 0),
         costIuBilling30d: Number(r['cost_iu_billing_30d'] ?? 0),
         costOpenrouterBilling30d: Number(r['cost_openrouter_billing_30d'] ?? 0),
+        costIuSub30d: Number(r['cost_iu_sub_30d'] ?? 0),
+        costMeSub30d: Number(r['cost_me_sub_30d'] ?? 0),
+        costIuApi30d: Number(r['cost_iu_api_30d'] ?? 0),
+        costMeApi30d: Number(r['cost_me_api_30d'] ?? 0),
         tokens30d: Number(r['tokens_30d'] ?? 0),
         errorRate30d: Number(r['error_rate_30d'] ?? 0),
         p95Ms30d:
@@ -365,7 +388,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       }
     },
     {
-      query: z.object({ account: accountFilter }),
+      query: z.object({ account: accountFilter, payer: payerFilter }),
       response: {
         200: z.object({
           costUsd30d: z.number(),
@@ -373,6 +396,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           costMaxBilling30d: z.number(),
           costIuBilling30d: z.number(),
           costOpenrouterBilling30d: z.number(),
+          costIuSub30d: z.number(),
+          costMeSub30d: z.number(),
+          costIuApi30d: z.number(),
+          costMeApi30d: z.number(),
           tokens30d: z.number().int(),
           errorRate30d: z.number(),
           p95Ms30d: z.number().nullable(),
@@ -412,6 +439,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: toArray(query.billing),
         workspace: toArray(query.workspace),
         account: toArray(query.account),
+        payer: toArray(query.payer),
       })
       const mExpr = metricExpr(metric)
 
@@ -542,6 +570,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: billingFilter,
         workspace: workspaceFilter,
         account: accountFilter,
+        payer: payerFilter,
       }),
       response: {
         200: z.object({
@@ -558,7 +587,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage timeseries',
         description:
-          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|errors|error_rate|latency_p95|cache_ratio, ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]. Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window.',
+          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|errors|error_rate|latency_p95|cache_ratio, ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/payer[] (payer = iu-sub|me-sub|iu-api|me-api|unknown, derived from billing + account). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -580,6 +609,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: toArray(query.billing),
         workspace: toArray(query.workspace),
         account: toArray(query.account),
+        payer: toArray(query.payer),
       })
 
       const [totalResult, rowsResult] = await Promise.all([
@@ -624,6 +654,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: billingFilter,
         workspace: workspaceFilter,
         account: accountFilter,
+        payer: payerFilter,
       }),
       response: {
         200: z.object({
