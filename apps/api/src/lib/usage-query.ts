@@ -1,3 +1,4 @@
+import { sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 
 /**
@@ -59,14 +60,21 @@ export const ACCOUNT_PATTERN = /^[a-z][a-z0-9-]{0,15}$/
 export const PAYERS = ['iu-sub', 'me-sub', 'iu-api', 'me-api', 'unknown'] as const
 export const PayerEnum = z.enum(PAYERS)
 
-/** SQL for the payer of a `usage_record` row; keep in step with `PAYERS`. */
-export const PAYER_SQL = `CASE
+/** The payer of a `usage_record` row as one SQL expression; keep in step with `PAYERS`. */
+export const PAYER_EXPR = sql.raw(`(CASE
   WHEN billing = 'max' AND account = 'iu' THEN 'iu-sub'
   WHEN billing = 'max' AND account = 'me' THEN 'me-sub'
   WHEN billing = 'iu' THEN 'iu-api'
   WHEN billing = 'openrouter' THEN 'me-api'
   ELSE 'unknown'
-END`
+END)`)
+
+/**
+ * Start of the UTC `day`/`week` that `instant` (a timestamptz expression) falls in. Pinned to UTC so a
+ * bucket never depends on the database session's timezone (prod is `Etc/UTC` anyway).
+ */
+export const utcBucket = (grain: string, instant: SQL): SQL =>
+  sql`date_trunc(${grain}, ${instant} AT TIME ZONE 'UTC')`
 
 export const WorkspaceEnum = z.enum(['work', 'private'])
 

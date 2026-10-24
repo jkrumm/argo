@@ -72,17 +72,32 @@ findings 1 and 2.
    the two as different events, so each exists twice and every chart counted both. Not a tracker bug
    (the re-push is correct); not recurring (every collector now sends `machine`). Fixed by migration
    `0024`: delete the NULL-machine copy when a machine-bearing twin with identical timestamp and token
-   counts exists. One remaining duplicate key with differing content is left alone.
+   counts, billing, model and cost exists (all of `billing`, `model` and `cost_usd` must match, NULL-safe). One remaining duplicate key with differing content is left alone.
 2. **7,165 Max rows without an account, $1,024.** MacBook rows from 2026-05-11 … 2026-07-02 that exist
    only in Argo: the mini's local DB starts at 2026-07-08 for that machine, so `resync-account` can never
    reach them. They predate the `me` subscription (first `me` row 2026-10-24), hence all `iu`. Migration
-   `0024` sets `account = 'iu'` for Max rows older than the first `me` row; a database without any `me` row
-   is untouched. After both migrations no Max row is account-less.
+   `0024` sets `account = 'iu'` for Max rows older than the first Max `me` row; a database without any Max `me`
+   row is untouched. After both migrations no Max row is account-less.
 3. **Per-source row differences that are not bugs:** MacBook claude-code rows (the MacBook's tracker
    pushes them), VPS research-gateway (3,470) and mini research-gateway pre-rename rows (118), litellm
    MacBook rows (932), and the direct-posting gateways (audio, email, image, argo).
 
 No usage-tracker bug was found.
+
+## What migration 0024 selects on prod (read-only, 2026-10-24)
+
+| | rows | cost |
+|-|-|-|
+| Step 1: NULL-machine rows with an identical twin (same ts, tokens, billing, model, cost) | 24,803 | $3,080.99 |
+| Step 2 cutoff: first Max `me` row | 2026-10-24T16:27:59Z (the first `me` row on any billing lane is the same instant) | |
+| Step 2: Max rows with NULL account before the cutoff, before step 1 | 31,919 | $4,101.72 |
+| Step 2: the same, after step 1 has removed the twins (what is actually re-accounted and archived) | 7,165 | $1,024.54 |
+| Max rows with NULL account at or after the cutoff (left untouched) | 0 | |
+
+The 7,165 are all `claude-code` rows of machine `MacBook Pro (M2 Max)`, 2026-05-11 … 2026-07-02. The other
+24,754 of the 31,919 are the NULL-machine rows step 1 deletes. The strict step 1 predicate (billing, model
+and cost added) selects the same 24,803 rows as the looser one, so the extra conditions only guard future
+data. The archive table therefore ends with 24,803 `duplicate_null_machine` + 7,165 `account_backfill` rows.
 
 ## Undoing migration 0024
 

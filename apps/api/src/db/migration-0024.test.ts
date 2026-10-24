@@ -26,16 +26,25 @@ class Rollback extends Error {}
 // Fixtures are older than anything real (2020/2021), so the first-`me` cutoff the migration computes
 // is the fixture's own and no real row is touched; the whole run is rolled back regardless.
 const SOURCE = 'mig0024-test'
+// (source_id, ts, billing, account, machine, tokens, model, cost). `first-me` is the first Max `me`
+// row; `early-api-me` is an earlier `me` row on another billing lane that must not move the cutoff.
 const FIXTURES = sql`
-  INSERT INTO argo.usage_record (source, source_id, grain, ts, billing, account, machine, input_tokens, ingested_at) VALUES
-  (${SOURCE}, 'twin',      'm', '2020-05-01T00:00:00Z', 'max', NULL, NULL,   5, 'x'),
-  (${SOURCE}, 'twin',      'm', '2020-05-01T00:00:00Z', 'max', 'iu', 'mini', 5, 'x'),
-  (${SOURCE}, 'differs',   'm', '2020-05-01T00:00:00Z', 'max', NULL, NULL,   5, 'x'),
-  (${SOURCE}, 'differs',   'm', '2020-05-01T00:00:00Z', 'max', 'iu', 'mini', 9, 'x'),
-  (${SOURCE}, 'no-twin',   'm', '2020-05-02T00:00:00Z', 'max', NULL, 'mac',  1, 'x'),
-  (${SOURCE}, 'api',       'm', '2020-05-02T00:00:00Z', 'iu',  NULL, 'mac',  1, 'x'),
-  (${SOURCE}, 'first-me',  'm', '2021-01-01T00:00:00Z', 'max', 'me', 'mini', 1, 'x'),
-  (${SOURCE}, 'after-me',  'm', '2021-01-02T00:00:00Z', 'max', NULL, 'mini', 1, 'x')`
+  INSERT INTO argo.usage_record (source, source_id, grain, ts, billing, account, machine, input_tokens, model, cost_usd, ingested_at) VALUES
+  (${SOURCE}, 'twin',       'm', '2020-05-01T00:00:00Z', 'max', NULL, NULL,   5, 'm1', 1, 'x'),
+  (${SOURCE}, 'twin',       'm', '2020-05-01T00:00:00Z', 'max', 'iu', 'mini', 5, 'm1', 1, 'x'),
+  (${SOURCE}, 'differs',    'm', '2020-05-01T00:00:00Z', 'max', NULL, NULL,   5, 'm1', 1, 'x'),
+  (${SOURCE}, 'differs',    'm', '2020-05-01T00:00:00Z', 'max', 'iu', 'mini', 9, 'm1', 1, 'x'),
+  (${SOURCE}, 'twin-cost',  'm', '2020-05-03T00:00:00Z', 'max', NULL, NULL,   5, 'm1', 1, 'x'),
+  (${SOURCE}, 'twin-cost',  'm', '2020-05-03T00:00:00Z', 'max', 'iu', 'mini', 5, 'm1', 2, 'x'),
+  (${SOURCE}, 'twin-bill',  'm', '2020-05-03T00:00:00Z', 'iu',  NULL, NULL,   5, 'm1', 1, 'x'),
+  (${SOURCE}, 'twin-bill',  'm', '2020-05-03T00:00:00Z', 'max', 'iu', 'mini', 5, 'm1', 1, 'x'),
+  (${SOURCE}, 'twin-model', 'm', '2020-05-03T00:00:00Z', 'max', NULL, NULL,   5, 'm1', 1, 'x'),
+  (${SOURCE}, 'twin-model', 'm', '2020-05-03T00:00:00Z', 'max', 'iu', 'mini', 5, 'm2', 1, 'x'),
+  (${SOURCE}, 'no-twin',    'm', '2020-05-02T00:00:00Z', 'max', NULL, 'mac',  1, 'm1', 1, 'x'),
+  (${SOURCE}, 'api',        'm', '2020-05-02T00:00:00Z', 'iu',  NULL, 'mac',  1, 'm1', 1, 'x'),
+  (${SOURCE}, 'early-api-me','m','2019-01-01T00:00:00Z', 'iu',  'me', 'mini', 1, 'm1', 1, 'x'),
+  (${SOURCE}, 'first-me',   'm', '2021-01-01T00:00:00Z', 'max', 'me', 'mini', 1, 'm1', 1, 'x'),
+  (${SOURCE}, 'after-me',   'm', '2021-01-02T00:00:00Z', 'max', NULL, 'mini', 1, 'm1', 1, 'x')`
 
 type Archived = {
   source_id: string
@@ -60,28 +69,30 @@ describe('migration 0024', () => {
         const archive = (await tx.execute(
           sql`SELECT source_id, reason, account, machine FROM argo.usage_record_dedupe_0024 WHERE source = ${SOURCE} ORDER BY reason, source_id`,
         )) as unknown as Archived[]
-        // The deleted copy is the NULL-machine one; the re-accounted rows are archived as they were
-        // (account NULL). `api` (billing iu), `first-me` and `after-me` are untouched and not archived.
+        // Deleted: only the NULL-machine copy of `twin`. Twins that differ in cost, billing or model
+        // survive. Re-accounted (archived as they were, account NULL): Max rows older than the first Max
+        // `me` row; `early-api-me` (billing iu) does not move that cutoff, and `api`, `twin-bill`'s
+        // iu-billed copy, `first-me` and `after-me` are untouched and not archived.
         expect(archive).toEqual([
           { source_id: 'differs', reason: 'account_backfill', account: null, machine: null },
           { source_id: 'no-twin', reason: 'account_backfill', account: null, machine: 'mac' },
+          { source_id: 'twin-cost', reason: 'account_backfill', account: null, machine: null },
+          { source_id: 'twin-model', reason: 'account_backfill', account: null, machine: null },
           { source_id: 'twin', reason: 'duplicate_null_machine', account: null, machine: null },
         ])
 
         const after = await snapshot()
-        expect(after.map((r) => r['source_id'])).toEqual([
-          'twin',
-          'differs',
-          'differs',
-          'no-twin',
-          'api',
-          'first-me',
-          'after-me',
-        ])
-        const accountOf = (id: string) =>
-          after.filter((r) => r['source_id'] === id).map((r) => r['account'])
+        const rowsOf = (id: string) => after.filter((r) => r['source_id'] === id)
+        expect(rowsOf('twin')).toHaveLength(1)
+        expect(rowsOf('twin')[0]?.['machine']).toBe('mini')
+        for (const id of ['differs', 'twin-cost', 'twin-bill', 'twin-model']) {
+          expect(rowsOf(id)).toHaveLength(2)
+        }
+        const accountOf = (id: string) => rowsOf(id).map((r) => r['account'])
         expect(accountOf('no-twin')).toEqual(['iu'])
         expect(accountOf('differs')).toEqual(['iu', 'iu'])
+        expect(accountOf('twin-cost')).toEqual(['iu', 'iu'])
+        expect(accountOf('twin-model')).toEqual(['iu', 'iu'])
         expect(accountOf('api')).toEqual([null])
         expect(accountOf('after-me')).toEqual([null])
 

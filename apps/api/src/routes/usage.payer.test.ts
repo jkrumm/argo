@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { usageRoutes } from './usage.js'
+import { utcBucket } from '../lib/usage-query.js'
 import { db, runMigrations } from '../db/index.js'
 import { usageRecord } from '../db/schema.js'
 
@@ -134,5 +135,25 @@ describe('usage payer', () => {
     }>(`/usage/timeseries?range=7d&grain=day&metric=cost&groupBy=payer&sources=${SOURCE}`)
     const hit = series.buckets.filter((b) => (b.groups['iu-sub'] ?? 0) > 0)
     expect(hit.map((b) => b.bucket)).toEqual([day])
+  })
+
+  it('utcBucket ignores the session timezone', async () => {
+    class Rollback extends Error {}
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.execute(sql`SET LOCAL TIME ZONE 'Europe/Berlin'`)
+        const [tz] = (await tx.execute(sql`SHOW TIME ZONE`)) as unknown as Array<{
+          TimeZone: string
+        }>
+        expect(tz?.TimeZone).toBe('Europe/Berlin')
+        // 23:30 UTC is already the next day, and the next ISO week's Monday, in Berlin.
+        const instant = sql`${'2026-10-25T23:30:00Z'}::timestamptz`
+        const [row] = (await tx.execute(
+          sql`SELECT ${utcBucket('day', instant)}::date::text AS day, ${utcBucket('week', instant)}::date::text AS week`,
+        )) as unknown as Array<{ day: string; week: string }>
+        expect(row).toEqual({ day: '2026-10-25', week: '2026-10-19' })
+        throw new Rollback()
+      }),
+    ).rejects.toBeInstanceOf(Rollback)
   })
 })
