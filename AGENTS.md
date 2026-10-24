@@ -11,7 +11,7 @@ data is logged manually. Alongside them: **Hermes Chat** (a Slack-shaped feed ov
 - Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general
   **AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs Argo's own thread-titling/classification —
   not Hermes), **Slack** (read + post, split across two app identities — see "Slack" below),
-  **Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only; each record carries the Claude `account` — `iu`/`me`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension), **Reading**
+  **Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only; each record carries the Claude `account` — `iu`/`me`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension); also Claude account quota samples (`POST /usage/quota-samples`, `GET /usage/quota`) and picker decisions (`POST /usage/account-picks`, `GET /usage/account-picks/summary`) from `usage-tracker`, shown in the usage page's "Claude accounts" section, **Reading**
   (Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
   and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
 

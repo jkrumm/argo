@@ -152,6 +152,24 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | me          | `#9d3f9d` | `#bd6bbd` | `me`               | Max 5x account — violet, no status reading |
 | Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (non-Max billing, no account)      |
 
+### Usage tracker — Claude accounts section (reuses `account-` series, no new hex)
+
+| Mark | Colour source | Encoding | Role / earned reason |
+| ---- | ------------- | -------- | -------------------- |
+| Quota lines (`iu`, `me`) | `USAGE_ACCOUNT.*` | solid = 5 h window, dashed = 7 d window | Account identity stays the colour; the window is the dash, never a second hue |
+| Limit guides (85 % 5 h, 90 % 7 d) | `VX.muted` | dashed rule | The picker's eligibility limits (docs/claude-accounts.md Rule v1); annotation, not a series |
+| Reset dot | the line's own colour | dot on the line where a window reset | Marks the drop; 5 h resets only for windows up to 72 h |
+| Picks bars | `USAGE_ACCOUNT.*`, `spill` = `USAGE_ACCOUNT.unknown` | stacked per bucket | `spill` is the non-Max IU fallback, so it takes the neutral, not an account hue |
+
+### Usage tracker — Claude accounts section (reuses `account-` series, no new hex)
+
+| Mark | Colour source | Encoding | Role / earned reason |
+| ---- | ------------- | -------- | -------------------- |
+| Quota lines (`iu`, `me`) | `USAGE_ACCOUNT.*` | solid = 5 h window, dashed = 7 d window | Account identity stays the colour; the window is the dash, never a second hue |
+| Limit guides (85 % 5 h, 90 % 7 d) | `VX.muted` | dashed rule | The picker's eligibility limits (docs/claude-accounts.md Rule v1); annotation, not a series |
+| Reset dot | the line's own colour | dot on the line where a window reset | Marks the drop; 5 h resets only for windows up to 72 h |
+| Picks bars | `USAGE_ACCOUNT.*`, `spill` = `USAGE_ACCOUNT.unknown` | stacked per bucket | `spill` is the non-Max IU fallback, so it takes the neutral, not an account hue |
+
 ### Usage tracker — outcome (`outcome-` prefix — `USAGE_OUTCOME.*`)
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |

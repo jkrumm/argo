@@ -1,6 +1,7 @@
 import type { Grain, Range } from '../../lib/queries/usage'
 import { colorForGroup } from './constants'
 import { FoldedChart } from './folded-chart'
+import { USAGE_TIME_GROUP } from './quota-model'
 import { foldInfo, fmtUsdWhole } from './model'
 import type { AccountValue, BillingValue, CostGroupBy, WorkspaceValue } from './types'
 
@@ -35,6 +36,7 @@ export default function CostChart({
       stripEmpty={stripEmpty}
       leading={leading}
       metric="cost"
+      cursorGroup={USAGE_TIME_GROUP}
       groupBy={groupBy}
       groupNoun={GROUP_NOUN[groupBy]}
       unitNoun="Cost"
