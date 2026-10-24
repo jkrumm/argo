@@ -11,6 +11,7 @@ import {
   BreakdownMetricEnum,
   BreakdownDimensionEnum,
   WorkspaceEnum,
+  ACCOUNT_PATTERN,
   USAGE_DATA_FLOOR_ISO,
   resolveRange,
   toArray,
@@ -29,6 +30,8 @@ const BillingEnum = z.enum(['max', 'iu', 'openrouter', 'unknown'])
 const stringFilter = z.union([z.string(), z.array(z.string())]).optional()
 const billingFilter = z.union([BillingEnum, z.array(BillingEnum)]).optional()
 const workspaceFilter = z.union([WorkspaceEnum, z.array(WorkspaceEnum)]).optional()
+const AccountSchema = z.string().regex(ACCOUNT_PATTERN)
+const accountFilter = z.union([AccountSchema, z.array(AccountSchema)]).optional()
 
 const UsageRecordInputSchema = z.object({
   source: z.string(),
@@ -42,6 +45,7 @@ const UsageRecordInputSchema = z.object({
   sub_tool: z.string().nullable(),
   machine: z.string().nullable(),
   billing: z.string(),
+  account: AccountSchema.nullable().optional(),
   outcome: z.string().default('ok'),
   input_tokens: z.number().int().default(0),
   output_tokens: z.number().int().default(0),
@@ -71,6 +75,8 @@ function groupColumnSql(groupBy: string) {
       return sql.raw('workspace')
     case 'billing':
       return sql.raw('billing')
+    case 'account':
+      return sql.raw('account')
     case 'outcome':
       return sql.raw('outcome')
     default:
@@ -134,6 +140,7 @@ function buildFilterSql(
   machines?: string[],
   billing?: string[],
   workspace?: string[],
+  account?: string[],
 ) {
   const parts: SQL[] = []
   if (sources && sources.length > 0) {
@@ -147,6 +154,9 @@ function buildFilterSql(
   }
   if (workspace && workspace.length > 0) {
     parts.push(inList(sql`workspace`, workspace))
+  }
+  if (account && account.length > 0) {
+    parts.push(inList(sql`account`, account))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`
@@ -181,6 +191,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             workspace: sql`excluded.workspace`,
             sub_tool: sql`excluded.sub_tool`,
             billing: sql`excluded.billing`,
+            account: sql`excluded.account`,
             outcome: sql`excluded.outcome`,
             input_tokens: sql`excluded.input_tokens`,
             output_tokens: sql`excluded.output_tokens`,
@@ -254,7 +265,14 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   )
   .get(
     '/headline',
-    async () => {
+    async ({ query }) => {
+      const accountFilterSql = buildFilterSql(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        toArray(query.account),
+      )
       const now = new Date()
       const floor = USAGE_DATA_FLOOR_ISO
       const d7 = new Date(now.getTime() - 7 * 86_400_000).toISOString()
@@ -296,6 +314,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)
             FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${d60} AND ts < ${f30}) AS p95_ms_prior_30d
         FROM argo.usage_record
+        WHERE true ${accountFilterSql}
       `)
 
       const r = row as Record<string, unknown>
@@ -327,6 +346,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       }
     },
     {
+      query: z.object({ account: accountFilter }),
       response: {
         200: z.object({
           costUsd30d: z.number(),
@@ -372,6 +392,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         toArray(query.machines),
         toArray(query.billing),
         toArray(query.workspace),
+        toArray(query.account),
       )
       const mExpr = metricExpr(metric)
 
@@ -501,6 +522,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         machines: stringFilter,
         billing: billingFilter,
         workspace: workspaceFilter,
+        account: accountFilter,
       }),
       response: {
         200: z.object({
@@ -517,7 +539,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage timeseries',
         description:
-          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|errors|error_rate|latency_p95|cache_ratio, ?groupBy=source|machine|model_norm|sub_tool|project|billing|outcome|none. Filter via sources[]/machines[]/billing[]. Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window.',
+          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|errors|error_rate|latency_p95|cache_ratio, ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]. Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -538,6 +560,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         toArray(query.machines),
         toArray(query.billing),
         toArray(query.workspace),
+        toArray(query.account),
       )
 
       const [totalResult, rowsResult] = await Promise.all([
@@ -581,6 +604,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         machines: stringFilter,
         billing: billingFilter,
         workspace: workspaceFilter,
+        account: accountFilter,
       }),
       response: {
         200: z.object({

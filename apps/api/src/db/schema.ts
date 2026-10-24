@@ -280,6 +280,7 @@ export const usageRecord = argoSchema.table(
     workspace: text('workspace'),
     sub_tool: text('sub_tool'),
     billing: text('billing').notNull(),
+    account: text('account'),
     machine: text('machine'),
     outcome: text('outcome').notNull().default('ok'),
     input_tokens: integer('input_tokens').notNull().default(0),
@@ -307,6 +308,7 @@ export const usageRecord = argoSchema.table(
     index('idx_usage_machine').on(t.machine),
     index('idx_usage_sub_tool').on(t.sub_tool),
     index('idx_usage_workspace').on(t.workspace),
+    index('idx_usage_account').on(t.account),
   ],
 )
 
