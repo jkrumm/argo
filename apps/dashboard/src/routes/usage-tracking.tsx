@@ -32,11 +32,12 @@ function UsageTrackingPage() {
   // "empty means every row" is this API's convention, not a store law.
   const billing = search.billing.length > 0 ? [...search.billing] : undefined
   const workspace = search.workspace.length > 0 ? [...search.workspace] : undefined
-  const filtered = isFiltered(billing, workspace)
+  const account = search.account.length > 0 ? [...search.account] : undefined
+  const filtered = isFiltered(billing, workspace, account)
   // The same (shot-substituted) headline the strip reads; it speaks for the charts only inside its 30 d.
   const stripEmpty = useUsageHeadline().data?.calls30d === 0 && stripCoversRange(search.range)
   const showTotal = printTotal({ range: search.range, filtered })
-  const tsBase = { range: search.range, grain: search.grain, billing, workspace }
+  const tsBase = { range: search.range, grain: search.grain, billing, workspace, account }
 
   return (
     <>
@@ -54,6 +55,11 @@ function UsageTrackingPage() {
               field={usageStore.field.billing}
               label="All billing"
               noun="billing lanes"
+            />
+            <MultiSelectFilter
+              field={usageStore.field.account}
+              label="All accounts"
+              noun="accounts"
             />
           </FilterSet>
         }
@@ -97,6 +103,7 @@ function UsageTrackingPage() {
                   range={search.range}
                   billing={billing}
                   workspace={workspace}
+                  account={account}
                   printTotal={showTotal}
                   stripEmpty={stripEmpty}
                 />

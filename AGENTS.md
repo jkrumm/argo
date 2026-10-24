@@ -7,12 +7,13 @@ Personal dashboard + agent-backbone API for Johannes Krumm, deployed on the VPS 
 stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
 ACWR, PR detection, body weight) — a Garmin sync sidecar feeds health data every 6 hours, strength
 data is logged manually. Alongside them: **Hermes Chat** (a Slack-shaped feed over Hermes threads
-+ Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general
-**AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs Argo's own thread-titling/classification —
-not Hermes), **Slack** (read + post, split across two app identities — see "Slack" below),
-**Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only; each record carries the Claude `account` — `iu`/`me`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension), **Reading**
-(Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
-and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
+
+- Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general
+  **AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs Argo's own thread-titling/classification —
+  not Hermes), **Slack** (read + post, split across two app identities — see "Slack" below),
+  **Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only; each record carries the Claude `account` — `iu`/`me`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension), **Reading**
+  (Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
+  and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
 
 **Astro Window** answers "is tonight (or this week) worth going out for?" for Milky Way nightscapes. It is scored by a deterministic engine (`apps/api/src/lib/window-score.ts` — hard gates that name _why_ a night is out, plus weighted 0–1 factors) instantiated per domain (`astro-score.ts`). **The model never computes a number**: the ephemeris, the thresholds and the score are all deterministic, and `aiComplete()` only writes one sentence about an already-finished verdict — see `docs/ASTRO-WINDOW.md`.
 

@@ -2,7 +2,7 @@ import type { Grain, Range } from '../../lib/queries/usage'
 import { colorForGroup } from './constants'
 import { FoldedChart } from './folded-chart'
 import { foldInfo, tokensFormatterFor } from './model'
-import type { BillingValue, TokensGroupBy, WorkspaceValue } from './types'
+import type { AccountValue, BillingValue, TokensGroupBy, WorkspaceValue } from './types'
 
 const GROUP_NOUN: Record<TokensGroupBy, string> = {
   sub_tool: 'tool',
@@ -21,6 +21,7 @@ export default function TokensChart({
   grain: Grain
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  account?: AccountValue[] | undefined
   printTotal: boolean
   stripEmpty: boolean
   groupBy: TokensGroupBy

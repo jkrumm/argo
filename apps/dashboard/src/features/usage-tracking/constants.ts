@@ -1,5 +1,5 @@
 import type { StackedAreaBand } from 'basalt-ui/charts'
-import { USAGE_BILLING, USAGE_SOURCE } from '../../lib/series'
+import { USAGE_ACCOUNT, USAGE_BILLING, USAGE_SOURCE } from '../../lib/series'
 import type { CostGroupBy, TimePoint } from './types'
 
 const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
@@ -36,6 +36,12 @@ function colorForBilling(billing: string): string {
   if (billing === 'iu') return USAGE_BILLING.iu
   if (billing === 'openrouter') return USAGE_BILLING.openrouter
   return USAGE_BILLING.unknown
+}
+
+function colorForAccount(account: string): string {
+  if (account === 'iu') return USAGE_ACCOUNT.iu
+  if (account === 'me') return USAGE_ACCOUNT.me
+  return USAGE_ACCOUNT.unknown
 }
 
 // Deterministic fallback color picker for unknown grouping keys (e.g. machines,
@@ -93,6 +99,7 @@ export function colorForGroup(
 ): (key: string) => string {
   if (groupBy === 'source') return colorForSource
   if (groupBy === 'billing') return colorForBilling
+  if (groupBy === 'account') return colorForAccount
   return colorForKey
 }
 

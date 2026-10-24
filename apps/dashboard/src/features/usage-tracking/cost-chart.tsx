@@ -2,12 +2,13 @@ import type { Grain, Range } from '../../lib/queries/usage'
 import { colorForGroup } from './constants'
 import { FoldedChart } from './folded-chart'
 import { foldInfo, fmtUsdWhole } from './model'
-import type { BillingValue, CostGroupBy, WorkspaceValue } from './types'
+import type { AccountValue, BillingValue, CostGroupBy, WorkspaceValue } from './types'
 
 const GROUP_NOUN: Record<CostGroupBy, string> = {
   source: 'source',
   machine: 'machine',
   billing: 'billing lane',
+  account: 'account',
 }
 
 export default function CostChart({
@@ -21,6 +22,7 @@ export default function CostChart({
   grain: Grain
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  account?: AccountValue[] | undefined
   printTotal: boolean
   stripEmpty: boolean
   leading: boolean

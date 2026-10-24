@@ -29,11 +29,13 @@ const NO_MATCH_SHORT = 'No usage matches these filters'
 const noMatchFull = (widen: boolean) =>
   `${NO_MATCH_SHORT} in this window — clear a filter${widen ? ' or widen the range' : ''}`
 
-/** Whether a billing or workspace filter is active; an empty selection is no constraint. */
+/** Whether a billing, workspace or account filter is active; an empty selection is no constraint. */
 export const isFiltered = (
   billing: readonly unknown[] | undefined,
   workspace: readonly unknown[] | undefined,
-): boolean => (billing?.length ?? 0) > 0 || (workspace?.length ?? 0) > 0
+  account?: readonly unknown[] | undefined,
+): boolean =>
+  (billing?.length ?? 0) > 0 || (workspace?.length ?? 0) > 0 || (account?.length ?? 0) > 0
 
 /** The 30 d strip speaks for a chart only when the chart's range lies inside it. */
 export const stripCoversRange = (range: '7d' | '30d' | '90d' | 'all'): boolean =>
@@ -624,6 +626,7 @@ const GROUPING: Record<
   source: { keyOf: (key) => key, labelOf: (key) => key },
   machine: { keyOf: (key) => key, labelOf: (key) => key },
   billing: { keyOf: (key) => key, labelOf: (key) => key },
+  account: { keyOf: (key) => key, labelOf: (key) => key },
   model_norm: { keyOf: (key) => key, labelOf: (key) => key },
   project: { keyOf: (key) => key, labelOf: (key) => key },
   // Tools are counted per MCP server and read in words.

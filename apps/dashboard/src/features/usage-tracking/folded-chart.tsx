@@ -16,7 +16,13 @@ import { usageQueries, type Grain, type Metric, type Range } from '../../lib/que
 import { USAGE_SOURCE } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
 import { usageStore } from '../../lib/window-stores'
-import type { BillingValue, CostGroupBy, TokensGroupBy, WorkspaceValue } from './types'
+import type {
+  AccountValue,
+  BillingValue,
+  CostGroupBy,
+  TokensGroupBy,
+  WorkspaceValue,
+} from './types'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
 import {
   peakBucketTotal,
@@ -44,6 +50,7 @@ type Props = {
   grain: Grain
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  account?: AccountValue[] | undefined
   color: (key: string) => string
   /** Builds the surface's formatter from its largest value: one unit per chart and per list. */
   formatFor: (reference: number) => (n: number) => string
@@ -67,6 +74,7 @@ export function FoldedChart({
   grain,
   billing,
   workspace,
+  account,
   color,
   formatFor,
   info,
@@ -77,13 +85,13 @@ export function FoldedChart({
   stripEmpty,
 }: Props) {
   const query = useSuspenseQuery(
-    usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace }),
+    usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace, account }),
   )
   const data = shotState() === 'empty' ? { ...query.data, buckets: [], groupKeys: [] } : query.data
   const now = useNow()
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
-  const filtered = isFiltered(billing, workspace)
+  const filtered = isFiltered(billing, workspace, account)
   const plotText = noUsageWindow({ filtered, stripEmpty, leading, range })
   const listText = noUsageWindow({ filtered, stripEmpty, leading: false, range })
 
@@ -93,8 +101,8 @@ export function FoldedChart({
     groupBy,
   })
   // Open-ended keys (tool, model, project) take a palette slot by rank, not by hash, so the six
-  // named series are always six different hues; source and billing keep their identity colours.
-  const byRank = groupBy !== 'source' && groupBy !== 'billing'
+  // named series are always six different hues; source, billing and account keep their identity colours.
+  const byRank = groupBy !== 'source' && groupBy !== 'billing' && groupBy !== 'account'
   const colorOf = (key: string) => {
     if (key === OTHER_KEY) return USAGE_SOURCE.other
     if (!byRank) return color(key)
