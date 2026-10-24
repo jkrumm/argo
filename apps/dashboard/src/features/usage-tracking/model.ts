@@ -43,7 +43,7 @@ export const stripCoversRange = (range: '7d' | '30d' | '90d' | 'all'): boolean =
 
 /**
  * The wording for a surface whose window holds no usage. A filtered window always keeps the match
- * pair: the filter may be the cause (the strip ignores filters). `stripEmpty` (the 30 d strip is
+ * pair: the filter may be the cause (the strip follows the account filter and ignores the others). `stripEmpty` (the 30 d strip is
  * empty AND covers this range, see `stripCoversRange`) collapses only the unfiltered pair to the
  * short form. Otherwise the leading chart carries the full sentence, the rest the short form; a
  * range of `all` has nothing wider, so its sentence carries no "widen the range".

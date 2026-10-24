@@ -20,7 +20,10 @@ import TopProjects from '../features/usage-tracking/top-projects'
 export const Route = createFileRoute('/usage-tracking')({
   validateSearch: usageStore.validateSearch,
   loaderDeps: ({ search }) => search,
-  loader: ({ context }) => context.queryClient.ensureQueryData(usageQueries.headline()),
+  loader: ({ context, deps }) =>
+    context.queryClient.ensureQueryData(
+      usageQueries.headline(deps.account.length > 0 ? [...deps.account] : undefined),
+    ),
   component: UsageTrackingPage,
 })
 

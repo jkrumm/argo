@@ -11,10 +11,16 @@ beforeAll(async () => {
 
 const app = new Elysia().use(usageRoutes)
 
+// Everything this file writes carries this source and the two accounts below, so cleanup and
+// assertions stay scoped to it and never touch (or depend on) whatever the dev DB already holds.
+const SOURCE = 'account-test'
+const A = 'zz-test-a'
+const B = 'zz-test-b'
+
 function payload(sourceId: string, account: string | null | undefined, costUsd = 1) {
   const ts = new Date().toISOString()
   return {
-    source: 'test',
+    source: SOURCE,
     source_id: sourceId,
     grain: 'event',
     ts,
@@ -50,74 +56,98 @@ async function getJson<T>(path: string): Promise<T> {
 
 describe('usage account attribution', () => {
   afterEach(async () => {
-    await db.delete(usageRecord)
+    await db.delete(usageRecord).where(eq(usageRecord.source, SOURCE))
   })
 
   it('ingest stores account, null and absent both land as NULL', async () => {
-    const res = await ingest([payload('a1', 'iu'), payload('a2', null), payload('a3', undefined)])
+    const res = await ingest([payload('a1', A), payload('a2', null), payload('a3', undefined)])
     expect(res.status).toBe(200)
-    const rows = await db.select().from(usageRecord)
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, SOURCE))
     const byId = Object.fromEntries(rows.map((r) => [r.source_id, r.account]))
-    expect(byId).toEqual({ a1: 'iu', a2: null, a3: null })
+    expect(byId).toEqual({ a1: A, a2: null, a3: null })
   })
 
-  it('upsert of an existing row updates account', async () => {
+  it('upsert fills a missing account and replaces a stored one', async () => {
     await ingest([payload('u1', null)])
-    await ingest([payload('u1', 'me')])
+    await ingest([payload('u1', B)])
+    await ingest([payload('u1', A)])
     const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'u1'))
     expect(rows).toHaveLength(1)
-    expect(rows[0]?.account).toBe('me')
+    expect(rows[0]?.account).toBe(A)
   })
 
-  it('rejects a malformed account', async () => {
-    const res = await ingest([payload('bad', 'IU Max!')])
+  it('upsert with a null or absent account never clears a stored one', async () => {
+    await ingest([payload('k1', A)])
+    await ingest([payload('k1', null)])
+    await ingest([payload('k1', undefined)])
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'k1'))
+    expect(rows[0]?.account).toBe(A)
+  })
+
+  it('ingest stays permissive: an odd account is stored, only an overlong one is rejected', async () => {
+    const odd = await ingest([payload('o1', 'IU Max!'), payload('o2', A)])
+    expect(odd.status).toBe(200)
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'o1'))
+    expect(rows[0]?.account).toBe('IU Max!')
+    const tooLong = await ingest([payload('o3', 'x'.repeat(33))])
+    expect(tooLong.status).toBe(422)
+  })
+
+  it('a malformed account filter is rejected', async () => {
+    const res = await app.handle(
+      new Request(
+        'http://localhost/usage/breakdown?range=7d&metric=cost&dimension=source&account=IU!',
+      ),
+    )
     expect(res.status).toBe(422)
   })
 
   it('breakdown filters and groups by account', async () => {
-    await ingest([payload('b1', 'iu', 3), payload('b2', 'me', 1), payload('b3', null, 2)])
+    await ingest([payload('b1', A, 3), payload('b2', B, 1), payload('b3', null, 2)])
+    const scope = `sources=${SOURCE}`
 
     const grouped = await getJson<{ total: number; rows: Array<{ key: string; value: number }> }>(
-      '/usage/breakdown?range=7d&metric=cost&dimension=account',
+      `/usage/breakdown?range=7d&metric=cost&dimension=account&${scope}`,
     )
     expect(grouped.total).toBe(6)
     expect(Object.fromEntries(grouped.rows.map((r) => [r.key, r.value]))).toEqual({
-      iu: 3,
-      me: 1,
+      [A]: 3,
+      [B]: 1,
       '(unset)': 2,
     })
 
     const filtered = await getJson<{ total: number }>(
-      '/usage/breakdown?range=7d&metric=cost&dimension=source&account=me',
+      `/usage/breakdown?range=7d&metric=cost&dimension=source&${scope}&account=${B}`,
     )
     expect(filtered.total).toBe(1)
 
     const both = await getJson<{ total: number }>(
-      '/usage/breakdown?range=7d&metric=cost&dimension=source&account=me&account=iu',
+      `/usage/breakdown?range=7d&metric=cost&dimension=source&${scope}&account=${B}&account=${A}`,
     )
     expect(both.total).toBe(4)
   })
 
   it('timeseries filters and groups by account', async () => {
-    await ingest([payload('t1', 'iu', 3), payload('t2', 'me', 1)])
+    await ingest([payload('t1', A, 3), payload('t2', B, 1)])
+    const scope = `sources=${SOURCE}`
 
     const split = await getJson<{ groupKeys: string[] }>(
-      '/usage/timeseries?range=7d&metric=cost&groupBy=account',
+      `/usage/timeseries?range=7d&metric=cost&groupBy=account&${scope}`,
     )
-    expect(split.groupKeys.toSorted()).toEqual(['iu', 'me'])
+    expect(split.groupKeys.toSorted()).toEqual([A, B])
 
     const filtered = await getJson<{ buckets: Array<{ groups: Record<string, number> }> }>(
-      '/usage/timeseries?range=7d&metric=cost&account=iu',
+      `/usage/timeseries?range=7d&metric=cost&${scope}&account=${A}`,
     )
     const sum = filtered.buckets.reduce((acc, b) => acc + (b.groups['value'] ?? 0), 0)
     expect(sum).toBe(3)
   })
 
   it('headline filters by account', async () => {
-    await ingest([payload('h1', 'iu', 3), payload('h2', 'me', 1)])
-    const all = await getJson<{ costUsd30d: number }>('/usage/headline')
-    const me = await getJson<{ costUsd30d: number }>('/usage/headline?account=me')
-    expect(all.costUsd30d).toBe(4)
-    expect(me.costUsd30d).toBe(1)
+    await ingest([payload('h1', A, 3), payload('h2', B, 1)])
+    const a = await getJson<{ costUsd30d: number }>(`/usage/headline?account=${A}`)
+    const both = await getJson<{ costUsd30d: number }>(`/usage/headline?account=${A}&account=${B}`)
+    expect(a.costUsd30d).toBe(3)
+    expect(both.costUsd30d).toBe(4)
   })
 })

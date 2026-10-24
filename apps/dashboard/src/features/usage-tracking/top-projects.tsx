@@ -6,7 +6,8 @@ import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { useUsageHeadline } from './use-headline'
 import classes from './usage.module.css'
-import type { AccountValue, BillingValue, WorkspaceValue } from './types'
+import type { BillingValue, WorkspaceValue } from './types'
+import type { AccountValue } from '../../lib/window-stores'
 import {
   EM_DASH,
   footerTotal,

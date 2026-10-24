@@ -45,7 +45,8 @@ const UsageRecordInputSchema = z.object({
   sub_tool: z.string().nullable(),
   machine: z.string().nullable(),
   billing: z.string(),
-  account: AccountSchema.nullable().optional(),
+  // Permissive on purpose: one odd value must not 422 a whole batch. The strict pattern guards filters only.
+  account: z.string().max(32).nullable().optional(),
   outcome: z.string().default('ok'),
   input_tokens: z.number().int().default(0),
   output_tokens: z.number().int().default(0),
@@ -135,13 +136,19 @@ function inList(column: SQL, values: string[]): SQL {
   )})`
 }
 
-function buildFilterSql(
-  sources?: string[],
-  machines?: string[],
-  billing?: string[],
-  workspace?: string[],
-  account?: string[],
-) {
+function buildFilterSql({
+  sources,
+  machines,
+  billing,
+  workspace,
+  account,
+}: {
+  sources?: string[] | undefined
+  machines?: string[] | undefined
+  billing?: string[] | undefined
+  workspace?: string[] | undefined
+  account?: string[] | undefined
+}) {
   const parts: SQL[] = []
   if (sources && sources.length > 0) {
     parts.push(inList(sql`source`, sources))
@@ -191,7 +198,8 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             workspace: sql`excluded.workspace`,
             sub_tool: sql`excluded.sub_tool`,
             billing: sql`excluded.billing`,
-            account: sql`excluded.account`,
+            // Null/absent means unknown, never clears a stored value.
+            account: sql`COALESCE(excluded.account, ${usageRecord.account})`,
             outcome: sql`excluded.outcome`,
             input_tokens: sql`excluded.input_tokens`,
             output_tokens: sql`excluded.output_tokens`,
@@ -220,7 +228,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Batch upsert usage records',
         description:
-          'Idempotent batch insert-or-update for usage records. Keyed on (source, source_id, machine) so the same logical event from different machines stays distinct. A matching triple overwrites all mutable columns (tokens, cost, duration, raw, …). Called by the usage-tracker LaunchAgent every 15 min to sync local SQLite rows into Argo. Accepts 1–1000 records per call (client batches at 500).',
+          'Idempotent batch insert-or-update for usage records. Keyed on (source, source_id, machine) so the same logical event from different machines stays distinct. A matching triple overwrites all mutable columns (tokens, cost, duration, raw, …). Called by the usage-tracker LaunchAgent every 15 min to sync local SQLite rows into Argo. Accepts 1–1000 records per call (client batches at 500). `account` (the Claude account id, null off Max billing) is stored verbatim up to 32 characters so one odd value cannot reject a batch; a null or absent value never clears a stored account. Only the `account` query filters enforce the id pattern.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -266,13 +274,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .get(
     '/headline',
     async ({ query }) => {
-      const accountFilterSql = buildFilterSql(
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        toArray(query.account),
-      )
+      const accountFilterSql = buildFilterSql({ account: toArray(query.account) })
       const now = new Date()
       const floor = USAGE_DATA_FLOOR_ISO
       const d7 = new Date(now.getTime() - 7 * 86_400_000).toISOString()
@@ -387,13 +389,13 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const { fromIso, toIso } = resolveRange(range)
 
       const interval = grain === 'day' ? sql`interval '1 day'` : sql`interval '1 week'`
-      const filterSql = buildFilterSql(
-        toArray(query.sources),
-        toArray(query.machines),
-        toArray(query.billing),
-        toArray(query.workspace),
-        toArray(query.account),
-      )
+      const filterSql = buildFilterSql({
+        sources: toArray(query.sources),
+        machines: toArray(query.machines),
+        billing: toArray(query.billing),
+        workspace: toArray(query.workspace),
+        account: toArray(query.account),
+      })
       const mExpr = metricExpr(metric)
 
       if (groupBy === 'none') {
@@ -555,13 +557,13 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
 
       const col = groupColumnSql(dimension)
       const mExpr = metricExprBreakdown(metric)
-      const filterSql = buildFilterSql(
-        toArray(query.sources),
-        toArray(query.machines),
-        toArray(query.billing),
-        toArray(query.workspace),
-        toArray(query.account),
-      )
+      const filterSql = buildFilterSql({
+        sources: toArray(query.sources),
+        machines: toArray(query.machines),
+        billing: toArray(query.billing),
+        workspace: toArray(query.workspace),
+        account: toArray(query.account),
+      })
 
       const [totalResult, rowsResult] = await Promise.all([
         db.execute(sql`

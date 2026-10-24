@@ -16,13 +16,8 @@ import { usageQueries, type Grain, type Metric, type Range } from '../../lib/que
 import { USAGE_SOURCE } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
 import { usageStore } from '../../lib/window-stores'
-import type {
-  AccountValue,
-  BillingValue,
-  CostGroupBy,
-  TokensGroupBy,
-  WorkspaceValue,
-} from './types'
+import type { BillingValue, CostGroupBy, TokensGroupBy, WorkspaceValue } from './types'
+import type { AccountValue } from '../../lib/window-stores'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
 import {
   peakBucketTotal,

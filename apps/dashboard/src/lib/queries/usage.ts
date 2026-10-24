@@ -27,8 +27,7 @@ export type BreakdownDimension =
   | 'source'
   | 'machine'
   | 'sub_tool'
-export type WorkspaceValue = 'work' | 'private'
-export type AccountValue = 'iu' | 'me'
+type WorkspaceValue = 'work' | 'private'
 
 export type TimeseriesParams = {
   range: Range
@@ -39,7 +38,7 @@ export type TimeseriesParams = {
   machines?: string[] | undefined
   billing?: ('max' | 'iu' | 'openrouter' | 'unknown')[] | undefined
   workspace?: WorkspaceValue[] | undefined
-  account?: AccountValue[] | undefined
+  account?: string[] | undefined
 }
 
 export type BreakdownParams = {
@@ -51,12 +50,12 @@ export type BreakdownParams = {
   machines?: string[] | undefined
   billing?: ('max' | 'iu' | 'openrouter' | 'unknown')[] | undefined
   workspace?: WorkspaceValue[] | undefined
-  account?: AccountValue[] | undefined
+  account?: string[] | undefined
 }
 
 export const usageQueries = {
   all: () => ['usage'] as const,
-  headline: (account?: AccountValue[]) =>
+  headline: (account?: string[]) =>
     queryOptions({
       queryKey: [...usageQueries.all(), 'headline', account] as const,
       queryFn: async () => unwrap(await api.usage.headline.get({ query: { account } })),

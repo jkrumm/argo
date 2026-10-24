@@ -33,7 +33,8 @@ import {
   shortDay,
   ERROR_OK_LABEL,
 } from './model'
-import type { AccountValue, BillingValue, WorkspaceValue } from './types'
+import type { BillingValue, WorkspaceValue } from './types'
+import type { AccountValue } from '../../lib/window-stores'
 import classes from './usage.module.css'
 
 type ErrorBucket = { date: Date; count: number; state: ErrorDayState }

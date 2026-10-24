@@ -1,17 +1,19 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries } from '../../lib/queries/usage'
+import { usageStore } from '../../lib/window-stores'
 
-const useHeadlineQuery = () => useQuery(usageQueries.headline())
+const useHeadlineQuery = (account: readonly string[]) =>
+  useQuery(usageQueries.headline(account.length > 0 ? [...account] : undefined))
 type Headline = NonNullable<ReturnType<typeof useHeadlineQuery>['data']>
 
 /**
- * The 30 d headline the summary and the strip both read. `basalt-ui shot`'s `empty` state
+ * The 30 d headline the summary and the strip both read; it follows the account filter (and only that one). `basalt-ui shot`'s `empty` state
  * substitutes a window with no ingested usage, so both empty with the charts, as production does
  * when nothing was pushed.
  */
 export function useUsageHeadline(): Pick<UseQueryResult<Headline>, 'data' | 'isPending'> {
-  const query = useHeadlineQuery()
+  const query = useHeadlineQuery(usageStore.useValues().account)
   if (shotState() !== 'empty' || query.data === undefined) return query
   return {
     isPending: query.isPending,
