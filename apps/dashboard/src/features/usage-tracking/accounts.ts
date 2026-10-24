@@ -31,10 +31,8 @@ export const USAGE_PAYERS = [
 export type PayerValue = (typeof USAGE_PAYERS)[number]['id'] | 'unknown'
 
 export const PAYER_IDS: [PayerValue, ...PayerValue[]] = [
-  'iu-sub',
-  'iu-api',
-  'me-sub',
-  'me-api',
+  USAGE_PAYERS[0].id,
+  ...USAGE_PAYERS.slice(1).map((p) => p.id),
   'unknown',
 ]
 
@@ -47,7 +45,7 @@ export const PAYER_LABELS: Record<PayerValue, string> = {
 }
 
 /** The Max accounts a payer selection covers; the quota section follows it (no subscription payer = all accounts). */
-export function accountsOfPayers(payers: readonly string[] | undefined): string[] | undefined {
+export function accountsOfPayers(payers: readonly PayerValue[] | undefined): string[] | undefined {
   const accounts = USAGE_PAYERS.flatMap((p) =>
     p.account !== null && (payers ?? []).includes(p.id) ? [p.account] : [],
   )
