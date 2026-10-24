@@ -29,6 +29,7 @@ export const TimeseriesGroupByEnum = z.enum([
   'project',
   'workspace',
   'billing',
+  'account',
   'outcome',
   'none',
 ])
@@ -38,11 +39,15 @@ export const BreakdownDimensionEnum = z.enum([
   'workspace',
   'model_norm',
   'billing',
+  'account',
   'outcome',
   'source',
   'machine',
   'sub_tool',
 ])
+/** Claude account id as usage-tracker's registry spells it (`iu`, `me`, …). */
+export const ACCOUNT_PATTERN = /^[a-z][a-z0-9-]{0,15}$/
+
 export const WorkspaceEnum = z.enum(['work', 'private'])
 
 /**
