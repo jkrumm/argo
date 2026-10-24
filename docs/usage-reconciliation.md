@@ -84,6 +84,46 @@ findings 1 and 2.
 
 No usage-tracker bug was found.
 
+## Undoing migration 0024
+
+The migration archives before it changes anything: every deleted row and the pre-update state of every
+re-accounted row go, as full rows plus `reason` and `archived_at`, into `argo.usage_record_dedupe_0024`
+(outside the drizzle schema). Reasons: `duplicate_null_machine` (deleted) and `account_backfill`
+(account was NULL, now `iu`). Check what it holds:
+
+```sql
+SELECT reason, count(*), round(sum(cost_usd)::numeric, 2) FROM argo.usage_record_dedupe_0024 GROUP BY 1;
+```
+
+Restore (both statements, or either one alone):
+
+```sql
+-- bring the deleted NULL-machine duplicates back
+INSERT INTO argo.usage_record (id, source, source_id, grain, ts, model, model_norm, project, workspace, sub_tool, billing, account, machine, outcome, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, duration_ms, cost_usd, cost_source, raw, ingested_at, received_at, created_at, updated_at)
+SELECT id, source, source_id, grain, ts, model, model_norm, project, workspace, sub_tool, billing, account, machine, outcome, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, duration_ms, cost_usd, cost_source, raw, ingested_at, received_at, created_at, updated_at
+FROM argo.usage_record_dedupe_0024 WHERE reason = 'duplicate_null_machine';
+
+-- put the old (NULL) account back
+UPDATE argo.usage_record u SET account = a.account
+FROM argo.usage_record_dedupe_0024 a WHERE a.reason = 'account_backfill' AND a.id = u.id;
+```
+
+The restore is exercised by `src/db/migration-0024.test.ts`, which runs the real migration file on
+fixtures inside a rolled-back transaction, asserts the archive holds exactly the deleted and the
+re-accounted rows, then runs this restore SQL and asserts the table is back to its prior state. Keep the
+two in step. Once the change is accepted, `DROP TABLE argo.usage_record_dedupe_0024`.
+
+Note: a tracker `resync-account` or normal sync after the migration may legitimately set `account` on
+a re-accounted row again; restoring `account_backfill` then overwrites that with the archived NULL.
+Restore only straight after a bad deploy, or filter the UPDATE on `u.account = 'iu'`.
+
+## Bucket timezone
+
+Daily and weekly buckets of `/usage/timeseries` are pinned to UTC (`date_trunc(…, ts AT TIME ZONE 'UTC')`).
+Prod Postgres reports `TimeZone = Etc/UTC` (no per-database or per-role override, no `TZ` in the API
+container, no timezone in the connection URL), so this matches what prod already did; the pin makes it
+independent of the session. Covered by a test that runs under `PGTZ=Europe/Berlin` too.
+
 ## Dashboard
 
 Not screenshot-verified: the shot harness serves the built dashboard against production's read-only

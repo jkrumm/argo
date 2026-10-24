@@ -447,14 +447,14 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         const rows = await db.execute(sql`
           WITH buckets AS (
             SELECT generate_series(
-              date_trunc(${grain}, ${fromIso}::timestamptz),
-              date_trunc(${grain}, ${toIso}::timestamptz),
+              date_trunc(${grain}, ${fromIso}::timestamptz AT TIME ZONE 'UTC'),
+              date_trunc(${grain}, ${toIso}::timestamptz AT TIME ZONE 'UTC'),
               ${interval}
             )::date AS bucket
           ),
           data AS (
             SELECT
-              date_trunc(${grain}, ts)::date AS bucket,
+              date_trunc(${grain}, ts AT TIME ZONE 'UTC')::date AS bucket,
               ${mExpr} AS value
             FROM argo.usage_record
             WHERE ts >= ${fromIso} AND ts <= ${toIso}
@@ -488,14 +488,14 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const rows = await db.execute(sql`
         WITH buckets AS (
           SELECT generate_series(
-            date_trunc(${grain}, ${fromIso}::timestamptz),
-            date_trunc(${grain}, ${toIso}::timestamptz),
+            date_trunc(${grain}, ${fromIso}::timestamptz AT TIME ZONE 'UTC'),
+            date_trunc(${grain}, ${toIso}::timestamptz AT TIME ZONE 'UTC'),
             ${interval}
           )::date AS bucket
         ),
         data AS (
           SELECT
-            date_trunc(${grain}, ts)::date AS bucket,
+            date_trunc(${grain}, ts AT TIME ZONE 'UTC')::date AS bucket,
             COALESCE(${col}, '(unset)') AS group_key,
             ${mExpr} AS value
           FROM argo.usage_record
