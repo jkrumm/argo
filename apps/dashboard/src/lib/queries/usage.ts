@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api } from '../eden'
+import type { PayerValue } from '../../features/usage-tracking/accounts'
 import { unwrap } from 'basalt-ui'
 
 export type Range = '7d' | '30d' | '90d' | 'all'
@@ -31,7 +32,7 @@ export type BreakdownDimension =
   | 'sub_tool'
 type WorkspaceValue = 'work' | 'private'
 
-export type PayerFilter = 'iu-sub' | 'me-sub' | 'iu-api' | 'me-api' | 'unknown'
+export type PayerFilter = PayerValue
 
 export type TimeseriesParams = {
   range: Range
