@@ -123,4 +123,16 @@ describe('usage payer', () => {
     expect(only.costIuSub30d).toBe(0)
     expect(only.costUsd30d).toBe(only.costMeApi30d)
   })
+
+  it('buckets days in UTC whatever the database session timezone is', async () => {
+    // 23:30 UTC two days ago is already the next calendar day in Europe/Berlin.
+    const day = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10)
+    const p = { ...payload('tz1', 'max', 'iu', 7), ts: `${day}T23:30:00.000Z` }
+    await ingest([p])
+    const series = await getJson<{
+      buckets: Array<{ bucket: string; groups: Record<string, number | null> }>
+    }>(`/usage/timeseries?range=7d&grain=day&metric=cost&groupBy=payer&sources=${SOURCE}`)
+    const hit = series.buckets.filter((b) => (b.groups['iu-sub'] ?? 0) > 0)
+    expect(hit.map((b) => b.bucket)).toEqual([day])
+  })
 })
