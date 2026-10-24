@@ -12,10 +12,11 @@ import {
   BreakdownDimensionEnum,
   WorkspaceEnum,
   ACCOUNT_PATTERN,
-  PAYER_SQL,
+  PAYER_EXPR,
   PayerEnum,
   USAGE_DATA_FLOOR_ISO,
   resolveRange,
+  utcBucket,
   toArray,
 } from '../lib/usage-query.js'
 import { usageQuotaRoutes } from './usage-quota.js'
@@ -92,7 +93,7 @@ function groupColumnSql(groupBy: string) {
     case 'account':
       return sql.raw('account')
     case 'payer':
-      return sql.raw(`(${PAYER_SQL})`)
+      return PAYER_EXPR
     case 'outcome':
       return sql.raw('outcome')
     default:
@@ -183,7 +184,7 @@ function buildFilterSql({
     parts.push(inList(sql`account`, account))
   }
   if (payer && payer.length > 0) {
-    parts.push(inList(sql.raw(`(${PAYER_SQL})`), payer))
+    parts.push(inList(PAYER_EXPR, payer))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`
@@ -323,10 +324,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'max' AND ts >= ${f30}), 0)::float AS cost_max_billing_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'iu' AND ts >= ${f30}), 0)::float AS cost_iu_billing_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'openrouter' AND ts >= ${f30}), 0)::float AS cost_openrouter_billing_30d,
-          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'iu-sub' AND ts >= ${f30}), 0)::float AS cost_iu_sub_30d,
-          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'me-sub' AND ts >= ${f30}), 0)::float AS cost_me_sub_30d,
-          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'iu-api' AND ts >= ${f30}), 0)::float AS cost_iu_api_30d,
-          COALESCE(SUM(cost_usd) FILTER (WHERE payer = 'me-api' AND ts >= ${f30}), 0)::float AS cost_me_api_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE ${PAYER_EXPR} = 'iu-sub' AND ts >= ${f30}), 0)::float AS cost_iu_sub_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE ${PAYER_EXPR} = 'me-sub' AND ts >= ${f30}), 0)::float AS cost_me_sub_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE ${PAYER_EXPR} = 'iu-api' AND ts >= ${f30}), 0)::float AS cost_iu_api_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE ${PAYER_EXPR} = 'me-api' AND ts >= ${f30}), 0)::float AS cost_me_api_30d,
           -- cache_read_tokens excluded: it's the full re-read prior context on every
           -- turn, not a delta, so summing it across rows re-counts the same tokens.
           COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0)::bigint AS tokens_30d,
@@ -349,9 +350,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             / NULLIF(COUNT(*) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0) AS error_rate_prior_30d,
           percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)
             FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${d60} AND ts < ${f30}) AS p95_ms_prior_30d
-        FROM (
-          SELECT *, ${sql.raw(`(${PAYER_SQL})`)} AS payer FROM argo.usage_record
-        ) u
+        FROM argo.usage_record
         WHERE true ${accountFilterSql}
       `)
 
@@ -447,14 +446,14 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         const rows = await db.execute(sql`
           WITH buckets AS (
             SELECT generate_series(
-              date_trunc(${grain}, ${fromIso}::timestamptz AT TIME ZONE 'UTC'),
-              date_trunc(${grain}, ${toIso}::timestamptz AT TIME ZONE 'UTC'),
+              ${utcBucket(grain, sql`${fromIso}::timestamptz`)},
+              ${utcBucket(grain, sql`${toIso}::timestamptz`)},
               ${interval}
             )::date AS bucket
           ),
           data AS (
             SELECT
-              date_trunc(${grain}, ts AT TIME ZONE 'UTC')::date AS bucket,
+              ${utcBucket(grain, sql`ts`)}::date AS bucket,
               ${mExpr} AS value
             FROM argo.usage_record
             WHERE ts >= ${fromIso} AND ts <= ${toIso}
@@ -488,14 +487,14 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const rows = await db.execute(sql`
         WITH buckets AS (
           SELECT generate_series(
-            date_trunc(${grain}, ${fromIso}::timestamptz AT TIME ZONE 'UTC'),
-            date_trunc(${grain}, ${toIso}::timestamptz AT TIME ZONE 'UTC'),
+            ${utcBucket(grain, sql`${fromIso}::timestamptz`)},
+            ${utcBucket(grain, sql`${toIso}::timestamptz`)},
             ${interval}
           )::date AS bucket
         ),
         data AS (
           SELECT
-            date_trunc(${grain}, ts AT TIME ZONE 'UTC')::date AS bucket,
+            ${utcBucket(grain, sql`ts`)}::date AS bucket,
             COALESCE(${col}, '(unset)') AS group_key,
             ${mExpr} AS value
           FROM argo.usage_record
