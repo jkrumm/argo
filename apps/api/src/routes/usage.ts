@@ -16,6 +16,7 @@ import {
   resolveRange,
   toArray,
 } from '../lib/usage-query.js'
+import { usageQuotaRoutes } from './usage-quota.js'
 import { classifyWorkspace, normalizeProject } from '../lib/project-normalize.js'
 
 const BillingEnum = z.enum(['max', 'iu', 'openrouter', 'unknown'])
@@ -645,3 +646,4 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       },
     },
   )
+  .use(usageQuotaRoutes)
