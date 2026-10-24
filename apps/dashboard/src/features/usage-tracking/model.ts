@@ -5,7 +5,8 @@
 import { format as formatDate } from 'date-fns'
 import { NBSP, withUnit } from '../../lib/format'
 import type { Grain, Range } from '../../lib/queries/usage'
-import type { CostGroupBy, TimePoint, TokensGroupBy } from './types'
+import { PAYER_LABELS } from './accounts'
+import type { CostGroupBy, PayerValue, TimePoint, TokensGroupBy } from './types'
 import type { Daily } from './usage-visuals'
 
 export const EM_DASH = '—'
@@ -29,13 +30,11 @@ const NO_MATCH_SHORT = 'No usage matches these filters'
 const noMatchFull = (widen: boolean) =>
   `${NO_MATCH_SHORT} in this window — clear a filter${widen ? ' or widen the range' : ''}`
 
-/** Whether a billing, workspace or account filter is active; an empty selection is no constraint. */
+/** Whether a payer or workspace filter is active; an empty selection is no constraint. */
 export const isFiltered = (
-  billing: readonly unknown[] | undefined,
+  payer: readonly unknown[] | undefined,
   workspace: readonly unknown[] | undefined,
-  account?: readonly unknown[] | undefined,
-): boolean =>
-  (billing?.length ?? 0) > 0 || (workspace?.length ?? 0) > 0 || (account?.length ?? 0) > 0
+): boolean => (payer?.length ?? 0) > 0 || (workspace?.length ?? 0) > 0
 
 /** The 30 d strip speaks for a chart only when the chart's range lies inside it. */
 export const stripCoversRange = (range: '7d' | '30d' | '90d' | 'all'): boolean =>
@@ -43,7 +42,7 @@ export const stripCoversRange = (range: '7d' | '30d' | '90d' | 'all'): boolean =
 
 /**
  * The wording for a surface whose window holds no usage. A filtered window always keeps the match
- * pair: the filter may be the cause (the strip follows the account filter and ignores the others). `stripEmpty` (the 30 d strip is
+ * pair: the filter may be the cause (the strip follows the payer filter and ignores the workspace one). `stripEmpty` (the 30 d strip is
  * empty AND covers this range, see `stripCoversRange`) collapses only the unfiltered pair to the
  * short form. Otherwise the leading chart carries the full sentence, the rest the short form; a
  * range of `all` has nothing wider, so its sentence carries no "widen the range".
@@ -62,11 +61,11 @@ export function noUsageWindow(o: {
 /** The health card is one empty state only when the window has no calls and no latency line to show: a real line is never hidden. */
 export const noHealthReading = (hasCalls: boolean, p95Points: number): boolean =>
   !hasCalls && p95Points === 0
-/** The strip's cells carry the short form; the billing footer beneath them is the screen's leading surface (cause and step). */
+/** The strip's cells carry the short form; the payer footer beneath them is the screen's leading surface (cause and step). */
 export const NO_USAGE_CELL = NO_USAGE_SHORT
-/** Under an account filter the gap is the filter's, not the tracker's: the copy names it. */
+/** Under a payer filter the gap is the filter's, not the tracker's: the copy names it. */
 export const NO_MATCH_CELL = NO_MATCH_SHORT
-export const NO_MATCH_STRIP = `${NO_MATCH_SHORT} in the last ${D30} — clear the account filter`
+export const NO_MATCH_STRIP = `${NO_MATCH_SHORT} in the last ${D30} — clear the payer filter`
 export const NO_USAGE_STRIP = `${NO_USAGE_SHORT} in the last ${D30} — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}; check it is running`
 
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
@@ -342,25 +341,33 @@ export function recentMean(values: readonly (number | null)[], n = 7): number | 
   return meanOf(values.slice(-n))
 }
 
-// ── Billing split ────────────────────────────────────────────────────────────────────────────
+// ── Payer split ────────────────────────────────────────────────────────────────────────────
 
-export type BillingCosts = { max: number; iu: number; openrouter: number; total: number }
+export type PayerCosts = Record<Exclude<PayerValue, 'unknown'>, number> & { total: number }
 
-export type BillingPart = {
-  key: 'max' | 'iu' | 'other'
+export type PayerPart = {
+  key: PayerValue
   label: string
   value: number
   share: number
 }
 
-/** Max / IU / Other (OpenRouter plus any untagged cost), parts that sum to the 30 d total. */
-export function billingParts(c: BillingCosts): BillingPart[] {
-  const other = Math.max(0, c.total - c.max - c.iu)
+/** The four payers plus `unknown` (any cost no payer claims), parts that sum to the 30 d total. */
+export function payerParts(c: PayerCosts): PayerPart[] {
+  const unknown = Math.max(0, c.total - c['iu-sub'] - c['iu-api'] - c['me-sub'] - c['me-api'])
   const share = (v: number) => (c.total > 0 ? v / c.total : 0)
+  const part = (key: PayerValue, value: number): PayerPart => ({
+    key,
+    label: PAYER_LABELS[key],
+    value,
+    share: share(value),
+  })
   return [
-    { key: 'max', label: 'Max', value: c.max, share: share(c.max) },
-    { key: 'iu', label: 'IU', value: c.iu, share: share(c.iu) },
-    { key: 'other', label: 'Other', value: other, share: share(other) },
+    part('iu-sub', c['iu-sub']),
+    part('iu-api', c['iu-api']),
+    part('me-sub', c['me-sub']),
+    part('me-api', c['me-api']),
+    part('unknown', unknown),
   ]
 }
 
@@ -628,8 +635,7 @@ const GROUPING: Record<
 > = {
   source: { keyOf: (key) => key, labelOf: (key) => key },
   machine: { keyOf: (key) => key, labelOf: (key) => key },
-  billing: { keyOf: (key) => key, labelOf: (key) => key },
-  account: { keyOf: (key) => key, labelOf: (key) => key },
+  payer: { keyOf: (key) => key, labelOf: (key) => PAYER_LABELS[key as PayerValue] ?? key },
   model_norm: { keyOf: (key) => key, labelOf: (key) => key },
   project: { keyOf: (key) => key, labelOf: (key) => key },
   // Tools are counted per MCP server and read in words.

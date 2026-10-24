@@ -6,7 +6,6 @@ import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import type { Range } from '../../lib/queries/usage'
 import { LanePicksTable, PicksChart } from './picks-panel'
 import QuotaChart from './quota-chart'
-import type { AccountValue } from './types'
 
 /**
  * Quota history and picker balancing for the Claude accounts. The charts sit in the same 8-column
@@ -17,7 +16,7 @@ export default function ClaudeAccounts({
   account,
 }: {
   range: Range
-  account?: AccountValue[] | undefined
+  account?: string[] | undefined
 }) {
   return (
     <Section title="Claude accounts">

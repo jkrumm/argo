@@ -33,7 +33,7 @@ import {
   shortDay,
   ERROR_OK_LABEL,
 } from './model'
-import type { AccountValue, BillingValue, WorkspaceValue } from './types'
+import type { PayerValue, WorkspaceValue } from './types'
 import classes from './usage.module.css'
 
 type ErrorBucket = { date: Date; count: number; state: ErrorDayState }
@@ -64,20 +64,18 @@ const VERDICT_BARS = (
 export default function HealthCard({
   range,
   grain,
-  billing,
+  payer,
   workspace,
-  account,
   stripEmpty,
 }: {
   range: Range
   grain: Grain
-  billing?: BillingValue[] | undefined
+  payer?: PayerValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
-  account?: AccountValue[] | undefined
   /** The 30 d strip is empty and covers this range. */
   stripEmpty: boolean
 }) {
-  const base = { range, grain, billing, workspace, account }
+  const base = { range, grain, payer, workspace }
   const [latencyQ, errorsQ, ratesQ] = useSuspenseQueries({
     queries: [
       usageQueries.timeseries({ ...base, metric: 'latency_p95', groupBy: 'none' }),
@@ -108,7 +106,7 @@ export default function HealthCard({
   // No calls in the window: neither half has a reading, so the card says so once instead of
   // printing a zero count beside a dash.
   const emptyWindow = noUsageWindow({
-    filtered: isFiltered(billing, workspace, account),
+    filtered: isFiltered(payer, workspace),
     stripEmpty,
     leading: false,
     range,

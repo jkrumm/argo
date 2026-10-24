@@ -1,7 +1,7 @@
 /**
  * A stacked area folded to its top series (at least 6, more while the rest would outweigh the smallest) plus "Other", with the ranked list that keys it. The list
  * and the chart read the same folded totals, so a swatch, a bar and an area band are the same series
- * and the header total equals the list's sum. Used for cost (by source / machine / billing) and tokens
+ * and the header total equals the list's sum. Used for cost (by payer / source / machine) and tokens
  * (by tool / model / project / source).
  */
 import { useSuspenseQuery } from '@tanstack/react-query'
@@ -16,13 +16,7 @@ import { usageQueries, type Grain, type Metric, type Range } from '../../lib/que
 import { USAGE_SOURCE } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
 import { usageStore } from '../../lib/window-stores'
-import type {
-  AccountValue,
-  BillingValue,
-  CostGroupBy,
-  TokensGroupBy,
-  WorkspaceValue,
-} from './types'
+import type { PayerValue, CostGroupBy, TokensGroupBy, WorkspaceValue } from './types'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
 import {
   peakBucketTotal,
@@ -48,9 +42,8 @@ type Props = {
   unitNoun: string
   range: Range
   grain: Grain
-  billing?: BillingValue[] | undefined
+  payer?: PayerValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
-  account?: AccountValue[] | undefined
   color: (key: string) => string
   /** Builds the surface's formatter from its largest value: one unit per chart and per list. */
   formatFor: (reference: number) => (n: number) => string
@@ -74,9 +67,8 @@ export function FoldedChart({
   unitNoun,
   range,
   grain,
-  billing,
+  payer,
   workspace,
-  account,
   color,
   formatFor,
   info,
@@ -88,13 +80,13 @@ export function FoldedChart({
   stripEmpty,
 }: Props) {
   const query = useSuspenseQuery(
-    usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace, account }),
+    usageQueries.timeseries({ range, grain, metric, groupBy, payer, workspace }),
   )
   const data = shotState() === 'empty' ? { ...query.data, buckets: [], groupKeys: [] } : query.data
   const now = useNow()
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
-  const filtered = isFiltered(billing, workspace, account)
+  const filtered = isFiltered(payer, workspace)
   const plotText = noUsageWindow({ filtered, stripEmpty, leading, range })
   const listText = noUsageWindow({ filtered, stripEmpty, leading: false, range })
 
@@ -104,8 +96,8 @@ export function FoldedChart({
     groupBy,
   })
   // Open-ended keys (tool, model, project) take a palette slot by rank, not by hash, so the six
-  // named series are always six different hues; source, billing and account keep their identity colours.
-  const byRank = groupBy !== 'source' && groupBy !== 'billing' && groupBy !== 'account'
+  // named series are always six different hues; source and payer keep their identity colours.
+  const byRank = groupBy !== 'source' && groupBy !== 'payer'
   const colorOf = (key: string) => {
     if (key === OTHER_KEY) return USAGE_SOURCE.other
     if (!byRank) return color(key)

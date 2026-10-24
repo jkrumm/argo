@@ -5,6 +5,7 @@ import { PageBar } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
+import { accountsOfPayers } from '../features/usage-tracking/accounts'
 import { usageQueries } from '../lib/queries/usage'
 import { isFiltered, printTotal, stripCoversRange } from '../features/usage-tracking/model'
 import { usageStore } from '../lib/window-stores'
@@ -23,7 +24,7 @@ export const Route = createFileRoute('/usage-tracking')({
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(
-      usageQueries.headline(deps.account.length > 0 ? [...deps.account] : undefined),
+      usageQueries.headline(deps.payer.length > 0 ? [...deps.payer] : undefined),
     ),
   component: UsageTrackingPage,
 })
@@ -34,15 +35,13 @@ function UsageTrackingPage() {
   // An EMPTY multi selection means "no constraint" on the URL, and the API wants the key absent
   // rather than an empty array — the one translation the store deliberately does not make, because
   // "empty means every row" is this API's convention, not a store law.
-  const billing = search.billing.length > 0 ? [...search.billing] : undefined
+  const payer = search.payer.length > 0 ? [...search.payer] : undefined
   const workspace = search.workspace.length > 0 ? [...search.workspace] : undefined
-  const account = search.account.length > 0 ? [...search.account] : undefined
-  const filtered = isFiltered(billing, workspace, account)
+  const filtered = isFiltered(payer, workspace)
   // The same (shot-substituted) headline the strip reads; it speaks for the charts only inside its 30 d.
-  const stripEmpty =
-    useUsageHeadline(account).data?.calls30d === 0 && stripCoversRange(search.range)
+  const stripEmpty = useUsageHeadline(payer).data?.calls30d === 0 && stripCoversRange(search.range)
   const showTotal = printTotal({ range: search.range, filtered })
-  const tsBase = { range: search.range, grain: search.grain, billing, workspace, account }
+  const tsBase = { range: search.range, grain: search.grain, payer, workspace }
 
   return (
     <>
@@ -56,23 +55,14 @@ function UsageTrackingPage() {
               label="All workspaces"
               noun="workspaces"
             />
-            <MultiSelectFilter
-              field={usageStore.field.billing}
-              label="All billing"
-              noun="billing lanes"
-            />
-            <MultiSelectFilter
-              field={usageStore.field.account}
-              label="All accounts"
-              noun="accounts"
-            />
+            <MultiSelectFilter field={usageStore.field.payer} label="All payers" noun="payers" />
           </FilterSet>
         }
       />
 
       <Stack gap="md">
-        <UsageHeadline account={account} />
-        <UsageStrip account={account} />
+        <UsageHeadline payer={payer} />
+        <UsageStrip payer={payer} />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
           <CostChart
@@ -84,7 +74,7 @@ function UsageTrackingPage() {
           />
         </Suspense>
 
-        <ClaudeAccounts range={search.range} account={account} />
+        <ClaudeAccounts range={search.range} account={accountsOfPayers(payer)} />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
           <TokensChart
@@ -108,9 +98,8 @@ function UsageTrackingPage() {
               <Box data-shot="projects" data-shot-states="empty" className={classes.fill}>
                 <TopProjects
                   range={search.range}
-                  billing={billing}
+                  payer={payer}
                   workspace={workspace}
-                  account={account}
                   printTotal={showTotal}
                   stripEmpty={stripEmpty}
                 />

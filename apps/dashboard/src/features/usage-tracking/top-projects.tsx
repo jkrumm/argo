@@ -6,7 +6,7 @@ import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { useUsageHeadline } from './use-headline'
 import classes from './usage.module.css'
-import type { AccountValue, BillingValue, WorkspaceValue } from './types'
+import type { PayerValue, WorkspaceValue } from './types'
 import {
   EM_DASH,
   footerTotal,
@@ -19,16 +19,14 @@ import {
 
 export default function TopProjects({
   range,
-  billing,
+  payer,
   workspace,
-  account,
   printTotal,
   stripEmpty,
 }: {
   range: Range
-  billing?: BillingValue[] | undefined
+  payer?: PayerValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
-  account?: AccountValue[] | undefined
   /** Whether the card prints its window's total; decided once, in the route. */
   printTotal: boolean
   /** The 30 d strip is empty and covers this range. */
@@ -40,21 +38,20 @@ export default function TopProjects({
       metric: 'cost',
       dimension: 'project',
       limit: 10,
-      billing,
+      payer,
       workspace,
-      account,
     }),
   )
   const data = shotState() === 'empty' ? { ...query.data, rows: [], total: 0 } : query.data
   const emptyText = noUsageWindow({
-    filtered: isFiltered(billing, workspace, account),
+    filtered: isFiltered(payer, workspace),
     stripEmpty,
     leading: false,
     range,
   })
   // The strip owns the unfiltered 30 d total: when this card does not print its own, its footer
   // reads that same figure, so the two never round different sums.
-  const headline = useUsageHeadline(account).data
+  const headline = useUsageHeadline(payer).data
   const total = footerTotal({
     printTotal,
     headlineCostUsd30d: headline?.costUsd30d,

@@ -22,7 +22,7 @@
  */
 import { format, startOfYear, subMonths, subYears } from 'date-fns'
 import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
-import { ACCOUNT_IDS, ACCOUNT_LABELS } from '../features/usage-tracking/accounts'
+import { PAYER_IDS, PAYER_LABELS } from '../features/usage-tracking/accounts'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
@@ -159,19 +159,17 @@ export const usageStore = createSearchStore({
     // window here, so three params would be two more than the page can use.
     range: field.enum(['7d', '30d', '90d', 'all'], '30d'),
     grain: field.enum(['day', 'week'], 'day'),
-    billing: field.multi(['max', 'iu', 'openrouter', 'unknown'], []),
+    payer: field.multi(PAYER_IDS, []),
     workspace: field.multi(['work', 'private'], []),
-    account: field.multi(ACCOUNT_IDS, []),
-    costGroupBy: field.enum(['source', 'machine', 'billing', 'account'], 'source'),
+    costGroupBy: field.enum(['payer', 'source', 'machine'], 'payer'),
     tokensGroupBy: field.enum(['sub_tool', 'model_norm', 'project', 'source'], 'sub_tool'),
   },
 }).labels({
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { day: 'Day', week: 'Week' },
-  billing: { max: 'Max', iu: 'IU', openrouter: 'OpenRouter', unknown: 'Unknown' },
+  payer: PAYER_LABELS,
   workspace: { work: 'Work', private: 'Private' },
-  account: ACCOUNT_LABELS,
-  costGroupBy: { source: 'Source', machine: 'Machine', billing: 'Billing', account: 'Account' },
+  costGroupBy: { payer: 'Payer', source: 'Source', machine: 'Machine' },
   tokensGroupBy: {
     sub_tool: 'Tool',
     model_norm: 'Model',
