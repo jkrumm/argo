@@ -138,6 +138,13 @@ const USAGE_BILLING_MAP = defineSeries({
   unknown: p(BP.gray),
 } satisfies SeriesMap)
 
+/** Usage tracker — Claude account identity (`iu` Max 20x, `me` Max 5x). */
+const USAGE_ACCOUNT_MAP = defineSeries({
+  iu: p(BP.blue),
+  me: p(BP.violet),
+  unknown: p(BP.gray),
+} satisfies SeriesMap)
+
 /** Usage tracker — outcome identity. */
 const USAGE_OUTCOME_MAP = defineSeries({
   ok: p(BP.forest),
@@ -175,6 +182,7 @@ export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
 export const USAGE_BILLING = groupTokens('billing', USAGE_BILLING_MAP)
+export const USAGE_ACCOUNT = groupTokens('account', USAGE_ACCOUNT_MAP)
 export const USAGE_OUTCOME = groupTokens('outcome', USAGE_OUTCOME_MAP)
 export const LP = groupTokens('lp', LP_MAP)
 
@@ -182,7 +190,15 @@ export const LP = groupTokens('lp', LP_MAP)
  * `paletteOptions.groups` shape for `BasaltProvider` — appends argo's domain series on top of
  * basalt's framework primitives. Prefixes match the `--vx-*` names above exactly.
  */
-export const argoPaletteGroups = [SERIES, ACTIVITY, USAGE_SOURCE, USAGE_BILLING, USAGE_OUTCOME, LP]
+export const argoPaletteGroups = [
+  SERIES,
+  ACTIVITY,
+  USAGE_SOURCE,
+  USAGE_BILLING,
+  USAGE_ACCOUNT,
+  USAGE_OUTCOME,
+  LP,
+]
 
 /**
  * `optimalZone` (`packages/charts/src/tokens.ts` → `VX.series.optimalZone`) is not a per-theme

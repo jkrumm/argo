@@ -160,7 +160,8 @@ export const usageStore = createSearchStore({
     grain: field.enum(['day', 'week'], 'day'),
     billing: field.multi(['max', 'iu', 'openrouter', 'unknown'], []),
     workspace: field.multi(['work', 'private'], []),
-    costGroupBy: field.enum(['source', 'machine', 'billing'], 'source'),
+    account: field.multi(['iu', 'me'], []),
+    costGroupBy: field.enum(['source', 'machine', 'billing', 'account'], 'source'),
     tokensGroupBy: field.enum(['sub_tool', 'model_norm', 'project', 'source'], 'sub_tool'),
   },
 }).labels({
@@ -168,7 +169,8 @@ export const usageStore = createSearchStore({
   grain: { day: 'Day', week: 'Week' },
   billing: { max: 'Max', iu: 'IU', openrouter: 'OpenRouter', unknown: 'Unknown' },
   workspace: { work: 'Work', private: 'Private' },
-  costGroupBy: { source: 'Source', machine: 'Machine', billing: 'Billing' },
+  account: { iu: 'iu', me: 'me' },
+  costGroupBy: { source: 'Source', machine: 'Machine', billing: 'Billing', account: 'Account' },
   tokensGroupBy: {
     sub_tool: 'Tool',
     model_norm: 'Model',

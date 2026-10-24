@@ -6,7 +6,7 @@ import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { useUsageHeadline } from './use-headline'
 import classes from './usage.module.css'
-import type { BillingValue, WorkspaceValue } from './types'
+import type { AccountValue, BillingValue, WorkspaceValue } from './types'
 import {
   EM_DASH,
   footerTotal,
@@ -21,12 +21,14 @@ export default function TopProjects({
   range,
   billing,
   workspace,
+  account,
   printTotal,
   stripEmpty,
 }: {
   range: Range
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  account?: AccountValue[] | undefined
   /** Whether the card prints its window's total; decided once, in the route. */
   printTotal: boolean
   /** The 30 d strip is empty and covers this range. */
@@ -40,11 +42,12 @@ export default function TopProjects({
       limit: 10,
       billing,
       workspace,
+      account,
     }),
   )
   const data = shotState() === 'empty' ? { ...query.data, rows: [], total: 0 } : query.data
   const emptyText = noUsageWindow({
-    filtered: isFiltered(billing, workspace),
+    filtered: isFiltered(billing, workspace, account),
     stripEmpty,
     leading: false,
     range,
