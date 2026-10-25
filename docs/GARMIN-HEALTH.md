@@ -24,11 +24,11 @@ If a metric doesn't help answer one of these four, it's supporting context, not 
 ```mermaid
 graph LR
   subgraph Input
-    GC[Garmin Connect API]
+    GC[Garmin Connect Personal API]
     WL[Manual Weight Log]
   end
   subgraph Sync
-    GS[garmin-sync sidecar<br/>Python · 6h cadence · 7-day backfill]
+    GS[garmin-sync cron<br/>Personal API · 6h cadence · 7-day backfill]
   end
   subgraph Storage
     DB[(Postgres · schema argo)]

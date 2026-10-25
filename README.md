@@ -7,8 +7,8 @@ Personal dashboard + agent-backbone API, served at `https://argo.jkrumm.com`.
 Health/training core, plus a growing set of personal-agent surfaces, grouped in the sidebar:
 
 - **Health** — Garmin Health (HRV, resting HR, sleep score, stress, steps, recovery score,
-  fitness direction, training load — synced every 6 hours from Garmin Connect via a Python
-  sidecar), Strength Tracker (set-level logging, e1RM, PR detection, ACWR, body weight), Body
+  fitness direction, training load — synced every 6 hours straight from the official Garmin
+  Connect Personal API), Strength Tracker (set-level logging, e1RM, PR detection, ACWR, body weight), Body
   Composition, WalkingPad, Reading.
 - **Assistant** — Hermes Chat (a Slack-shaped feed over Hermes agent threads + Slack channels) and
   Calendar.

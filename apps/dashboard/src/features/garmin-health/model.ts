@@ -396,7 +396,7 @@ export function lastScored(
   return null
 }
 
-/** The Garmin sync sidecar's cadence, hours: every "fills after the next sync" claim reads this. */
+/** The Garmin sync cron's cadence, hours: every "fills after the next sync" claim reads this. */
 export const GARMIN_SYNC_HOURS = 6
 
 /** `this 30 d window`; `this window` when the length is unknown. */

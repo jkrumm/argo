@@ -3,11 +3,7 @@ import { context, ROOT_CONTEXT, SpanKind, SpanStatusCode } from '@opentelemetry/
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics, garminActivities, syncControl } from '../db/schema.js'
-import {
-  garminCollector,
-  type ActivityRecord,
-  type DailyMetric,
-} from '../clients/garmin-collector.js'
+import { garmin, type ActivityRecord, type DailyMetric } from '../clients/garmin.js'
 import { env } from '../env.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { tracer } from '../telemetry.js'
@@ -115,7 +111,7 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
   fromDay.setUTCDate(fromDay.getUTCDate() - BACKFILL_DAYS)
 
   try {
-    const metrics = await garminCollector.dailyMetrics({
+    const metrics = await garmin.dailyMetrics({
       from: ymd(fromDay),
       to: ymd(today),
     })
@@ -143,7 +139,7 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
     const windowDays = count === 0 ? ACTIVITIES_INITIAL_BACKFILL_DAYS : BACKFILL_DAYS
     const actFrom = new Date(today)
     actFrom.setUTCDate(actFrom.getUTCDate() - windowDays)
-    const records = await garminCollector.activities({
+    const records = await garmin.activities({
       from: ymd(actFrom),
       to: ymd(today),
     })
@@ -201,9 +197,9 @@ async function tracedTick(
 }
 
 export function registerGarminSyncCron(): void {
-  if (!env.GARMIN_COLLECTOR_URL) {
+  if (!env.GARMIN_API_KEY) {
     // eslint-disable-next-line no-console
-    console.warn('[garmin-sync] GARMIN_COLLECTOR_URL not set — cron disabled')
+    console.warn('[garmin-sync] GARMIN_API_KEY not set — cron disabled')
     return
   }
 

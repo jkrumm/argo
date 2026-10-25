@@ -5,7 +5,7 @@
 Personal dashboard + agent-backbone API for Johannes Krumm, deployed on the VPS at
 `https://argo.jkrumm.com`. Health/training core: **Garmin Health** (HRV, resting HR, sleep,
 stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
-ACWR, PR detection, body weight) — a Garmin sync sidecar feeds health data every 6 hours, strength
+ACWR, PR detection, body weight) — Argo pulls health data every 6 hours straight from the official Garmin Connect Personal API (a personal API key, `GARMIN_API_KEY`), strength
 data is logged manually. Alongside them: **Hermes Chat** (a Slack-shaped feed over Hermes threads
 
 - Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general

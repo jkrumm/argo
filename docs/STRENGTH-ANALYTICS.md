@@ -60,7 +60,7 @@ it's not on the page.
 graph LR
   subgraph Input
     UI[Manual Set Logging<br/>weight / reps / set_type / RIR]
-    GC[Garmin Connect<br/>via garmin-sync sidecar]
+    GC[Garmin Connect<br/>via the garmin-sync cron]
     WL[Manual Weight Log]
   end
   subgraph Storage

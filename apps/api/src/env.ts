@@ -31,8 +31,7 @@ export const Env = z.object({
     .string()
     .default('https://iu-m365-mcp.kindmushroom-c7823c35.westeurope.azurecontainerapps.io'),
   DATA_DIR: z.string().default('./data'),
-  GARMIN_COLLECTOR_URL: z.string().default(''),
-  GARMIN_COLLECTOR_TOKEN: z.string().default(''),
+  GARMIN_API_KEY: z.string().default(''),
   DOCKER_HOMELAB_URL: z.string().default(''),
   HOMELAB_TAILSCALE_IP: z.string().default(''),
   DOCKER_VPS_URL: z.string().default('http://socket-proxy-monitoring:2375'),

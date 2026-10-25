@@ -308,7 +308,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
       tags: ['Garmin Health'],
       summary: 'Get garmin-sync state',
       description:
-        'Returns the state of the garmin-sync sidecar: whether a refresh is queued (refresh_requested), whether a sync is currently running (in_progress), and timestamps + status of the last run. The sidecar polls this every ~30s and picks up queued refreshes. Use this to gate UI buttons or to verify a refresh actually ran.',
+        'Returns the state of the garmin-sync cron: whether a refresh is queued (refresh_requested), whether a sync is currently running (in_progress), and timestamps + status of the last run. The cron polls the same row every minute and picks up queued refreshes. Use this to gate UI buttons or to verify a refresh actually ran.',
       security: [{ BearerAuth: [] }],
     },
   })
@@ -327,7 +327,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
         tags: ['Garmin Health'],
         summary: 'Queue an on-demand garmin-sync refresh',
         description:
-          'Sets refresh_requested=true so the next sidecar poll (~30s) picks up the request and runs a fresh Garmin import. Returns the updated sync-status row immediately; the import itself completes asynchronously — poll GET /daily-metrics/sync-status to wait for in_progress=false.',
+          'Sets refresh_requested=true so the next cron poll (within ~60s) picks up the request and runs a fresh Garmin import. Returns the updated sync-status row immediately; the import itself completes asynchronously — poll GET /daily-metrics/sync-status to wait for in_progress=false.',
         security: [{ BearerAuth: [] }],
       },
     },
