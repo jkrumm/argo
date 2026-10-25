@@ -109,7 +109,7 @@ accepted. Its full contents survive in a dump on the mini:
 `~/.local/share/argo-backups/usage_record_dedupe_0024-2026-10-25.sql.gz` (31,968 rows = 24,803 + 7,165,
 sha256 `a86f1069094aa74c8be23cdf44e390ecf7800692cf15f443ed604d450a4d281c`; kept out of git).
 
-Restore: replay the dump (recreates the table with its data), run the SQL below, then drop the table again.
+Restore: replay the dump (recreates the table with its data), then run the SQL below (ends by dropping the table again).
 
 ```sh
 gzip -dc ~/.local/share/argo-backups/usage_record_dedupe_0024-2026-10-25.sql.gz \
@@ -126,15 +126,18 @@ FROM argo.usage_record_dedupe_0024 WHERE reason = 'duplicate_null_machine';
 
 -- put the old (NULL) account back
 UPDATE argo.usage_record u SET account = a.account
-FROM argo.usage_record_dedupe_0024 a WHERE a.reason = 'account_backfill' AND a.id = u.id;
+FROM argo.usage_record_dedupe_0024 a WHERE a.reason = 'account_backfill' AND a.id = u.id AND u.account = 'iu';
+
+DROP TABLE argo.usage_record_dedupe_0024;
 ```
+
+The INSERT is single-shot (a second run fails on duplicate keys). After the replay, check the count is 31,968.
 
 `src/db/migration-0024.test.ts` runs the real 0024 file on fixtures in a rolled-back transaction and
 exercises this same restore SQL; keep the two in step.
 
-Note: a tracker `resync-account` or normal sync after the migration may legitimately set `account` on
-a re-accounted row again; restoring `account_backfill` then overwrites that with the archived NULL.
-Filter the UPDATE on `u.account = 'iu'` if restoring later.
+The UPDATE is filtered on `u.account = 'iu'` because a tracker `resync-account` or normal sync may have
+legitimately changed `account` on a re-accounted row since; those rows are left alone.
 
 ## Bucket timezone
 
