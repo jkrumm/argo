@@ -109,7 +109,7 @@ accepted. Its full contents survive in a dump on the mini:
 `~/.local/share/argo-backups/usage_record_dedupe_0024-2026-10-25.sql.gz` (31,968 rows = 24,803 + 7,165,
 sha256 `a86f1069094aa74c8be23cdf44e390ecf7800692cf15f443ed604d450a4d281c`; kept out of git).
 
-Restore: replay the dump (recreates the table with its data), then run the SQL below (ends by dropping the table again).
+Restore (before 0025 has deployed the table still exists: skip the replay and run the SQL directly): replay the dump (recreates the table with its data), then run the SQL below (ends by dropping the table again).
 
 ```sh
 gzip -dc ~/.local/share/argo-backups/usage_record_dedupe_0024-2026-10-25.sql.gz \
