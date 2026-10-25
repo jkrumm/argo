@@ -18,7 +18,7 @@ const STATEMENTS = MIGRATION.split('--> statement-breakpoint')
 const COLUMNS = `id, source, source_id, grain, ts, model, model_norm, project, workspace, sub_tool, billing, account, machine, outcome, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, duration_ms, cost_usd, cost_source, raw, ingested_at, received_at, created_at, updated_at`
 const RESTORE = [
   `INSERT INTO argo.usage_record (${COLUMNS}) SELECT ${COLUMNS} FROM argo.usage_record_dedupe_0024 WHERE reason = 'duplicate_null_machine'`,
-  `UPDATE argo.usage_record u SET account = a.account FROM argo.usage_record_dedupe_0024 a WHERE a.reason = 'account_backfill' AND a.id = u.id`,
+  `UPDATE argo.usage_record u SET account = a.account FROM argo.usage_record_dedupe_0024 a WHERE a.reason = 'account_backfill' AND a.id = u.id AND u.account = 'iu'`,
 ]
 
 class Rollback extends Error {}
