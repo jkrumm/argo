@@ -176,6 +176,13 @@
       "when": 1792867646160,
       "tag": "0024_usage_dedupe_and_backfill_account",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792918419855,
+      "tag": "0025_drop_usage_record_dedupe_0024",
+      "breakpoints": true
     }
   ]
 }
