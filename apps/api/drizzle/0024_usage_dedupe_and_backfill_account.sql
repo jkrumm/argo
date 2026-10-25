@@ -1,6 +1,6 @@
 -- Reversible: every row this migration deletes or re-accounts is copied, in full, into
 -- argo.usage_record_dedupe_0024 first. Restore SQL: docs/usage-reconciliation.md. The table is
--- deliberately outside the drizzle schema and is dropped by hand once the change has been accepted.
+-- deliberately outside the drizzle schema and is dropped by migration 0025; restore from the dump.
 CREATE TABLE IF NOT EXISTS "argo"."usage_record_dedupe_0024" (
 	LIKE "argo"."usage_record",
 	"reason" text NOT NULL,
