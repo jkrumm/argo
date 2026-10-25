@@ -112,8 +112,9 @@ sha256 `a86f1069094aa74c8be23cdf44e390ecf7800692cf15f443ed604d450a4d281c`; kept 
 Restore (before 0025 has deployed the table still exists: skip the replay and run the SQL directly): replay the dump (recreates the table with its data), then run the SQL below (ends by dropping the table again).
 
 ```sh
+# from the mini (keyless Tailscale SSH); psql runs inside the prod postgres container
 gzip -dc ~/.local/share/argo-backups/usage_record_dedupe_0024-2026-10-25.sql.gz \
-  | make -C ~/SourceRoot/vps sql-postgres ENV=prod   # CREATE TABLE + COPY of argo.usage_record_dedupe_0024
+  | ssh vps 'docker exec -i postgres sh -c "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -v ON_ERROR_STOP=1"'
 ```
 
 ```sql
