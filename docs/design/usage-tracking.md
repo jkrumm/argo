@@ -194,3 +194,9 @@ Rules for the page:
 - Output is the real work; cost per 1 M output and cache-read share per tool are the efficiency figures (section C).
 - Cache-read is summed across calls on purpose: each call re-reads the prefix and is billed for it. The old `metricExpr('tokens')` comment ("cache-read is not a delta, summing double-counts") confuses unique tokens with billed tokens; the exclusion stays for the legacy `tokens` metric (Tinycast reads it) but the new metrics split all classes.
 - Reasoning tokens are counted in cost; they are shown inside Output in the lens, not as a fifth series.
+
+## Build record (Wave 3, 2026-10-26)
+
+Shipped per this spec. Deviations: `GET /usage/quota-latest` added (Q2 needs `sevenDayResetsAt`/`authOk`, which `/usage/quota` buckets lack); lens is the `PageBar` tab and scope a `SelectFilter` (basalt allows one `ViewTabs`); C is a normalized vertical `Bars` plus a `BarList` (no horizontal `Bars`); D has no day click (no select prop, models are window-level); B rows are not clickable (no tool/model store fields); G source selector is calls / sessions / all.
+
+Shot rounds (`basalt-ui shot` against the built dist, live data, via the evidence server; `make design-shot` alone writes no metrics/sheets and cannot be scored): r1 unscorable, r2 25 / 0 (eight unanchored components), r3 0, r4 63 (9 of 12 pass), r5 23, r6 24. Reviewer residuals after r6 (P1/P2, not fixed): cap-gauge empty copy gives no action; cache-efficiency axis shorthands (`ocr`, `angle`, `interact`) differ from list names; Top spenders dense rows still wrap at 390; reconciliation `+$56` and delta column carry no direction glyph (the `!` band glyph was removed to hold three font sizes); empty-state nouns still vary; loading/error states are route-level, not shot-declared. Re-shoot after `quota-latest` deploys to judge the Subscriptions loaded state, the Tokens lens and the expanded F/G bodies, which no round rendered.
