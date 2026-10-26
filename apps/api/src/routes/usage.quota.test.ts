@@ -332,6 +332,91 @@ describe('GET /usage/quota', () => {
   })
 })
 
+type LatestResponse = {
+  accounts: Array<{
+    account: string
+    sampledAt: string
+    fiveHourPct: number | null
+    sevenDayPct: number | null
+    sevenDayResetsAt: string | null
+    authOk: boolean
+  }>
+}
+
+describe('GET /usage/quota-latest', () => {
+  it('returns the newest sample per account, ordered by account', async () => {
+    const reset = new Date(Date.now() + 3 * 86_400_000).toISOString()
+    await post('quota-samples', {
+      samples: [
+        sample({ sampledAt: at(1), sevenDayPct: 20 }),
+        sample({ sampledAt: at(30), sevenDayPct: 41.5, fiveHourPct: 7, sevenDayResetsAt: reset }),
+        sample({ account: B, sampledAt: at(2), sevenDayPct: 5, authOk: false }),
+      ],
+    })
+    const res = await getJson<LatestResponse>(`/usage/quota-latest?account=${B}&account=${A}`)
+    expect(res.accounts).toEqual([
+      {
+        account: A,
+        sampledAt: at(30),
+        fiveHourPct: 7,
+        sevenDayPct: 41.5,
+        sevenDayResetsAt: reset,
+        authOk: true,
+      },
+      {
+        account: B,
+        sampledAt: at(2),
+        fiveHourPct: 10,
+        sevenDayPct: 5,
+        sevenDayResetsAt: null,
+        authOk: false,
+      },
+    ])
+  })
+
+  it('collapses several machines sampling one account to the latest', async () => {
+    await post('quota-samples', {
+      samples: [
+        sample({ sampledAt: at(5), sevenDayPct: 10, machine: 'm1' }),
+        sample({ sampledAt: at(9), sevenDayPct: 12, machine: 'm2' }),
+      ],
+    })
+    const res = await getJson<LatestResponse>(`/usage/quota-latest?account=${A}`)
+    expect(res.accounts.map((a) => [a.sampledAt, a.sevenDayPct])).toEqual([[at(9), 12]])
+  })
+
+  it('keeps a null reading as null, never zero', async () => {
+    await post('quota-samples', {
+      samples: [sample({ fiveHourPct: null, sevenDayPct: null, authOk: false })],
+    })
+    const res = await getJson<LatestResponse>(`/usage/quota-latest?account=${A}`)
+    expect(res.accounts[0]).toMatchObject({ fiveHourPct: null, sevenDayPct: null, authOk: false })
+  })
+
+  it('ignores samples stamped in the future', async () => {
+    const future = new Date(Date.now() + 3_600_000).toISOString()
+    await post('quota-samples', {
+      samples: [sample({ sevenDayPct: 20 }), sample({ sampledAt: future, sevenDayPct: 99 })],
+    })
+    const res = await getJson<LatestResponse>(`/usage/quota-latest?account=${A}`)
+    expect(res.accounts.map((a) => [a.sampledAt, a.sevenDayPct])).toEqual([[at(1), 20]])
+  })
+
+  it('filters by account and answers an unknown account with an empty list', async () => {
+    await post('quota-samples', { samples: [sample(), sample({ account: B })] })
+    const onlyB = await getJson<LatestResponse>(`/usage/quota-latest?account=${B}`)
+    expect(onlyB.accounts.map((a) => a.account)).toEqual([B])
+
+    const none = await getJson<LatestResponse>('/usage/quota-latest?account=zz-quota-none')
+    expect(none).toEqual({ accounts: [] })
+  })
+
+  it('rejects a malformed account', async () => {
+    const res = await app.handle(new Request('http://localhost/usage/quota-latest?account=IU!'))
+    expect(res.status).toBe(422)
+  })
+})
+
 type SummaryResponse = {
   total: number
   bucketHours: number

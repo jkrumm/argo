@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { sql, type SQL } from 'drizzle-orm'
+import { and, desc, inArray, lte, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { accountPick, quotaSample } from '../db/schema.js'
 import { ACCOUNT_PATTERN, toArray } from '../lib/usage-query.js'
@@ -95,6 +95,9 @@ function validRows<S extends z.ZodType>(schema: S, items: readonly unknown[]) {
 function epochToIso(epoch: unknown): string {
   return new Date(Number(epoch) * 1000).toISOString()
 }
+
+/** A Postgres timestamptz in string mode (`2026-10-26 10:00:00+00`) as the canonical ISO instant. */
+const stringToIso = (value: string): string => new Date(value).toISOString()
 
 const QuotaPoint = z.object({
   at: z.string().describe('ISO 8601 bucket start (UTC)'),
@@ -284,6 +287,71 @@ export const usageQuotaRoutes = new Elysia()
         summary: 'Claude account quota history',
         description:
           'Per-account 5-hour and weekly quota utilisation (percent) over the last ?hours=1..8760 (default 168), bucketed taking the last sample in each bucket (15 minutes up to 72 h, 1 hour up to 30 d, 1 day beyond; `bucketMinutes` says which) (several machines sampling one account collapse to the latest). A null percent is a sample without a reading (auth failed), not zero. Buckets without any sample are absent, not zero-filled. `resets` lists window resets that fell inside the range (distinct reset instants reported by the samples, binned to the same bucket width), per account and window. Filter with account[]. Samples stamped in the future are ignored. Series are ordered by account, points by time.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/quota-latest',
+    async ({ query }) => {
+      const accounts = toArray(query.account)
+      const rows = await db
+        .selectDistinctOn([quotaSample.account], {
+          account: quotaSample.account,
+          sampledAt: quotaSample.sampled_at,
+          fiveHourPct: quotaSample.five_hour_pct,
+          sevenDayPct: quotaSample.seven_day_pct,
+          sevenDayResetsAt: quotaSample.seven_day_resets_at,
+          authOk: quotaSample.auth_ok,
+        })
+        .from(quotaSample)
+        .where(
+          and(
+            lte(quotaSample.sampled_at, sql`now()`),
+            accounts && accounts.length > 0 ? inArray(quotaSample.account, accounts) : undefined,
+          ),
+        )
+        .orderBy(quotaSample.account, desc(quotaSample.sampled_at), desc(quotaSample.id))
+
+      return {
+        accounts: rows.map((r) => ({
+          account: r.account,
+          sampledAt: stringToIso(r.sampledAt),
+          fiveHourPct: r.fiveHourPct,
+          sevenDayPct: r.sevenDayPct,
+          sevenDayResetsAt: r.sevenDayResetsAt === null ? null : stringToIso(r.sevenDayResetsAt),
+          authOk: r.authOk,
+        })),
+      }
+    },
+    {
+      query: z.object({
+        account: z
+          .union([z.string().regex(ACCOUNT_PATTERN), z.array(z.string().regex(ACCOUNT_PATTERN))])
+          .optional(),
+      }),
+      response: {
+        200: z.object({
+          accounts: z.array(
+            z.object({
+              account: z.string(),
+              sampledAt: z.string().describe('ISO 8601 instant of the sample'),
+              fiveHourPct: z.number().nullable(),
+              sevenDayPct: z.number().nullable(),
+              sevenDayResetsAt: z
+                .string()
+                .nullable()
+                .describe('ISO 8601 instant the weekly window resets'),
+              authOk: z.boolean(),
+            }),
+          ),
+        }),
+      },
+      detail: {
+        tags: ['Usage Tracking'],
+        summary: 'Latest Claude account quota sample',
+        description:
+          'The newest quota sample per account, unbucketed: sampledAt, the 5-hour and weekly percent, the weekly reset instant and whether auth worked (a failed auth carries null percentages, not zero). Several machines sampling one account collapse to the latest. Samples stamped in the future are ignored. Filter with account[]. No samples (or no match) is `{ accounts: [] }`. Ordered by account. The usage page reads it for the weekly meter and its pace tick.',
         security: [{ BearerAuth: [] }],
       },
     },
