@@ -58,7 +58,7 @@ Repos: `argo` (apps/api) and `~/SourceRoot/usage-tracker`. Contracts are in the 
 - [ ] Argo migration 0026 + drizzle schema for `iu_portal_cost` / `iu_portal_total`; `POST /usage/iu-portal` (upsert, `rejected` count, 1000-row cap) with route tests (replay is a no-op, overwrite on re-post, invalid rows dropped).
 - [ ] usage-tracker `src/sync-portal.ts`: watermark in `collector_state`, resend last 35 days when `fetched_at` moved, `tolerateMissing`, wired into the 15 min sync; unit tests with a fake `postJson`. Commit in usage-tracker (direct to master unless it is PR-required), deploy via its Makefile, verify first push lands 235 rows in Argo.
 - [ ] `GET /usage/iu-budget` (pure budget functions ported from `budget.ts`, same numbers as `make budget`) and `GET /usage/iu-reconcile`; tests with the 2026-10-26 fixture (rolling30 $573, can-spend -$65.59).
-- [ ] `GET /usage/flow` and `GET /usage/movers`; extend `GET /usage/timeseries` with `tokens_input|output|cache_read|cache_write` metrics and `top=N` server-side fold; existing `tokens`/`cost` shapes unchanged (Tinycast reads them); tests.
+- [ ] `GET /usage/flow` (rows per source x sub_tool x model; feeds B and C) and `GET /usage/movers`; extend `GET /usage/timeseries` with `tokens_input|output|cache_read|cache_write` metrics and `top=N` server-side fold; existing `tokens`/`cost` shapes unchanged (Tinycast reads them); tests.
 - [ ] Verify against production after deploy (orchestrator's call): `iu-budget` equals `make budget`, `flow` top cell is `review_ocr` x deepseek-v4.1-flash, response sizes < 60 kB, warm < 1 s. Update `AGENTS.md` API section in the same commit. Gate: `make check`.
 **Left behind:**
 
@@ -66,7 +66,7 @@ Repos: `argo` (apps/api) and `~/SourceRoot/usage-tracker`. Contracts are in the 
 Replaces the v1 page per the spec; reads only the Wave 2 endpoints (+ `/usage/quota`, `/usage/account-picks/summary`). Read `.claude/rules/basalt-*.md` and use the `basalt-design` skill; every round is `make design-shot ROUTES=/usage-tracking` scored by a fresh `basalt-design-reviewer`.
 - [ ] Data layer: query options + typed models for the new endpoints, lens/scope state in `usageStore`, pure model functions (pace tick, state words, freshness, delta glyphs) with tests; delete the v1 model code the new page does not use.
 - [ ] Top band: Q1 cap gauge + drop-off bars, Q2 subscription meters with pace tick, Q3 movers; all states from the spec (fresh/stale/dead/empty/over).
-- [ ] Lens bar + sections A (stacked area + ranked list), B (Heatmap), C (cache efficiency), E (projects).
+- [ ] Lens bar + sections A (stacked area + ranked list), B (ranked top spenders, tool · model), C (cache efficiency), E (projects).
 - [ ] Section D reconciliation, collapsed F routing and G reliability; remove the cut v1 components and CSS.
 - [ ] Shot rounds light + dark, desktop + mobile, until the reviewer passes; record rounds in the spec. Check the spec's pass criteria 1-7 against live data. Update AGENTS.md and the design doc. Gate: `make check`. Deploy is the orchestrator's call.
 **Left behind:**

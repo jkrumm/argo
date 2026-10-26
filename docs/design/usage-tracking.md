@@ -44,7 +44,7 @@ Source: usage-tracker `usage.db` (769 k rows since 2026-04-14) mirrored in Argo 
 
 ## Vocabulary (shared with Tinycast `extension/src/usage/iu-budget.ts`)
 
-- State words: **ok** (< 80 % of cap), **warn** (≥ 80 %), **over** (> 100 %). Weekly quota uses the same words at 80 / 100.
+- State words: **ok** (< 80 % of cap), **warn** (≥ 80 %), **over** (> 100 %). Weekly quota uses the same words at 80 / 100. Only the weekly window is shown anywhere on the page.
 - Freshness: **fresh** ≤ 8 h, **stale** > 8 h, **dead** > 48 h since the portal fetch (`fetched_at`).
 - Lines: `{$} / $500 ({pct} %)`, `can spend today {$}` (negative reads `over by {$}`), `frees {$} over 7 days`.
 - Money is whole dollars, thousands separator, `<$1` below one. Tokens are `B` / `M`. Subscription cost is always labeled **list value**, never "cost" or "spend".
@@ -57,14 +57,14 @@ Top band (answers the three questions, one row at 1440; stacked at 390). Then a 
 ```
 PageBar: Range · Grain · Workspace · Payer                         [IU cap · fresh 2 h]
 Q1 IU cap            Q2 Subscriptions                      Q3 Biggest movers (7 d vs prior 7 d)
- gauge $573/$500      iu 20x  ▓▓▓▓▓░ 5 h 62 % · 7 d 71 %    ▲ review_ocr · deepseek-v4.1-flash  +$31
- over by $73          me 5x   ▓▓░░░░ 5 h 20 % · 7 d 34 %    ▼ review:adversary · gpt-5.6-terra  −$12
+ gauge $573/$500      iu 20x  ▓▓▓▓▓▓▓░ 7 d 71 % · resets 2 d 4 h  ▲ review_ocr · deepseek-v4.1-flash  +$31
+ over by $73          me 5x   ▓▓▓░░░░░ 7 d 34 % · resets 5 d 1 h  ▼ review:adversary · gpt-5.6-terra  −$12
  can spend today −$66  pace tick on each 7 d meter           ▲ worker · deepseek-v4.1-flash      +$9
  frees $63 / 7 d (bars)  reset in 2 d 4 h
 ─────────────────────────────────────────────────────────────────────────────────────────────
 Lens: ( Spend $ | Tokens )   Payer scope: ( IU API | all API | + subscriptions )
 A  Where it goes over time      stacked area by tool (sub_tool) + ranked BarList
-B  Flow: tool → model            Heatmap sub_tool × model (+ ranked flow stretch)
+B  Top spenders: tool · model    ranked list, $ and tokens side by side
 C  Cache efficiency              per-tool four-way token split + cache-read share
 D  Portal vs tracked             daily bars of portal vs tracked + delta strip
 E  Projects                      BarList top 10 + other, with workspace tag
@@ -83,8 +83,8 @@ Cut from v1: call-count headline, the five-cell strip, payer split bar, 30 d quo
 
 ### Q2 — Subscription headroom
 
-- **Question**: how much of each Max subscription's 5 h and weekly window is used, am I on pace, when does it reset?
-- **Kind**: two `Meter`s per account (5 h, 7 d). 7 d meter has a **pace tick** at `elapsed / 7 d` of the window (derived from `sevenDayResetsAt`); fill past the tick = ahead of pace. Caption `resets in {d h}`. State words at 80 / 100 %.
+- **Question**: how much of each Max subscription's weekly window is used, am I on pace, when does it reset? The 5 h window is dropped: it saws up and down by design and answers nothing a decision hangs on (owner, 2026-10-26).
+- **Kind**: one `Meter` per account (7 d). The meter has a **pace tick** at `elapsed / 7 d` of the window (derived from `sevenDayResetsAt`); fill past the tick = ahead of pace. Caption `resets in {d h}`. State words at 80 / 100 %.
 - **Contract**: existing `GET /usage/quota` (latest point per account) + `GET /usage/account-picks/summary` for the routing ratio line `iu 19 % of picks`. Wave 2 adds nothing here; Wave 3 reads the last bucket only.
 - **States**: no sample for an account → `no reading`; sample older than 30 min → `stale {age}`; `authOk=false` → `auth failed`.
 
@@ -106,10 +106,10 @@ One switch (`lens`, in the URL via `usageStore`) drives A, B, C-detail and E. **
 - **Contract**: `GET /usage/timeseries` extended (below) — `metric=cost|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write`, folded server side: `top=6` returns the top-N keys by range total plus an `other` key, so the payload is ≤ 7 series (30 d × 7 ≈ 25 kB instead of 448 kB).
 - **States**: empty range → `ChartCard state.empty`; a key with all-null cost (unpriced) is drawn at 0 and counted in the footer `n rows unpriced`.
 
-### B — Flow: tool → sub-tool → model
+### B — Top spenders: tool · model
 
 - **Question**: for a given tool, which model is it burning money on, and is that the right model?
-- **Kind**: shipped `Heatmap` (rows = `sub_tool` top 12 by total, columns = `model_norm` top 8, cell = lens value), with row and column totals as `BarList` margins. Click a cell → sets the `sub_tool` + `model` filters. A true ribbon flow (tool → sub-tool → model) is a stretch: `CartesianChart` `marks` with `rect` + `link`, built only if the Heatmap review round scores it as not answering the question. Basalt ships no Sankey.
+- **Kind**: one ranked `BarList` of `sub_tool · model` pairs (top 12 + Other), bar length = lens value, a muted second figure beside it (`$` in Tokens lens, tokens in Spend lens), and the cache-read share as a small tag. No Heatmap, no Sankey: the question is "what is the single most expensive thing", and a ranked list answers it (`review_ocr · deepseek-v4.1-flash` first). Click a row sets the `sub_tool` + `model` filters.
 - **Contract** `GET /usage/flow?range&lens=cost|tokens&payer&top=12` → `{ total, rows:[{source, subTool, model, cost, input, output, cacheRead, cacheWrite, reasoning, calls}] }` already aggregated at `(source, sub_tool, model_norm)`; ≤ 200 rows. The client derives the heatmap, ranked lists and the cell drill-down from this single response (this is also C's contract).
 - **States**: nothing in scope → empty; rows with `model_norm` NULL group as `(unknown model)` and are listed with their row count.
 
@@ -179,7 +179,18 @@ Every endpoint takes `range`, `payer[]`, `workspace[]` like the existing ones an
 1. The top band answers the three questions without scrolling at 1440 and 390; no number on it is a Max list value labeled "cost".
 2. The Q1 figures equal `make budget` in usage-tracker for the same fetch (rolling30, can-spend-today, drop-off).
 3. The lens switch changes A, B, E and keeps every total consistent with the band; cache-read is a visible series in Tokens.
-4. B identifies `review_ocr · deepseek-v4.1-flash` as the top IU cell in Spend and in Tokens without opening a table.
+4. B lists `review_ocr · deepseek-v4.1-flash` first in Spend and in Tokens, with its cache-read share.
 5. D shows 2026-10-22 as flagged (portal $71 vs tracked $30).
 6. The page loads from the new endpoints only; no response above 60 kB; slowest endpoint < 1 s warm.
 7. No legend above 8 entries; no section whose question is not stated above; both schemes; `make check` green; `basalt-design-reviewer` pass.
+
+## Token accounting (decided 2026-10-26)
+
+How usage-tracker counts, verified in the collectors: every source is normalized to one **additive** contract — `input_tokens` is fresh uncached input only, `cache_read` and `cache_write` are separate, `output` includes nothing else, `reasoning` is its own column. Anthropic reports it that way natively; OpenAI-shaped sources (Codex, astra, audio-gateway, agent-gateway-iu) report cached tokens *inside* `prompt_tokens`/`input_tokens`, and the collectors subtract them back out. Cost is priced per row from those four classes, so **dollars are right**. Tracker side needs no change.
+
+Rules for the page:
+
+- **Three numbers, never one.** *Fresh* = input + output + cache-write + reasoning (what the model newly processed). *Cache-read* = tokens re-read from cache (billed ~10 % of input, but it is most of the volume). *Processed* = fresh + cache-read (what the "tokens flexed on social media" usually means — gross context handled, which inflates with every agent turn and is not comparable across tools). The headline is **fresh**, with `+ {x} B cache-read` beside it; "processed" appears only as a tooltip total.
+- Output is the real work; cost per 1 M output and cache-read share per tool are the efficiency figures (section C).
+- Cache-read is summed across calls on purpose: each call re-reads the prefix and is billed for it. The old `metricExpr('tokens')` comment ("cache-read is not a delta, summing double-counts") confuses unique tokens with billed tokens; the exclusion stays for the legacy `tokens` metric (Tinycast reads it) but the new metrics split all classes.
+- Reasoning tokens are counted in cost; they are shown inside Output in the lens, not as a fifth series.
