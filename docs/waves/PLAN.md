@@ -79,3 +79,23 @@ Replaces the v1 page per the spec; reads only the Wave 2 endpoints (+ `/usage/qu
 - **Not verified against live data:** Q2 loaded state, Tokens lens, expanded F/G, D's 2026-10-22 flag (read from code/tests only), criteria 2 and 4 by eye. Re-shoot after deploy.
 - Deviations from the spec are in the same Build record section (lens as PageBar tab, scope as SelectFilter, C vertical bars, no click-through on B/D).
 
+
+## Wave 4 — Concise page: how much we build, where it goes, where the limits are            <!-- status: active -->
+**Owner verdict on Wave 3 (2026-10-26):** the v2 page is too IU-API-centric and too deep. The v1 page (last at `63487b7a`) showed his actual building better. He wants: $ usage and token usage back across everything, the projects worked on most, the tools spent on most, where the API tokens go (compact, not extensive), and where we are on the limits — one concise, self-explanatory view. "Relax and cut it down."
+**Decisions (orchestrator, overriding Wave 1 decision 1 and the IU-first layout):**
+- Default scope is **all payers** (Max list value + IU API), not IU API. Max stays labelled "list value"; IU is "spend". The scope filter stays but is secondary.
+- Spend and tokens are equally first-class. Keep the lens toggle, or show both side by side where that is clearer.
+- Target layout, top to bottom (at most 5 visible blocks; everything else collapsed or gone):
+  1. **Limits** — one compact row: Max `me` 7 d, Max `iu` 7 d, IU API rolling 30 d cap. Each is a single meter with a pace tick, % and reset/headroom in one line. No drop-off bars, no burn paragraph, no "leaving the window" text.
+  2. **Headline** — total $ and total tokens for the range, with the delta vs the prior period (v1's headline strength).
+  3. **Over time** — one chart for $ or tokens per day, stacked by payer/source (v1's cost and tokens charts merged).
+  4. **Projects** and **Tools** side by side — the projects worked on most, the tools spent on most; $ and tokens per row, with a delta glyph instead of a separate Movers card. Projects is prominent, not at the bottom.
+  5. **IU API detail** — collapsed by default: where the API tokens go (top tool·model pairs), cache efficiency, portal-vs-tracked reconciliation. Compact versions only.
+- Cut: the Movers card (folded into the delta glyphs), drop-off bars, the per-model reconciliation table (keep the day strip + totals), the Routing section, Reliability unless it fits in one collapsed line. The sidebar "Spend by tool" duplicate goes.
+Steps:
+- [ ] Before/after: shoot the v1 page (build `63487b7a` in a throwaway `git worktree` under /tmp, serve it with the evidence-server recipe from Wave 3's Left behind) and the current v2 page, light + dark, desktop + 390 px. Write a short keep/cut table into the spec (which v1 and v2 pieces survive and why). Remove the worktree after.
+- [ ] Load the `basalt-design` + `basalt-charts` skills and the user-level `dataviz` skill; pick a chart form per block from them (no new chart kinds basalt does not ship).
+- [ ] Rebuild the page to the target layout; reuse the Wave 2 endpoints and existing models; delete components and CSS the new layout drops. Use the existing endpoints (`/usage/timeseries`, `/usage/flow`, `/usage/quota-latest`, `/usage/iu-budget`, `/usage/iu-reconcile`); add API work only if a block truly needs it.
+- [ ] Fix the Wave 3 verifier P2s if their components survive: portal $588 vs tracked $645 unlabelled; tool·model order (spec says tool · model) and the 390 px collision; "stale" marker too subtle.
+- [ ] At most 3 shot rounds (`basalt-ui shot` per the Wave 3 recipe) with a fresh `basalt-design-reviewer`; judge by the owner's brief above (concise, self-explanatory, the build volume first), not by chasing reviewer score. Update the spec and AGENTS.md. Gate: `make check`, then agent-gateway review. Commit and push; deploy (CI on push) is fine — the orchestrator verifies.
+**Left behind:**
