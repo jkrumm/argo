@@ -9,6 +9,8 @@ import {
   timestamp,
   jsonb,
   boolean,
+  date,
+  primaryKey,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
@@ -364,6 +366,32 @@ export const accountPick = argoSchema.table(
   },
   (t) => [uniqueIndex('uq_account_pick_ts_lane_machine').on(t.ts, t.lane, t.machine)],
 )
+
+// ── IU portal cost (the truth for the IU API cap) ────────────────────────────
+//
+// usage-tracker scrapes IU's self-service cost portal every 4 h and POSTs it (src/sync-portal.ts).
+// The portal re-posts a day's value as it settles, so rows are overwritten on their natural key.
+// `row` is the portal's heatmap row: two model ids can share a label. The cap (500) and window (30)
+// are constants in lib/iu-budget.ts, the portal tables do not carry them.
+
+export const iuPortalCost = argoSchema.table(
+  'iu_portal_cost',
+  {
+    day: date('day', { mode: 'string' }).notNull(),
+    label: text('label').notNull(),
+    row: integer('row').notNull(),
+    model: text('model'),
+    cost_usd: doublePrecision('cost_usd').notNull(),
+    fetched_at: timestamp('fetched_at', { withTimezone: true, mode: 'string' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.label, t.row] })],
+)
+
+export const iuPortalTotal = argoSchema.table('iu_portal_total', {
+  month: text('month').primaryKey(),
+  total_usd: doublePrecision('total_usd').notNull(),
+  fetched_at: timestamp('fetched_at', { withTimezone: true, mode: 'string' }).notNull(),
+})
 
 // ── WalkingPad achievements (unlocked milestones, surfaced by the dashboard) ─
 //

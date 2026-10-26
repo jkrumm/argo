@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { count, max, sql, SQL } from 'drizzle-orm'
+import { count, max, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { usageRecord } from '../db/schema.js'
 import {
@@ -10,33 +10,25 @@ import {
   TimeseriesGroupByEnum,
   BreakdownMetricEnum,
   BreakdownDimensionEnum,
-  WorkspaceEnum,
   ACCOUNT_PATTERN,
   PAYER_EXPR,
-  PayerEnum,
   USAGE_DATA_FLOOR_ISO,
   resolveRange,
   utcBucket,
   toArray,
 } from '../lib/usage-query.js'
+import {
+  billingFilter,
+  stringFilter,
+  workspaceFilter,
+  accountFilter,
+  payerFilter,
+  buildFilterSql,
+} from '../lib/usage-filters.js'
 import { usageQuotaRoutes } from './usage-quota.js'
+import { usagePortalRoutes } from './usage-portal.js'
+import { usageAnalyticsRoutes } from './usage-analytics.js'
 import { classifyWorkspace, normalizeProject } from '../lib/project-normalize.js'
-
-const BillingEnum = z.enum(['max', 'iu', 'openrouter', 'unknown'])
-
-/**
- * Accept either a single scalar or an array for filter query params.
- * Eden/URLSearchParams flatten 1-element arrays to a scalar on the wire,
- * and the openapi plugin validates against the JSON Schema (not Zod runtime),
- * so preprocess wrappers never run — declare both shapes here and call
- * toArray() before using the value.
- */
-const stringFilter = z.union([z.string(), z.array(z.string())]).optional()
-const billingFilter = z.union([BillingEnum, z.array(BillingEnum)]).optional()
-const payerFilter = z.union([PayerEnum, z.array(PayerEnum)]).optional()
-const workspaceFilter = z.union([WorkspaceEnum, z.array(WorkspaceEnum)]).optional()
-const AccountSchema = z.string().regex(ACCOUNT_PATTERN)
-const accountFilter = z.union([AccountSchema, z.array(AccountSchema)]).optional()
 
 const UsageRecordInputSchema = z.object({
   source: z.string(),
@@ -101,6 +93,9 @@ function groupColumnSql(groupBy: string) {
   }
 }
 
+/** Group key the timeseries `top=N` fold sums the tail into. */
+const FOLD_KEY = 'other'
+
 function nullableNumber(v: unknown): number | null {
   return v === null || v === undefined ? null : Number(v)
 }
@@ -115,6 +110,16 @@ function metricExpr(metric: string) {
       // it across rows re-counts the same underlying tokens repeatedly. Only
       // input/output/cache_write/reasoning are genuinely incremental per row.
       return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
+    // The four token classes are additive and billed separately (see docs/design/usage-tracking.md
+    // §Token accounting). Output includes reasoning; cache-read is summed on purpose, each call re-reads.
+    case 'tokens_input':
+      return sql`COALESCE(SUM(input_tokens::bigint), 0)`
+    case 'tokens_output':
+      return sql`COALESCE(SUM(output_tokens::bigint + reasoning_tokens::bigint), 0)`
+    case 'tokens_cache_read':
+      return sql`COALESCE(SUM(cache_read_tokens::bigint), 0)`
+    case 'tokens_cache_write':
+      return sql`COALESCE(SUM(cache_write_tokens::bigint), 0)`
     case 'errors':
       return sql`COALESCE(SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END), 0)`
     case 'error_rate':
@@ -143,51 +148,6 @@ function metricExprBreakdown(metric: string) {
     default:
       return sql`COALESCE(SUM(cost_usd), 0)`
   }
-}
-
-function inList(column: SQL, values: string[]): SQL {
-  return sql`${column} IN (${sql.join(
-    values.map((v) => sql`${v}`),
-    sql`, `,
-  )})`
-}
-
-function buildFilterSql({
-  sources,
-  machines,
-  billing,
-  workspace,
-  account,
-  payer,
-}: {
-  sources?: string[] | undefined
-  machines?: string[] | undefined
-  billing?: string[] | undefined
-  workspace?: string[] | undefined
-  account?: string[] | undefined
-  payer?: string[] | undefined
-}) {
-  const parts: SQL[] = []
-  if (sources && sources.length > 0) {
-    parts.push(inList(sql`source`, sources))
-  }
-  if (machines && machines.length > 0) {
-    parts.push(inList(sql`machine`, machines))
-  }
-  if (billing && billing.length > 0) {
-    parts.push(inList(sql`billing`, billing))
-  }
-  if (workspace && workspace.length > 0) {
-    parts.push(inList(sql`workspace`, workspace))
-  }
-  if (account && account.length > 0) {
-    parts.push(inList(sql`account`, account))
-  }
-  if (payer && payer.length > 0) {
-    parts.push(inList(PAYER_EXPR, payer))
-  }
-  if (parts.length === 0) return sql``
-  return sql`AND ${sql.join(parts, sql` AND `)}`
 }
 
 export const usageRoutes = new Elysia({ prefix: '/usage' })
@@ -541,9 +501,26 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         groupKeyTotals.set(groupKey, (groupKeyTotals.get(groupKey) ?? 0) + (value ?? 0))
       }
 
-      const sortedGroupKeys = Array.from(allGroupKeys).toSorted(
+      let sortedGroupKeys = Array.from(allGroupKeys).toSorted(
         (a, b) => (groupKeyTotals.get(b) ?? 0) - (groupKeyTotals.get(a) ?? 0),
       )
+
+      // Server-side fold: keep the top N keys by range total, sum the rest into `other`. Only for
+      // additive metrics; a ratio or percentile cannot be summed.
+      const top = query.top
+      if (top !== undefined && defaultsToZero && sortedGroupKeys.length > top) {
+        const kept = new Set(sortedGroupKeys.slice(0, top))
+        for (const groups of bucketMap.values()) {
+          let rest = 0
+          for (const [key, value] of groups) {
+            if (kept.has(key)) continue
+            rest += value ?? 0
+            groups.delete(key)
+          }
+          groups.set(FOLD_KEY, (groups.get(FOLD_KEY) ?? 0) + rest)
+        }
+        sortedGroupKeys = [...kept, FOLD_KEY]
+      }
 
       const buckets = Array.from(bucketMap.keys())
         .toSorted()
@@ -564,6 +541,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         grain: GrainEnum.default('day'),
         metric: MetricEnum,
         groupBy: TimeseriesGroupByEnum.default('none'),
+        top: z.coerce.number().int().min(1).max(50).optional(),
         sources: stringFilter,
         machines: stringFilter,
         billing: billingFilter,
@@ -586,7 +564,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage timeseries',
         description:
-          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|errors|error_rate|latency_p95|cache_ratio, ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/payer[] (payer = iu-sub|me-sub|iu-api|me-api|unknown, derived from billing + account). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window.',
+          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write|errors|error_rate|latency_p95|cache_ratio (tokens excludes cache-read and is kept for old callers; tokens_output includes reasoning), ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/payer[] (payer = iu-sub|me-sub|iu-api|me-api|unknown, derived from billing + account). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window. ?top=N (additive metrics only) keeps the N largest keys and folds the rest into a trailing "other" key.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -677,3 +655,5 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
     },
   )
   .use(usageQuotaRoutes)
+  .use(usagePortalRoutes)
+  .use(usageAnalyticsRoutes)

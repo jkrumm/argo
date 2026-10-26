@@ -17,6 +17,10 @@ export const GrainEnum = z.enum(['day', 'week'])
 export const MetricEnum = z.enum([
   'cost',
   'tokens',
+  'tokens_input',
+  'tokens_output',
+  'tokens_cache_read',
+  'tokens_cache_write',
   'errors',
   'error_rate',
   'latency_p95',
