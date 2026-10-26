@@ -61,7 +61,7 @@ const SERIES_MAP = defineSeries({ hrv: p(BP.blue) /* … */ } satisfies SeriesMa
 
 export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
-// …USAGE_SOURCE / USAGE_BILLING / USAGE_PAYER / USAGE_OUTCOME follow the same groupTokens() shape.
+// …USAGE_SOURCE / USAGE_PAYER follow the same groupTokens() shape.
 ```
 
 ### Recovery / sleep / effort / movement (`series-` prefix — `SERIES.*`, vars `--vx-series-*`)
@@ -136,14 +136,6 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | OpenCode      | `#c87619` | `#ec9a3c` | `opencode`         | Orange               |
 | Other         | `#a1a1aa` | `#d4d4d8` | `other`            | Neutral (catch-all)  |
 
-### Usage tracker — billing (`billing-` prefix — `USAGE_BILLING.*`)
-
-| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
-| ----------- | --------- | --------- | ------------------ | -------------------- |
-| Max plan    | `#d1980b` | `#f0b726` | `max`              | Gold                 |
-| IU          | `#0284c7` | `#38bdf8` | `iu`               | Sky                  |
-| Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral              |
-
 ### Usage tracker — payer (`payer-` prefix — `USAGE_PAYER.*`)
 
 The page's default split and filter. The API derives the payer from billing + account; IU's family is warm (gold / orange), the personal one cool (blue / cerulean), the subscription the saturated step and the metered API its sibling hue.
@@ -158,35 +150,6 @@ The page's default split and filter. The API derives the payer from billing + ac
 
 Contrast against the page surface (marks, not text): gold 2.6:1 light / 10.9:1 dark, orange 3.5 / 8.8, sky 4.1 / 9.3, cerulean 4.5 / 7.3. Gold in light mode is under the 3:1 mark guide, as everywhere else gold is drawn (agent-gateway, Max plan); the legend, list and hover name every series, so colour is never the only carrier.
 
-### Usage tracker — account (`account-` prefix — `USAGE_ACCOUNT.*`)
-
-An account takes the hue of its subscription payer, so a quota line and the spend it pays for read as one thing.
-
-| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                  |
-| ----------- | --------- | --------- | ------------------ | ------------------------------------- |
-| iu          | `#d1980b` | `#f0b726` | `iu`               | Max 20x account — gold (= IU Max)     |
-| me          | `#0284c7` | `#38bdf8` | `me`               | Max 5x account — sky (= Me Max)       |
-| Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (non-Max billing, no account) |
-
-### Usage tracker — portal vs tracked (`recon-` prefix — `USAGE_RECON.*`)
-
-| Mark         | Colour source                                                                | Encoding                            | Role / earned reason                                                                                                                                       |
-| ------------ | ---------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tracked bars | `USAGE_RECON.tracked` (sky)                                                  | grouped per day                     | The usage-tracker's IU API spend: the number the page reports, in a hue that is not a status ink, so the amber of the delta strip below stays verdict-only |
-| Portal bars  | `alpha(VX.muted, 0.55)`                                                      | grouped per day, beside tracked     | The IU portal's figure is the reference, so it stays neutral                                                                                               |
-| Delta strip  | `VX.warnSolid` on a flagged day, `alpha(VX.muted, 0.2)` within max($1, 20 %) | one band per day, `!` glyph on warn | Verdict only; the newest portal day wears a `VX.muted` partial marker                                                                                      |
-
-### Usage tracker — token class (`token-` prefix — `USAGE_TOKEN.*`)
-
-The four classes of the Tokens lens (stacked area and the cache-efficiency bars). Cache-read is the volume and stays a quiet neutral; the fresh classes carry the hues.
-
-| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                |
-| ----------- | --------- | --------- | ------------------ | --------------------------------------------------- |
-| Cache read  | `#71717a` | `#a1a1aa` | `cacheRead`        | Neutral (the volume, billed at a fraction of input) |
-| Cache write | `#9d3f9d` | `#bd6bbd` | `cacheWrite`       | Violet (the one-off cost of filling the cache)      |
-| Fresh input | `#0284c7` | `#38bdf8` | `input`            | Sky (what the model newly read)                     |
-| Output      | `#29a634` | `#43bf4d` | `output`           | Forest (the work product, reasoning included)       |
-
 ### Usage tracker — rank (`rank-` prefix — `USAGE_RANK.*`, `RANK_PALETTE`)
 
 The nth-ranked series of a stacked chart (tools, models), assigned by rank, not by identity. By "ink earns its color" amber, red and green belong to warn, error and ok, so none of the six is a status hue (the tool and source identities above are separate and keep theirs). Cerulean is left out: beside sky it differs only in shade.
@@ -199,14 +162,6 @@ The nth-ranked series of a stacked chart (tools, models), assigned by rank, not 
 | Rank 4      | `#7961db` | `#9881f3` | `indigo`           | Indigo               |
 | Rank 5      | `#db2c6f` | `#f5498b` | `rose`             | Rose                 |
 | Rank 6      | `#946638` | `#af855a` | `sepia`            | Sepia                |
-
-### Usage tracker — outcome (`outcome-` prefix — `USAGE_OUTCOME.*`)
-
-| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
-| ----------- | --------- | --------- | ------------------ | -------------------- |
-| OK          | `#29a634` | `#43bf4d` | `ok`               | Forest (success)     |
-| Error       | `#cd4246` | `#e76a6e` | `error`            | Red (status-bad)     |
-| Cancelled   | `#d1980b` | `#f0b726` | `cancelled`        | Gold (status-warn)   |
 
 ### Light pollution ramp (`lp-` prefix — `LP.*`)
 

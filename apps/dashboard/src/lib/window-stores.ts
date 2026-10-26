@@ -152,13 +152,11 @@ export const walkingStore = createSearchStore({
 })
 
 export const USAGE_LENS_VALUES = ['spend', 'tokens'] as const
-export const USAGE_SCOPE_VALUES = ['iu-api', 'api', 'all'] as const
-export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'source', 'payer'] as const
-export const USAGE_SOURCE_SCOPE_VALUES = ['calls', 'sessions', 'all'] as const
+export const USAGE_SCOPE_VALUES = ['all', 'api', 'iu-api'] as const
+export const USAGE_GROUP_BY_VALUES = ['payer', 'sub_tool', 'model_norm', 'source'] as const
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
 export type UsageScope = (typeof USAGE_SCOPE_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
-export type UsageSourceScope = (typeof USAGE_SOURCE_SCOPE_VALUES)[number]
 
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
@@ -169,18 +167,16 @@ export const usageStore = createSearchStore({
     grain: field.enum(['day', 'week'], 'day'),
     workspace: field.multi(['work', 'private'], []),
     lens: field.enum(USAGE_LENS_VALUES, 'spend'),
-    scope: field.enum(USAGE_SCOPE_VALUES, 'iu-api'),
-    groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'sub_tool'),
-    sourceScope: field.enum(USAGE_SOURCE_SCOPE_VALUES, 'calls'),
+    scope: field.enum(USAGE_SCOPE_VALUES, 'all'),
+    groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'payer'),
   },
 }).labels({
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { day: 'Day', week: 'Week' },
   workspace: { work: 'Work', private: 'Private' },
   lens: { spend: 'Spend $', tokens: 'Tokens' },
-  scope: { 'iu-api': 'IU API', api: 'All API', all: '+ subscriptions' },
+  scope: { all: 'All payers', api: 'API only', 'iu-api': 'IU API' },
   groupBy: { sub_tool: 'Tool', model_norm: 'Model', source: 'Source', payer: 'Payer' },
-  sourceScope: { calls: 'Calls', sessions: 'Sessions feed', all: 'All sources' },
 })
 
 export const astroStore = createSearchStore({

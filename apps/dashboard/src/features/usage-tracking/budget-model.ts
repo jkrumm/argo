@@ -3,19 +3,11 @@
  * state words, freshness, the vocabulary lines, and the aggregation of `/usage/flow` rows for
  * sections B and C. No React, no queries. A missing reading is a state of its own, never headroom.
  */
-import { ARROW, formatDuration, withUnit } from '../../lib/format'
-import type {
-  FlowLens,
-  FlowRow,
-  IuBudget,
-  MoverRow,
-  PayerFilter,
-  QuotaLatest,
-} from '../../lib/queries/usage'
+import { formatDuration, withUnit } from '../../lib/format'
+import type { FlowLens, FlowRow, IuBudget, PayerFilter, QuotaLatest } from '../../lib/queries/usage'
 import type { UsageLens, UsageScope } from '../../lib/window-stores'
-import { ACCOUNT_LABELS, USAGE_ACCOUNTS } from './accounts'
+import { USAGE_ACCOUNTS } from './accounts'
 import { EM_DASH, OTHER_KEY, fmtShare, fmtUsdWhole } from './model'
-import { SPILL } from './quota-model'
 
 // ── Scope and lens ───────────────────────────────────────────────────────────────────────────
 
@@ -157,25 +149,6 @@ export function accountTitle(id: string): string {
   return account === undefined ? id : `${account.label} ${account.plan}`
 }
 
-type PickCount = { picked: string; count: number }
-
-/**
- * The picker's routing as one line, `iu 19 % · me 78 % · spill 3 % of picks`: every registry account
- * (a 0 % is a fact), `spill` only when it happened, any other id left out. `null` without picks.
- */
-export function routingLine(summary: {
-  total: number
-  counts: readonly PickCount[]
-}): string | null {
-  if (summary.total <= 0) return null
-  const picks = (id: string) =>
-    summary.counts.filter((c) => c.picked === id).reduce((sum, c) => sum + c.count, 0)
-  const parts = USAGE_ACCOUNTS.map((a) => ({ label: ACCOUNT_LABELS[a.id], n: picks(a.id) }))
-  const spill = picks(SPILL)
-  if (spill > 0) parts.push({ label: SPILL, n: spill })
-  return `${parts.map((p) => `${p.label} ${fmtShare(p.n / summary.total)}`).join(' · ')} of picks`
-}
-
 // ── Money, tokens and the vocabulary lines ───────────────────────────────────────────────────
 
 /** Whole dollars with a thousands separator; a negative amount reads `over by $66`. */
@@ -192,10 +165,6 @@ export const capLine = (rolling: number, limit: number): string =>
 export const canSpendLine = (canSpendUsd: number): string =>
   canSpendUsd < 0 ? fmtMoney(canSpendUsd) : `can spend today ${fmtMoney(canSpendUsd)}`
 
-/** `leaving the window: frees $63 over the next 7 days`: what the drop-off bars under it add up to. */
-export const freesLine = (freesUsd: number): string =>
-  `leaving the window: frees ${fmtUsdWhole(freesUsd)} over the next ${withUnit(7, 'days')}`
-
 /**
  * What a failed top-band query shows as its cause. The API's raw body (`NOT_FOUND`, a stack) is never
  * a sentence; the HTTP status, when the error carries one, is the only detail worth keeping.
@@ -205,13 +174,8 @@ export function loadFailure(error: unknown, cause: string): Error {
   return new Error(typeof status === 'number' ? `${cause} (HTTP ${status})` : cause)
 }
 
-/** `burn 7 d $12/day → in 7 days $480`: the 7-day burn and the rolling 30-day total it projects to. */
-export const burnLine = (perDayUsd: number, projectedUsd: number): string =>
-  `burn ${withUnit(7, 'd')} ${fmtUsdWhole(perDayUsd)}/day${ARROW}in ${withUnit(7, 'days')} ${fmtUsdWhole(projectedUsd)}`
-
 export const NO_PORTAL_DATA = 'No portal data yet'
 export const PORTAL_DEAD_NOTE = 'portal session expired — run make iu-portal-login in usage-tracker'
-export const MOVERS_FLAT = 'Spend is flat vs the prior 7 days'
 export const NO_CACHE_DATA = 'no cache data'
 export const UNKNOWN_MODEL = '(unknown model)'
 
@@ -270,26 +234,13 @@ export function fmtUsdPerMillion(n: number | null | undefined): string {
   return `$${n.toFixed(2)}`
 }
 
-const MINUS = '−'
-
-export type DeltaDirection = 'up' | 'down' | 'flat'
+type DeltaDirection = 'up' | 'down' | 'flat'
 
 /** Changes that round to under a dollar are flat: a glyph on `+<$1` would claim a move. */
 export function deltaDirection(deltaUsd: number): DeltaDirection {
   if (!Number.isFinite(deltaUsd) || Math.abs(deltaUsd) < 0.5) return 'flat'
   return deltaUsd > 0 ? 'up' : 'down'
 }
-
-/** `▲ +$31`, `▼ −$12`, or `$0` for a flat pair. */
-export function fmtMoverDelta(deltaUsd: number): string {
-  const direction = deltaDirection(deltaUsd)
-  if (direction === 'flat') return fmtUsdWhole(0)
-  const amount = fmtUsdWhole(Math.abs(deltaUsd))
-  return direction === 'up' ? `▲ +${amount}` : `▼ ${MINUS}${amount}`
-}
-
-export const moverLabel = (row: Pick<MoverRow, 'subTool' | 'model'>): string =>
-  `${row.subTool} · ${row.model}`
 
 // ── Token accounting ─────────────────────────────────────────────────────────────────────────
 

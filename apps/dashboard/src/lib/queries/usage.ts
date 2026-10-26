@@ -28,18 +28,6 @@ export type TimeseriesGroupBy =
   | 'payer'
   | 'outcome'
   | 'none'
-export type BreakdownMetric = 'cost' | 'tokens' | 'errors'
-export type BreakdownDimension =
-  | 'project'
-  | 'workspace'
-  | 'model_norm'
-  | 'billing'
-  | 'account'
-  | 'payer'
-  | 'outcome'
-  | 'source'
-  | 'machine'
-  | 'sub_tool'
 type WorkspaceValue = 'work' | 'private'
 
 export type PayerFilter = PayerValue
@@ -69,25 +57,6 @@ export type FlowParams = {
   /** Default 200 (the API maximum): the client slices the ranked list and derives section C from all rows. */
   top?: number | undefined
 }
-export type MoversWindow = '7d' | '14d' | '30d'
-export type MoversParams = {
-  window: MoversWindow
-  limit: number
-  payer?: PayerFilter[] | undefined
-}
-
-export type BreakdownParams = {
-  range: Range
-  metric: BreakdownMetric
-  dimension: BreakdownDimension
-  limit?: number
-  sources?: string[] | undefined
-  machines?: string[] | undefined
-  billing?: ('max' | 'iu' | 'openrouter' | 'unknown')[] | undefined
-  workspace?: WorkspaceValue[] | undefined
-  account?: string[] | undefined
-  payer?: PayerFilter[] | undefined
-}
 
 const fetchIuBudget = async () => unwrap(await api.usage['iu-budget'].get())
 const fetchIuReconcile = async (days: number) =>
@@ -101,23 +70,15 @@ const fetchFlow = async (query: {
 }) => unwrap(await api.usage.flow.get({ query }))
 const fetchQuotaLatest = async (query: { account: string[] | undefined }) =>
   unwrap(await api.usage['quota-latest'].get({ query }))
-const fetchMovers = async (query: {
-  days: number
-  limit: number
-  payer: PayerFilter[] | undefined
-}) => unwrap(await api.usage.movers.get({ query }))
 
 export type IuBudget = Awaited<ReturnType<typeof fetchIuBudget>>
 export type IuReconcile = Awaited<ReturnType<typeof fetchIuReconcile>>
-export type IuReconcileDay = IuReconcile['days'][number]
 export type FlowResponse = Awaited<ReturnType<typeof fetchFlow>>
 export type FlowRow = FlowResponse['rows'][number]
 export type QuotaLatestResponse = Awaited<ReturnType<typeof fetchQuotaLatest>>
 export type QuotaLatest = QuotaLatestResponse['accounts'][number]
-export type MoversResponse = Awaited<ReturnType<typeof fetchMovers>>
-export type MoverRow = MoversResponse['rows'][number]
 
-/** An empty selection is no constraint, and `movers` would read `[]` as "no payer" instead of its default. */
+/** An empty selection is no constraint: send no filter rather than `[]`. */
 const payersOrUndefined = (payer: PayerFilter[] | undefined) =>
   payer && payer.length > 0 ? payer : undefined
 
@@ -145,16 +106,6 @@ export const usageQueries = {
           workspace: params.workspace,
         }),
     }),
-  movers: (params: MoversParams) =>
-    queryOptions({
-      queryKey: [...usageQueries.all(), 'movers', params] as const,
-      queryFn: () =>
-        fetchMovers({
-          days: Number.parseInt(params.window, 10),
-          limit: params.limit,
-          payer: payersOrUndefined(params.payer),
-        }),
-    }),
   timeseries: (params: TimeseriesParams) =>
     queryOptions({
       queryKey: [...usageQueries.all(), 'timeseries', params] as const,
@@ -164,21 +115,5 @@ export const usageQueries = {
     queryOptions({
       queryKey: [...usageQueries.all(), 'quota-latest', account] as const,
       queryFn: () => fetchQuotaLatest({ account }),
-    }),
-  pickSummary: (hours: number) =>
-    queryOptions({
-      queryKey: [...usageQueries.all(), 'pick-summary', hours] as const,
-      queryFn: async () =>
-        unwrap(await api.usage['account-picks'].summary.get({ query: { hours } })),
-    }),
-  breakdown: (params: BreakdownParams) =>
-    queryOptions({
-      queryKey: [...usageQueries.all(), 'breakdown', params] as const,
-      queryFn: async () =>
-        unwrap(
-          await api.usage.breakdown.get({
-            query: { ...params, limit: params.limit ?? 10 },
-          }),
-        ),
     }),
 }

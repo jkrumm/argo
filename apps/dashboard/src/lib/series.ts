@@ -16,14 +16,14 @@
  *  - `p(family, lightIndex, darkIndex)` (re-exported from basalt) picks the theme-shade pair;
  *    default indices (2 light / 3 dark) match basalt's own dark-mode-lift convention.
  *  - Every series lives in a named group, so the emitted vars are `--vx-series-*`,
- *    `--vx-activity-*`, `--vx-usage-*`, `--vx-billing-*`, `--vx-payer-*`, `--vx-outcome-*` and `--vx-lp-*`
+ *    `--vx-activity-*`, `--vx-usage-*`, `--vx-payer-*`, `--vx-rank-*` and `--vx-lp-*`
  *    (basalt-ui 2.0 has no unprefixed group). Read series through the `SERIES.*` / group refs,
  *    never by literal var name.
  *  - Values here are a mechanical carry-over, not a final visual pass — iterate live via the
  *    theme lab (provider-mounted in dev).
  */
 import { BP, defineSeries, groupTokens, p, type SeriesMap } from 'basalt-ui/tokens'
-import { USAGE_ACCOUNTS, USAGE_PAYERS } from '../features/usage-tracking/accounts'
+import { USAGE_PAYERS } from '../features/usage-tracking/accounts'
 
 /** Per-metric series identity — see the module doctrine above for the family choices. */
 const SERIES_MAP = defineSeries({
@@ -131,37 +131,10 @@ const USAGE_SOURCE_MAP = defineSeries({
   other: p(BP.gray),
 } satisfies SeriesMap)
 
-/** Usage tracker — billing identity. */
-const USAGE_BILLING_MAP = defineSeries({
-  max: p(BP.gold),
-  iu: p(BP.blue),
-  openrouter: p(BP.rose),
-  unknown: p(BP.gray),
-} satisfies SeriesMap)
-
-/** Usage tracker — Claude account identity, one hue per `USAGE_ACCOUNTS` entry plus `unknown`. */
-const USAGE_ACCOUNT_MAP: SeriesMap = defineSeries({
-  ...Object.fromEntries(USAGE_ACCOUNTS.map((a) => [a.token, p(a.hue)])),
-  unknown: p(BP.gray),
-} satisfies SeriesMap)
-
 /** Usage tracker — payer identity, one hue per `USAGE_PAYERS` entry plus `unknown`. */
 const USAGE_PAYER_MAP: SeriesMap = defineSeries({
   ...Object.fromEntries(USAGE_PAYERS.map((x) => [x.token, p(x.hue)])),
   unknown: p(BP.gray),
-} satisfies SeriesMap)
-
-/**
- * Usage tracker — token-class identity. Cache-read is the volume and stays a quiet neutral; fresh
- * input takes the sky accent (what the model newly read), output the work product (forest) and
- * cache-write violet (the one-off cost of filling the cache): a category hue, not gold, so the amber
- * of the warn status stays a verdict.
- */
-const USAGE_TOKEN_MAP = defineSeries({
-  cacheRead: p(BP.gray, 1, 2),
-  cacheWrite: p(BP.violet),
-  input: p(BP.blue),
-  output: p(BP.forest),
 } satisfies SeriesMap)
 
 /**
@@ -176,21 +149,6 @@ const USAGE_RANK_MAP = defineSeries({
   indigo: p(BP.indigo),
   rose: p(BP.rose),
   sepia: p(BP.sepia),
-} satisfies SeriesMap)
-
-/**
- * Usage tracker — portal reconciliation. The tracker's own figure beside the portal's neutral one:
- * sky, so the amber and red of the day-delta strip stay status-only.
- */
-const USAGE_RECON_MAP = defineSeries({
-  tracked: p(BP.blue),
-} satisfies SeriesMap)
-
-/** Usage tracker — outcome identity. */
-const USAGE_OUTCOME_MAP = defineSeries({
-  ok: p(BP.forest),
-  error: p(BP.red),
-  cancelled: p(BP.gold),
 } satisfies SeriesMap)
 
 /**
@@ -222,32 +180,15 @@ const LP_MAP = defineSeries({
 export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
-export const USAGE_BILLING = groupTokens('billing', USAGE_BILLING_MAP)
-export const USAGE_ACCOUNT = groupTokens('account', USAGE_ACCOUNT_MAP)
 export const USAGE_PAYER = groupTokens('payer', USAGE_PAYER_MAP)
-export const USAGE_TOKEN = groupTokens('token', USAGE_TOKEN_MAP)
 export const USAGE_RANK = groupTokens('rank', USAGE_RANK_MAP)
-export const USAGE_RECON = groupTokens('recon', USAGE_RECON_MAP)
-export const USAGE_OUTCOME = groupTokens('outcome', USAGE_OUTCOME_MAP)
 export const LP = groupTokens('lp', LP_MAP)
 
 /**
  * `paletteOptions.groups` shape for `BasaltProvider` — appends argo's domain series on top of
  * basalt's framework primitives. Prefixes match the `--vx-*` names above exactly.
  */
-export const argoPaletteGroups = [
-  SERIES,
-  ACTIVITY,
-  USAGE_SOURCE,
-  USAGE_BILLING,
-  USAGE_ACCOUNT,
-  USAGE_PAYER,
-  USAGE_TOKEN,
-  USAGE_RANK,
-  USAGE_RECON,
-  USAGE_OUTCOME,
-  LP,
-]
+export const argoPaletteGroups = [SERIES, ACTIVITY, USAGE_SOURCE, USAGE_PAYER, USAGE_RANK, LP]
 
 /**
  * `optimalZone` (`packages/charts/src/tokens.ts` → `VX.series.optimalZone`) is not a per-theme

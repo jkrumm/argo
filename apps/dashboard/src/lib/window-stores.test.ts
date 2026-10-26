@@ -84,30 +84,23 @@ describe('multi fields', () => {
   })
 })
 
-describe('usageStore lens, scope, groupBy and sourceScope', () => {
-  it('opens on IU API spend grouped by tool, reliability scoped to calls', () => {
+describe('usageStore lens, scope and groupBy', () => {
+  it('opens on spend across all payers, grouped by payer', () => {
     const v = usageStore.validateSearch({})
-    expect([v.lens, v.scope, v.groupBy, v.sourceScope]).toEqual([
-      'spend',
-      'iu-api',
-      'sub_tool',
-      'calls',
-    ])
+    expect([v.lens, v.scope, v.groupBy]).toEqual(['spend', 'all', 'payer'])
   })
 
   it('accepts every value from the URL', () => {
     expect(usageStore.validateSearch({ lens: 'tokens' }).lens).toBe('tokens')
-    expect(usageStore.validateSearch({ scope: 'all' }).scope).toBe('all')
-    expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('payer')
-    expect(usageStore.validateSearch({ sourceScope: 'sessions' }).sourceScope).toBe('sessions')
+    expect(usageStore.validateSearch({ scope: 'iu-api' }).scope).toBe('iu-api')
+    expect(usageStore.validateSearch({ groupBy: 'source' }).groupBy).toBe('source')
   })
 
   it('unknown values fall back, storage beats the fallback', () => {
     persist('usage-tracking', { scope: 'api' })
     expect(usageStore.validateSearch({ lens: 'cost' }).lens).toBe('spend')
     expect(usageStore.validateSearch({ scope: 'bogus' }).scope).toBe('api')
-    expect(usageStore.validateSearch({ groupBy: 'project' }).groupBy).toBe('sub_tool')
-    expect(usageStore.validateSearch({ sourceScope: 'source' }).sourceScope).toBe('calls')
+    expect(usageStore.validateSearch({ groupBy: 'project' }).groupBy).toBe('payer')
   })
 })
 

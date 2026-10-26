@@ -4,26 +4,21 @@ import type { FlowRow, IuBudget } from '../../lib/queries/usage'
 import {
   accountTitle,
   budgetReading,
-  burnLine,
   canSpendLine,
   capLine,
   capState,
   deltaDirection,
   flowLensOf,
   fmtMoney,
-  fmtMoverDelta,
   fmtUsdPerMillion,
   formatAge,
-  freesLine,
   loadFailure,
   freshnessBadge,
   freshness,
-  moverLabel,
   paceFraction,
   quotaReading,
   quotaState,
   rankPairs,
-  routingLine,
   scopePayers,
   tokenTrio,
   toolSplits,
@@ -214,10 +209,6 @@ describe('money and vocabulary lines', () => {
     expect(canSpendLine(-65.59)).toBe('over by $66')
   })
 
-  it('freesLine names the 7 days', () => {
-    expect(plain(freesLine(63.2))).toBe('leaving the window: frees $63 over the next 7 days')
-  })
-
   it('loadFailure keeps a status and drops the raw body', () => {
     expect(
       loadFailure({ status: 404, value: 'NOT_FOUND' }, 'The quota service did not answer.').message,
@@ -285,24 +276,12 @@ describe('budgetReading', () => {
   })
 })
 
-describe('movers', () => {
-  it('direction ignores sub-dollar noise', () => {
+describe('deltaDirection', () => {
+  it('ignores sub-dollar noise', () => {
     expect(deltaDirection(31)).toBe('up')
     expect(deltaDirection(-12)).toBe('down')
     expect(deltaDirection(0.4)).toBe('flat')
     expect(deltaDirection(Number.NaN)).toBe('flat')
-  })
-
-  it('prints the glyph with the sign', () => {
-    expect(fmtMoverDelta(31.2)).toBe('▲ +$31')
-    expect(fmtMoverDelta(-12.4)).toBe('▼ −$12')
-    expect(fmtMoverDelta(0.2)).toBe('$0')
-  })
-
-  it('labels a pair as tool · model', () => {
-    expect(moverLabel({ subTool: 'review_ocr', model: 'deepseek-v4.1-flash' })).toBe(
-      'review_ocr · deepseek-v4.1-flash',
-    )
   })
 })
 
@@ -537,13 +516,6 @@ describe('toolSplits', () => {
   })
 })
 
-describe('burnLine', () => {
-  it('states the 7-day burn and the projected rolling total', () => {
-    expect(plain(burnLine(12.4, 480.2))).toBe('burn 7 d $12/day → in 7 days $480')
-    expect(plain(burnLine(0, 0))).toBe('burn 7 d $0/day → in 7 days $0')
-  })
-})
-
 describe('accountTitle', () => {
   it('names the registry accounts with their plan', () => {
     expect(accountTitle('iu')).toBe('iu 20x')
@@ -552,31 +524,6 @@ describe('accountTitle', () => {
 
   it('an account outside the registry reads as its id', () => {
     expect(accountTitle('zz')).toBe('zz')
-  })
-})
-
-describe('routingLine', () => {
-  const counts = [
-    { picked: 'iu', count: 10 },
-    { picked: 'iu', count: 9 },
-    { picked: 'me', count: 78 },
-    { picked: 'spill', count: 3 },
-  ]
-
-  it('shares every registry account and spill, summed across lanes and reasons', () => {
-    expect(plain(routingLine({ total: 100, counts }))).toBe(
-      'iu 19 % · me 78 % · spill 3 % of picks',
-    )
-  })
-
-  it('shows a 0 % account and leaves out a spill that never happened', () => {
-    expect(plain(routingLine({ total: 4, counts: [{ picked: 'me', count: 4 }] }))).toBe(
-      'iu 0 % · me 100 % of picks',
-    )
-  })
-
-  it('has no line without picks', () => {
-    expect(routingLine({ total: 0, counts: [] })).toBeNull()
   })
 })
 

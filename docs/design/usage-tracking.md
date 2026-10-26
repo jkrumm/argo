@@ -1,4 +1,4 @@
-# Usage Tracking v2 — spec
+# Usage Tracking — spec (v3)
 
 Route `/usage-tracking` · `apps/dashboard/src/routes/usage-tracking.tsx`, `apps/dashboard/src/features/usage-tracking/` · API `/usage/*`.
 Replaces the Wave 21–51 concept (history: git log of this file). Plan: `docs/waves/PLAN.md` (Waves 2–3 build this).
@@ -50,96 +50,22 @@ Source: usage-tracker `usage.db` (769 k rows since 2026-04-14) mirrored in Argo 
 - Money is whole dollars, thousands separator, `<$1` below one. Tokens are `B` / `M`. Subscription cost is always labeled **list value**, never "cost" or "spend".
 - Payers: `IU Max` / `Me Max` (subscriptions, list value), `IU API` / `Me API` (spend).
 
-## Page structure
+## Page structure (v3, Wave 4 — supersedes the Wave 1 layout)
 
-Top band (answers the three questions, one row at 1440; stacked at 390). Then a lens bar, then sections.
+Owner verdict on v2 (2026-10-26): too IU-API-centric and too deep; v1 showed the actual building better. v3 is one concise page: how much we build ($ and tokens), where it goes (projects, tools), where the limits are. The default scope is **all payers**; Max stays labelled list value, IU/me API is spend.
 
 ```
-PageBar: Range · Grain · Workspace · Payer                         [IU cap · fresh 2 h]
-Q1 IU cap            Q2 Subscriptions                      Q3 Biggest movers (7 d vs prior 7 d)
- gauge $573/$500      iu 20x  ▓▓▓▓▓▓▓░ 7 d 71 % · resets 2 d 4 h  ▲ review_ocr · deepseek-v4.1-flash  +$31
- over by $73          me 5x   ▓▓▓░░░░░ 7 d 34 % · resets 5 d 1 h  ▼ review:adversary · gpt-5.6-terra  −$12
- can spend today −$66  pace tick on each 7 d meter           ▲ worker · deepseek-v4.1-flash      +$9
- frees $63 / 7 d (bars)  reset in 2 d 4 h
-─────────────────────────────────────────────────────────────────────────────────────────────
-Lens: ( Spend $ | Tokens )   Payer scope: ( IU API | all API | + subscriptions )
-A  Where it goes over time      stacked area by tool (sub_tool) + ranked BarList
-B  Top spenders: tool · model    ranked list, $ and tokens side by side
-C  Cache efficiency              per-tool four-way token split + cache-read share
-D  Portal vs tracked             daily bars of portal vs tracked + delta strip
-E  Projects                      BarList top 10 + other, with workspace tag
-F  Routing (collapsed)           lane × account picks + coverage note
-G  Reliability (collapsed)       error-day BandStrip, p95 sparkline by source
+PageBar: ( Spend $ | Tokens )   Range · Grain · Workspace · Payer scope (All payers | API only | IU API)
+1 Limits     Max iu 20x 7 d ▓▓▓░ pace tick · Max me 5x 7 d ▓▓░░ · IU API rolling 30 d ▓▓▓▓ 80 % tick
+2 Headline   Spend $646 ▲12 % vs prior 30 d (API spend · Max list value)   Tokens 2.4 B ▲ vs prior 30 d (fresh)
+3 Over time  stacked area per day by payer | tool | model | source, legend on, follows the lens
+4 Projects | Tools   ranked BarLists: bar = lens, muted = other measure, delta glyph vs prior period
+5 IU API detail (collapsed)   tool · model top 6 | $/1 M + cache-read % | portal vs tracked day strip + totals
 ```
 
-Cut from v1: call-count headline, the five-cell strip, payer split bar, 30 d quota line chart, picks-per-day bars.
+Rules: at most five visible blocks; one metric per bar (the lens), the other muted beside it; every delta is the change against the equally long period before (`up-bad` for dollars, neutral for tokens); fresh tokens leave cache-read out (stated in the headline footer and info). The IU detail always scopes to the IU API payer.
 
-### Q1 — IU cap gauge
-
-- **Question**: am I inside the rolling 30-day $500 cap, and what can I spend today?
-- **Kind**: `Meter` bar (value `rolling30`, max `limit`, tick at 80 %), state word and tone from the vocabulary. Under it `Bars` (axis-less, 7 bars) of the next 7 days' drop-off, each labeled with the day and `frees $`. Text lines: `can spend today`, `burn 7 d $/day → in 7 days $X`.
-- **Contract** `GET /usage/iu-budget` → `{ limitUsd: 500, windowDays: 30, fetchedAt, windowFrom, windowTo, rolling30Usd, canSpendTodayUsd, burn7dUsdPerDay, projected7dUsd, daily: [{day, usd}], dropoffNext7: [{day, freesUsd, headroomUsd}], topModels: [{label, usd}] }`. Definitions are usage-tracker `budget.ts`: window = today and the 29 days before; `canSpendToday = limit − sum(the 29 days before today)`; drop-off day *d* frees that day's portal cost when it leaves the window.
-- **States**: *fresh* normal; *stale* (> 8 h) value kept, `stale · fetched {age}` in warn ink; *dead* (> 48 h) value dimmed with `portal session expired — run make iu-portal-login in usage-tracker`; *empty* (no rows) `No portal data yet`; *over* error tone with `over by {$}`.
-
-### Q2 — Subscription headroom
-
-- **Question**: how much of each Max subscription's weekly window is used, am I on pace, when does it reset? The 5 h window is dropped: it saws up and down by design and answers nothing a decision hangs on (owner, 2026-10-26).
-- **Kind**: one `Meter` per account (7 d). The meter has a **pace tick** at `elapsed / 7 d` of the window (derived from `sevenDayResetsAt`); fill past the tick = ahead of pace. Caption `resets in {d h}`. State words at 80 / 100 %.
-- **Contract**: existing `GET /usage/quota` (latest point per account) + `GET /usage/account-picks/summary` for the routing ratio line `iu 19 % of picks`. Wave 2 adds nothing here; Wave 3 reads the last bucket only.
-- **States**: no sample for an account → `no reading`; sample older than 30 min → `stale {age}`; `authOk=false` → `auth failed`.
-
-### Q3 — Biggest movers
-
-- **Question**: what changed most in dollars this week?
-- **Kind**: three-line ranked text list with delta glyph + `DeltaBadge`, no chart. Rows are `(sub_tool, model_norm)` pairs, API payers only.
-- **Contract** `GET /usage/movers?window=7d&limit=3&payer=iu-api,me-api` → `{ current:{from,to}, prior:{from,to}, rows:[{subTool, model, costUsd, priorCostUsd, deltaUsd}] }` sorted by `|deltaUsd|`. Pairs under $2 total in both windows are dropped.
-- **States**: no pairs above the floor → `Spend is flat vs the prior 7 days`.
-
-### Lens — Spend $ vs Tokens
-
-One switch (`lens`, in the URL via `usageStore`) drives A, B, C-detail and E. **Spend** scope default `IU API`; `+ subscriptions` adds Max rows tagged *list value* (hatched/muted, never in the same stack total as spend). **Tokens** shows the four-way split with cache-read as its own series; the headline total is labeled `{x} B incl. cache-read` and is never added to "fresh tokens".
-
-### A — Where it goes over time
-
-- **Question**: which tool's spend/tokens moved, and when?
-- **Kind**: stacked `CartesianChart` area (existing folded chart), `foldTopN` 6 + Other, adjacent `BarList` as legend. Group-by switch Tool / Model / Source / Payer. In tokens lens the group-by is replaced by the four token classes.
-- **Contract**: `GET /usage/timeseries` extended (below) — `metric=cost|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write`, folded server side: `top=6` returns the top-N keys by range total plus an `other` key, so the payload is ≤ 7 series (30 d × 7 ≈ 25 kB instead of 448 kB).
-- **States**: empty range → `ChartCard state.empty`; a key with all-null cost (unpriced) is drawn at 0 and counted in the footer `n rows unpriced`.
-
-### B — Top spenders: tool · model
-
-- **Question**: for a given tool, which model is it burning money on, and is that the right model?
-- **Kind**: one ranked `BarList` of `sub_tool · model` pairs (top 12 + Other), bar length = lens value, a muted second figure beside it (`$` in Tokens lens, tokens in Spend lens), and the cache-read share as a small tag. No Heatmap, no Sankey: the question is "what is the single most expensive thing", and a ranked list answers it (`review_ocr · deepseek-v4.1-flash` first). Click a row sets the `sub_tool` + `model` filters.
-- **Contract** `GET /usage/flow?range&lens=cost|tokens&payer&top=12` → `{ total, rows:[{source, subTool, model, cost, input, output, cacheRead, cacheWrite, reasoning, calls}] }` already aggregated at `(source, sub_tool, model_norm)`; ≤ 200 rows. The client derives the heatmap, ranked lists and the cell drill-down from this single response (this is also C's contract).
-- **States**: nothing in scope → empty; rows with `model_norm` NULL group as `(unknown model)` and are listed with their row count.
-
-### C — Cache efficiency
-
-- **Question**: which tools pay for fresh input that should have been cached, and which are cache-dominated?
-- **Kind**: horizontal `Bars` per `sub_tool` (top 10), 100 % stacked: cache-read / cache-write / fresh input / output, label `cache-read {pct} %`; second column `$ per 1 M tokens`. Read from the `/usage/flow` response (aggregated to sub_tool client side).
-- **Why**: `review:adversary` at 4 % cache on gpt-5.6-terra vs `review_ocr` at 94 % shows in one glance; the $ column says which one to fix.
-- **States**: tools under 1 M tokens are folded into Other; sources that do not report cache fields (audio-gateway) show `no cache data`.
-
-### D — Portal vs tracked (reconciliation)
-
-- **Question**: can I trust tracked spend as the IU number, and where is the gap?
-- **Kind**: `Bars` grouped per day (portal, tracked) for 30 d with a delta strip below (`BandStrip`: ok within max($1, 20 %), warn beyond, same rule as `make budget`). Click a day → per-model table `portal vs tracked`.
-- **Contract** `GET /usage/iu-reconcile?days=30` → `{ days:[{day, portalUsd, trackedUsd, deltaUsd, ratio, flagged}], models:[{label, portalUsd, trackedUsd}], unpricedRows, windowTotals:{portalUsd, trackedUsd} }`. Tracked = `SUM(cost_usd) WHERE billing='iu'`; model join is by portal label ↔ `model_norm` prettified, unmatched go to `(unmatched)`. `unpricedRows` = IU rows with NULL cost.
-- **States**: no portal data → whole section collapses to a one-line `connect the portal sync` note; the most recent portal day is partial and flagged `partial`.
-
-### E — Projects
-
-- **Question**: which project is the spend for?
-- **Kind**: `BarList` top 10 normalized `project` + `Other`, workspace as muted tag; lens follows (spend or tokens); Max projects only appear under `+ subscriptions` as list value.
-- **Contract**: existing `breakdown?dimension=project` with `payer` scope; `limit=10` and the `(unset)` bucket labelled `(no project)`.
-
-### F — Routing (collapsed by default)
-
-Lane × account picks `BarList` + the reason column (existing `picks-panel`), plus a coverage line `since 24 Oct · {n} picks`. Drop the picks-per-day bars. Empty < 20 picks → `Not enough picks yet`.
-
-### G — Reliability (collapsed by default)
-
-Existing error-day `BandStrip` and p95 sparkline, scoped per `source` selector, with `agent-gateway-sessions` excluded by default (a sessions feed, not call failures). No KPI cells.
+Kept from v2: the limit meters (pace tick, state words, freshness), tool · model, cache-read share, portal vs tracked day strip. Cut: Movers card (the delta glyphs replace it), drop-off bars and burn text, the per-model reconciliation table, the per-day portal bars, Routing, Reliability, the token-class stack, the cache four-way bars. Cut from v1 and not restored: call-count headline, errors / p95 / cache-hit cells, payer split bar, 30 d quota line chart, picks-per-day bars.
 
 ## Data work (build spec)
 
@@ -174,15 +100,14 @@ Every endpoint takes `range`, `payer[]`, `workspace[]` like the existing ones an
 | D | one-line note | latest day marked `partial` |
 | F | `Not enough picks yet` | coverage line |
 
-## Pass criteria
+## Pass criteria (v3)
 
-1. The top band answers the three questions without scrolling at 1440 and 390; no number on it is a Max list value labeled "cost".
-2. The Q1 figures equal `make budget` in usage-tracker for the same fetch (rolling30, can-spend-today, drop-off).
-3. The lens switch changes A, B, E and keeps every total consistent with the band; cache-read is a visible series in Tokens.
-4. B lists `review_ocr · deepseek-v4.1-flash` first in Spend and in Tokens, with its cache-read share.
-5. D shows 2026-10-22 as flagged (portal $71 vs tracked $30).
-6. The page loads from the new endpoints only; no response above 60 kB; slowest endpoint < 1 s warm.
-7. No legend above 8 entries; no section whose question is not stated above; both schemes; `make check` green; `basalt-design-reviewer` pass.
+1. Limits answer "where am I" in one row without scrolling at 1440 and 390; the IU cap equals `make budget` in usage-tracker for the same fetch.
+2. Headline totals and the Projects / Tools rows come from the same buckets; Max dollars are always labelled list value, never spend.
+3. The lens switches the chart and both lists; the headline always shows both measures.
+4. Every row delta compares against the equally long prior period; no delta renders without a prior.
+5. At most five visible blocks, legend of at most 8 entries, both schemes, `make check` green.
+6. Page-level `basalt-design-reviewer` verdict is judged by the owner brief (concise, self-explanatory, build volume first), not the score.
 
 ## Token accounting (decided 2026-10-26)
 
@@ -195,8 +120,24 @@ Rules for the page:
 - Cache-read is summed across calls on purpose: each call re-reads the prefix and is billed for it. The old `metricExpr('tokens')` comment ("cache-read is not a delta, summing double-counts") confuses unique tokens with billed tokens; the exclusion stays for the legacy `tokens` metric (Tinycast reads it) but the new metrics split all classes.
 - Reasoning tokens are counted in cost; they are shown inside Output in the lens, not as a fifth series.
 
-## Build record (Wave 3, 2026-10-26)
+## Build record (Wave 4, 2026-10-26)
 
-Shipped per this spec. Deviations: `GET /usage/quota-latest` added (Q2 needs `sevenDayResetsAt`/`authOk`, which `/usage/quota` buckets lack); lens is the `PageBar` tab and scope a `SelectFilter` (basalt allows one `ViewTabs`); C is a normalized vertical `Bars` plus a `BarList` (no horizontal `Bars`); D has no day click (no select prop, models are window-level); B rows are not clickable (no tool/model store fields); G source selector is calls / sessions / all.
+Before/after shots (v1 at `63487b7a` from a throwaway worktree, v2 at `e37fd986`, light + dark, desktop + 390) drove the keep/cut table below. v2's build record and shot rounds r1–r6 are in git history of this file.
 
-Shot rounds (`basalt-ui shot` against the built dist, live data, via the evidence server; `make design-shot` alone writes no metrics/sheets and cannot be scored): r1 unscorable, r2 25 / 0 (eight unanchored components), r3 0, r4 63 (9 of 12 pass), r5 23, r6 24. Reviewer residuals after r6 (P1/P2, not fixed): cap-gauge empty copy gives no action; cache-efficiency axis shorthands (`ocr`, `angle`, `interact`) differ from list names; Top spenders dense rows still wrap at 390; reconciliation `+$56` and delta column carry no direction glyph (the `!` band glyph was removed to hold three font sizes); empty-state nouns still vary; loading/error states are route-level, not shot-declared. Re-shoot after `quota-latest` deploys to judge the Subscriptions loaded state, the Tokens lens and the expanded F/G bodies, which no round rendered.
+| Piece | Verdict | Why |
+|-|-|-|
+| v1 cost-per-day chart, tokens-per-day chart | merged into Over time (lens picks the metric) | the owner wants $ and tokens across everything; one chart with the lens, grouped by payer / tool / model / source |
+| v1 headline cost + tokens with delta vs prior 30 d | kept as Headline, now range-aware | v1's strength; deltas come from the same buckets as the totals |
+| v1 top projects | kept, promoted beside Tools | projects worked on most is the first question |
+| v1 tokens-by-tool list | kept as Tools | with $ and tokens per row |
+| v1 errors / p95 / cache-hit cells, payer split bar, quota line, picks bars, latency chart | not restored | not the owner's questions; reliability can return as one collapsed line if it is missed |
+| v2 cap gauge + subscription meters | merged into Limits (three meters, one row) | one glance at "where are the limits"; drop-off bars and burn text cut |
+| v2 Movers | cut | per-row delta glyphs say what moved where it is ranked |
+| v2 top spenders (tool · model) | kept, compact, in IU detail | where the API tokens go |
+| v2 cache efficiency | list only (cost per 1 M, cache-read %), in IU detail | the four-way bars were the heaviest visual for the smallest question |
+| v2 reconciliation | day strip + one totals line, in IU detail | per-model table and per-day bars cut |
+| v2 token-class stack, Routing, Reliability, server list "Spend by tool" | cut | duplicated the lists or answered a question nobody asked |
+
+Decisions: default scope is **all payers**; the Max share is labelled list value in the headline caption, its footer and the chart / list titles. Deltas compare the last N complete days with the N before (the running day is left out of both); a key the API folded away has no prior and shows no glyph; `new` marks a prior of nothing or a tenfold rise. The Other row of the ranked lists is a text line, not a bar, so it cannot squash the named rows. Fresh tokens leave cache-read out and say so.
+
+Shot rounds (`basalt-ui shot /usage-tracking --base <evidence-server origin>`, live data): r1 own review (structure right, deltas of 3000 % and "0" token rows, fixed with the `new` rule and null figures); r2 reviewer 0 (page pass; the volume blocks had no anchors, headline $ unqualified, no definition of `new`); r3 reviewer 51 (page pass, 5 of 7 components pass). Fixed after r3 without a fourth shot: Other as a text line, `new` defined in the card info, tokens unit reads `B tokens`, empty-state grammar, anchors for Over time and both lists. Residuals: IU Max / IU API and Me Max / Me API payer hues are close (palette, not layout; group by Tool separates them); Limits empty copy is still `no reading`; loading and error states are route-level, not shot-declared; the tokens delta is neutral while the spend delta is red by design; the 390 px headline caption wraps.

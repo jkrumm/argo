@@ -1,21 +1,14 @@
 import { BP } from 'basalt-ui/tokens'
 
 /**
- * The Claude accounts the usage page names: the one registry the store enum, its labels and the
- * series colours all derive from. The API accepts any account id; an id missing here still draws, in
- * the neutral `unknown` colour. An account keeps the hue of its subscription payer below. `plan` is
- * the Max tier multiplier the quota meters name the account by (`iu 20x`).
+ * The Claude accounts the usage page names: the one registry the quota meters derive from. The API
+ * accepts any account id; an id missing here still reads as itself. `plan` is the Max tier
+ * multiplier the quota meters name the account by (`iu 20x`).
  */
 export const USAGE_ACCOUNTS = [
-  { id: 'iu', token: 'iu', label: 'iu', plan: '20x', hue: BP.gold },
-  { id: 'me', token: 'me', label: 'me', plan: '5x', hue: BP.blue },
+  { id: 'iu', label: 'iu', plan: '20x' },
+  { id: 'me', label: 'me', plan: '5x' },
 ] as const
-
-export const ACCOUNT_IDS = USAGE_ACCOUNTS.map((a) => a.id)
-
-export const ACCOUNT_LABELS = Object.fromEntries(
-  USAGE_ACCOUNTS.map((a) => [a.id, a.label]),
-) as Record<(typeof USAGE_ACCOUNTS)[number]['id'], string>
 
 /**
  * Who pays for a row (the API derives it from billing + account): the two Max subscriptions and the

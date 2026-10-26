@@ -1,6 +1,3 @@
-import type { PayerValue } from './accounts'
-
-export type { PayerValue }
 export type WorkspaceValue = 'work' | 'private'
 
 export type TimePoint = { date: Date; groups: Record<string, number | null> }

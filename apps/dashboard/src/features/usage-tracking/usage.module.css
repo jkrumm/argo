@@ -1,13 +1,4 @@
-/* Chart facts: a series swatch next to a list row's share. */
-.swatch {
-  display: inline-block;
-  flex: none;
-  width: 0.5rem;
-  height: 0.5rem;
-  margin-inline-end: var(--vx-space-stack-xs);
-  border-radius: 2px;
-}
-
+/* Chart facts: a list row's share. */
 .share {
   white-space: nowrap;
 }
@@ -15,9 +6,4 @@
 /* A card beside a taller grid partner fills its cell instead of leaving the cell grey below it. */
 .fill {
   height: 100%;
-}
-
-/* Top band: a portal fetch past 48 h keeps its figures but steps back. */
-.dimmed {
-  opacity: 0.55;
 }

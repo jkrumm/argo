@@ -1,11 +1,11 @@
 /**
  * Shared formatters and chart helpers for the Usage Tracking page: money and token formatting, the
- * empty-state copy, the error-day verdicts and the series fold. No React, no queries — a null reading
+ * empty-state copy and the series fold. No React, no queries — a null reading
  * is handled once (always `—`, never 0).
  */
 import { format as formatDate } from 'date-fns'
 import { NBSP, withUnit } from '../../lib/format'
-import type { Grain, Range } from '../../lib/queries/usage'
+import type { Range } from '../../lib/queries/usage'
 import type { UsageScope } from '../../lib/window-stores'
 
 export const EM_DASH = '—'
@@ -18,53 +18,12 @@ export const SPEND_NOUN: Record<UsageScope, string> = {
 }
 
 /** `30 d` that never splits across lines. */
-export const D30 = withUnit(30, 'd')
-
-/** The usage-tracker LaunchAgent's push cadence (the API route's description names it). */
-const TRACKER_PUSH_EVERY = withUnit(15, 'min')
-/**
- * One gap, two forms (docs/design/README.md § One form for a repeated gap): the full sentence names
- * cause and step, the short form is its leading clause, verbatim. A filter that matched nothing is a
- * different gap from "nothing ingested", so it keeps its own pair.
- */
-const NO_USAGE_SHORT = 'No usage ingested'
-const noUsageFull = (widen: boolean) =>
-  `${NO_USAGE_SHORT} in this window — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}${widen ? ', or widen the range' : ''}`
-const NO_MATCH_SHORT = 'No usage matches these filters'
-const noMatchFull = (widen: boolean) =>
-  `${NO_MATCH_SHORT} in this window — clear a filter${widen ? ' or widen the range' : ''}`
+const D30 = withUnit(30, 'd')
 
 /** The one empty-state sentence of the section cards: names what is missing and the two ways out (no wider range exists for `all`). */
 export const noDataInWindow = (thing: string, range: Range): string =>
   `No ${thing} in this window — clear a filter${range !== 'all' ? ' or widen the range' : ''}`
 
-/** Whether a payer or workspace filter is active; an empty selection is no constraint. */
-export const isFiltered = (
-  payer: readonly unknown[] | undefined,
-  workspace: readonly unknown[] | undefined,
-): boolean => (payer?.length ?? 0) > 0 || (workspace?.length ?? 0) > 0
-
-/**
- * The wording for a surface whose window holds no usage. A filtered window always keeps the match
- * pair: the filter may be the cause (the strip follows the payer filter and ignores the workspace one). `stripEmpty` (the 30 d strip is
- * empty AND covers this range) collapses only the unfiltered pair to the
- * short form. Otherwise the leading chart carries the full sentence, the rest the short form; a
- * range of `all` has nothing wider, so its sentence carries no "widen the range".
- */
-export function noUsageWindow(o: {
-  filtered: boolean
-  stripEmpty: boolean
-  leading: boolean
-  range: '7d' | '30d' | '90d' | 'all'
-}): string {
-  const widen = o.range !== 'all'
-  if (o.filtered) return o.leading ? noMatchFull(widen) : NO_MATCH_SHORT
-  if (o.stripEmpty) return NO_USAGE_SHORT
-  return o.leading ? noUsageFull(widen) : NO_USAGE_SHORT
-}
-/** Daily error-rate bands: below 1 % ok, 1–3 % warn, above 3 % bad. Proposed, not an SLO. */
-export const ERROR_WARN_FROM = 0.01
-export const ERROR_BAD_ABOVE = 0.03
 export const OTHER_KEY = 'Other'
 
 const usdFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 })
@@ -84,7 +43,7 @@ export function fmtShare(ratio: number | null | undefined): string {
   return withUnit(Math.round(ratio * 100), '%')
 }
 
-export type Quantity = { value: string; unit: string }
+type Quantity = { value: string; unit: string }
 
 const TOKEN_UNITS = [
   { unit: 'B', size: 1e9 },
@@ -159,23 +118,6 @@ export function fmtTokens(n: number | null | undefined): string {
   return q.unit === '' ? q.value : `${q.value}${NBSP}${q.unit}`
 }
 
-/** A 0–1 ratio as a percentage with `digits` decimals, glued (`87.2 %`). */
-export function fmtPct(ratio: number | null | undefined, digits = 1): string {
-  if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return EM_DASH
-  return withUnit((ratio * 100).toFixed(digits), '%')
-}
-
-/** Latency in seconds with one decimal, as a value + unit pair. */
-export function secondsQuantity(ms: number | null | undefined): Quantity {
-  if (ms === null || ms === undefined || !Number.isFinite(ms)) return { value: EM_DASH, unit: '' }
-  return { value: (ms / 1000).toFixed(1), unit: 's' }
-}
-
-export const fmtSeconds = (ms: number) => {
-  const q = secondsQuantity(ms)
-  return q.unit === '' ? q.value : `${q.value}${NBSP}${q.unit}`
-}
-
 /** Every space unbreakable: a phrase that must never split across lines. */
 const glue = (text: string): string => text.replaceAll(' ', NBSP)
 
@@ -208,45 +150,6 @@ export function dropPartialBucket<T extends { date: Date }>(
   return complete.length < 2 ? [...points] : complete
 }
 
-// ── Error days ───────────────────────────────────────────────────────────────────────────────
-
-/** The ok state's name, as the errors band's legend prints it. */
-export const ERROR_OK_LABEL = `Under ${fmtPct(ERROR_WARN_FROM, 0)} of calls`
-
-export type ErrorDayState = 'ok' | 'warn' | 'bad' | 'none'
-
-/** `none` for a day with no calls; `bad` strictly above 3 %, `warn` from 1 %. */
-export function errorDayState(rate: number | null): ErrorDayState {
-  if (rate === null || !Number.isFinite(rate)) return 'none'
-  if (rate > ERROR_BAD_ABOVE) return 'bad'
-  if (rate >= ERROR_WARN_FROM) return 'warn'
-  return 'ok'
-}
-
-/** The sessions feed logs one row per session, not per call: its "errors" are not failing calls. */
-export const SESSIONS_SOURCE = 'agent-gateway-sessions'
-
-/**
- * The `sources` filter one reliability scope sends: every source but the sessions feed (`calls`), the
- * feed alone (`sessions`), or no constraint (`all`, `undefined`). The API filters by inclusion only,
- * so `calls` is the window's own source list minus the feed; an empty list means nothing to show.
- */
-export function reliabilitySources(
-  scope: 'calls' | 'sessions' | 'all',
-  windowSources: readonly string[],
-): string[] | undefined {
-  if (scope === 'all') return undefined
-  if (scope === 'sessions') return windowSources.includes(SESSIONS_SOURCE) ? [SESSIONS_SOURCE] : []
-  return windowSources.filter((s) => s !== SESSIONS_SOURCE)
-}
-
-/** The reliability cards' info text: definitions, with thresholds from the same constants the band uses. */
-export function errorBandInfo(): string {
-  const warn = fmtPct(ERROR_WARN_FROM, 0)
-  const bad = fmtPct(ERROR_BAD_ABOVE, 0)
-  return `A day's error rate is its error events divided by its calls: under ${warn} is fine, ${warn}–${bad} is warn, over ${bad} is bad. A day with no calls has no rate. p95 latency: 95 % of calls finish faster than this; only calls that report a duration count.`
-}
-
 const PERIOD_NOUN: Record<'7d' | '30d' | '90d' | 'all', string> = {
   '7d': withUnit(7, 'd'),
   '30d': D30,
@@ -256,25 +159,4 @@ const PERIOD_NOUN: Record<'7d' | '30d' | '90d' | 'all', string> = {
 
 export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {
   return PERIOD_NOUN[range]
-}
-
-/** Window days: days that began inside the rolling `spanDays` window (the partial leading day is left out; the running day is `useDaily`'s to drop). */
-export const windowDays = <T extends { date: Date }>(
-  days: readonly T[],
-  now: number,
-  spanDays: number,
-): T[] => days.filter((d) => bucketStartMs(d.date) >= now - spanDays * DAY_MS)
-
-const RANGE_SPAN_DAYS: Record<Exclude<Range, 'all'>, number> = { '7d': 7, '30d': 30, '90d': 90 }
-
-/**
- * A range's rows cut to the days that began inside its rolling window. Only day grain is cut: a week
- * bucket is not day-aligned to the window start, and `all` has no window start, so both pass through.
- */
-export function rangeWindowDays<T extends { date: Date }>(
-  rows: readonly T[],
-  { range, grain, now }: { range: Range; grain: Grain; now: number },
-): T[] {
-  if (grain !== 'day' || range === 'all') return [...rows]
-  return windowDays(rows, now, RANGE_SPAN_DAYS[range])
 }
