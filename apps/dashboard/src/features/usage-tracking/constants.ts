@@ -1,7 +1,7 @@
 import type { StackedAreaBand } from 'basalt-ui/charts'
-import { USAGE_PAYER, USAGE_SOURCE } from '../../lib/series'
+import { USAGE_PAYER, USAGE_RANK, USAGE_SOURCE } from '../../lib/series'
 import { USAGE_PAYERS } from './accounts'
-import type { CostGroupBy, TimePoint } from './types'
+import type { TimePoint } from './types'
 
 const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   'claude-code': 'claudeCode',
@@ -26,7 +26,7 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   opencode: 'opencode',
 }
 
-function colorForSource(source: string): string {
+export function colorForSource(source: string): string {
   const token = SOURCE_KEY_TO_TOKEN[source]
   if (token !== undefined) return USAGE_SOURCE[token]
   return USAGE_SOURCE.other
@@ -37,43 +37,19 @@ export function colorForPayer(payer: string): string {
   return USAGE_PAYER[token] ?? USAGE_SOURCE.other
 }
 
-// Deterministic fallback color picker for unknown grouping keys (e.g. machines,
-// projects, models) — cycles through a small USAGE_SOURCE palette so identical keys
-// render with the same color across rerenders.
-const FALLBACK_PALETTE = [
-  USAGE_SOURCE.claudeCode,
-  USAGE_SOURCE.litellm,
-  USAGE_SOURCE.agentGateway,
-  USAGE_SOURCE.hermesAgent,
-  USAGE_SOURCE.audioProxy,
-  USAGE_SOURCE.feuer,
-  USAGE_SOURCE.opencode,
-]
-
 /**
- * Rank-assigned hues for the named series of a stacked chart: eight different hue families (sky, gold,
- * forest, red, orange, violet, turquoise, indigo). Cerulean is deliberately absent: next to sky it differs only in shade.
+ * Rank-assigned hues for the named series of a stacked chart: six hue families (sky, violet,
+ * turquoise, indigo, rose, sepia), none of them a status ink. Amber, red and green stay with warn,
+ * error and ok; cerulean is absent because next to sky it differs only in shade.
  */
 export const RANK_PALETTE = [
-  USAGE_SOURCE.claudeCode,
-  USAGE_SOURCE.agentGateway,
-  USAGE_SOURCE.audioProxy,
-  USAGE_SOURCE.hermesAgent,
-  USAGE_SOURCE.opencode,
-  USAGE_SOURCE.researchGateway,
-  USAGE_SOURCE.imageGen,
-  USAGE_SOURCE.emailGateway,
+  USAGE_RANK.sky,
+  USAGE_RANK.violet,
+  USAGE_RANK.turquoise,
+  USAGE_RANK.indigo,
+  USAGE_RANK.rose,
+  USAGE_RANK.sepia,
 ]
-
-function hashKey(key: string): number {
-  let h = 0
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-function colorForKey(key: string): string {
-  return FALLBACK_PALETTE[hashKey(key) % FALLBACK_PALETTE.length] ?? USAGE_SOURCE.other
-}
 
 // Day buckets arrive as `YYYY-MM-DD` text; a bare date parses as UTC midnight, which labels the
 // bucket a day early west of UTC. Parse as local midnight, once per bucket.
@@ -85,14 +61,6 @@ export function toTimePoints(
   buckets: ReadonlyArray<{ bucket: string; groups: Record<string, number | null> }>,
 ): TimePoint[] {
   return buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups }))
-}
-
-export function colorForGroup(
-  groupBy: CostGroupBy | 'sub_tool' | 'model_norm' | 'project',
-): (key: string) => string {
-  if (groupBy === 'source') return colorForSource
-  if (groupBy === 'payer') return colorForPayer
-  return colorForKey
 }
 
 // One band per group key, coloured by `color`; a missing bucket value stacks as 0.

@@ -151,6 +151,41 @@ const USAGE_PAYER_MAP: SeriesMap = defineSeries({
   unknown: p(BP.gray),
 } satisfies SeriesMap)
 
+/**
+ * Usage tracker — token-class identity. Cache-read is the volume and stays a quiet neutral; fresh
+ * input takes the sky accent (what the model newly read), output the work product (forest) and
+ * cache-write violet (the one-off cost of filling the cache): a category hue, not gold, so the amber
+ * of the warn status stays a verdict.
+ */
+const USAGE_TOKEN_MAP = defineSeries({
+  cacheRead: p(BP.gray, 1, 2),
+  cacheWrite: p(BP.violet),
+  input: p(BP.blue),
+  output: p(BP.forest),
+} satisfies SeriesMap)
+
+/**
+ * Usage tracker — rank identity: the nth-ranked series of a stacked chart (tools, models). Six hue
+ * families none of which is a status ink (no amber, red or green: those read warn, error and ok);
+ * cerulean is left out because beside sky it differs only in shade.
+ */
+const USAGE_RANK_MAP = defineSeries({
+  sky: p(BP.blue),
+  violet: p(BP.violet),
+  turquoise: p(BP.turquoise),
+  indigo: p(BP.indigo),
+  rose: p(BP.rose),
+  sepia: p(BP.sepia),
+} satisfies SeriesMap)
+
+/**
+ * Usage tracker — portal reconciliation. The tracker's own figure beside the portal's neutral one:
+ * sky, so the amber and red of the day-delta strip stay status-only.
+ */
+const USAGE_RECON_MAP = defineSeries({
+  tracked: p(BP.blue),
+} satisfies SeriesMap)
+
 /** Usage tracker — outcome identity. */
 const USAGE_OUTCOME_MAP = defineSeries({
   ok: p(BP.forest),
@@ -190,6 +225,9 @@ export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
 export const USAGE_BILLING = groupTokens('billing', USAGE_BILLING_MAP)
 export const USAGE_ACCOUNT = groupTokens('account', USAGE_ACCOUNT_MAP)
 export const USAGE_PAYER = groupTokens('payer', USAGE_PAYER_MAP)
+export const USAGE_TOKEN = groupTokens('token', USAGE_TOKEN_MAP)
+export const USAGE_RANK = groupTokens('rank', USAGE_RANK_MAP)
+export const USAGE_RECON = groupTokens('recon', USAGE_RECON_MAP)
 export const USAGE_OUTCOME = groupTokens('outcome', USAGE_OUTCOME_MAP)
 export const LP = groupTokens('lp', LP_MAP)
 
@@ -204,6 +242,9 @@ export const argoPaletteGroups = [
   USAGE_BILLING,
   USAGE_ACCOUNT,
   USAGE_PAYER,
+  USAGE_TOKEN,
+  USAGE_RANK,
+  USAGE_RECON,
   USAGE_OUTCOME,
   LP,
 ]

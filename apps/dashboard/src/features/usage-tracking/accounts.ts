@@ -3,11 +3,12 @@ import { BP } from 'basalt-ui/tokens'
 /**
  * The Claude accounts the usage page names: the one registry the store enum, its labels and the
  * series colours all derive from. The API accepts any account id; an id missing here still draws, in
- * the neutral `unknown` colour. An account keeps the hue of its subscription payer below.
+ * the neutral `unknown` colour. An account keeps the hue of its subscription payer below. `plan` is
+ * the Max tier multiplier the quota meters name the account by (`iu 20x`).
  */
 export const USAGE_ACCOUNTS = [
-  { id: 'iu', token: 'iu', label: 'iu', hue: BP.gold },
-  { id: 'me', token: 'me', label: 'me', hue: BP.blue },
+  { id: 'iu', token: 'iu', label: 'iu', plan: '20x', hue: BP.gold },
+  { id: 'me', token: 'me', label: 'me', plan: '5x', hue: BP.blue },
 ] as const
 
 export const ACCOUNT_IDS = USAGE_ACCOUNTS.map((a) => a.id)
@@ -18,23 +19,17 @@ export const ACCOUNT_LABELS = Object.fromEntries(
 
 /**
  * Who pays for a row (the API derives it from billing + account): the two Max subscriptions and the
- * two metered APIs, IU's family in warm hues and the personal one in blues. The registry the store
- * enum, labels, colours and the account scope all derive from; `unknown` is the neutral catch-all.
+ * two metered APIs, IU's family in warm hues and the personal one in blues. The registry the labels
+ * and colours derive from; `unknown` is the neutral catch-all.
  */
 export const USAGE_PAYERS = [
-  { id: 'iu-sub', token: 'iuSub', label: 'IU Max', hue: BP.gold, account: 'iu' },
-  { id: 'iu-api', token: 'iuApi', label: 'IU API', hue: BP.orange, account: null },
-  { id: 'me-sub', token: 'meSub', label: 'Me Max', hue: BP.blue, account: 'me' },
-  { id: 'me-api', token: 'meApi', label: 'Me API', hue: BP.cerulean, account: null },
+  { id: 'iu-sub', token: 'iuSub', label: 'IU Max', hue: BP.gold },
+  { id: 'iu-api', token: 'iuApi', label: 'IU API', hue: BP.orange },
+  { id: 'me-sub', token: 'meSub', label: 'Me Max', hue: BP.blue },
+  { id: 'me-api', token: 'meApi', label: 'Me API', hue: BP.cerulean },
 ] as const
 
 export type PayerValue = (typeof USAGE_PAYERS)[number]['id'] | 'unknown'
-
-export const PAYER_IDS: [PayerValue, ...PayerValue[]] = [
-  USAGE_PAYERS[0].id,
-  ...USAGE_PAYERS.slice(1).map((p) => p.id),
-  'unknown',
-]
 
 export const PAYER_LABELS: Record<PayerValue, string> = {
   ...(Object.fromEntries(USAGE_PAYERS.map((p) => [p.id, p.label])) as Record<
@@ -42,12 +37,4 @@ export const PAYER_LABELS: Record<PayerValue, string> = {
     string
   >),
   unknown: 'Unknown',
-}
-
-/** The Max accounts a payer selection covers; the quota section follows it (no subscription payer = all accounts). */
-export function accountsOfPayers(payers: readonly PayerValue[] | undefined): string[] | undefined {
-  const accounts = USAGE_PAYERS.flatMap((p) =>
-    p.account !== null && (payers ?? []).includes(p.id) ? [p.account] : [],
-  )
-  return accounts.length > 0 ? accounts : undefined
 }

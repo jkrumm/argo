@@ -1,64 +1,26 @@
 import { afterEach, describe, expect, it } from 'bun:test'
 import { NBSP } from '../../lib/format'
 import {
-  noHealthReading,
+  noDataInWindow,
   noUsageWindow,
-  stripCoversRange,
+  rangeWindowDays,
   isFiltered,
-  NO_USAGE_CELL,
   shortDay,
-  badDayCount,
-  errorDaysLine,
-  foldInfo,
-  healthInfo,
-  peakOf,
-  topSourceNote,
-  payerParts,
-  errorRateReading,
-  meanOf,
-  errorComparison,
-  priorNote,
-  fmtPctBadge,
-  fmtSecondsBadge,
-  fmtPointsBadge,
-  fmtTokensDay,
+  errorBandInfo,
+  reliabilitySources,
+  SESSIONS_SOURCE,
   fmtSeconds,
   errorDayState,
   fmtPct,
   fmtShare,
   fmtTokens,
   fmtUsdWhole,
-  foldTopN,
-  countAgainst,
-  barStateOf,
   dropPartialBucket,
-  fullDays,
-  rangeWindowDays,
-  STRIP_WINDOW_DAYS,
-  windowDays,
   periodNoun,
-  printTotal,
-  footerTotal,
-  prepareFolded,
-  FOLD_MAX_N,
-  slowerDaysLine,
-  cacheUnderLine,
-  OTHER_KEY,
-  pctChange,
-  pctDelta,
-  pointsDelta,
-  secondsDelta,
   secondsQuantity,
-  summaryFacts,
-  summarySentence,
-  freshness,
-  recentMean,
   tokensQuantity,
   tokensFormatterFor,
-  peakBucketTotal,
 } from './model'
-import { RANK_PALETTE } from './constants'
-import type { TimePoint } from './types'
 
 describe('fmtUsdWhole', () => {
   it('prints whole dollars with a thousands separator, never compacted', () => {
@@ -99,77 +61,6 @@ describe('fmtShare', () => {
   })
 })
 
-describe('deltas', () => {
-  it('computes signed relative change and names no value without a prior', () => {
-    expect(pctChange(120, 100)).toBeCloseTo(0.2)
-    expect(pctChange(100, 0)).toBeNull()
-    expect(pctChange(100, null)).toBeNull()
-  })
-})
-
-describe('payerParts', () => {
-  const costs = { 'iu-sub': 50, 'iu-api': 10, 'me-sub': 30, 'me-api': 5, total: 100 }
-  it('lists the four payers and folds unclaimed cost into unknown so the parts sum to the total', () => {
-    const parts = payerParts(costs)
-    expect(parts.map((p) => p.key)).toEqual(['iu-sub', 'iu-api', 'me-sub', 'me-api', 'unknown'])
-    expect(parts[4]?.value).toBe(5)
-    expect(parts.reduce((a, p) => a + p.value, 0)).toBe(100)
-    expect(parts[0]?.share).toBeCloseTo(0.5)
-  })
-  it('has zero shares for a zero total', () => {
-    const zero = { 'iu-sub': 0, 'iu-api': 0, 'me-sub': 0, 'me-api': 0, total: 0 }
-    expect(payerParts(zero).every((p) => p.share === 0)).toBe(true)
-  })
-})
-
-const day = (d: number, groups: Record<string, number>): TimePoint => ({
-  date: new Date(2026, 0, d),
-  groups,
-})
-
-describe('foldTopN ties', () => {
-  it('canonically-equivalent keys rank the same in both input orders', () => {
-    const composed = '\u00e9'
-    const decomposed = 'e\u0301'
-    const points = [{ date: '2026-01-01', groups: { [composed]: 5, [decomposed]: 5 } }]
-    const forward = foldTopN(points, [composed, decomposed], 2)
-    expect(foldTopN(points, [decomposed, composed], 2).keys).toEqual(forward.keys)
-  })
-  it('equal totals rank by key, whatever order the keys arrive in', () => {
-    const points = [{ date: '2026-01-01', groups: { b: 5, a: 5, c: 5 } }]
-    const forward = foldTopN(points, ['a', 'b', 'c'], 3)
-    const reversed = foldTopN(points, ['c', 'b', 'a'], 3)
-    expect(forward.keys).toEqual(['a', 'b', 'c'])
-    expect(reversed.keys).toEqual(forward.keys)
-  })
-})
-
-describe('foldTopN', () => {
-  const points = [day(1, { a: 10, b: 5, c: 3, d: 1 }), day(2, { a: 10, b: 0, c: 3, d: 9 })]
-
-  it('keeps the top n by window total and sums the rest into Other in every bucket', () => {
-    const f = foldTopN(points, ['a', 'b', 'c', 'd'], 2)
-    expect(f.keys).toEqual(['a', 'd', OTHER_KEY])
-    expect(f.points[0]?.groups).toEqual({ a: 10, d: 1, [OTHER_KEY]: 8 })
-    expect(f.points[1]?.groups).toEqual({ a: 10, d: 9, [OTHER_KEY]: 3 })
-    expect(f.folded).toBe(2)
-  })
-  it('totals match the points and the list', () => {
-    const f = foldTopN(points, ['a', 'b', 'c', 'd'], 2)
-    expect(f.totals).toEqual([
-      { key: 'a', value: 20 },
-      { key: 'd', value: 10 },
-      { key: OTHER_KEY, value: 11 },
-    ])
-    expect(f.total).toBe(41)
-  })
-  it('adds no Other when nothing folds', () => {
-    const f = foldTopN(points, ['a', 'b'], 6)
-    expect(f.keys).toEqual(['a', 'b'])
-    expect(f.folded).toBe(0)
-  })
-})
-
 describe('error days', () => {
   it('bands a daily rate at 1 % and 3 %', () => {
     expect(errorDayState(0.005)).toBe('ok')
@@ -178,143 +69,13 @@ describe('error days', () => {
     expect(errorDayState(0.031)).toBe('bad')
     expect(errorDayState(null)).toBe('none')
   })
-  it('counts bad days and ignores days without calls', () => {
-    expect(badDayCount([0, 0.05, null, 0.2, 0.02])).toBe(2)
-  })
-})
-
-describe('freshness and copy', () => {
-  const now = Date.parse('2026-10-17T12:00:00Z')
-  it('the headline sentence carries the spend, the facts carry the rest', () => {
-    expect(summarySentence({ calls30d: 12345 })).toBe('12,345 calls in the last 30\u00a0d')
-    expect(summaryFacts({ sources: 7, lastEvent: '3 minutes ago' })).toEqual([
-      '7 sources active',
-      'last event 3 minutes ago',
-    ])
-    expect(summaryFacts({ sources: null, lastEvent: null })).toEqual(['no events recorded'])
-  })
-  it('names the freshness in words and tones it', () => {
-    expect(freshness('2026-10-17T11:45:00Z', now)).toEqual({ word: 'fresh', tone: 'ok' })
-    expect(freshness('2026-10-17T11:20:00Z', now)).toEqual({ word: 'stale 40 min', tone: 'warn' })
-    expect(freshness('2026-10-17T10:00:30Z', now)).toEqual({ word: 'stale 2 h', tone: 'bad' })
-    expect(freshness('2026-10-17T10:00:10Z', now)).toEqual({ word: 'stale 2 h', tone: 'bad' })
-    expect(freshness('2026-10-17T10:00:20Z', now).tone).toBe('bad')
-    expect(freshness(null, now)).toEqual({ word: 'no events', tone: 'none' })
-  })
-})
-
-describe('recentMean', () => {
-  it('averages the last readings, skipping gaps', () => {
-    const values = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9]
-    expect(recentMean(values)).toBeCloseTo(0.9)
-    expect(recentMean([null, 0.6, null])).toBeCloseTo(0.6)
-    expect(recentMean([null, null])).toBeNull()
-  })
-  it('counts trailing gaps as part of the calendar window', () => {
-    // 12 slots, the last 5 empty: the window is slots 6–12, so the older 0.2 days never reach in.
-    const values = [0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.6, null, null, null, null, null]
-    expect(recentMean(values)).toBeCloseTo(0.6)
-    expect(
-      recentMean([
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-      ]),
-    ).toBeNull()
-  })
-})
-
-describe('prior comparisons', () => {
-  it('separates an absent field from an absent window and shows no note when the badge reads', () => {
-    expect(priorNote(120, undefined, pctDelta)).toBe('prior unavailable')
-    expect(priorNote(120, null, pctDelta)).toBe('no comparable prior 30\u00a0d')
-    expect(priorNote(120, 100, pctDelta)).toBeNull()
-    expect(priorNote(120, 0, pctDelta)).toBe('prior 30\u00a0d had no base to compare')
-    const calls = 100
-    expect(errorComparison({ current: 0.02, prior: undefined, calls }).note).toBe(
-      'prior unavailable',
-    )
-    expect(errorComparison({ current: 0.02, prior: null, calls }).note).toBe(
-      'no comparable prior 30\u00a0d',
-    )
-    expect(errorComparison({ current: 0.02, prior: 0.012, calls })).toEqual({
-      value: expect.closeTo(0.8),
-      note: 'was 1.2\u00a0%',
-    })
-    expect(errorComparison({ current: 0, prior: 0.012, calls: 0 })).toEqual({
-      value: null,
-      note: 'no calls to rate',
-    })
-  })
-})
-
-describe('error rate reading', () => {
-  it('is a dash for a window with no calls, never 0.0%', () => {
-    expect(errorRateReading(0, 0)).toBe('—')
-    expect(errorRateReading(0, 12)).toBe('0.0\u00a0%')
-    expect(errorRateReading(0.005, 200)).toBe('0.5\u00a0%')
-    expect(errorRateReading(0.005, undefined)).toBe('0.5\u00a0%')
-    expect(errorRateReading(null, 5)).toBe('—')
-  })
-})
-
-describe('meanOf', () => {
-  it('averages present values and ignores gaps', () => {
-    expect(meanOf([2, null, 4])).toBe(3)
-    expect(meanOf([null])).toBeNull()
-  })
-})
-
-describe('badge deltas', () => {
-  it('pctDelta is the signed percent change, null without a base', () => {
-    expect(pctDelta(150, 100)).toBe(50)
-    expect(pctDelta(50, 100)).toBe(-50)
-    expect(pctDelta(5, 0)).toBeNull()
-    expect(pctDelta(null, 10)).toBeNull()
-  })
-
-  it('secondsDelta converts a millisecond difference to seconds', () => {
-    expect(secondsDelta(1500, 1000)).toBe(0.5)
-    expect(secondsDelta(1000, null)).toBeNull()
-  })
-
-  it('pointsDelta is the ratio difference in percentage points', () => {
-    expect(pointsDelta(0.03, 0.01)).toBeCloseTo(2)
-    expect(pointsDelta(null, 0.01)).toBeNull()
-  })
-
-  it('refuses a non-finite reading instead of printing NaN', () => {
-    expect(secondsDelta(Number.NaN, 1000)).toBeNull()
-    expect(pointsDelta(0.1, Number.POSITIVE_INFINITY)).toBeNull()
-    expect(pctDelta(Number.NaN, 10)).toBeNull()
-  })
 })
 
 describe('readout formatters', () => {
   it('every readout carries its unit', () => {
     expect(fmtUsdWhole(12.4)).toBe('$12')
-    expect(fmtTokensDay(3_200_000)).toBe('3.2\u00a0M tokens')
-    expect(fmtTokensDay(950)).toBe('950 tokens')
     expect(fmtSeconds(1800)).toBe('1.8\u00a0s')
     expect(fmtSeconds(Number.NaN)).toBe('—')
-  })
-
-  it('badge magnitudes keep one decimal so a small change is not a red 0%', () => {
-    expect(fmtPctBadge(-0.4)).toBe('0.4\u00a0%')
-    expect(fmtPointsBadge(-1.26)).toBe('1.3\u00a0pp')
-    expect(fmtSecondsBadge(0.44)).toBe('0.4\u00a0s')
   })
 })
 
@@ -324,52 +85,25 @@ describe('shortDay', () => {
   })
 })
 
-describe('error days, peak and source note', () => {
-  it('words warn and bad days with counts', () => {
-    expect(errorDaysLine([0, 0.02, 0.05, null, 0.011])).toBe(
-      `2${NBSP}warn${NBSP}days${NBSP}(1\u00a0%–3\u00a0%), 1${NBSP}bad${NBSP}day${NBSP}(>${NBSP}3\u00a0%)`,
-    )
-    expect(errorDaysLine([0.02, null])).toBe(`1${NBSP}warn${NBSP}day${NBSP}(1\u00a0%–3\u00a0%)`)
-    expect(errorDaysLine([0, 0.001])).toBe('no day above 1\u00a0%')
-    expect(errorDaysLine([null, null])).toBe('no daily reading yet')
+describe('reliability scope', () => {
+  it('words the info from the band thresholds', () => {
+    expect(errorBandInfo()).toContain('under 1\u00a0% is fine')
   })
-  it('finds the peak day', () => {
-    const days = [
-      { date: 'a', value: 1 },
-      { date: 'b', value: 4 },
-      { date: 'c', value: null },
-    ]
-    expect(peakOf(days)?.date).toBe('b')
-    expect(peakOf([{ date: 'x', value: null }])).toBeNull()
-  })
-  it('words the health and fold info from the constants', () => {
-    expect(healthInfo('week')).toContain('a week under 1\u00a0%')
-    expect(foldInfo('billing lane')).toBe(
-      'The largest billing lanes in the window are named (at least 6, more while the rest would outweigh the smallest), the rest are grouped as Other.',
-    )
-  })
-  it('states what the source percentage is of', () => {
-    expect(topSourceNote('api', 30, 100)).toBe('30\u00a0% from api')
-    expect(topSourceNote('api', 0, 0)).toBe('api')
-  })
-})
 
-describe('foldTopN widening', () => {
-  const points = [day(1, { a: 10, b: 9, c: 8, d: 7, e: 6 })]
-  const keys = ['a', 'b', 'c', 'd', 'e']
+  const windowSources = ['claude-code', SESSIONS_SOURCE, 'opencode']
 
-  it('widens until Other no longer outweighs the smallest named series', () => {
-    const f = foldTopN(points, keys, 2, 5)
-    expect(f.keys).toEqual(['a', 'b', 'c', 'd', OTHER_KEY])
-    const other = f.totals.find((t) => t.key === OTHER_KEY)?.value ?? 0
-    expect(other).toBeLessThanOrEqual(7)
+  it('calls leaves the sessions feed out, by naming the rest', () => {
+    expect(reliabilitySources('calls', windowSources)).toEqual(['claude-code', 'opencode'])
   })
-  it('stops at max even when Other is still the largest', () => {
-    const f = foldTopN(points, keys, 1, 2)
-    expect(f.keys).toEqual(['a', 'b', OTHER_KEY])
+  it('sessions names the feed alone, and nothing when the window has none', () => {
+    expect(reliabilitySources('sessions', windowSources)).toEqual([SESSIONS_SOURCE])
+    expect(reliabilitySources('sessions', ['claude-code'])).toEqual([])
   })
-  it('keeps n when max is not given', () => {
-    expect(foldTopN(points, keys, 2).keys).toEqual(['a', 'b', OTHER_KEY])
+  it('all sends no constraint', () => {
+    expect(reliabilitySources('all', windowSources)).toBeUndefined()
+  })
+  it('calls with only the feed in the window has nothing to show', () => {
+    expect(reliabilitySources('calls', [SESSIONS_SOURCE])).toEqual([])
   })
 })
 
@@ -426,155 +160,11 @@ describe('dropPartialBucket', () => {
   })
 })
 
-describe('footerTotal', () => {
-  const base = { printTotal: false, headlineCostUsd30d: 101, breakdownTotal: 100, rowsShown: 3 }
-  it('reads the headline when the card prints no total of its own', () => {
-    expect(footerTotal(base)).toBe(101)
-  })
-  it('reads the breakdown when the card prints its total, the headline is unloaded or there are no rows', () => {
-    expect(footerTotal({ ...base, printTotal: true })).toBe(100)
-    expect(footerTotal({ ...base, headlineCostUsd30d: undefined })).toBe(100)
-    expect(footerTotal({ ...base, rowsShown: 0 })).toBe(100)
-  })
-})
-
-describe('printTotal', () => {
-  it('prints a total only where the strip does not', () => {
-    const base = { filtered: false } as const
-    expect(printTotal({ ...base, range: '30d' })).toBe(false)
-    expect(printTotal({ ...base, range: '7d' })).toBe(true)
-    expect(printTotal({ ...base, range: '90d' })).toBe(true)
-    expect(printTotal({ ...base, range: 'all' })).toBe(true)
-    expect(printTotal({ ...base, range: '30d', filtered: true })).toBe(true)
-    expect(printTotal({ ...base, range: '7d', filtered: true })).toBe(true)
-  })
-})
-
-describe('barStateOf', () => {
-  it('is the verdict, and nothing for a day with no calls and no events', () => {
-    expect(barStateOf({ state: 'warn', count: 3 })).toBe('warn')
-    expect(barStateOf({ state: 'none', count: 0 })).toBeNull()
-    expect(barStateOf({ state: 'none', count: 2 })).toBe('ok')
-  })
-})
-
 describe('periodNoun', () => {
   it('names every range explicitly, units glued', () => {
     expect(periodNoun('7d')).toBe('7\u00a0d')
     expect(periodNoun('90d')).toBe('90\u00a0d')
     expect(periodNoun('all')).toBe('all time')
-  })
-})
-
-describe('fold palette', () => {
-  it('the rank palette has a hue for every series the fold can name', () => {
-    expect(RANK_PALETTE.length).toBeGreaterThanOrEqual(FOLD_MAX_N)
-  })
-})
-
-describe('day-count sentences', () => {
-  // Buckets are the UTC midnight of a date's local fields, so `now` is read from local fields too.
-  const noon = new Date(2026, 0, 10, 12)
-  const NOW = Date.UTC(noon.getFullYear(), noon.getMonth(), noon.getDate(), 12)
-  const reading = (n: number, value: number | null) => ({ date: new Date(2026, 0, n), value })
-  it('counts full days slower than the window p95, null without a window or a day', () => {
-    const days = [reading(1, 1), reading(2, 5), reading(3, null), reading(4, 9)]
-    expect(slowerDaysLine(days, 4, NOW)).toBe('2 of 3 full days slower than the 30\u00a0d p95')
-    expect(slowerDaysLine(days, null, NOW)).toBeNull()
-    expect(slowerDaysLine([reading(1, null)], 4, NOW)).toBeNull()
-  })
-  it('counts full days under the cache target, null without a day', () => {
-    const days = [reading(1, 0.5), reading(2, 0.7), reading(3, 0.59), reading(4, null)]
-    expect(cacheUnderLine(days, NOW)).toBe('2 of 3 full days under it')
-    expect(cacheUnderLine([], NOW)).toBeNull()
-  })
-  it('leaves a partial leading day out of the count and the base', () => {
-    // now = 10 Jan 12:00: the window opens 11 Dec 12:00, so 11 Dec is partial and 12 Dec is the first full day
-    const days = [
-      { date: new Date(2025, 11, 11), value: 9 },
-      { date: new Date(2025, 11, 12), value: 1 },
-      reading(9, 9),
-    ]
-    expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1, 9])
-    expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')
-  })
-  it('windowDays keeps the running day and drops only the partial leading day', () => {
-    const days = [
-      { date: new Date(2025, 11, 11), value: 9 },
-      { date: new Date(2025, 11, 12), value: 1 },
-      reading(10, 5),
-    ]
-    expect(windowDays(days, NOW, STRIP_WINDOW_DAYS).map((d) => d.value)).toEqual([1, 5])
-    expect(fullDays(days, NOW).map((d) => d.value)).toEqual([1])
-  })
-  it('rangeWindowDays cuts day grain to the range span and passes week grain and all through', () => {
-    const days = [
-      { date: new Date(2025, 10, 20), value: 1 },
-      { date: new Date(2025, 11, 20), value: 2 },
-      { date: new Date(2026, 0, 8), value: 3 },
-    ]
-    const cut = (range: '7d' | '30d' | '90d' | 'all', grain: 'day' | 'week') =>
-      rangeWindowDays(days, { range, grain, now: NOW }).map((d) => d.value)
-    expect(cut('7d', 'day')).toEqual([3])
-    expect(cut('30d', 'day')).toEqual([2, 3])
-    expect(cut('90d', 'day')).toEqual([1, 2, 3])
-    expect(cut('7d', 'week')).toEqual([1, 2, 3])
-    expect(cut('all', 'day')).toEqual([1, 2, 3])
-    // A range whose only calls fall in the excluded leading day has no windowed reading.
-    const lone = [{ date: new Date(2025, 11, 5), rate: 0.5 }]
-    expect(rangeWindowDays(lone, { range: '30d', grain: 'day', now: NOW })).toEqual([])
-    expect(windowDays(days, NOW, STRIP_WINDOW_DAYS).map((d) => d.value)).toEqual([2, 3])
-  })
-  it('takes the mean and the peak day over full days only', () => {
-    const days = [
-      { date: new Date(2025, 11, 11), value: 90 },
-      { date: new Date(2025, 11, 12), value: 2 },
-      reading(9, 4),
-      reading(10, 50),
-    ]
-    const full = fullDays(days, NOW)
-    expect(meanOf(full.map((d) => d.value))).toBe(3)
-    expect(peakOf(full)?.value).toBe(4)
-  })
-  it('leaves the running day out of the count and the base', () => {
-    const days = [reading(8, 9), reading(9, 1), reading(10, 9)]
-    expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')
-    expect(cacheUnderLine([reading(9, 0.9), reading(10, 0.1)], NOW)).toBe(
-      '0 of 1 full days under it',
-    )
-  })
-})
-
-describe('countAgainst', () => {
-  it('counts days strictly above or below a line and ignores gaps', () => {
-    const values = [1, 2, null, 3, 2]
-    expect(countAgainst(values, 2, 'above')).toEqual({ count: 1, of: 4 })
-    expect(countAgainst(values, 2, 'below')).toEqual({ count: 1, of: 4 })
-  })
-})
-
-describe('prepareFolded', () => {
-  const points = [day(1, { mcp__s__a: 5, mcp__s__b: 4, Bash: 3, Read: 1 })]
-  const groupKeys = ['mcp__s__a', 'mcp__s__b', 'Bash', 'Read']
-
-  it('counts tools per MCP server and labels them in words', () => {
-    const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'sub_tool' })
-    expect(folded.keys).toEqual(['mcp__s', 'Bash', 'Read'])
-    expect(folded.points[0]?.groups).toEqual({ mcp__s: 9, Bash: 3, Read: 1 })
-    expect(labelOf('mcp__s')).toBe('S (MCP)')
-    expect(labelOf('mcp__chrome-devtools__take_screenshot')).toBe(
-      'Chrome devtools · Take screenshot',
-    )
-    expect(labelOf('web_search')).toBe('Web search')
-    expect(labelOf('file.read')).toBe('File read')
-    expect(labelOf('Task:sub/agent')).toBe('Task sub agent')
-    expect(labelOf('Skill:review/deep')).toBe('Skill review deep')
-    expect(labelOf(OTHER_KEY)).toBe(OTHER_KEY)
-  })
-  it('leaves every other dimension as sent', () => {
-    const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'project' })
-    expect(folded.keys).toEqual(['mcp__s__a', 'mcp__s__b', 'Bash', 'Read'])
-    expect(labelOf('Bash')).toBe('Bash')
   })
 })
 
@@ -626,27 +216,6 @@ describe('tokensFormatterFor', () => {
   })
 })
 
-describe('peakBucketTotal', () => {
-  it('is the tallest stacked bucket, null groups counting as zero', () => {
-    const d = new Date(2026, 0, 1)
-    expect(
-      peakBucketTotal([
-        { date: d, groups: { a: 1, b: null } },
-        { date: d, groups: { a: 2, b: 5 } },
-      ]),
-    ).toBe(7)
-    expect(peakBucketTotal([])).toBe(0)
-  })
-})
-
-describe('noHealthReading', () => {
-  it('a latency line keeps the card even when no call carries an error rate', () => {
-    expect(noHealthReading(false, 0)).toBe(true)
-    expect(noHealthReading(false, 3)).toBe(false)
-    expect(noHealthReading(true, 0)).toBe(false)
-  })
-})
-
 describe('noUsageWindow', () => {
   const at = (
     range: '7d' | '30d' | '90d' | 'all',
@@ -668,7 +237,7 @@ describe('noUsageWindow', () => {
 
   it('an empty strip leaves every unfiltered chart surface the short form', () => {
     for (const leading of [false, true]) {
-      expect(at('30d', { stripEmpty: true, leading })).toBe(NO_USAGE_CELL)
+      expect(at('30d', { stripEmpty: true, leading })).toBe('No usage ingested')
     }
   })
 
@@ -684,12 +253,12 @@ describe('noUsageWindow', () => {
   })
 })
 
-describe('stripCoversRange', () => {
-  it('speaks for 7 d and 30 d charts, not for 90 d or all (they reach past its window)', () => {
-    expect(stripCoversRange('7d')).toBe(true)
-    expect(stripCoversRange('30d')).toBe(true)
-    expect(stripCoversRange('90d')).toBe(false)
-    expect(stripCoversRange('all')).toBe(false)
+describe('noDataInWindow', () => {
+  it('names the gap and the way out, and widens only where a wider range exists', () => {
+    expect(noDataInWindow('usage', '30d')).toBe(
+      'No usage in this window — clear a filter or widen the range',
+    )
+    expect(noDataInWindow('usage', 'all')).toBe('No usage in this window — clear a filter')
   })
 })
 
@@ -699,5 +268,30 @@ describe('isFiltered', () => {
     expect(isFiltered([], [])).toBe(false)
     expect(isFiltered(['iu'], undefined)).toBe(true)
     expect(isFiltered(undefined, ['x'])).toBe(true)
+  })
+})
+
+describe('rangeWindowDays', () => {
+  // Buckets are the UTC midnight of a date's local fields, so `now` is read from local fields too.
+  const noon = new Date(2026, 0, 10, 12)
+  const NOW = Date.UTC(noon.getFullYear(), noon.getMonth(), noon.getDate(), 12)
+  const days = [
+    { date: new Date(2025, 10, 20), value: 1 },
+    { date: new Date(2025, 11, 20), value: 2 },
+    { date: new Date(2026, 0, 8), value: 3 },
+  ]
+  const cut = (range: '7d' | '30d' | '90d' | 'all', grain: 'day' | 'week') =>
+    rangeWindowDays(days, { range, grain, now: NOW }).map((d) => d.value)
+
+  it('cuts day grain to the range span and passes week grain and all through', () => {
+    expect(cut('7d', 'day')).toEqual([3])
+    expect(cut('30d', 'day')).toEqual([2, 3])
+    expect(cut('90d', 'day')).toEqual([1, 2, 3])
+    expect(cut('7d', 'week')).toEqual([1, 2, 3])
+    expect(cut('all', 'day')).toEqual([1, 2, 3])
+  })
+  it('leaves nothing when the only days fall before the window', () => {
+    const lone = [{ date: new Date(2025, 11, 5), value: 1 }]
+    expect(rangeWindowDays(lone, { range: '30d', grain: 'day', now: NOW })).toEqual([])
   })
 })

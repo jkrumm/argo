@@ -1,46 +1,13 @@
-import { startOfDay } from 'date-fns'
+import { format as formatDate } from 'date-fns'
 import { ACCOUNT_IDS } from './accounts'
 import type { Range } from '../../lib/queries/usage'
 
-/** The shared time cursor of the Claude-accounts charts and the cost chart above them. */
+/** The shared time cursor of the time-axis charts. */
 export const USAGE_TIME_GROUP = 'usage-time'
-
-/** The picker's eligibility limits (docs/claude-accounts.md Rule v1): session < 85 %, weekly < 90 %. */
-export const FIVE_HOUR_LIMIT = 85
-export const SEVEN_DAY_LIMIT = 90
-
-/** Reset markers on the 5 h lines only while the window is short enough to tell them apart (~5 a day). */
-export const FIVE_HOUR_MARKER_MAX_HOURS = 72
 
 const RANGE_HOURS: Record<Range, number> = { '7d': 168, '30d': 720, '90d': 2160, all: 8760 }
 
 export const rangeHours = (range: Range): number => RANGE_HOURS[range]
-
-/** The plot's x domain, matching the cost chart's first day; `all` lets the data decide. */
-export function rangeDomain(range: Range, now: number): readonly [Date, Date] | undefined {
-  if (range === 'all') return undefined
-  return [startOfDay(new Date(now - RANGE_HOURS[range] * 3_600_000)), new Date(now)]
-}
-
-export type QuotaWindow = 'five' | 'seven'
-
-export type QuotaResponse = {
-  series: ReadonlyArray<{
-    account: string
-    points: ReadonlyArray<{ at: string; fiveHourPct: number | null; sevenDayPct: number | null }>
-  }>
-  resets: ReadonlyArray<{ account: string; window: 'five_hour' | 'seven_day'; at: string }>
-}
-
-export type QuotaRow = {
-  date: Date
-  /** Keyed by `quotaKey`; absent or null = no sample for that account at this instant. */
-  values: Record<string, number | null>
-  /** `quotaKey`s whose window reset inside this bucket. */
-  resets: ReadonlySet<string>
-}
-
-export const quotaKey = (account: string, window: QuotaWindow) => `${account}:${window}`
 
 /** Registry accounts first, in registry order, then any other id the API sent, alphabetically. */
 export function orderAccounts(ids: Iterable<string>): string[] {
@@ -48,34 +15,6 @@ export function orderAccounts(ids: Iterable<string>): string[] {
   const known = ACCOUNT_IDS.filter((id) => seen.has(id))
   const rest = [...seen].filter((id) => !ACCOUNT_IDS.some((k) => k === id)).toSorted()
   return [...known, ...rest]
-}
-
-/** Both accounts' series merged onto one row per bucket instant, so one chart draws all four lines. */
-export function quotaRows(data: QuotaResponse): { accounts: string[]; rows: QuotaRow[] } {
-  const accounts = orderAccounts(data.series.map((s) => s.account))
-  const byTime = new Map<number, { values: Record<string, number | null>; resets: Set<string> }>()
-  const slot = (ms: number) => {
-    const row = byTime.get(ms) ?? { values: {}, resets: new Set<string>() }
-    byTime.set(ms, row)
-    return row
-  }
-  for (const s of data.series) {
-    for (const p of s.points) {
-      const row = slot(Date.parse(p.at))
-      row.values[quotaKey(s.account, 'five')] = p.fiveHourPct
-      row.values[quotaKey(s.account, 'seven')] = p.sevenDayPct
-    }
-  }
-  for (const r of data.resets) {
-    const ms = Date.parse(r.at)
-    // A reset marks the line only where a sample exists at that instant: it sits on the drawn value.
-    const row = byTime.get(ms)
-    row?.resets.add(quotaKey(r.account, r.window === 'five_hour' ? 'five' : 'seven'))
-  }
-  const rows = [...byTime]
-    .toSorted(([a], [b]) => a - b)
-    .map(([ms, r]): QuotaRow => ({ date: new Date(ms), values: r.values, resets: r.resets }))
-  return { accounts, rows }
 }
 
 export type PicksResponse = {
@@ -86,13 +25,22 @@ export type PicksResponse = {
   series: ReadonlyArray<{ at: string; picks: Record<string, number> }>
 }
 
-export type PickRow = { date: Date; picks: Record<string, number> }
-
-export const pickRows = (data: PicksResponse): PickRow[] =>
-  data.series.map((b) => ({ date: new Date(b.at), picks: b.picks }))
-
 /** The picker's "no Max account had headroom" value: the caller spills to its IU path. */
 export const SPILL = 'spill'
+
+/** Under this many picks the lane split is noise. */
+export const MIN_PICKS = 20
+export const NOT_ENOUGH_PICKS = 'Not enough picks yet'
+
+/** `since 24 Oct · 89 picks`: where the history starts and how much of it there is; `null` without picks. */
+export function coverageLine(data: Pick<PicksResponse, 'total' | 'series'>): string | null {
+  const first = data.series.reduce<number | null>((min, b) => {
+    const at = Date.parse(b.at)
+    return min === null || at < min ? at : min
+  }, null)
+  if (first === null || data.total === 0) return null
+  return `since ${formatDate(first, 'd MMM')} · ${data.total} ${data.total === 1 ? 'pick' : 'picks'}`
+}
 
 /** Account ids in registry order, `spill` (the non-Max fallback) last. */
 export function orderPicked(keys: Iterable<string>): string[] {

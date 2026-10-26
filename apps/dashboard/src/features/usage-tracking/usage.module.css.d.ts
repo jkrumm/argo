@@ -3,10 +3,6 @@ declare const classes: {
   readonly swatch: string
   readonly fill: string
   readonly share: string
-  readonly health: string
-  readonly healthBox: string
-  readonly healthRight: string
-  readonly healthHead: string
-  readonly healthValue: string
+  readonly dimmed: string
 }
 export default classes

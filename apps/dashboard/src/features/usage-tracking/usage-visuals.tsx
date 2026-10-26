@@ -48,7 +48,7 @@ const BAND_STATES = [
 export function ErrorBand({ days }: { days: readonly Daily[] }) {
   return (
     <BandStrip
-      ariaLabel="Error rate per day over the last 30 days"
+      ariaLabel="Error rate per day"
       data={days}
       x={(d) => d.date}
       states={BAND_STATES}

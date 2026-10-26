@@ -17,41 +17,7 @@
   height: 100%;
 }
 
-/* Health card: p95 and errors side by side, divided by a hairline. */
-.health {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--vx-space-stack-lg);
-}
-
-@container (min-width: 480px) {
-  .health {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0;
-  }
-
-  .healthRight {
-    padding-inline-start: var(--vx-space-stack-lg);
-    border-inline-start: 1px solid var(--vx-surface-hairline);
-  }
-}
-
-.healthBox {
-  container-type: inline-size;
-}
-
-.healthHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: var(--vx-space-stack-sm);
-  margin-bottom: var(--vx-space-stack-sm);
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-}
-
-.healthValue {
-  font-size: var(--vx-text-lg);
-  font-weight: 600;
-  color: var(--vx-ink);
+/* Top band: a portal fetch past 48 h keeps its figures but steps back. */
+.dimmed {
+  opacity: 0.55;
 }

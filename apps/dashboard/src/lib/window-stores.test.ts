@@ -79,8 +79,35 @@ describe('lanes opted out', () => {
 
 describe('multi fields', () => {
   it('a URL list beats storage, unknown members are dropped', () => {
-    persist('usage-tracking', { payer: ['me-sub'] })
-    expect(usageStore.validateSearch({ payer: ['iu-api', 'nope'] }).payer).toEqual(['iu-api'])
+    persist('usage-tracking', { workspace: ['private'] })
+    expect(usageStore.validateSearch({ workspace: ['work', 'nope'] }).workspace).toEqual(['work'])
+  })
+})
+
+describe('usageStore lens, scope, groupBy and sourceScope', () => {
+  it('opens on IU API spend grouped by tool, reliability scoped to calls', () => {
+    const v = usageStore.validateSearch({})
+    expect([v.lens, v.scope, v.groupBy, v.sourceScope]).toEqual([
+      'spend',
+      'iu-api',
+      'sub_tool',
+      'calls',
+    ])
+  })
+
+  it('accepts every value from the URL', () => {
+    expect(usageStore.validateSearch({ lens: 'tokens' }).lens).toBe('tokens')
+    expect(usageStore.validateSearch({ scope: 'all' }).scope).toBe('all')
+    expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('payer')
+    expect(usageStore.validateSearch({ sourceScope: 'sessions' }).sourceScope).toBe('sessions')
+  })
+
+  it('unknown values fall back, storage beats the fallback', () => {
+    persist('usage-tracking', { scope: 'api' })
+    expect(usageStore.validateSearch({ lens: 'cost' }).lens).toBe('spend')
+    expect(usageStore.validateSearch({ scope: 'bogus' }).scope).toBe('api')
+    expect(usageStore.validateSearch({ groupBy: 'project' }).groupBy).toBe('sub_tool')
+    expect(usageStore.validateSearch({ sourceScope: 'source' }).sourceScope).toBe('calls')
   })
 })
 
