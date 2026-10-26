@@ -68,6 +68,19 @@ describe('POST /usage/iu-portal', () => {
     expect(new Date(row!.fetched_at).toISOString()).toBe('2026-10-26T16:00:00.000Z')
   })
 
+  it('ignores an older report that arrives after a newer one', async () => {
+    await post({
+      costs: [cost({ costUsd: 9, fetchedAt: '2026-10-26T16:00:00.000Z' })],
+      totals: [{ month: '2026-10', totalUsd: 9, fetchedAt: '2026-10-26T16:00:00.000Z' }],
+    })
+    await post({
+      costs: [cost({ costUsd: 5, fetchedAt: '2026-10-26T12:00:00.000Z' })],
+      totals: [{ month: '2026-10', totalUsd: 5, fetchedAt: '2026-10-26T12:00:00.000Z' }],
+    })
+    expect((await db.select().from(iuPortalCost))[0]?.cost_usd).toBe(9)
+    expect((await db.select().from(iuPortalTotal))[0]?.total_usd).toBe(9)
+  })
+
   it('drops invalid rows without failing the batch', async () => {
     const res = await post({
       costs: [
@@ -153,6 +166,13 @@ describe('GET /usage/iu-reconcile', () => {
     const r = await get<{ days: unknown[]; unpricedRows: number }>('/iu-reconcile')
     expect(r.days).toEqual([])
     expect(r.unpricedRows).toBe(0)
+  })
+
+  it('does not flag days before the first portal report', async () => {
+    await post({ costs: [cost({ day: '2026-10-25' }), cost({ day: '2026-10-26' })], totals: [] })
+    await track('early', '2026-10-20T10:00:00Z', 50)
+    const r = await get<{ days: Array<{ day: string }> }>('/iu-reconcile?days=30')
+    expect(r.days.map((d) => d.day)).toEqual(['2026-10-25', '2026-10-26'])
   })
 
   it('compares portal and tracked per UTC day and flags the gap', async () => {

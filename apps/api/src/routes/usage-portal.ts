@@ -74,6 +74,14 @@ async function latestPortalDay(): Promise<{ day: string; fetchedAt: string } | n
   return row?.day && row.fetched_at ? { day: row.day, fetchedAt: row.fetched_at } : null
 }
 
+/** First day the portal reported; earlier days cannot be reconciled. */
+async function earliestPortalDay(): Promise<string | null> {
+  const [row] = rowsOf<{ day: string | null }>(
+    await db.execute(sql`SELECT min(day)::text AS day FROM argo.iu_portal_cost`),
+  )
+  return row?.day ?? null
+}
+
 export const usagePortalRoutes = new Elysia()
   .post(
     '/iu-portal',
@@ -86,43 +94,49 @@ export const usagePortalRoutes = new Elysia()
       const costRows = lastPerKey(costs.rows, (r) => `${r.day}|${r.label}|${r.row}`)
       const totalRows = lastPerKey(totals.rows, (r) => r.month)
 
-      if (costRows.length > 0) {
-        await db
-          .insert(iuPortalCost)
-          .values(
-            costRows.map((r) => ({
-              day: r.day,
-              label: r.label,
-              row: r.row,
-              model: r.model ? r.model : null,
-              cost_usd: r.costUsd,
-              fetched_at: r.fetchedAt,
-            })),
-          )
-          .onConflictDoUpdate({
-            target: [iuPortalCost.day, iuPortalCost.label, iuPortalCost.row],
-            set: {
-              model: sql`excluded.model`,
-              cost_usd: sql`excluded.cost_usd`,
-              fetched_at: sql`excluded.fetched_at`,
-            },
-          })
-      }
-      if (totalRows.length > 0) {
-        await db
-          .insert(iuPortalTotal)
-          .values(
-            totalRows.map((r) => ({
-              month: r.month,
-              total_usd: r.totalUsd,
-              fetched_at: r.fetchedAt,
-            })),
-          )
-          .onConflictDoUpdate({
-            target: iuPortalTotal.month,
-            set: { total_usd: sql`excluded.total_usd`, fetched_at: sql`excluded.fetched_at` },
-          })
-      }
+      // One transaction per batch, and a row only moves forward in time: a retry that delivers an
+      // older report after a newer one must not roll the cap's inputs back.
+      await db.transaction(async (tx) => {
+        if (costRows.length > 0) {
+          await tx
+            .insert(iuPortalCost)
+            .values(
+              costRows.map((r) => ({
+                day: r.day,
+                label: r.label,
+                row: r.row,
+                model: r.model ? r.model : null,
+                cost_usd: r.costUsd,
+                fetched_at: r.fetchedAt,
+              })),
+            )
+            .onConflictDoUpdate({
+              target: [iuPortalCost.day, iuPortalCost.label, iuPortalCost.row],
+              set: {
+                model: sql`excluded.model`,
+                cost_usd: sql`excluded.cost_usd`,
+                fetched_at: sql`excluded.fetched_at`,
+              },
+              setWhere: sql`excluded.fetched_at >= ${iuPortalCost.fetched_at}`,
+            })
+        }
+        if (totalRows.length > 0) {
+          await tx
+            .insert(iuPortalTotal)
+            .values(
+              totalRows.map((r) => ({
+                month: r.month,
+                total_usd: r.totalUsd,
+                fetched_at: r.fetchedAt,
+              })),
+            )
+            .onConflictDoUpdate({
+              target: iuPortalTotal.month,
+              set: { total_usd: sql`excluded.total_usd`, fetched_at: sql`excluded.fetched_at` },
+              setWhere: sql`excluded.fetched_at >= ${iuPortalTotal.fetched_at}`,
+            })
+        }
+      })
 
       return { costs: costRows.length, totals: totalRows.length, rejected }
     },
@@ -201,7 +215,11 @@ export const usagePortalRoutes = new Elysia()
       const days = query.days
       const latest = await latestPortalDay()
       const today = latest?.day ?? new Date().toISOString().slice(0, 10)
-      const from = addDays(today, -(days - 1))
+      // Days before the portal's first report have no portal figure to compare against.
+      const earliest = latest ? await earliestPortalDay() : null
+      const requested = addDays(today, -(days - 1))
+      const from = earliest && earliest > requested ? earliest : requested
+      const span = Math.round((Date.parse(today) - Date.parse(from)) / 86_400_000) + 1
 
       const [portalDays, portalModels, trackedDays, trackedModels, unpriced] = await Promise.all([
         db.execute(sql`
@@ -243,7 +261,7 @@ export const usagePortalRoutes = new Elysia()
       const round2 = (n: number) => Math.round(n * 100) / 100
 
       return {
-        days: latest ? reconcileDays(portalByDay, trackedByDay, today, days) : [],
+        days: latest ? reconcileDays(portalByDay, trackedByDay, today, span) : [],
         models: mergeModels(toMap(portalModels), toMap(trackedModels)),
         unpricedRows: Number(rowsOf<{ n: number }>(unpriced)[0]?.n ?? 0),
         windowTotals: {
@@ -278,7 +296,7 @@ export const usagePortalRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'IU portal vs tracked spend',
         description:
-          'Per UTC day over the last ?days (default 30, ending on the newest portal day): portal cost vs our tracked estimate (`SUM(cost_usd) WHERE billing = iu`). deltaUsd = tracked − portal; flagged when |delta| > max($1, 20 % of portal), the `make budget` rule; the newest day is partial. models joins portal labels with tracked model_norm on their alphanumerics; a model seen on one side keeps its own label. unpricedRows counts IU rows with a NULL cost in the window. With no portal data days is empty. Same auth as GET /usage/*.',
+          'Per UTC day over the last ?days (default 30, ending on the newest portal day, never earlier than the first portal day): portal cost vs our tracked estimate (`SUM(cost_usd) WHERE billing = iu`). deltaUsd = tracked − portal; flagged when |delta| > max($1, 20 % of portal), the `make budget` rule; the newest day is partial. models joins portal labels with tracked model_norm on their alphanumerics; a model seen on one side keeps its own label. unpricedRows counts IU rows with a NULL cost in the window. With no portal data days is empty. Same auth as GET /usage/*.',
         security: [{ BearerAuth: [] }],
       },
     },
