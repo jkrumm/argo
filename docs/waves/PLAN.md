@@ -37,31 +37,37 @@ Previous plan (basalt-ui 2.0 migration, Waves 1–10) is done; see git history o
   state words (ok / warn ≥ 80 % / over), its freshness rules (stale > 8 h, dead > 48 h) and its "can spend
   today / frees over 7 days" framing, so both surfaces read alike.
 
-## Wave 1 — Audit and design spec (no product code)            <!-- status: active -->
-- [ ] Audit the current page against live data (evidence/screenshot command, light + dark): what each section
-      answers, what it fails to answer, what is noise, and the load/latency of each endpoint. Read Tinycast's
-      usage views (code + AGENTS.md) for the vocabulary to share.
-- [ ] Query usage-tracker's DB read-only (`sqlite3 ~/.local/share/usage-tracker/usage.db`) and Argo's `/usage/*`
-      to establish which questions the data already answers: by source/sub_tool/model/project/account/payer,
-      tokens split cache-read / cache-write / input / output, per day. Note the gaps (the portal tables are not
-      synced; anything else missing).
-- [ ] Write `docs/design/usage-tracking.md` v2: the three questions as the page's top band (IU cap gauge
-      with can-spend-today and 7-day drop-off; two subscription headroom meters with pace; one "biggest
-      movers" line), then the analysis sections. Spend and tokens should be one switchable lens over the same
-      breakdowns, with a flow view (tool → sub-tool → model, sized by $ or tokens), a cache-efficiency view, a
-      portal-vs-tracked reconciliation strip, and project attribution. For each section: the question, the
-      chart kind from basalt's chart catalogue, the exact data contract, and the empty/stale states. Cut
-      everything that answers no question.
-- [ ] Specify the data work: a usage-tracker → Argo sync for `iu_portal_cost`/`iu_portal_total` (endpoint shape,
-      idempotency, same `argoConfig`/`postJson` path as the other syncs), plus any aggregate endpoints the page
-      needs so it never pulls raw records. Put the data steps into Wave 2 and the UI into Wave 3 below this
-      wave (3–6 steps each).
-- [ ] Commit the spec and the expanded plan, and stop for the owner's review of the spec. The orchestrator
-      shows it to him before Wave 2.
-**Left behind:**
+## Wave 1 — Audit and design spec (no product code)            <!-- status: done -->
+- [x] Audit the current page against live data (light + dark) and Tinycast's vocabulary.
+- [x] Query usage-tracker's DB read-only and Argo's `/usage/*`; gaps listed in the spec.
+- [x] Write `docs/design/usage-tracking.md` v2 (top band, lens, sections A–G, contracts, states).
+- [x] Specify the data work (portal sync, aggregate endpoints) in Wave 2; UI in Wave 3.
+- [x] Commit the spec and the expanded plan; stop for the owner's review of the spec.
+**Left behind:** Spec at `docs/design/usage-tracking.md`; audit findings are its first table. Decisions the owner should
+confirm or veto before Wave 2: (1) **Max rows are "list value", never "cost"/"spend"**; the page's default scope is IU API
+spend ($627 of the $19,136 the old headline shows). (2) Tokens lens shows cache-read as its own series and never adds it to
+fresh tokens (old `tokens` metric drops it: 47.8 B read vs 0.38 B output in 30 d). (3) Flow view ships as a shipped
+`Heatmap` (sub_tool x model); basalt has no Sankey, a ribbon flow is a stretch only if the review rejects the Heatmap.
+(4) v1 strip, payer bar, 30 d quota line, picks-per-day bars, call-count headline are cut; p95/errors move to a collapsed
+section G. (5) Gaps found: tracked vs portal drifts up to 0.42x-2.72x per day (2026-10-22: $71 vs $30), 1,631 unpriced IU
+rows in 30 d; quota/pick history only since 2026-10-24. `make evidence` timed out in its Lighthouse lane at 500 s
+(screens lane finished); the audit used `make design-shot ROUTES=/usage-tracking`. No product code changed.
 
 ## Wave 2 — Data: portal sync + aggregate endpoints            <!-- status: pending -->
-(Written by Wave 1.)
+Repos: `argo` (apps/api) and `~/SourceRoot/usage-tracker`. Contracts are in the spec's "Data work" section; do not re-derive.
+- [ ] Argo migration 0026 + drizzle schema for `iu_portal_cost` / `iu_portal_total`; `POST /usage/iu-portal` (upsert, `rejected` count, 1000-row cap) with route tests (replay is a no-op, overwrite on re-post, invalid rows dropped).
+- [ ] usage-tracker `src/sync-portal.ts`: watermark in `collector_state`, resend last 35 days when `fetched_at` moved, `tolerateMissing`, wired into the 15 min sync; unit tests with a fake `postJson`. Commit in usage-tracker (direct to master unless it is PR-required), deploy via its Makefile, verify first push lands 235 rows in Argo.
+- [ ] `GET /usage/iu-budget` (pure budget functions ported from `budget.ts`, same numbers as `make budget`) and `GET /usage/iu-reconcile`; tests with the 2026-10-26 fixture (rolling30 $573, can-spend -$65.59).
+- [ ] `GET /usage/flow` and `GET /usage/movers`; extend `GET /usage/timeseries` with `tokens_input|output|cache_read|cache_write` metrics and `top=N` server-side fold; existing `tokens`/`cost` shapes unchanged (Tinycast reads them); tests.
+- [ ] Verify against production after deploy (orchestrator's call): `iu-budget` equals `make budget`, `flow` top cell is `review_ocr` x deepseek-v4.1-flash, response sizes < 60 kB, warm < 1 s. Update `AGENTS.md` API section in the same commit. Gate: `make check`.
+**Left behind:**
 
 ## Wave 3 — The page            <!-- status: pending -->
-(Written by Wave 1.)
+Replaces the v1 page per the spec; reads only the Wave 2 endpoints (+ `/usage/quota`, `/usage/account-picks/summary`). Read `.claude/rules/basalt-*.md` and use the `basalt-design` skill; every round is `make design-shot ROUTES=/usage-tracking` scored by a fresh `basalt-design-reviewer`.
+- [ ] Data layer: query options + typed models for the new endpoints, lens/scope state in `usageStore`, pure model functions (pace tick, state words, freshness, delta glyphs) with tests; delete the v1 model code the new page does not use.
+- [ ] Top band: Q1 cap gauge + drop-off bars, Q2 subscription meters with pace tick, Q3 movers; all states from the spec (fresh/stale/dead/empty/over).
+- [ ] Lens bar + sections A (stacked area + ranked list), B (Heatmap), C (cache efficiency), E (projects).
+- [ ] Section D reconciliation, collapsed F routing and G reliability; remove the cut v1 components and CSS.
+- [ ] Shot rounds light + dark, desktop + mobile, until the reviewer passes; record rounds in the spec. Check the spec's pass criteria 1-7 against live data. Update AGENTS.md and the design doc. Gate: `make check`. Deploy is the orchestrator's call.
+**Left behind:**
+

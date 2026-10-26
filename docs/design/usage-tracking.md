@@ -1,274 +1,185 @@
-# Usage Tracking — concept
+# Usage Tracking v2 — spec
 
-Route `/usage-tracking` · `apps/dashboard/src/routes/usage-tracking.tsx`, `apps/dashboard/src/features/usage-tracking/` · API `GET /usage/headline`, `/usage/timeseries`, `/usage/breakdown`.
+Route `/usage-tracking` · `apps/dashboard/src/routes/usage-tracking.tsx`, `apps/dashboard/src/features/usage-tracking/` · API `/usage/*`.
+Replaces the Wave 21–51 concept (history: git log of this file). Plan: `docs/waves/PLAN.md` (Waves 2–3 build this).
 
-## Baseline verdict
+## Audit of the current page (2026-10-26, live data, light + dark)
 
-Shots: `usage-tracking--dark--desktop.png`, crops `usage-tracking--dark--01-cost-30d.png` … `05-cache-hit-30d.png`, `06-cost-over-time.png`, `07-billing-split-cost.png`, `08-tokens-over-time.png`, `11-p95-latency.png`, `12-card.png`.
+Shots: `make design-shot ROUTES=/usage-tracking LABEL=usage-v2-audit` (gitignored). Endpoint timings against production, cold: `headline` 2.2 s, `timeseries` 0.5–0.8 s (the unfolded tokens-by-tool series is 448 kB), `breakdown` 0.3 s, `quota` 0.1 s.
 
-- Five bare `StatCard`s (crops 01–05) with no micro-visual. Each carries a long mono subtitle ("Last 7d ${cost_7d} · Max ${cost_max} · IU ${cost_iu} · OpenRouter ${cost_or}"), which is a row of numbers in one string. Cache hit is `{pct}%` with no scale, so the reader cannot tell whether that is good.
-- "Tokens over time" (crop 08) has a legend of {n_series} entries, about 2000 px of wrapped swatches, between the chart and everything below it. The chart is unreadable; the legend is the page.
-- Cost-over-time legend (crop 06) lists {n_sources} sources; the donut (crop 07) shows a {pct} / {pct} split that a single bar says better, and its centre repeats the "Cost" card.
-- Top projects (crop 12) is a table with a share column where a ranked bar list exists.
-- Section titles "Cost", "Volume", "Health" and the card captions are bare nouns with no number.
-- Fields in `usage_record` the page never reads: `cost_source` only (how a cost was derived: reported vs estimated). `sub_tool` is a group-by, `workspace` a filter, the token columns feed the tokens metric, `duration_ms` feeds p95, `machine` is a filter and group-by.
+| Section | Answers | Fails to answer / defect |
+|-|-|-|
+| Headline `347,552 calls` | nothing a decision hangs on | call count is the page title; the three real questions are absent |
+| Strip: Cost `$19,136` | "how big is list-price consumption" | **Misleading.** 91 % is `IU Max` ($17,451) and 6 % `Me Max` — subscription usage priced at API list. Real API spend is $627 (3 %). The biggest number on the page is not money anyone pays |
+| Strip: Tokens `2.4 B` | volume ex cache-read | The metric drops `cache_read_tokens` (`metricExpr('tokens')`). 30 d actual: 47.8 B cache-read vs 0.75 B fresh input vs 0.38 B output. IU API alone: 8.3 B cache-read. The cost driver is invisible |
+| Strip: Errors / p95 / Cache hit | health | Nobody acts on p95 across 14 sources; cache hit 98.8 % is a fleet average that hides which tool is at 40 % |
+| Payer split bar | mix | Same bar as `Spend by payer`; duplicate |
+| Cost per day by payer + list | when, which payer | Dominated by Max list price; IU API is a sliver (the one line that is real money) |
+| Claude quota (30 d) | headroom | 30 d axis, but samples exist only since 2026-10-24 (343 rows) → chart is a spike in the last 2 days. No pace, no reset time |
+| Picks by lane / Picks per day | routing | picks since 2026-10-24 only (89 rows); three bars. Useful as a ratio, not as a 30 d chart |
+| Tokens per day by tool + list | tools | Series are `sub_tool` only; no model, no payer lens, no cache split, `Interactive`/`Wave` (Max) outrank the IU review lanes that cost money |
+| Latency and errors | health | 61 % of errors are `agent-gateway-sessions` (a sessions source, not a failing call). p95 of 27–44 s is an average of unrelated workloads |
+| Top projects | where | Ranked by list-price cost, so `basalt-ui $2,651` is a Max number. Raw `project` has 6,376 distinct values in 30 d (cwd paths) before Argo's `normalizeProject` |
 
-**Distance from bar: 4/5.** Real data and sensible metrics, but no dataset has an encoding chosen for its shape and one legend consumes the page.
+Verdict: the page answers "how much did I consume at list price" and not one of the three questions. Keep: filters, `BarList` ranked lists, the payer vocabulary, error-day `BandStrip` (moves into a drill-down). Cut: call-count headline, p95 and cache-hit cells as top-level KPIs, the payer split bar, the 30 d quota line chart, the picks-per-day bars.
 
-## The question and the decision
+## What the data already answers
 
-Question: am I burning more than usual, and is any source or project responsible, or is anything failing?
-Decision: which source or project to throttle, move to another billing plan, or investigate for errors this week.
+Source: usage-tracker `usage.db` (769 k rows since 2026-04-14) mirrored in Argo `argo.usage_record`. 30 d window, billing=iu = $589 tracked vs portal $573.
 
-## Datasets and encodings
+- **Dimensions present**: `source`, `sub_tool`, `model_norm`, `project`, `workspace`, `account`, `machine`, `billing`, derived `payer`. Token columns: `input`, `output`, `cache_read`, `cache_write` (+ `cache_write_1h`), `reasoning`. All usable per day.
+- **Where IU API money goes (30 d)**: `review_ocr` on deepseek-v4.1-flash $197 (3.5 B cache-read, 0.21 B fresh input, 0.12 B output); `review:adversary` gpt-5.6-terra $86 (25 M input, almost no cache — price per fresh token is the story); `review:angle` haiku-5.5 $48 (0.9 B read + 0.2 B write); research-gateway `worker` $48; claude-code `agent-gateway:check` $33; opencode interactive/review/dispatch ~$15 each. By source: agent-gateway-iu $300 of $589.
+- **Cache-read, not input, is the volume**: for IU API 8.3 B cache-read vs 0.56 B input vs 0.19 B output. A flash model with 3.5 B reads out-spends an expensive model with 25 M fresh input — the tokens lens must show the four-way split, and "cache-read $" per tool is the efficiency number.
+- **Max is sunk**: `billing=max` rows carry list-price `cost_usd` ($18.7 k). That is a *value* number (what the subscription saved), never a spend number.
 
-| Dataset                   | Source                                                                           | Shape (SPEC §3)                             | Today                                   | Chosen                                                                                                                                                             | Reason                                                                                | Keel                                               |
-| ------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Cost, 30d                 | `headline.costUsd30d`, `costUsd7d`; `timeseries?metric=cost&grain=day&range=90d` | Single value with a trend                   | `${cost_30d}` + subtitle string         | `StatCard` caption `COST · 30d`, value `${cost_30d}`, delta `{delta}% vs prior 30d` (prior from the 90d series), axis-less daily sparkline with end dot            | Daily history says whether 7d `${cost_7d}` is normal                                  | `metric-card.png`                                  |
-| Billing split             | `headline.cost{Max,Iu,Openrouter}Billing30d`                                     | Part of a whole, 2–6 parts                  | Donut + 3-row legend                    | `Meter` segments Max / IU / Other, captions under segments (`Max ${cost} · {pct}%`, `IU ${cost} · {pct}%`), no donut                                               | One bar carries parts and total; donut spends a half-width card on two numbers        | `metric-card-bar.png`                              |
-| Tokens, 30d               | `headline.tokens30d`, `sourcesActive`; `timeseries?metric=tokens`                | Single value with a trend                   | `{tokens}M` + "{n} active sources"      | Strip cell `TOKENS · 30d`, value `{tokens}` + muted `B`, sparkline, qualifier `{n} sources`                                                                        | Unit gets a symbol; sparkline replaces the subtitle                                   | `stat-cell.png`                                    |
-| Error rate                | `headline.errorRate30d`, `maxTs`; `timeseries?metric=errors&groupBy=outcome`     | Status over time                            | `{rate}%` + "Last event {age} ago"      | Strip cell `ERRORS · 30d`, `{rate}%`, a 30-cell `BandStrip` (day ok < 1% / warn 1–3% / bad > 3%, proposed thresholds, error ink only when earned)                  | Every day visible; runs of bad days read at once                                      | `stat-strip.png`                                   |
-| p95 latency               | `headline.p95Ms30d`; `timeseries?metric=latency_p95`                             | Single value with a trend                   | `{p95}s` + "{n} rows lifetime"          | Strip cell `P95 · 30d`, `{p95} s` (muted `s`), sparkline with end dot; row count moves to the footer                                                               | Row count is not about latency                                                        | `metric-card.png`                                  |
-| Cache hit                 | `headline.cacheHitRatio30d`; `timeseries?metric=cache_ratio`                     | Single headline ratio, shape is the message | `{pct}%`                                | Strip cell with ring `Meter` at the ratio and a tick at 60 (the existing "good" threshold in `cache-hit-ratio.tsx`), caption `CACHE HIT · 30d`                     | Bounded ratio with a known target is exactly the ring case; the only ring on the page | `metric-card-gauge.png`                            |
-| Cost by source over time  | `timeseries?metric=cost&groupBy=source`                                          | Part of a whole over time                   | Stacked area, {n}-entry legend          | Stacked area folded to top 6 sources + "Other" (neutral), legend replaced by the adjacent `BarList` (30d cost per source). Source / Machine / Billing switch stays | The ranked list is the legend and the ranking at once                                 | `kanban-column.png` (count + total header)         |
-| Tokens by tool over time  | `timeseries?metric=tokens&groupBy=sub_tool`                                      | Part of a whole over time                   | Stacked area, {n_series} legend entries | Same fold: top 6 + "Other"; adjacent `BarList` of top 8 tools; Tool / Model / Project / Source switch stays (the fold applies to every group-by)                   | {n_series} series cannot be separated by hue; length can rank them                    | —                                                  |
-| Errors by source          | `timeseries?metric=errors&groupBy=source`                                        | Distribution over time                      | Stacked area, {n}-entry legend          | Axis-less `Bars`, error count per day, top 3 sources + Other, in the Health card                                                                                   | Counts of rare events read as bars, not areas                                         | —                                                  |
-| Latency + errors together | `timeseries`                                                                     | Small multiples                             | Two separate cards                      | One composite Health card: p95 sparkline (left) and error bars (right), both axis-less with the first and last date as mono captions, divided by a hairline        | Failures and latency are one question                                                 | `crew--dark--desktop.png` (agent card inner panel) |
-| Top projects              | `breakdown?dimension=project&metric=cost&limit=10`                               | Ranked list, top N                          | Table: project / cost / share           | `BarList` 10 rows: label, bar on one scale, mono `${cost}`, trailing `{share}%` muted; header `Top projects · ${cost_30d}`                                         | Rank reads by length                                                                  | `table-row.png`                                    |
-| Row freshness             | `headline.maxTs`, `recordsTotal`                                                 | Single value                                | Subtitle text                           | Footer line `{n} records · last event {age} ago`, status dot red if > 30 min                                                                                       | Freshness is a fact about the feed, not a KPI                                         | `status-pill.png`                                  |
+### Gaps (Wave 2 closes the first three)
 
-## Layout
+1. **Portal tables are not in Argo.** `iu_portal_cost` (235 rows, 2026-09-26 → 2026-10-26) and `iu_portal_total` (months) exist only in usage-tracker's SQLite. No cap, can-spend-today or drop-off is computable in Argo.
+2. **No aggregate for the split.** `breakdown` returns one metric per key; the page needs cost + the four token columns + calls per key in one response. The tokens `timeseries` returns the full unfolded series (448 kB).
+3. **No tool → sub-tool → model flow, no movers.** Needs a hierarchical aggregate.
+4. **Tracked vs portal drift is real.** Daily ratio ranges 0.42×–2.72×; 2026-10-22 portal $71.44 vs tracked $30.21 (portal shows Claude Opus 5.5 $33 that tracking prices at far less), 1,631 IU rows (30 d) have `cost_usd` NULL (unpriced model, mostly `model_norm` NULL, 736 rows). The reconciliation strip exists to make this visible, not to fix it.
+5. **Quota/pick history is 3 days old** (since 2026-10-24); charts must state the coverage, not draw a 30 d axis.
+6. **`project` is high-cardinality** (6,376 raw in 30 d). Rank by normalized project and fold the tail into "other"; never a chart series.
+7. Fields never read: `cost_source` (reported 47 k / computed 187 k / family 113 k / none 2 k) — surfaces cost *confidence*; show it in the reconciliation drill-down, not as a section.
 
-1440: `PageBar` with the filter group (30d / Day / workspace / billing, unchanged). Summary sentence. Joined stat strip of 5 cells (Cost, Tokens, Errors, p95, Cache hit) with the billing `Meter` as a full-width second row of the Cost cell. Row: cost-by-source chart (8 cols) + Spend-by-source `BarList` (4). Row: tokens-by-tool chart (8) + tool `BarList` (4). Row: Health composite card (8) + Top projects `BarList` (4). Footer freshness line.
+## Vocabulary (shared with Tinycast `extension/src/usage/iu-budget.ts`)
 
-390: strip becomes a 2-column grid (Cache hit spans two); each chart is full width with its `BarList` below, capped at 5 rows with "Show all N"; Health card stacks p95 over errors.
+- State words: **ok** (< 80 % of cap), **warn** (≥ 80 %), **over** (> 100 %). Weekly quota uses the same words at 80 / 100.
+- Freshness: **fresh** ≤ 8 h, **stale** > 8 h, **dead** > 48 h since the portal fetch (`fetched_at`).
+- Lines: `{$} / $500 ({pct} %)`, `can spend today {$}` (negative reads `over by {$}`), `frees {$} over 7 days`.
+- Money is whole dollars, thousands separator, `<$1` below one. Tokens are `B` / `M`. Subscription cost is always labeled **list value**, never "cost" or "spend".
+- Payers: `IU Max` / `Me Max` (subscriptions, list value), `IU API` / `Me API` (spend).
 
-Stay: the four chart kinds' hues (`USAGE_SOURCE`, `USAGE_BILLING`), the group-by switches, tooltips. Change: both big stacked areas (fold + BarList), hero cards, donut → `Meter`, table → `BarList`. Go: donut, the three chart legends, the subtitle strings.
+## Page structure
 
-## Copy
+Top band (answers the three questions, one row at 1440; stacked at 390). Then a lens bar, then sections.
 
-Format is binding; figures are placeholders. Money is always whole dollars with a thousands separator, never `k`-compacted; sub-dollar totals read `<$1`.
+```
+PageBar: Range · Grain · Workspace · Payer                         [IU cap · fresh 2 h]
+Q1 IU cap            Q2 Subscriptions                      Q3 Biggest movers (7 d vs prior 7 d)
+ gauge $573/$500      iu 20x  ▓▓▓▓▓░ 5 h 62 % · 7 d 71 %    ▲ review_ocr · deepseek-v4.1-flash  +$31
+ over by $73          me 5x   ▓▓░░░░ 5 h 20 % · 7 d 34 %    ▼ review:adversary · gpt-5.6-terra  −$12
+ can spend today −$66  pace tick on each 7 d meter           ▲ worker · deepseek-v4.1-flash      +$9
+ frees $63 / 7 d (bars)  reset in 2 d 4 h
+─────────────────────────────────────────────────────────────────────────────────────────────
+Lens: ( Spend $ | Tokens )   Payer scope: ( IU API | all API | + subscriptions )
+A  Where it goes over time      stacked area by tool (sub_tool) + ranked BarList
+B  Flow: tool → model            Heatmap sub_tool × model (+ ranked flow stretch)
+C  Cache efficiency              per-tool four-way token split + cache-read share
+D  Portal vs tracked             daily bars of portal vs tracked + delta strip
+E  Projects                      BarList top 10 + other, with workspace tag
+F  Routing (collapsed)           lane × account picks + coverage note
+G  Reliability (collapsed)       error-day BandStrip, p95 sparkline by source
+```
 
-- Summary: `${cost_30d} over 30 days, ${cost_7d} in the last 7 days · {tokens}B tokens · {rate}% errors in 30 d · last event {age} ago`
-- Cells: `COST · 30d` / `TOKENS · 30d` / `ERRORS · 30d` / `P95 · 30d` / `CACHE HIT · 30d`; qualifiers `{delta}% vs prior 30d`, `{n} sources`, `{n} bad days`, `{delta} s vs prior`, `target 60%`
-- Charts: `Cost per day · by source · ${cost_30d}` · `Tokens per day · by tool · {tokens}B` · `Errors per day · {n} events` · `p95 latency · per day · {p95} s`
-- Lists: `Spend by source · 30d`, `Top projects · ${cost_30d}`; replaces "Cost / Volume / Health / Top projects" section titles
-- Footer: `{n} records in total · {n} sources active in 30 d · last event {age} ago`
+Cut from v1: call-count headline, the five-cell strip, payer split bar, 30 d quota line chart, picks-per-day bars.
 
-## Upstream candidates
+### Q1 — IU cap gauge
 
-- `Meter` `{ value, max, target?, segments?: {label, value}[], shape: 'bar'|'ring', unit }`, maps to planned `Meter` (§4, wave 34).
-- `BarList` `{ rows: {label, value, share?, hue?}[], format, max? }`, maps to planned `BarList`.
-- `StatGroup variant="strip"` with a per-cell micro-visual slot, maps to planned strip.
-- New: series-fold helper (`foldTopN(series, n, otherLabel)`) for stacked `CartesianChart` data. The top n are chosen once, by aggregate value over the active filtered range (the same totals the adjacent `BarList` ranks), and kept for every bucket; all remaining series sum into Other, so series identity is stable over time and the chart matches the list; every stacked chart with an open-ended group-by needs it.
-- New: threshold-banded `BandStrip` preset from a daily series + thresholds (error days).
+- **Question**: am I inside the rolling 30-day $500 cap, and what can I spend today?
+- **Kind**: `Meter` bar (value `rolling30`, max `limit`, tick at 80 %), state word and tone from the vocabulary. Under it `Bars` (axis-less, 7 bars) of the next 7 days' drop-off, each labeled with the day and `frees $`. Text lines: `can spend today`, `burn 7 d $/day → in 7 days $X`.
+- **Contract** `GET /usage/iu-budget` → `{ limitUsd: 500, windowDays: 30, fetchedAt, windowFrom, windowTo, rolling30Usd, canSpendTodayUsd, burn7dUsdPerDay, projected7dUsd, daily: [{day, usd}], dropoffNext7: [{day, freesUsd, headroomUsd}], topModels: [{label, usd}] }`. Definitions are usage-tracker `budget.ts`: window = today and the 29 days before; `canSpendToday = limit − sum(the 29 days before today)`; drop-off day *d* frees that day's portal cost when it leaves the window.
+- **States**: *fresh* normal; *stale* (> 8 h) value kept, `stale · fetched {age}` in warn ink; *dead* (> 48 h) value dimmed with `portal session expired — run make iu-portal-login in usage-tracker`; *empty* (no rows) `No portal data yet`; *over* error tone with `over by {$}`.
+
+### Q2 — Subscription headroom
+
+- **Question**: how much of each Max subscription's 5 h and weekly window is used, am I on pace, when does it reset?
+- **Kind**: two `Meter`s per account (5 h, 7 d). 7 d meter has a **pace tick** at `elapsed / 7 d` of the window (derived from `sevenDayResetsAt`); fill past the tick = ahead of pace. Caption `resets in {d h}`. State words at 80 / 100 %.
+- **Contract**: existing `GET /usage/quota` (latest point per account) + `GET /usage/account-picks/summary` for the routing ratio line `iu 19 % of picks`. Wave 2 adds nothing here; Wave 3 reads the last bucket only.
+- **States**: no sample for an account → `no reading`; sample older than 30 min → `stale {age}`; `authOk=false` → `auth failed`.
+
+### Q3 — Biggest movers
+
+- **Question**: what changed most in dollars this week?
+- **Kind**: three-line ranked text list with delta glyph + `DeltaBadge`, no chart. Rows are `(sub_tool, model_norm)` pairs, API payers only.
+- **Contract** `GET /usage/movers?window=7d&limit=3&payer=iu-api,me-api` → `{ current:{from,to}, prior:{from,to}, rows:[{subTool, model, costUsd, priorCostUsd, deltaUsd}] }` sorted by `|deltaUsd|`. Pairs under $2 total in both windows are dropped.
+- **States**: no pairs above the floor → `Spend is flat vs the prior 7 days`.
+
+### Lens — Spend $ vs Tokens
+
+One switch (`lens`, in the URL via `usageStore`) drives A, B, C-detail and E. **Spend** scope default `IU API`; `+ subscriptions` adds Max rows tagged *list value* (hatched/muted, never in the same stack total as spend). **Tokens** shows the four-way split with cache-read as its own series; the headline total is labeled `{x} B incl. cache-read` and is never added to "fresh tokens".
+
+### A — Where it goes over time
+
+- **Question**: which tool's spend/tokens moved, and when?
+- **Kind**: stacked `CartesianChart` area (existing folded chart), `foldTopN` 6 + Other, adjacent `BarList` as legend. Group-by switch Tool / Model / Source / Payer. In tokens lens the group-by is replaced by the four token classes.
+- **Contract**: `GET /usage/timeseries` extended (below) — `metric=cost|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write`, folded server side: `top=6` returns the top-N keys by range total plus an `other` key, so the payload is ≤ 7 series (30 d × 7 ≈ 25 kB instead of 448 kB).
+- **States**: empty range → `ChartCard state.empty`; a key with all-null cost (unpriced) is drawn at 0 and counted in the footer `n rows unpriced`.
+
+### B — Flow: tool → sub-tool → model
+
+- **Question**: for a given tool, which model is it burning money on, and is that the right model?
+- **Kind**: shipped `Heatmap` (rows = `sub_tool` top 12 by total, columns = `model_norm` top 8, cell = lens value), with row and column totals as `BarList` margins. Click a cell → sets the `sub_tool` + `model` filters. A true ribbon flow (tool → sub-tool → model) is a stretch: `CartesianChart` `marks` with `rect` + `link`, built only if the Heatmap review round scores it as not answering the question. Basalt ships no Sankey.
+- **Contract** `GET /usage/flow?range&lens=cost|tokens&payer&top=12` → `{ total, rows:[{source, subTool, model, cost, input, output, cacheRead, cacheWrite, reasoning, calls}] }` already aggregated at `(source, sub_tool, model_norm)`; ≤ 200 rows. The client derives the heatmap, ranked lists and the cell drill-down from this single response (this is also C's contract).
+- **States**: nothing in scope → empty; rows with `model_norm` NULL group as `(unknown model)` and are listed with their row count.
+
+### C — Cache efficiency
+
+- **Question**: which tools pay for fresh input that should have been cached, and which are cache-dominated?
+- **Kind**: horizontal `Bars` per `sub_tool` (top 10), 100 % stacked: cache-read / cache-write / fresh input / output, label `cache-read {pct} %`; second column `$ per 1 M tokens`. Read from the `/usage/flow` response (aggregated to sub_tool client side).
+- **Why**: `review:adversary` at 4 % cache on gpt-5.6-terra vs `review_ocr` at 94 % shows in one glance; the $ column says which one to fix.
+- **States**: tools under 1 M tokens are folded into Other; sources that do not report cache fields (audio-gateway) show `no cache data`.
+
+### D — Portal vs tracked (reconciliation)
+
+- **Question**: can I trust tracked spend as the IU number, and where is the gap?
+- **Kind**: `Bars` grouped per day (portal, tracked) for 30 d with a delta strip below (`BandStrip`: ok within max($1, 20 %), warn beyond, same rule as `make budget`). Click a day → per-model table `portal vs tracked`.
+- **Contract** `GET /usage/iu-reconcile?days=30` → `{ days:[{day, portalUsd, trackedUsd, deltaUsd, ratio, flagged}], models:[{label, portalUsd, trackedUsd}], unpricedRows, windowTotals:{portalUsd, trackedUsd} }`. Tracked = `SUM(cost_usd) WHERE billing='iu'`; model join is by portal label ↔ `model_norm` prettified, unmatched go to `(unmatched)`. `unpricedRows` = IU rows with NULL cost.
+- **States**: no portal data → whole section collapses to a one-line `connect the portal sync` note; the most recent portal day is partial and flagged `partial`.
+
+### E — Projects
+
+- **Question**: which project is the spend for?
+- **Kind**: `BarList` top 10 normalized `project` + `Other`, workspace as muted tag; lens follows (spend or tokens); Max projects only appear under `+ subscriptions` as list value.
+- **Contract**: existing `breakdown?dimension=project` with `payer` scope; `limit=10` and the `(unset)` bucket labelled `(no project)`.
+
+### F — Routing (collapsed by default)
+
+Lane × account picks `BarList` + the reason column (existing `picks-panel`), plus a coverage line `since 24 Oct · {n} picks`. Drop the picks-per-day bars. Empty < 20 picks → `Not enough picks yet`.
+
+### G — Reliability (collapsed by default)
+
+Existing error-day `BandStrip` and p95 sparkline, scoped per `source` selector, with `agent-gateway-sessions` excluded by default (a sessions feed, not call failures). No KPI cells.
+
+## Data work (build spec)
+
+### usage-tracker → Argo portal sync
+
+- **Argo tables** (migration 0026, `argo` schema): `iu_portal_cost(day date, label text, row int, model text null, cost_usd double, fetched_at timestamptz, PK(day,label,row))`, `iu_portal_total(month text PK, total_usd double, fetched_at timestamptz)`. `limit_usd` 500 and `window_days` 30 are constants in the API (`IU_CAP_USD`, `IU_WINDOW_DAYS`), because the portal tables do not carry them.
+- **Endpoint** `POST /usage/iu-portal` (BearerAuth, same as `/usage/records`): body `{ costs: [{day, label, row, model, costUsd, fetchedAt}] (≤ 1000), totals: [{month, totalUsd, fetchedAt}] (≤ 24) }`. Upsert: `ON CONFLICT (day,label,row) DO UPDATE SET cost_usd, model, fetched_at` — the portal re-posts a day's value as it settles, so overwrite is correct and a replay is a no-op. Returns `{ costs: n, totals: n }`. Invalid rows are dropped and counted in `rejected`, never failing the batch (the `/usage/quota-samples` contract).
+- **usage-tracker** (`src/sync-portal.ts`, same `argoConfig` / `postJson` with `tolerateMissing`): after each portal collect and in the 15 min sync, push every row whose `fetched_at` is newer than the stored watermark (`collector_state` key `argo_portal_fetched_at`), advance the watermark only on `ok`. First run sends all 235 rows. The 30-day window shifts daily, so also resend the last 35 days of `iu_portal_cost` every run when `fetched_at` moved (≤ 235 rows).
+- **Idempotency**: PK upsert + watermark; a crash between POST and watermark write replays the same rows.
+
+### Aggregate endpoints (Argo)
+
+| Endpoint | Purpose | Notes |
+|-|-|-|
+| `GET /usage/iu-budget` | Q1 | from `iu_portal_cost`; pure functions ported from usage-tracker `budget.ts` with tests; ≤ 10 ms |
+| `GET /usage/movers` | Q3 | two windowed `GROUP BY sub_tool, model_norm` sums; both windows in one SQL |
+| `GET /usage/flow` | B, C | one `GROUP BY source, sub_tool, model_norm` with `SUM` of cost and the five token columns + `COUNT`; payer scope + range filters as `breakdown` |
+| `GET /usage/iu-reconcile` | D | `iu_portal_cost` per day vs `usage_record` billing=iu per day, UTC-day buckets (portal days are UTC) |
+| `GET /usage/timeseries` (extend) | A | `metric` gains `tokens_input|output|cache_read|cache_write`; new `top=N` folds server side into `N + other`; the existing `tokens` metric stays (without cache-read) so Tinycast and old callers keep working |
+| `GET /usage/headline` | — | not read by the new page; Tinycast does not call it (it reads `/usage/timeseries?metric=cost&groupBy=sub_tool` and `/usage/summary`, which must keep their shape) — remove `headline` after the page ships |
+
+Every endpoint takes `range`, `payer[]`, `workspace[]` like the existing ones and returns a decided empty shape, never 404. Page never pulls `/usage/records`.
+
+## Empty / stale summary
+
+| Surface | Empty | Stale |
+|-|-|-|
+| Q1 | `No portal data yet` | `stale · fetched {age}` > 8 h; dead > 48 h with the login command |
+| Q2 | `no reading` per account | `stale {age}` > 30 min |
+| Q3 | `Spend is flat vs the prior 7 days` | n/a |
+| A–C, E | `ChartCard state.empty` | `last event {age} ago` footer; red dot > 30 min |
+| D | one-line note | latest day marked `partial` |
+| F | `Not enough picks yet` | coverage line |
 
 ## Pass criteria
 
-1. The page has no legend with more than 9 entries; stacked charts show at most 7 series including "Other".
-2. Every number in the strip has a unit or symbol, a period, and a comparison or target; no cell is a bare number.
-3. Cache hit renders a ring with a tick at 60; no other ring exists on the page.
-4. The billing split is one segmented bar with captions; no donut remains.
-5. Top projects is a bar list sorted by cost with a header that contains the total.
-6. The summary sentence contains the 30d cost and the last-event age.
-7. No filler section titles remain ("Cost", "Volume", "Health" on their own); no coloured left edges.
-8. At 390 px the strip is 2 columns and no horizontal scroll appears.
-
-## Wave 21 build notes
-
-- **API (additive, no schema change):** `GET /usage/headline` gained `costUsdPrior30d`, `tokensPrior30d`, `errorRatePrior30d`, `p95MsPrior30d` (the 30 d before the current window; `null` when that window would reach before the data floor, and `null` for a ratio with no rows). `GET /usage/timeseries` gained `metric=error_rate` (errors ÷ calls per bucket, `null` on a bucket with no calls). Both are needed for the strip's comparisons and the error band; neither existed.
-- **Deviations from the concept:**
-  - The strip is fixed at 30 d (the headline endpoint ignores the page filters); charts and lists follow range, grain, workspace and billing.
-  - The p95 / errors Health card follows the page range. Errors are one bar series in the error colour with the top source named in the header (`{source} {pct}%`), not stacked by source: without a legend three category hues read as status.
-  - Open-ended group-bys (tool, model, project) colour by rank, not by hash, so the six named series are six hues.
-  - Header totals print the strip's figure when the page is unfiltered 30 d, so the page never carries two totals for one quantity (the buckets are cut a few minutes after the headline's rolling window).
-  - The cache ring is a local SVG: `Meter shape="ring"` takes no target, and the ring needs the 60 % tick.
-
-## Wave 21 rounds
-
-Shots against production through `basalt-ui shot --api`; the production API did not yet serve the new fields in any round, so the Errors band and the prior-30 d comparisons were shot in their unavailable state.
-
-| Round | Change                                                                                                                                                                                                                                                                | Reviewer verdict                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| r0    | Baseline: five bare `StatCard`s, donut, two legend-heavy stacked areas, table                                                                                                                                                                                         | not scored (baseline)                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| r1    | Strip with micro-visuals, billing `Meter`, folded charts + `BarList`s, Health card, footer. Chart cards had no shot anchors                                                                                                                                           | not scored                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| r2    | Anchors on every card; sans captions with a period qualifier; segmented billing captions; `<1%` share; header totals = strip figure                                                                                                                                   | fail on {n} components: sparkline without reference (basalt), mono list values (basalt), `{n}` contradicting totals, same-hue rows, ring fill unreadable, a `0 bad days` claim over an unavailable series, duplicate date axes, green bars on an error chart                                                                                                                                                                                           |
-| r3    | Rank colours, single-hue error bars with the top source named, ring track softened, bad-days line dropped when unavailable, one date axis                                                                                                                             | fail on {n} components: all remaining fails basalt-side except period missing from the summary and chart titles, truncated tokens footer, mono freshness line, "30 D" in the billing caption                                                                                                                                                                                                                                                           |
-| r4    | Periods added to the summary and chart titles, tokens footer split to three lines, freshness line in sans, billing caption qualifier                                                                                                                                  | pass: strip cost, tokens, p95, cache, billing; page. Fail, argo-side: summary (`7` without a unit), errors cell (no cause on the unavailable state), tokens chart and list (two near-identical blue and two near-identical red hues), health (four font sizes), freshness (records without a period). Fail, basalt-side only: cost chart, cost list, projects (mono values, bars under values, info-icon focus ring, segmented-control radius nesting) |
-| r5    | Rank palette reordered to six separable hues; `last 7 days`; `records in total`                                                                                                                                                                                       | not re-scored: the remaining argo-side fails are the errors-cell empty state (resolves once the API change deploys) and the health card's four font sizes                                                                                                                                                                                                                                                                                              |
-| r6    | Review round 1 fixes: an absent `*Prior30d` field reads `prior unavailable`, a null one `no comparable prior 30 d`; error rate is `—` when the window has no calls (new `calls30d` headline field); the cost, tokens and p95 sparklines state their 30 d mean in text | not re-scored: shot against a production API that predates this PR, so every comparison shows `prior unavailable`                                                                                                                                                                                                                                                                                                                                      |
-
-## Wave 21 friction
-
-| Export                      | Needed prop                                                                                      | argo case                                                               | What argo does instead                                                                     |
-| --------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `Meter` (ring)              | `target` tick                                                                                    | cache hit ring with a tick at the 60 % good threshold                   | local SVG ring in `usage-strip.tsx`                                                        |
-| `Meter` (segments)          | per-segment captions, `tone="muted"`                                                             | billing split Max / IU / Other with `{$} · {pct}%` under each segment   | `startCaption={null}` plus a hand-built caption row; muted fill via `alpha(VX.muted, .35)` |
-| `BarList`                   | per-row `hue` / `lead` swatch, proportional value face, bar that stops short of the value column | list that keys a stacked chart's series; values and shares in sans      | swatch inside `secondary`; mono values and bars under values left as is                    |
-| `Sparkline`                 | `reference` (mean / target line)                                                                 | cost, tokens and p95 trends in the strip                                | end dot only; the comparison is stated in the footer                                       |
-| `Bars` / `AxisConfig`       | hide an axis                                                                                     | axis-less error bars in the Health card                                 | two ticks and a short date format                                                          |
-| `ChartCard`                 | `facts` header (`value`, `unit`, `compare`)                                                      | `{what} per day · by {group} · {total} in {period}` as one title string | title string; the heading face slashes zeros in it                                         |
-| `StatGroup variant="strip"` | five cells plus a full-width row                                                                 | headline strip                                                          | local CSS-module strip                                                                     |
-| series fold                 | `foldTopN` for stacked data                                                                      | top 6 + Other for the cost and token charts                             | `foldTopN` in `features/usage-tracking/model.ts` (tested)                                  |
-| `BandStrip`                 | threshold-banded preset                                                                          | daily error-rate days at 1 % / 3 %                                      | `getBand` with `errorDayState`                                                             |
-
-## Wave 23 rounds
-
-Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
-
-- **r1:** fail. deltas without glyphs; unitless or mis-scaled sparkline readouts; raw date-time BandStrip headers; two near-identical token blues; health with no tooltips and all-red error bars; project labels crossing the bar end.
-- **Fixed between rounds (#89):** `DeltaBadge` deltas with polarity (one per cell, none on an empty window), `$` / `M tokens` / seconds readouts, short-day headers, distinct hue families per visible key, health bars inked by the error-rate verdict joined by bucket key with a neutral zero-call state, thin project bars.
-- **r2:** fail: cache-hit cell has no sparkline or delta; the billing footer is a bare `total {amount}`; health has one x tick and the worst verdict tiers are the palest bars; the freshness dot has no word; basalt: the BandStrip tooltip covers the hero, y tick labels inside the plot, the phone select inset.
-- **Against Keel:** holds up, mostly; no headline sentence and lighter chart craft than Keel.
-- **Open for Wave 24:** the four argo items above.
-
-### Wave 24 fixes
-
-- Headline: `SummaryLine` replaced by `PageSummary` (`page-headline.tsx`): sentence `{$} spent in 30 days, {$} in the last 7 days`, facts `{tokens} tokens · {rate} errors · {n} sources active · last event {age}`, aside is the freshness word (`fresh`, `stale {n} min`, `stale {n} h`, `no events`; `freshnessWord`, tested).
-- `FreshnessFooter` and `footerLine` deleted: records total was the only fact the headline does not carry, and it was a count nobody acts on.
-- Cache hit cell: the ring now sits beside a daily-ratio sparkline (`cache_ratio` timeseries) and a `DeltaBadge` in points, last 7 d against the 30 d window (`recentVsWindow`, tested); the footer names the 7 d mean next to the target. The headline carries no prior-30 d cache ratio, so the badge states its own period instead of "prior 30 d".
-- Billing footer: `{$} total spend, last 30 d`.
-- Health card: five x ticks on both charts; bar ink moved from the tinted `VX.warn` / `VX.bad` (an 8 % / 18 % wash) to `VX.warnSolid` / `VX.badSolid`, and the neutral tier is a 50 % muted, so severity now orders the salience. The strip's error band got the same solid inks.
-
-| Export               | Needed prop                        | argo case                                   | What argo does instead                            |
-| -------------------- | ---------------------------------- | ------------------------------------------- | ------------------------------------------------- |
-| `VX.warn` / `VX.bad` | a solid-ink alias for series fills | bar and band fills read as the palest marks | `VX.warnSolid` / `VX.badSolid` per mark           |
-| `Meter` (ring)       | `target` tick                      | cache hit ring                              | still the local `CacheRing`, now beside the trend |
-
-### Wave 24 round (`w24-r1`, live after #90–#95)
-
-- **Reviewer:** fail: the `fresh` aside restates the facts line; the p95 sparkline is one spike then flat; the cache delta's `vs 30 d ratio` baseline is unclear beside a 30 d headline; the cost, tokens and health info tooltips narrate the drawing and show raw field names (`cost_usd`, `cache_read`); `{source} {pct}%` next to the error count has no stated meaning; warn and bad days differ by hue alone. Basalt: the latency axis has two ticks with the line through `100.0 s`; the errors tooltip covers the value; SegmentedControl indicator radius and the phone select inset.
-- **Against Keel:** holds up — the best KPI band of the set; the stacked-area chart and the filter row dominate the fold.
-
-### Wave 25 fixes
-
-- Headline aside: the `fresh` word is gone (the facts line already carries `last event {age}`); the aside appears only as `feed stale {age}` in warn/bad ink.
-- p95 cell: the one-spike sparkline is dropped for facts: slowest day `{s} s, {date}` (`peakOf`, tested), mean daily p95, and the delta badge.
-- Cache delta: the badge period reads `last 7 d vs 30 d`, naming both windows.
-- Cost, tokens and health info tooltips rewritten as plain-word definitions; no raw field names.
-- Error events label: `{pct} from {source}` (`topSourceNote`, tested) says the percent is of error events.
-- Warn vs bad: the errors cell footer words both (only the kinds that occurred, e.g. `{n} warn days (1%–3%), {n} bad day (> 3%)`, else `no day above 1%`; `errorDaysLine`, tested), so the strip no longer separates them by hue alone.
-
-| Export      | Needed prop / default                         | argo case                                                | What argo does instead                 |
-| ----------- | --------------------------------------------- | -------------------------------------------------------- | -------------------------------------- |
-| `BandStrip` | per-state glyph or text channel inside a cell | warn and bad days differ by hue alone in the strip cells | a worded count line in the cell footer |
-
-### Wave 25 round (`w25-r1`, live after #96–#101)
-
-- **Reviewer:** fail (page passes). Fixed: no `fresh` aside, no one-spike sparkline, tooltips in plain words with no raw field names. Open: the p95 cell is now blank (`emptyRatio` ≈ 0.45) with no history, and `p95 {a} s` beside `30 d mean daily p95 {b} s` is undefined; warn and bad days still hue-only in the strip itself (the footer words them); the partial current day drawn as a drop; `last 7 d mean` restates the delta; donut + scale-less sparkline encode the cache rate twice; `Other` is the largest tokens bucket; raw tool identifiers in the tokens list. Basalt: `100.0 s` axis label over the line; `phoneSelect` padding 10.67.
-- **Against Keel:** close (was holds up) — Keel's cells carry their scale or target top-right.
-
-### Wave 26 round (`w26-r1`, live after #102–#106)
-
-- **Reviewer:** fail. Fixed: the p95 cell draws a trend against a dashed reference (no longer blank); one p95 reading with a labelled reference; no `last 7 d mean` restatement; the cache rate encoded once; `Other` no longer the largest bucket; the page on one full-days basis (UTC days). Carried: warn/bad days hue-only inside the strip (basalt `BandStrip`); the cost chart still drops for the partial current day; tool labels keep a raw separator. **New:** the p95 and cache info tooltips narrate the drawing (`the dashed line…`); the p95 footer splits `30 d` at 1440. Unscored: the 30-day spend printed five times and the token total four times; two greys in the health card told apart by tone alone.
-- **Against Keel:** close.
-
-### Wave 27 round (`w27-r1`, live after #107–#111)
-
-- **Reviewer:** fail (no new defect). Fixed: p95 and cache tooltips are definitions; `30 d` kept whole; the cost chart keeps the partial day consistently; no raw tool separator; the 30-day spend and token totals printed once; one neutral grey in the health card. Carried: warn/bad days hue-only in the errors strip (basalt `BandStrip`). Unscored: the errors footer orphans `(> 3%)` at 1440; the p95 `slowest day` splits its date at 390; the errors band ticks `DD.MM` vs `{day} {Mon}`.
-- **Against Keel:** close — the best KPI band of the set.
-
-### Wave 28 round (`w28-r1`, live after #112–#116 on basalt-ui 2.21.0)
-
-- **Reviewer:** fail. Fixed: the errors footer keeps `(> 3%)` with its phrase. Carried: warn/bad days hue-only (basalt `BandStrip`); the p95 `slowest day` date still splits at 390; band ticks `DD.MM` vs `{day} {Mon}` (basalt `BandStrip` has no tick formatter). **New:** the error chart's `0` tick under the first bar (thin `BarList`/axis on 2.21.0). Unscored: the headline's 7 d spend window matches no cell; `{n} B` vs `{n}M` in one cell; the errors tooltip covers the hero and gives no rate, the cache tooltip hides its value (basalt); the latency line through the top tick label; a 10.67 px phone-select inset (basalt).
-- **Against Keel:** close — still the best KPI band of the set; the headline window disagrees with it.
-
-### Wave 29 round (`w29-r1`, live after #117–#121 on basalt-ui 2.21.0)
-
-- **Reviewer:** fail. Fixed: the headline `{n} calls in the last 30 d` (spend only in the Cost cell, the window matches); one seconds format; the p95 date no longer splits. Carried: warn/bad days hue-only, band ticks `DD.MM`, the error chart's `0` tick under the first bar, the 10.67 px phone-select inset (all basalt); the p95 line still through the top tick label (the `autoPad` headroom does not show); `{n} B` vs `{n} M` in the Tokens cell. **New:** the Tokens footer orphans `days`. Unscored: the tokens tooltip lists zero-value series and mixes `k` with `M`; the Errors footer `vs {r} prior 30 d` repeats the delta's baseline.
-- **Against Keel:** close — still the best KPI band of the set, and the headline now agrees with it.
-
-### Wave 30 fixes
-
-- **Tokens footer orphans `days`:** fixed — `full days` is glued with `NBSP` in the shared mean line (Cost and Tokens).
-- **`{n} B` vs `{n} M` in the Tokens cell:** partly fixed — mean and peak per day share one magnitude (`tokensFormatterFor`, taken from the larger). The headline stays in its own magnitude: it is the 30 d total, a different quantity from a per-day figure, and in `M` it would read as a long number.
-- **Tokens tooltip magnitudes:** fixed — the chart's axis and every tooltip row use one magnitude, taken from the largest bucket total; a non-zero row never prints as zero (two significant digits below 1 of the unit, `<0.01` below that).
-- **Tokens tooltip zero rows:** not fixed — basalt row. `StackedArea` drops a stack row where any band is `null`, and the per-series `tooltip` flag is static, so there is no per-datum filter and no honest way to omit a zero without breaking the stack.
-- **Errors footer repeats baseline:** fixed — the badge carries `prior 30 d`; the footer now reads `was {r}`.
-- **p95 line through the top tick:** not fixed — no y-domain headroom prop set; left to basalt.
-
-### Wave 30 round (`w30-r1`, live after #122–#125 on basalt-ui 2.21.0)
-
-- **Reviewer:** fail (no new argo defect). Fixed: the Tokens footer keeps `full days` together; per-day mean and peak share one unit; the tokens axis and tooltip rows share one unit; the Errors footer reads `was {r}`. Carried (basalt): warn/bad days hue-only and `DD.MM` band ticks; the p95 line through the top tick label; the error chart's `0` tick under the first bar; the tokens tooltip lists zero-value series (`0 M` rows — unverified as true zeros from pixels; `StackedArea` has no per-datum row filter). Unscored: the cost sparkline readout prints cents against the page's whole-dollar rule; `{m}%` unspaced here while Astro prints `{m} %`.
-- **Against Keel:** close — still the best stat strip of the set.
-
-### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
-
-- **Reviewer:** fail. Fixed: the cost sparkline readout in whole dollars; percent spelled `{m} %` like Astro; the p95 line clears the top tick; the errors chart's `0` tick no longer under the first bar (2.22 gutter ticks); the single-series p95 chart draws no legend. **New:** latency ticks print `{n}.0 s` (2.22 ticks, basalt); token rows mix precision (`0.0{x} B` beside `0.{xx} B`, argo). Carried: the errors band's `!`/`×` glyphs are set but too small to read at this cell width, so warn vs bad is still hue-only (basalt); `DD.MM` band ticks; tooltip zero rows (`StackedArea`); the health bars' three tiers by hue (named in the legend). No lost fact.
-- **Against Keel:** close — still the best stat strip of the set.
-
-### Wave 32 fixes
-
-- **Shot states:** `health` declares `empty`, and every card (`cost-chart`, `cost-list`, `health`, `projects`) renders its real empty branch (an empty series/breakdown substituted where each query is read — the same branch a window with no rows shows). `loading` and `error` are not declared: the route loader awaits the headline, so production shows the route pending screen / crash screen, not a card state.
-- **Token precision:** one rule per column — one decimal from 1 of the unit up, two decimals below it (`0.05 B`, `0.50 B`, `0.12 B`, `1.8 B`), never a mix of significant-digit counts.
-
-### Wave 32 round (`w32-r1`, live after #134–#138 on basalt-ui 2.22.0, the first round with declared shot states)
-
-- **Reviewer:** fail. Fixed: token rows follow one precision rule (`0.{xx}` below 1 of the unit, one decimal from 1, decimal-safe at the 0.95 boundary); `empty` declared and every card renders its empty branch. **New (argo, empty state):** the cost and tokens lists and the projects card say `No data in this window` (banned `No data`, no action); the cost and tokens charts and the latency half of health fall back to ChartCard's `No data` because argo passes no `empty` label; under `empty` the strip still prints its 30 d figures (the strip must empty too); the short empty list card leaves its grid cell grey beside the full-height chart. Carried (basalt): the view-switch indicator's radius within 3 px of its card (`craft-1/nested-radius-step`); `{n}.0 s` / `{n}.0 M` ticks; `BandStrip` hue-only states and `DD.MM` ticks; tooltip zero rows; the band tooltip over the footer. No lost fact.
-- **Against Keel:** close — still the best stat strip of the set; Keel's empty surfaces never fall back to `No data`.
-
-### Wave 33 fixes (round 12)
-
-- **One empty wording:** `No usage ingested in this window — the usage-tracker pushes every 15 min, or widen the range` on the cost and tokens lists, the projects card, the cost and tokens charts' `empty` label, the billing footer (`in the last {n} d`, without the range clause: the strip is fixed at 30 d) and, with no calls at all, the whole health card (one `empty` state, no `0 error events` beside a dash) (with a billing / workspace filter active the cause is the filter: `No usage matches these filters in this window — clear a filter or widen the range`; the health card judges rows by value, since empty days come back as null buckets: no calls → the window wording, calls but under two latency days → `A line needs latency on two {days}`, calls without errors → `No errors in this window`). The tracker's cadence is the ingest route's documented one.
-- **Strip empties with its charts:** the summary and the strip read one headline hook (`use-headline.ts`); under `empty` it substitutes a window with no calls, and a real window with `calls30d` of 0 does the same. Every cell then reads `No usage ingested` (the cell `empty` state, no readings), and the billing footer carries the cause and next step (`No usage ingested in the last {n} d — …`).
-- **Short list card:** the list and projects cards fill their grid cell (`height: 100%`), so they align with the chart beside them.
-- **Basalt, no workaround:** `ViewTabs` radius in the header, `{n}.0` ticks, `BandStrip` glyphs, `DD.MM` ticks, `StackedArea` zero rows, the 390 2 + 1 strip.
-
-### Wave 33 round (`w33-r1`, live after #139–#143 on basalt-ui 2.22.0)
-
-- **Reviewer:** fail. Fixed: one filter-aware wording (`No usage ingested in this window — … or widen the range`, `No usage matches these filters …` under a filter) on the lists, projects, both charts (ChartCard `empty` labels now passed) and the latency half; the strip empties with the charts; the list cards fill their grid cell. **New (argo):** under `empty` the health card's errors half prints `0 error events · {n} d` beside latency's `—` — a false zero, and the wording appears twice in one card; the empty lists and projects card set their message at the top of an ~80 % blank card while the chart beside centres it; the billing footer drops `or widen the range` (two wordings for one gap); at 1440 the tokens chart ends short of the list beside it. Carried (basalt): the `ViewTabs` indicator radius within 3 px of its control; `BandStrip` hue-only warn/bad days; `{n}.0` ticks; `DD.MM` band ticks; `StackedArea` zero rows; the band tooltip over the footer. No lost fact.
-- **Against Keel:** close at rest (still the best stat strip of the set); Keel's empty surfaces centre a title, a reason and an action.
-
-### Wave 34 round (`w34-r1`, live after #144–#147 on basalt-ui 2.22.0; `w34-r2` after #148)
-
-- **Reviewer:** fail (basalt rows; argo P2/P3). Fixed: under `empty` the health card says its gap once (no `0 error events` beside a dash) and a real latency line is never hidden; lists, projects, both charts and health share one filter-aware wording; the fixed-30 d billing footer keeps no range clause (by decision — the strip ignores the range); the tokens card fills its 1440 grid cell; the 390 empties centre. Partly / carried (basalt): at 1440 the empty lists centre in `ChartCard`'s placeholder height, not the card (~lower half blank). **New (argo):** P2 — on the empty screen one sentence appears six times plus `No usage ingested` in five strip cells ("one wording per gap" against "no sentence repeated on one screen"); P3 — the tokens card stretched but the plot keeps its height (~80 px band under the axis). Carried (basalt): `ViewTabs` radius, `BandStrip` hue-only days, info tooltips, `StackedArea` zero rows, decimal ticks, the 390 2 + 1 strip. Unscored: the health card ends ~200 px above projects at 1440; the delta sits on the hero line in two cells and below it in another. No lost fact.
-- **Against Keel:** close — the strip matches Keel's metric-card anatomy; Keel leaves no band under a plot and no top-set empty.
-
-### Wave 35 round (`w35-r1`, live after #149–#151 on basalt-ui 2.22.0)
-
-- **Reviewer:** pass (basalt rows plus one argo P3). Fixed (confirmed): on the empty screen the full sentence appears once, on the 30 d billing footer, and every other surface (strip cells, both charts, both lists, health, projects) reads `No usage ingested` — never both forms on one surface. Unverified: the filtered pair (no filtered shot). Carried (argo, P3): the leading sentence names cause and cadence but no explicit step (the range clause dropped by decision — the strip ignores the range). Carried (basalt): the empty lists' and projects' top-set message in `ChartCard`'s placeholder height, the tokens `fill` band, decimal latency ticks, `/bin/zsh` / `0 M` tooltip rows, hue-only error days, the info tooltip over the hero. Unscored: the delta on the hero line in some cells and below it in others. No lost fact.
-- **Against Keel:** close — Keel leaves no band under a plot and no top-set empty.
-- **Re-score `w35-r2` (after basalt-ui 2.23.0, #152):** pass on the page; cost / tokens charts fail on one basalt P1 — the `ViewTabs` indicator radius is now 3 (the nested step passes, but 3 is off the radius scale; the same form as the Alert × `Code` row). Closed by 2.23: whole-step latency ticks (`0 s / 100 s`). Not closed (basalt): `$0` / `0 M` tooltip rows; the lists' / projects' top-set empty in `ChartCard`'s placeholder; hue-only warn/bad days (no glyph or notch visible at the band's 6 px cells); the tokens `fill` band. New (basalt, P3): strip footers ragged across cells; one component spells the month `Sept` (band ticks) and `Sep` (readout). The `30 d` qualifier now wraps to its own line at ~227 px without truncating. No lost fact.
-
-### Wave 36 round (`w36-r1`, live after #153–#155 on basalt-ui 2.23.0; `w36-r2` after #156–#158)
-
-- **Reviewer (`w36-r1`):** pass on the page; the cost / tokens charts fail on one basalt P1 (the `ViewTabs` indicator radius 3, off the scale). Fixed (confirmed, #155): the leading 30 d billing sentence ends with its step (`…; check it is running`); every other surface keeps the short form `No usage ingested`, no surface shows both. Carried (basalt): hue-only warn/bad days at 6 px band cells, the top-set empties in `ChartCard`'s placeholder, the tokens `fill` band, `$0` / `<$1` tooltip rows, `Sept` beside `Sep`, ragged strip footers. No lost fact.
-- **Against Keel:** close — Keel leaves no band under a plot and never sets an empty message at the top.
-
-### Wave 37 round (`w37-r2`)
-
-- **Day base named.** The p95 and cache tiles count full (complete) days only — today is still running — so under a `30 d` caption they read `{n} of {m} full days …` (`{m}` is 29 until the day closes); w36 read `of {m} days`, which looked like a miscount.
-- **Tied hues are stable.** Rank assigns a series its hue; equal totals now rank by key, so a tool keeps its hue across loads and schemes.
-- **Reviewer (`w37-r1`):** fail on basalt only (the `ViewTabs` indicator radius 3 on both charts, which `shot detect` does not flag). New (argo, P3): `of 29 days` under a `30 d` caption with no base named; tied tools swapped hue between loads — both fixed in #163. Carried (basalt): `Sept` beside `Sep`, `$0` / `<$1` tooltip rows, hue-only band cells, ragged footers, the band under the tokens plot.
-- **Re-score `w37-r2` (after #163):** fail on basalt only. Fixed (confirmed): the p95 and cache tiles read `{n} of {m} full days …`; two tied tools keep their hues in light and dark, in the list and the chart legend. No regression; the cost list still adds up to the strip total. No lost fact.
-- **Against Keel:** close — Keel never leaves a band under a plot nor top-sets an empty message (`ChartCard` placeholder, basalt).
-
-### Wave 38 round
-
-- The cost/tokens list cards and the top-projects card pass `placeholderHeight="content"` (basalt-ui 2.25.0): their empty message ends at the list's content instead of the upper third of a chart-height box. These bodies never enter a pending state (suspense query), so no body-drawn loading is needed. Plot cards unchanged. No lost fact.
-- Full days (r3 fixes): a full day is closed and begins inside the rolling 30 d window (`fullDays`), so the partial leading day leaves `{n} of {m} full days` and the `slowest day` fact, which no longer drifts between renders. Top projects' footer total reads the headline's `costUsd30d` when the strip owns the figure (one total, rounded once at print). The errors band names its clear state with the health legend's label (`Under 1 % of calls`). No lost fact.
-- **Re-score (`w38-r1` → `w38-r4`):** `w38-r1` fail on basalt only; `ViewTabs` radius closed by 2.24. `w38-r3` / `w38-r4` **pass**: list cards end their empty states at their content (2.25 `placeholderHeight="content"`, #174); only complete days count in the rolling window, one 30 d total, one ok-state label (#177). Open: the p95 sparkline still draws the partial leading day the footer now excludes (argo P2, a side effect of #177 — Wave 39); basalt — `BandStrip` hue-only days and its wrapped legend, `$0` / `0 M` rows, `Sept`. Against Keel: close.
-
-### Wave 39 round
-
-- Fixed (argo): the cost, tokens, p95 and cache sparklines draw `windowDays(...)` — days that began inside the rolling 30 d window — so the partial leading day no longer shows while the footers (`fullDays`) leave it out. `useDaily` already drops the running day, so today never showed in these visuals. Footers keep `fullDays`. `health-card.tsx` has no such pairing and is unchanged. The errors band follows the same split: the band draws `windowDays`, its error-day count reads `fullDays`. No lost fact.
-- **Re-score (`w39-r1`):** pass. The partial-leading-day spark is closed and nothing regressed. Open: basalt — `BandStrip` hue-only days and its wrapped legend (the 2.24 row); argo P3 slack under the tokens and latency cards (optional). Against Keel: close.
-
-### Wave 40 round
-
-- **Re-score on basalt-ui 2.26.0 (`w40-r4`):** pass. Closed: the errors band legend one line per label at 1440 and 390, the p95 readout `21.7 s · 4 Oct` on its reserved line, tooltips inside their card. New (argo, P2, data-dependent): the health card's latency line starts at ~155 s on 20 Sep while the strip says `slowest day 65.3 s` — the health card draws the partial leading day the strip excludes (the `windowDays` split was applied to the sparklines in Wave 39, not to the health card). Carried (basalt, P3): `19 Sept` band ticks vs `20 Sep`, `$0` / `0 M` tooltip rows, the band under the tokens plot. No regression, no lost fact. Against Keel: close.
-
-### Wave 41 round
-
-- Fixed (argo): the health card draws window days only. At day grain the p95 line and the per-day error bars both drop the partial leading day of the range's rolling window (`rangeWindowDays` in `model.ts` owns the range→span table and the day-grain / `all` gates; `windowDays` takes an explicit span and the strip passes `STRIP_WINDOW_DAYS`, so its behaviour is unchanged), so the two halves share one x extent and the line's first point is the first day that began inside the window. `p95 latest` is the last bucket, unchanged; the empty and two-point states are unchanged. The `all` range has no window start and week grain keeps its buckets as returned (a week bucket is not day-aligned to the window start, so no clean rule exists). The error-event total follows the drawn bars. No lost fact.
-- Also (round-2 review): the card's no-calls judgement (`hasCalls`) reads the same windowed rate buckets, so a range whose only calls fall in the excluded leading day shows the no-reading state.
-- **Re-score (`w41-r1`):** pass. The line now opens at ~45 s on a 0–100 s axis (was ~155 s on 0–200 s); its peak ~65 s on 1 Oct matches the strip's `slowest day 65.3 s, 1 Oct`; latency points and error bars share one x extent (20 Sep – 18 Oct); error figures still agree with the strip (2 bad, 3 warn days, `1.4 k` total unchanged). No regression vs `w40-r4`, no lost fact. Basalt (carried, P3): `Sept` band ticks, `$0` / `0 M` tooltip rows, the band under the tokens plot. Unverified: week grain and the `all` range (not shot). Against Keel: close.
-
-## Wave 51 — two-reviewer re-score (2026-10-21, live production data, basalt-ui 2.27.2)
-
-Shots `w51-usage-tracking` (gitignored; `shot detect` run on each dir). Two fresh `basalt-design-reviewer`s, all sheets, 1440 / 390, both schemes, Keel side by side.
-
-- **Reviewer A: pass, 86.** No P0–P2.
-- **Reviewer B: pass, 86.** No P0–P2.
-
-**Result: passes the bar** (both reviewers, no P0/P1, every component passes).
+1. The top band answers the three questions without scrolling at 1440 and 390; no number on it is a Max list value labeled "cost".
+2. The Q1 figures equal `make budget` in usage-tracker for the same fetch (rolling30, can-spend-today, drop-off).
+3. The lens switch changes A, B, E and keeps every total consistent with the band; cache-read is a visible series in Tokens.
+4. B identifies `review_ocr · deepseek-v4.1-flash` as the top IU cell in Spend and in Tokens without opening a table.
+5. D shows 2026-10-22 as flagged (portal $71 vs tracked $30).
+6. The page loads from the new endpoints only; no response above 60 kB; slowest endpoint < 1 s warm.
+7. No legend above 8 entries; no section whose question is not stated above; both schemes; `make check` green; `basalt-design-reviewer` pass.
