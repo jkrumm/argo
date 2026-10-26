@@ -53,7 +53,7 @@ section G. (5) Gaps found: tracked vs portal drifts up to 0.42x-2.72x per day (2
 rows in 30 d; quota/pick history only since 2026-10-24. `make evidence` timed out in its Lighthouse lane at 500 s
 (screens lane finished); the audit used `make design-shot ROUTES=/usage-tracking`. No product code changed.
 
-## Wave 2 — Data: portal sync + aggregate endpoints            <!-- status: pending -->
+## Wave 2 — Data: portal sync + aggregate endpoints            <!-- status: active -->
 Repos: `argo` (apps/api) and `~/SourceRoot/usage-tracker`. Contracts are in the spec's "Data work" section; do not re-derive.
 - [ ] Argo migration 0026 + drizzle schema for `iu_portal_cost` / `iu_portal_total`; `POST /usage/iu-portal` (upsert, `rejected` count, 1000-row cap) with route tests (replay is a no-op, overwrite on re-post, invalid rows dropped).
 - [ ] usage-tracker `src/sync-portal.ts`: watermark in `collector_state`, resend last 35 days when `fetched_at` moved, `tolerateMissing`, wired into the 15 min sync; unit tests with a fake `postJson`. Commit in usage-tracker (direct to master unless it is PR-required), deploy via its Makefile, verify first push lands 235 rows in Argo.
