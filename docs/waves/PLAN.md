@@ -66,12 +66,16 @@ Repos: `argo` (apps/api) and `~/SourceRoot/usage-tracker`. Contracts are in the 
 - **Prod verified (orchestrator, 2026-10-26, commit cd03f569):** `iu-budget` = `make budget` ($588.14 / −$65.59 / projected7 $697.45); `flow` top row `review_ocr` × `deepseek-v4.1-flash`; sizes flow 40 kB, reconcile 7 kB, budget 2 kB; warm flow 0.42 s, others < 0.35 s. Owner approved the spec decisions 2026-10-26 (flow view = the ranked list in the current spec).
 - `/usage/headline` untouched (removal is after the page ships). Review (agent-gateway): 1 blocking (out-of-order overwrite) fixed; fail-open-on-empty and server-side `stale` flag deliberately skipped (page owns freshness); the repo-layer extraction suggestion skipped as out of scope.
 
-## Wave 3 — The page            <!-- status: active -->
+## Wave 3 — The page            <!-- status: done -->
 Replaces the v1 page per the spec; reads only the Wave 2 endpoints (+ `/usage/quota`, `/usage/account-picks/summary`). Read `.claude/rules/basalt-*.md` and use the `basalt-design` skill; every round is `make design-shot ROUTES=/usage-tracking` scored by a fresh `basalt-design-reviewer`.
-- [ ] Data layer: query options + typed models for the new endpoints, lens/scope state in `usageStore`, pure model functions (pace tick, state words, freshness, delta glyphs) with tests; delete the v1 model code the new page does not use.
-- [ ] Top band: Q1 cap gauge + drop-off bars, Q2 subscription meters with pace tick, Q3 movers; all states from the spec (fresh/stale/dead/empty/over).
-- [ ] Lens bar + sections A (stacked area + ranked list), B (ranked top spenders, tool · model), C (cache efficiency), E (projects).
-- [ ] Section D reconciliation, collapsed F routing and G reliability; remove the cut v1 components and CSS.
-- [ ] Shot rounds light + dark, desktop + mobile, until the reviewer passes; record rounds in the spec. Check the spec's pass criteria 1-7 against live data. Update AGENTS.md and the design doc. Gate: `make check`. Deploy is the orchestrator's call.
-**Left behind:**
+- [x] Data layer: query options + typed models for the new endpoints, lens/scope state in `usageStore`, pure model functions (pace tick, state words, freshness, delta glyphs) with tests; delete the v1 model code the new page does not use.
+- [x] Top band: Q1 cap gauge + drop-off bars, Q2 subscription meters with pace tick, Q3 movers; all states from the spec (fresh/stale/dead/empty/over).
+- [x] Lens bar + sections A (stacked area + ranked list), B (ranked top spenders, tool · model), C (cache efficiency), E (projects).
+- [x] Section D reconciliation, collapsed F routing and G reliability; remove the cut v1 components and CSS.
+- [x] Shot rounds light + dark, desktop + mobile, until the reviewer passes; record rounds in the spec. Check the spec's pass criteria 1-7 against live data. Update AGENTS.md and the design doc. Gate: `make check`. Deploy is the orchestrator's call.
+**Left behind:** Commits `a4544969` (API `GET /usage/quota-latest`), `835829cd` (page rebuild), `03bc1c7f` (docs + spec build record). Gate: `make check` green (636 API tests; dashboard 494). Code review (agent-gateway): clean, 5 optional improvements, one taken (picks-panel dead clause); skipped: routing/subscription silent-failure notes, `quota-latest` DISTINCT ON → per-account LIMIT 1 (fine at ~73k rows/yr), picks-panel → routing rename.
+- **Deploy order matters:** the page calls `/usage/quota-latest` and `/usage/iu-budget`; deploy API + dashboard together. Until then Subscriptions shows its error state (prod 404). `/usage/headline` API route is still live and now unread by the dashboard; removal is a follow-up.
+- **Design review did not reach a clean pass.** Shot rounds r1–r6 are in `docs/design/usage-tracking.md` §Build record (best 63 at r4, 24 at r6; the reviewer keeps surfacing new P1/P2 copy/layout items). Residuals are listed there. Pass criterion 7 (`basalt-design-reviewer` pass) is therefore NOT met; page-level verdict was pass in r4–r6, component fails remain. `make design-shot` produces no metrics/sheets: score with `basalt-ui shot /usage-tracking --base <evidence-server origin>` (recipe: serve `apps/dashboard/dist` via `scripts/evidence/server.ts`).
+- **Not verified against live data:** Q2 loaded state, Tokens lens, expanded F/G, D's 2026-10-22 flag (read from code/tests only), criteria 2 and 4 by eye. Re-shoot after deploy.
+- Deviations from the spec are in the same Build record section (lens as PageBar tab, scope as SelectFilter, C vertical bars, no click-through on B/D).
 
