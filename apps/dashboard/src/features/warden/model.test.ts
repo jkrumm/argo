@@ -10,14 +10,10 @@ import {
   isStale,
   relativeWhole,
   issueRefLabel,
-  PENDING_ACTION_TIMEOUT_MS,
   pluralize,
-  reconcilePendingActions,
   resolveItemModal,
   stateColor,
   stateLabel,
-  withPendingAction,
-  type PendingActions,
   type Row,
 } from './model'
 import { planActions } from './page-model'
@@ -265,54 +261,6 @@ describe('pluralize', () => {
     expect(pluralize(0, 'strike')).toBe('0 strikes')
     expect(pluralize(1, 'strike')).toBe('1 strike')
     expect(pluralize(2, 'strike')).toBe('2 strikes')
-  })
-})
-
-describe('withPendingAction', () => {
-  it('adds an entry keyed by event id, carrying the verb and queuedAt', () => {
-    const pending = withPendingAction({}, 1, 'implement', 1000)
-    expect(pending).toEqual({ 1: { verb: 'implement', queuedAt: 1000 } })
-  })
-
-  it('overwrites an existing entry for the same event id rather than merging', () => {
-    const first = withPendingAction({}, 1, 'implement', 1000)
-    const second = withPendingAction(first, 1, 'dismiss', 2000)
-    expect(second).toEqual({ 1: { verb: 'dismiss', queuedAt: 2000 } })
-  })
-})
-
-describe('reconcilePendingActions', () => {
-  const pendingFor = (eventId: number, verb: 'implement' | 'dismiss', queuedAt: number) =>
-    ({ [eventId]: { verb, queuedAt } }) as PendingActions
-
-  it('drops a pending entry once the item updated after it was queued', () => {
-    const pending = pendingFor(1, 'implement', 1000)
-    const items = [item({ event_id: 1, updated_at: new Date(2000).toISOString() })]
-    expect(reconcilePendingActions(pending, items, 3000)).toEqual({})
-  })
-
-  it('keeps a pending entry when the item has not updated since it was queued', () => {
-    const pending = pendingFor(1, 'implement', 2000)
-    const items = [item({ event_id: 1, updated_at: new Date(1000).toISOString() })]
-    expect(reconcilePendingActions(pending, items, 2500)).toEqual(pending)
-  })
-
-  it('keeps a pending entry for an item absent from the snapshot until it times out', () => {
-    const pending = pendingFor(1, 'implement', 1000)
-    expect(reconcilePendingActions(pending, [], 1000 + PENDING_ACTION_TIMEOUT_MS - 1)).toEqual(
-      pending,
-    )
-  })
-
-  it('drops a pending entry once it has been pending longer than the timeout', () => {
-    const pending = pendingFor(1, 'implement', 1000)
-    expect(reconcilePendingActions(pending, [], 1000 + PENDING_ACTION_TIMEOUT_MS + 1)).toEqual({})
-  })
-
-  it('returns the same reference when nothing was dropped, to avoid a needless re-render', () => {
-    const pending = pendingFor(1, 'implement', 2000)
-    const items = [item({ event_id: 1, updated_at: new Date(1000).toISOString() })]
-    expect(reconcilePendingActions(pending, items, 2500)).toBe(pending)
   })
 })
 

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Stack, Text } from '@mantine/core'
+import { Alert, Stack, Text } from '@mantine/core'
 import { PageBar, PageSummary } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
+import { IconInfoCircle } from '@tabler/icons-react'
 import { wardenQueries } from '../lib/queries/warden'
 import { shotState } from '../lib/shot-state'
 import { deriveAwaitingOwner, waitingOnOwner } from '../features/warden/model'
@@ -18,8 +19,21 @@ import { HealthStrip } from '../features/warden/health-strip'
 import { DecisionQueues } from '../features/warden/decision-queues'
 import { Board } from '../features/warden/board'
 import { PollersList } from '../features/warden/pollers-list'
-import { useWardenActions } from '../features/warden/use-warden-actions'
 import { ItemTimeline } from '../features/warden/item-timeline'
+
+/** Warden stopped polling and acting on 2026-10-27; this board is frozen history from then on. */
+function SwitchedOffBanner() {
+  return (
+    <Alert
+      data-shot="switched-off"
+      color="gray"
+      variant="light"
+      icon={<IconInfoCircle size={16} />}
+    >
+      Warden was switched off on 2026-10-27. This board is a frozen history.
+    </Alert>
+  )
+}
 
 /** The headline's ink: plain when healthy, a status hue when the loop is degraded or stalled. */
 const STATUS_TONE = {
@@ -37,9 +51,9 @@ export const Route = createFileRoute('/warden')({
  * The Warden control-plane page: the mini's deterministic loop over its own SQLite ledger, as
  * pushed to Argo after every tick. Argo renders what warden pushed — states, metrics, budget and
  * timelines are all warden's; the page only words and groups them (`features/warden/page-model.ts`).
- * Top to bottom: the summary sentence, the health strip with the budget meters, the decision cards
- * (needs you, failed), the board of everything still open, the pollers. The owner action queue
- * (mutation + pending-state reconciliation) lives in `use-warden-actions.ts`.
+ * Top to bottom: the switched-off banner, the summary sentence, the health strip with the budget
+ * meters, the decision cards (needs you, failed), the board of everything still open, the
+ * pollers. Warden was switched off 2026-10-27 — the page is read-only history, no action queue.
  */
 function WardenPage() {
   const snapshotQuery = useQuery(wardenQueries.snapshot())
@@ -63,7 +77,6 @@ function WardenPage() {
   const waiting = waitingOnOwner(awaitingOwner)
   const board = deriveBoard(raw?.board, awaitingOwner)
   const pollers = derivePollers(raw?.metrics, raw?.health)
-  const { pending, handleAction } = useWardenActions(snapshot?.machine, raw?.board?.items)
 
   const summary = deriveSummary({
     needsCount: waiting.length,
@@ -97,6 +110,7 @@ function WardenPage() {
       />
 
       <Stack gap="md" opacity={refreshRequested && snapshotQuery.isFetching ? 0.6 : 1}>
+        <SwitchedOffBanner />
         <StaleBanner snapshot={snapshot} />
         {snapshotQuery.isPending || snapshot !== null ? (
           <PageSummary loading={snapshotQuery.isPending} sentence={sentence} />
@@ -108,9 +122,7 @@ function WardenPage() {
               view={awaitingOwner}
               receivedAt={snapshot?.receivedAt ?? null}
               items={raw?.items}
-              pending={pending}
               onSelectItem={setSelectedEventId}
-              onAction={handleAction}
             />
             <Board
               columns={board.columns}

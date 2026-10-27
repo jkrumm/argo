@@ -80,28 +80,3 @@ export const wardenQueries = {
       refetchInterval: POLL_MS,
     }),
 }
-
-// ── Owner action queue ───────────────────────────────────────────────────
-
-export type EnqueueWardenActionParams = {
-  /** The snapshot's own `machine` field — never hardcoded, warden may run on more than one host. */
-  machine: string
-  eventId: number
-  verb: WardenActionVerb
-  payload?: Record<string, unknown>
-}
-
-/** Queues an owner action against one board item (`POST /warden/items/:eventId/actions`). This is
- * a request only — warden's own loop pulls it and owns every verb-level and state-gate decision. */
-export async function enqueueWardenAction({
-  machine,
-  eventId,
-  verb,
-  payload,
-}: EnqueueWardenActionParams) {
-  return unwrap(
-    await api.warden
-      .items({ eventId: String(eventId) })
-      .actions.post({ machine, verb, ...(payload !== undefined && { payload }) }),
-  )
-}

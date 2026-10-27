@@ -381,39 +381,18 @@ export const wardenRoutes = new Elysia({ prefix: '/warden' })
       },
     },
   )
-  .post(
-    '/items/:eventId/actions',
-    async ({ params, body, status }) => {
-      if (!(WARDEN_ACTION_VERBS as readonly string[]).includes(body.verb)) {
-        return status(400, `unknown verb: ${body.verb}`)
-      }
-      if (exceedsActionJsonBytes(body.payload)) {
-        return status(413, `payload exceeds ${MAX_ACTION_JSON_BYTES} bytes`)
-      }
-      const [row] = await db
-        .insert(wardenAction)
-        .values({
-          machine: body.machine,
-          event_id: params.eventId,
-          verb: body.verb,
-          payload: body.payload ?? null,
-        })
-        .returning()
-      return status(201, toActionRecord(row!))
+  .post('/items/:eventId/actions', ({ status }) => status(410, 'warden is switched off'), {
+    params: z.object({ eventId: z.coerce.number().int() }),
+    body: EnqueueActionSchema,
+    response: { 410: z.string() },
+    detail: {
+      tags: ['Warden'],
+      summary: 'Queue an owner action against a Warden board item (disabled)',
+      description:
+        'Warden was switched off 2026-10-27 and no longer polls this queue — the board is read-only history. Always returns 410, queuing nothing.',
+      security: [{ BearerAuth: [] }],
     },
-    {
-      params: z.object({ eventId: z.coerce.number().int() }),
-      body: EnqueueActionSchema,
-      response: { 201: ActionRecordSchema, 400: z.string(), 413: z.string() },
-      detail: {
-        tags: ['Warden'],
-        summary: 'Queue an owner action against a Warden board item',
-        description:
-          "Queues implement/merge/dismiss/reinvestigate/retry/note against the board item {eventId} for the owner's Warden machine. This is a request only — warden's loop (loopback-only, cannot be pushed to) pulls it via GET /warden/actions and owns every verb-level and state-gate decision; nothing here mutates the ledger. Returns 201 with the queued row (status always starts `pending`); an unrecognized verb is rejected with 400 before it ever reaches the queue, an oversized payload with 413. Track the outcome via the next GET /warden/snapshot, whose board items carry `availableActions`.",
-        security: [{ BearerAuth: [] }],
-      },
-    },
-  )
+  })
   .get(
     '/actions',
     async ({ query, status: statusFn }) => {

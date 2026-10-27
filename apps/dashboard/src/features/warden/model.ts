@@ -1,14 +1,13 @@
 import { asText, authoredQuestion, stripShortcodes } from '../../lib/text'
 import { NBSP, formatRelative } from '../../lib/format'
 import type {
-  WardenActionVerb,
   WardenBoardItem,
   WardenIssueInfo,
   WardenItems,
   WardenRaw,
 } from '../../lib/queries/warden'
 
-export type { WardenActionVerb, WardenIssueInfo }
+export type { WardenIssueInfo }
 
 // Pure derivations for the Warden board. Argo derives nothing warden itself didn't already
 // compute — these functions only bucket, format and stale-check what the snapshot already carries.
@@ -212,56 +211,6 @@ export function isSafeHttpUrl(url: string): boolean {
   } catch {
     return false
   }
-}
-
-// ── Pending owner actions ────────────────────────────────────────────────────
-// A queued action (`POST /warden/items/:eventId/actions`) doesn't take effect until warden's own
-// loop pulls it and pushes a fresher snapshot — this tracks "queued" client-side in the meantime so
-// a click doesn't look like a no-op.
-
-export type PendingAction = { verb: WardenActionVerb; queuedAt: number }
-export type PendingActions = Record<number, PendingAction>
-
-export function withPendingAction(
-  pending: PendingActions,
-  eventId: number,
-  verb: WardenActionVerb,
-  now = Date.now(),
-): PendingActions {
-  return { ...pending, [eventId]: { verb, queuedAt: now } }
-}
-
-// warden polls its action queue roughly every 10 minutes (see warden/docs/api.md) — one poll of
-// margin before a queued action that never got applied is treated as failed, not pending forever.
-export const PENDING_ACTION_TIMEOUT_MS = 15 * 60 * 1000
-
-/** Drops a pending entry once the item's own `updated_at` has moved past the moment the action was
- * queued (warden applied it and pushed a fresher snapshot), or once it has been pending longer than
- * `PENDING_ACTION_TIMEOUT_MS`. An item absent from the latest snapshot's items only ages out on the
- * timeout — it never resolves as "applied" on absence alone. */
-export function reconcilePendingActions(
-  pending: PendingActions,
-  items: WardenBoardItem[],
-  now = Date.now(),
-): PendingActions {
-  const itemsById = new Map(items.map((item) => [item.event_id, item]))
-  const next: PendingActions = {}
-  let changed = false
-  for (const [key, action] of Object.entries(pending)) {
-    const eventId = Number(key)
-    const updatedAtMs = Date.parse(itemsById.get(eventId)?.updated_at ?? '')
-    const appliedSincePush = Number.isFinite(updatedAtMs) && updatedAtMs > action.queuedAt
-    const timedOut = now - action.queuedAt > PENDING_ACTION_TIMEOUT_MS
-    if (appliedSincePush || timedOut) {
-      changed = true
-      continue
-    }
-    next[eventId] = action
-  }
-  // Returns the same reference when nothing was dropped — the 30s reconciliation timer
-  // (`use-warden-actions.ts`) calls this unconditionally, and a fresh object every tick with no
-  // actual change would re-render the page's whole subtree for no reason.
-  return changed ? next : pending
 }
 
 // ── Item timeline ────────────────────────────────────────────────────────────
