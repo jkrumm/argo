@@ -12,8 +12,8 @@ export const USAGE_ACCOUNTS = [
 
 /**
  * Who pays for a row (the API derives it from billing + account): the two Max subscriptions and the
- * two metered APIs, IU's family in warm hues and the personal one in blues. The registry the labels
- * and colours derive from; `unknown` is the neutral catch-all.
+ * two metered APIs. The three wallets share one split bar, so each takes its own hue (gold, violet,
+ * sky); the registry the labels and colours derive from; `unknown` is the neutral catch-all.
  */
 export const USAGE_PAYERS = [
   { id: 'iu-sub', token: 'iuSub', label: 'IU Max', hue: BP.gold },

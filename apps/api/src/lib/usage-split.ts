@@ -32,7 +32,8 @@ export type SplitRow = Measures & {
 
 export type SplitTotal = Measures & { payer: string; prior: Prior | null }
 
-export const SPLIT_FOLD_KEY = 'other'
+/** Parenthesised like `(unset)`, so it can never be a real project, tool or model name. */
+export const SPLIT_FOLD_KEY = '(other)'
 
 const zero = (): Measures => ({ cost: 0, fresh: 0, cacheRead: 0, output: 0, calls: 0 })
 

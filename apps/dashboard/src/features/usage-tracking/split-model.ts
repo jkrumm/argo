@@ -12,7 +12,8 @@ import { colorForPayer } from './constants'
 import { OTHER_KEY } from './model'
 
 /** The key the API folds a list's tail into. */
-const FOLD_KEY = 'other'
+/** `/usage/split` folds its tail into this key; parenthesised so no real key can collide with it. */
+const FOLD_KEY = '(other)'
 /** A key with no value in the column (empty or NULL). */
 export const UNSET_KEY = '(unset)'
 

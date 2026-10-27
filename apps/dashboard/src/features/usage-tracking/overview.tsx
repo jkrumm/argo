@@ -51,7 +51,7 @@ export function Overview({
     <Stack gap="md">
       <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
         {wallets.map((wallet) => (
-          <Grid.Col key={wallet.id} span={{ base: 12, lg: 4 }}>
+          <Grid.Col key={wallet.id} span={{ base: 12, lg: 12 / Math.min(wallets.length, 4) }}>
             <WalletCard
               wallet={wallet}
               total={totalOf(projects.data.totals, wallet.id)}

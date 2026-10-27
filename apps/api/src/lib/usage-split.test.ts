@@ -36,7 +36,7 @@ describe('foldSplit', () => {
 
   it('folds the tail into one other row that keeps the totals whole', () => {
     const { rows, totals } = foldSplit({ cells, lens: 'cost', top: 2, hasPrior: true })
-    expect(rows.map((r) => r.key)).toEqual(['argo', 'other'])
+    expect(rows.map((r) => r.key)).toEqual(['argo', '(other)'])
     expect(rows[1]).toMatchObject({ cost: 63, prior: { cost: 70, fresh: 0 } })
     expect(rows[1]!.payers.map((p) => p.payer).toSorted()).toEqual(['iu-sub', 'me-sub'])
     const sum = (xs: { cost: number }[]) => xs.reduce((a, x) => a + x.cost, 0)
@@ -46,5 +46,21 @@ describe('foldSplit', () => {
   it('totals per payer include keys with nothing now, and null priors without a prior window', () => {
     const { totals } = foldSplit({ cells, lens: 'cost', top: 12, hasPrior: false })
     expect(totals.find((t) => t.payer === 'iu-sub')).toMatchObject({ cost: 103, prior: null })
+  })
+})
+
+describe('foldSplit — a real key named other', () => {
+  it('keeps it apart from the tail fold', () => {
+    const { rows } = foldSplit({
+      cells: [
+        cell({ key: 'other', payer: 'iu-sub', cost: 50 }),
+        cell({ key: 'a', payer: 'iu-sub', cost: 5 }),
+        cell({ key: 'b', payer: 'iu-sub', cost: 4 }),
+      ],
+      lens: 'cost',
+      top: 2,
+      hasPrior: false,
+    })
+    expect(rows.map((r) => r.key)).toEqual(['other', '(other)'])
   })
 })

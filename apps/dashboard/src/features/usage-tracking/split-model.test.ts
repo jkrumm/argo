@@ -63,7 +63,7 @@ describe('mostlyOf', () => {
     row('basalt-ui', [cell('iu-sub', 15), cell('iu-api', 40)]),
     row('argo', [cell('iu-sub', 60)]),
     row('(unset)', [cell('iu-sub', 99)]),
-    row('other', [cell('iu-sub', 99)]),
+    row('(other)', [cell('iu-sub', 99)]),
   ]
 
   it("picks the wallet's own top key as a share of the wallet total", () => {
@@ -78,7 +78,7 @@ describe('mostlyOf', () => {
 })
 
 describe('cutList', () => {
-  const rows = ['a', 'b', 'c', 'other'].map((k, i) => row(k, [cell('iu-sub', 10 - i)]))
+  const rows = ['a', 'b', 'c', '(other)'].map((k, i) => row(k, [cell('iu-sub', 10 - i)]))
 
   it('keeps the head and sums the tail with the folded row into one rest', () => {
     const cut = cutList(rows, 2)

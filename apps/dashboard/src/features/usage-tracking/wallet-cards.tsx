@@ -88,7 +88,12 @@ export function WalletCard({
         placeholderHeight="content"
         actions={
           tab ? (
-            <Button variant="subtle" size="compact-xs" onClick={() => setView(tab.id)}>
+            <Button
+              variant="subtle"
+              size="compact-xs"
+              aria-label={`Open the ${tab.title} tab`}
+              onClick={() => setView(tab.id)}
+            >
               Open
             </Button>
           ) : undefined
