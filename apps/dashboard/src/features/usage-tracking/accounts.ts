@@ -33,7 +33,7 @@ export const PLAN_PRICE_USD: Record<(typeof USAGE_ACCOUNTS)[number]['plan'], num
  */
 export const USAGE_PAYERS = [
   { id: 'iu-sub', token: 'iuSub', label: 'IU Max', shade: [BP.blue, 0, 4] },
-  { id: 'me-sub', token: 'meSub', label: 'Me Max', shade: [BP.blue, 2, 3] },
+  { id: 'me-sub', token: 'meSub', label: 'Me Max', shade: [BP.blue, 2, 2] },
   { id: 'me2-sub', token: 'me2Sub', label: 'Me2 Max', shade: [BP.blue, 3, 1] },
   { id: 'iu-api', token: 'iuApi', label: 'IU API', shade: [BP.gray, 0, 2] },
   { id: 'me-api', token: 'meApi', label: 'Me API', shade: [BP.gray, 1, 1] },
@@ -109,3 +109,15 @@ export const dollarWord = (kind: Wallet['kind']): string =>
 
 /** The account ids in registry order: the values of the Account control. */
 export const ACCOUNT_IDS: readonly AccountId[] = USAGE_ACCOUNTS.map((a) => a.id)
+
+/**
+ * The Claude account picker's ceilings, in percent used: it stops sending work to an account whose
+ * 5 h session passes `session` or whose weekly window passes `weekly` (98 instead while a window
+ * resets within 24 h, which no chart draws). Source: dotfiles `docs/claude-accounts.md`, rule v1.4;
+ * edit here when the rule changes.
+ */
+export const PICKER_CEILINGS = { session: 90, weekly: 95 } as const
+
+/** The payer id of an account id (`me2` is `me2-sub`); an id outside the registry is `unknown`. */
+export const payerOfAccount = (account: string): PayerValue =>
+  USAGE_ACCOUNTS.find((a) => a.id === account)?.payer ?? 'unknown'

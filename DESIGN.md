@@ -143,26 +143,37 @@ The page's default split and filter. The API derives the payer from billing + ac
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                     |
 | ----------- | --------- | --------- | ------------------ | -------------------------------------------------------- |
 | IU Max      | `#0c4a6e` | `#7dd3fc` | `iuSub`            | IU-paid Max 20x — strongest accent shade                 |
-| Me Max      | `#0284c7` | `#38bdf8` | `meSub`            | Personal Max 5x — middle accent shade                    |
+| Me Max      | `#0284c7` | `#0284c7` | `meSub`            | Personal Max 5x — middle accent shade                    |
 | Me2 Max     | `#38bdf8` | `#0369a1` | `me2Sub`           | Third Max 5x — lightest accent shade (light), deep (dark) |
 | IU API      | `#52525c` | `#a1a1aa` | `iuApi`            | IU metered API — neutral, a different kind of spend      |
 | Me API      | `#71717a` | `#71717a` | `meApi`            | Personal pay-per-token API (OpenRouter) — neutral        |
 | Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else)      |
 
-Shades separate by lightness, so the legend, the segment captions and the hover name every wallet; colour is never the only carrier.
+Shades sit at least two ramp steps apart where they share a chart (adjacent steps read as one colour in dark mode, routing shot 2026-10-27). Shades separate by lightness, so the legend, the segment captions and the hover name every wallet; colour is never the only carrier.
 
 ### Usage tracker — rank (`rank-` prefix — `USAGE_RANK.*`, `RANK_PALETTE`)
 
-The nth-ranked series of a stacked chart (tools, models, projects), assigned by rank, not by identity. Rank is an order, so lightness carries it: four accent shades from the strongest down, then two greys; the folded Other is the default grey.
+The nth-ranked series of a stacked chart (tools, models, projects), assigned by rank, not by identity. Rank is an order, so lightness carries it: three accent shades two steps apart (adjacent steps blur in dark mode), then three greys; the folded Other is the default grey.
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
 | ----------- | --------- | --------- | ------------------ | -------------------- |
 | Rank 1      | `#0c4a6e` | `#7dd3fc` | `rank1`            | Strongest shade      |
-| Rank 2      | `#0369a1` | `#38bdf8` | `rank2`            | Accent shade         |
-| Rank 3      | `#0284c7` | `#0284c7` | `rank3`            | Accent shade         |
-| Rank 4      | `#38bdf8` | `#0369a1` | `rank4`            | Lightest accent      |
-| Rank 5      | `#52525c` | `#a1a1aa` | `rank5`            | Grey                 |
-| Rank 6      | `#71717a` | `#71717a` | `rank6`            | Grey                 |
+| Rank 2      | `#0284c7` | `#0284c7` | `rank2`            | Accent shade         |
+| Rank 3      | `#38bdf8` | `#0369a1` | `rank3`            | Lightest accent      |
+| Rank 4      | `#52525c` | `#a1a1aa` | `rank4`            | Grey                 |
+| Rank 5      | `#71717a` | `#71717a` | `rank5`            | Grey                 |
+| Rank 6      | `#d4d4d8` | `#52525c` | `rank6`            | Grey                 |
+
+### Routing — reason (`routing-` prefix — `ROUTING_REASON.*`)
+
+Why the Claude account picker chose an account (Claude Max tab, Routing section). Shades of the one accent, the lane's own account (`home`) the strongest; every unrecognised reason is a grey. Spill and no-eligible-account are not series: the view draws them in `VX.status.warn` and `VX.status.bad`, the only status inks of the section. An account itself is its payer shade (`USAGE_PAYER.*`).
+
+| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                      |
+| ----------- | --------- | --------- | ------------------ | ----------------------------------------- |
+| Home        | `#0c4a6e` | `#7dd3fc` | `home`             | The lane's own account, strongest shade   |
+| Pace        | `#0369a1` | `#38bdf8` | `pace`             | Healthy, second shade                     |
+| Session     | `#0284c7` | `#0284c7` | `session`          | Healthy, third shade                      |
+| Other       | `#52525c` | `#a1a1aa` | `other`            | Any other reason (interactive-fallback …) |
 
 ### Light pollution ramp (`lp-` prefix — `LP.*`)
 

@@ -3,7 +3,7 @@
  * rather than given a tab each. The Account control scopes the whole tab to one subscription (or all
  * of them); only subscriptions with usage or a quota sample in the range are listed. Compared table,
  * weekly quota with this week's pace, volume over time, rhythm, and the ranked projects, tools and
- * models.
+ * models; below them the Routing section (the account picker, independent of the Account switch).
  */
 import { Suspense } from 'react'
 import { useSuspenseQueries } from '@tanstack/react-query'
@@ -28,6 +28,7 @@ import { pickOptions } from './pick-options'
 import { QUOTA_HOURS, quotaAccounts, quotaPeaks } from './quota-model'
 import RankedList from './ranked-list'
 import { Rhythm } from './rhythm'
+import { Routing } from './routing'
 import { claudeScope, selectedSubs } from './scope'
 import { SPLIT_TOP } from './split-model'
 import type { WorkspaceValue } from './types'
@@ -163,6 +164,8 @@ export function ClaudeTab({
             </Grid.Col>
           ))}
         </Grid>
+
+        <Routing />
       </Stack>
     </Section>
   )

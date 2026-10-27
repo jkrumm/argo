@@ -283,3 +283,27 @@ Deviations from the spec text:
 Shots: `make design-shot` rounds `usage-v6-r1` .. `r3` on live data, `/usage-tracking`, `?view=claude`, `?view=iu-api`, light + dark, 1440 + 390. Not run: the `basalt-design-reviewer` subagent and `basalt-ui shot detect`. Not verified on real data: me2 with usage (unit tests cover the live list, the value multiple and the pooled row with a no-usage subscription).
 
 - Orchestrator fix after r3: the value multiple prorates each subscription over the days it was held in the range (first row ever, from an all-time day series), not the whole range; Me Max (held since 24 Oct) read 16× over 30 d, the held-days figure is several times that.
+
+## Routing (Wave 7, 2026-10-27)
+
+A **Routing** section at the bottom of the Claude Max tab, built for tuning the Claude account picker (dotfiles `docs/claude-accounts.md`, rule v1.4: ceilings session 90 / weekly 95, weekly 98 while a window resets within 24 h) from its own log over weeks. Dashboard only; the endpoints were already live. Its range control (1d, 3d, 7d, 14d, 21d, default 7d) is `usageStore.routingRange`, independent of the page Range, and the tab's Account switch does not filter it: routing is about choosing between accounts. Every block reads from where the data begins (picker log and quota samples since 2026-10-24) and says so.
+
+| Block | Question it answers | Code | Data |
+|-|-|-|-|
+| Facts strip | How often does it spill, what does it leave unused, how long does a refilled window sit idle? | `routing.tsx`, `routing-model.ts` (`spillFacts`, `windowFacts`) | summary `lanes`, `/usage/routing/windows` (5 h windows of all accounts pooled) |
+| Who served each lane | Which account took which lane when, and what did the picker see? | `routing-picks.tsx` (`laneRows`, `cellState`, `snapshotText`) | `/usage/account-picks` |
+| Why accounts were chosen | Is home still the norm, or are the ceilings binding (spill, no eligible account)? | `routing-charts.tsx` (`ReasonMix`; `reasonKeys`, `reasonColor`) | summary `groupBy=reason` |
+| Spill rate per lane | Which lane spills? | `routing-charts.tsx` (`SpillByLane`) | summary `lanes` |
+| 5 h session quota | How close do accounts run to the session ceiling, when do windows refill? | `routing-charts.tsx` (`Sawtooth`; `fiveHourRows`, `resetTicks`), `PICKER_CEILINGS` in `accounts.ts` | `/usage/quota?hours=<range>` (`series`, `resets`) |
+| Tuning | Per account: capacity expired at a 5 h reset, wait until picked again, resets never picked after, capacity expired at the last 7 d reset | `routing.tsx` (`tuningRows`) | `/usage/routing/windows` `summary` + `windows` |
+
+Forms: the timeline is one `BandStrip` per lane (busiest first, at most 8; a state per slot with legend and tooltip derived from `states`; a scatter would need a lane axis basalt has no form for), the strips share one cursor, and `fold` merges cells at narrow widths. The sawtooth is `CartesianChart` with `marks` (lines, `ruleX` resets, a `text` label per 7 d reset) because `Lines` has no vertical rule with a label. New series group `ROUTING_REASON` (`home`, `pace`, `session` accent shades, `other` grey); an account is always its payer shade.
+
+Deviations from the brief:
+
+- A pick no account could serve (`picked` = `spill`, or reason `no-eligible-account`) is `VX.status.bad` in the timeline, not warn, so it matches the reason mix, where spill (`warn`) and no-eligible-account have to be told apart. A pick an account only took as overflow (reason `spill`, `picked` an account) keeps that account's shade with a warn marker over the cell; it is what the spill rate counts.
+- The session ceiling line is neutral, not a status ink: status inks are spent on spill and no-eligible-account only.
+- The weekly ceiling (`PICKER_CEILINGS.weekly`) is recorded but not drawn: no chart shows the weekly percent per account at the picker's resolution.
+- The facts strip pools the 5 h windows of every account (median of windows, not of per-account medians).
+
+Not verified on live data: the 7 d reset label (no weekly reset has been sampled yet; checked once with a temporary stand-in, then removed), the hover tooltip content (static shots), a populated 14d / 21d range (the log is three days old), unknown reasons or accounts (the model tests cover them).

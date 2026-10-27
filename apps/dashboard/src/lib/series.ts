@@ -16,7 +16,7 @@
  *  - `p(family, lightIndex, darkIndex)` (re-exported from basalt) picks the theme-shade pair;
  *    default indices (2 light / 3 dark) match basalt's own dark-mode-lift convention.
  *  - Every series lives in a named group, so the emitted vars are `--vx-series-*`,
- *    `--vx-activity-*`, `--vx-usage-*`, `--vx-payer-*`, `--vx-rank-*` and `--vx-lp-*`
+ *    `--vx-activity-*`, `--vx-usage-*`, `--vx-payer-*`, `--vx-rank-*`, `--vx-routing-*` and `--vx-lp-*`
  *    (basalt-ui 2.0 has no unprefixed group). Read series through the `SERIES.*` / group refs,
  *    never by literal var name.
  *  - Values here are a mechanical carry-over, not a final visual pass — iterate live via the
@@ -139,16 +139,29 @@ const USAGE_PAYER_MAP: SeriesMap = defineSeries({
 
 /**
  * Usage tracker — rank identity: the nth-ranked series of a stacked chart (tools, models, projects).
- * Shades, not hues: four steps of the accent from the strongest down, then two greys; the folded
+ * Shades, not hues: three steps of the accent two apart (adjacent steps blur in dark mode), then three greys; the folded
  * Other stays the default grey. Rank is an order, so lightness carries it.
  */
 const USAGE_RANK_MAP = defineSeries({
   rank1: p(BP.blue, 0, 4),
-  rank2: p(BP.blue, 1, 3),
-  rank3: p(BP.blue, 2, 2),
-  rank4: p(BP.blue, 3, 1),
-  rank5: p(BP.gray, 0, 2),
-  rank6: p(BP.gray, 1, 1),
+  rank2: p(BP.blue, 2, 2),
+  rank3: p(BP.blue, 3, 1),
+  rank4: p(BP.gray, 0, 2),
+  rank5: p(BP.gray, 1, 1),
+  rank6: p(BP.gray, 3, 0),
+} satisfies SeriesMap)
+
+/**
+ * Claude account picker — why a decision went where it did. The healthy reasons are shades of the
+ * one accent, `home` the strongest (the account the lane belongs to), then `pace`, `session`; every
+ * other reason is a grey. Spill and no-eligible-account are status inks (`VX.status.*`) drawn by the
+ * routing view itself, so they are not series here.
+ */
+const ROUTING_REASON_MAP = defineSeries({
+  home: p(BP.blue, 0, 4),
+  pace: p(BP.blue, 1, 3),
+  session: p(BP.blue, 2, 2),
+  other: p(BP.gray, 0, 2),
 } satisfies SeriesMap)
 
 /**
@@ -182,13 +195,22 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
 export const USAGE_PAYER = groupTokens('payer', USAGE_PAYER_MAP)
 export const USAGE_RANK = groupTokens('rank', USAGE_RANK_MAP)
+export const ROUTING_REASON = groupTokens('routing', ROUTING_REASON_MAP)
 export const LP = groupTokens('lp', LP_MAP)
 
 /**
  * `paletteOptions.groups` shape for `BasaltProvider` — appends argo's domain series on top of
  * basalt's framework primitives. Prefixes match the `--vx-*` names above exactly.
  */
-export const argoPaletteGroups = [SERIES, ACTIVITY, USAGE_SOURCE, USAGE_PAYER, USAGE_RANK, LP]
+export const argoPaletteGroups = [
+  SERIES,
+  ACTIVITY,
+  USAGE_SOURCE,
+  USAGE_PAYER,
+  USAGE_RANK,
+  ROUTING_REASON,
+  LP,
+]
 
 /**
  * `optimalZone` (`packages/charts/src/tokens.ts` → `VX.series.optimalZone`) is not a per-theme

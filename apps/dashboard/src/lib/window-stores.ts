@@ -167,10 +167,13 @@ export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
 export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
 /** The Account control of the Claude Max tab: `all`, or one account id from the registry. */
 export const USAGE_ACCOUNT_VALUES = ['all', ...ACCOUNT_IDS] as const
+/** The Routing section's own range: how many days of picker decisions it reads, independent of the page Range. */
+export const USAGE_ROUTING_RANGE_VALUES = ['1d', '3d', '7d', '14d', '21d'] as const
 export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
 export type UsageAccount = (typeof USAGE_ACCOUNT_VALUES)[number]
+export type UsageRoutingRange = (typeof USAGE_ROUTING_RANGE_VALUES)[number]
 
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
@@ -186,6 +189,8 @@ export const usageStore = createSearchStore({
     workspace: field.multi(['work', 'private'], []),
     lens: field.enum(USAGE_LENS_VALUES, 'cost'),
     groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'sub_tool'),
+    // The Claude Max tab's Routing section: picker decisions over 1–21 days, apart from `range`.
+    routingRange: field.enum(USAGE_ROUTING_RANGE_VALUES, '7d'),
   },
 }).labels({
   view: {
@@ -204,6 +209,7 @@ export const usageStore = createSearchStore({
   workspace: { work: 'Work', private: 'Private' },
   lens: { cost: '$', tokens: 'Tokens' },
   groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project', payer: 'Subscription' },
+  routingRange: { '1d': '1d', '3d': '3d', '7d': '7d', '14d': '14d', '21d': '21d' },
 })
 
 /** The retired tabs and the account each one scoped to. */

@@ -98,6 +98,13 @@ const fetchQuota = async (query: { hours: number; account: string[] | undefined 
 const fetchQuotaLatest = async (query: { account: string[] | undefined }) =>
   unwrap(await api.usage['quota-latest'].get({ query }))
 
+const fetchAccountPicks = async (query: { hours: number }) =>
+  unwrap(await api.usage['account-picks'].get({ query }))
+const fetchPicksSummary = async (query: { hours: number; groupBy: 'picked' | 'reason' }) =>
+  unwrap(await api.usage['account-picks'].summary.get({ query }))
+const fetchRoutingWindows = async (query: { hours: number }) =>
+  unwrap(await api.usage.routing.windows.get({ query }))
+
 export type IuBudget = Awaited<ReturnType<typeof fetchIuBudget>>
 export type IuReconcile = Awaited<ReturnType<typeof fetchIuReconcile>>
 export type FlowResponse = Awaited<ReturnType<typeof fetchFlow>>
@@ -109,6 +116,12 @@ export type RhythmResponse = Awaited<ReturnType<typeof fetchRhythm>>
 export type QuotaResponse = Awaited<ReturnType<typeof fetchQuota>>
 export type QuotaLatestResponse = Awaited<ReturnType<typeof fetchQuotaLatest>>
 export type QuotaLatest = QuotaLatestResponse['accounts'][number]
+export type AccountPicksResponse = Awaited<ReturnType<typeof fetchAccountPicks>>
+export type AccountPick = AccountPicksResponse['picks'][number]
+export type PicksSummaryResponse = Awaited<ReturnType<typeof fetchPicksSummary>>
+export type RoutingWindowsResponse = Awaited<ReturnType<typeof fetchRoutingWindows>>
+export type RoutingWindow = RoutingWindowsResponse['windows'][number]
+export type RoutingWindowSummary = RoutingWindowsResponse['summary'][number]
 
 /** An empty selection is no constraint: send no filter rather than `[]`. */
 const payersOrUndefined = (payer: PayerFilter[] | undefined) =>
@@ -158,6 +171,21 @@ export const usageQueries = {
     queryOptions({
       queryKey: [...usageQueries.all(), 'quota', hours, account] as const,
       queryFn: () => fetchQuota({ hours, account }),
+    }),
+  accountPicks: (hours: number) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'account-picks', hours] as const,
+      queryFn: () => fetchAccountPicks({ hours }),
+    }),
+  picksSummary: (hours: number, groupBy: 'picked' | 'reason') =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'picks-summary', hours, groupBy] as const,
+      queryFn: () => fetchPicksSummary({ hours, groupBy }),
+    }),
+  routingWindows: (hours: number) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'routing-windows', hours] as const,
+      queryFn: () => fetchRoutingWindows({ hours }),
     }),
   quotaLatest: (account?: string[]) =>
     queryOptions({
