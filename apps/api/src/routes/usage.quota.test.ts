@@ -488,7 +488,11 @@ describe('routing views', () => {
       ],
     })
     const list = await getJson<{
-      picks: Array<{ lane: string; reason: string; snapshot: Record<string, { s: number | null }> }>
+      picks: Array<{
+        lane: string
+        reason: string
+        snapshot: Record<string, { s: number | null; w: number | null }>
+      }>
     }>('/usage/account-picks?hours=24')
     const mine = list.picks.filter((p) => p.lane.startsWith(LANE))
     expect(mine.map((p) => p.reason)).toEqual(['home', 'spill', 'no-eligible-account'])
