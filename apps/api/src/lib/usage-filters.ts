@@ -65,7 +65,8 @@ export function buildFilterSql({
   if (project && project.length > 0) {
     // Same normalization as ingest, so `argo-wt` or a cwd path finds the stored repo name.
     const names = project.flatMap((p) => normalizeProject(p) ?? [])
-    if (names.length > 0) parts.push(inList(sql`project`, names))
+    // A filter was asked for: names that all normalize away match nothing, never every project.
+    parts.push(names.length > 0 ? inList(sql`project`, names) : sql`FALSE`)
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`

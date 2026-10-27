@@ -548,4 +548,21 @@ describe('routing views', () => {
       medianUnusedPct: 30,
     })
   })
+
+  it('bounds the pick-back wait by the next 5 h reset of the account', async () => {
+    await post('quota-samples', {
+      samples: [
+        sample({ sampledAt: at(10), fiveHourPct: 50, fiveHourResetsAt: at(30) }),
+        sample({ sampledAt: at(40), fiveHourPct: 20, fiveHourResetsAt: at(60) }),
+        sample({ sampledAt: at(70), fiveHourPct: 0, fiveHourResetsAt: at(400) }),
+      ],
+    })
+    // The only pick after the first reset comes after the second one too: it belongs to the second.
+    await post('account-picks', { picks: [pick({ ts: at(65) })] })
+    const body = await getJson<{
+      windows: Array<{ account: string; window: string; minutesToFirstPick: number | null }>
+    }>('/usage/routing/windows?hours=24')
+    const mine = body.windows.filter((w) => w.account === A && w.window === 'five_hour')
+    expect(mine.map((w) => w.minutesToFirstPick)).toEqual([null, 5])
+  })
 })

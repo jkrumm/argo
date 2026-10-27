@@ -537,6 +537,7 @@ export const usageQuotaRoutes = new Elysia()
           FROM argo.quota_sample
           WHERE five_hour_resets_at >= ${fromIso}::timestamptz AND five_hour_resets_at <= now()
             AND sampled_at < five_hour_resets_at
+            AND sampled_at >= ${fromIso}::timestamptz - interval '5 hours'
           GROUP BY 1, 2, 3
           UNION ALL
           SELECT account, 'seven_day', date_trunc('minute', seven_day_resets_at),
@@ -545,15 +546,21 @@ export const usageQuotaRoutes = new Elysia()
           FROM argo.quota_sample
           WHERE seven_day_resets_at >= ${fromIso}::timestamptz AND seven_day_resets_at <= now()
             AND sampled_at < seven_day_resets_at
+            AND sampled_at >= ${fromIso}::timestamptz - interval '7 days'
           GROUP BY 1, 2, 3
         )
-        SELECT w.account, w.win, w.reset_at, w.pct, w.last_sample,
-               CASE WHEN w.win = 'five_hour' THEN (
+        , n AS (
+          SELECT w.*, lead(w.reset_at) OVER (PARTITION BY w.account, w.win ORDER BY w.reset_at) AS next_reset
+          FROM w
+        )
+        SELECT n.account, n.win, n.reset_at, n.pct, n.last_sample,
+               CASE WHEN n.win = 'five_hour' THEN (
                  SELECT min(p.ts) FROM argo.account_pick p
-                 WHERE p.picked = w.account AND p.ts >= w.reset_at AND p.ts <= now()
+                 WHERE p.picked = n.account AND p.ts >= n.reset_at
+                   AND p.ts < COALESCE(n.next_reset, now())
                ) END AS first_pick
-        FROM w
-        ORDER BY w.reset_at, w.account, w.win
+        FROM n
+        ORDER BY n.reset_at, n.account, n.win
       `)
       const iso = (v: unknown) =>
         v === null || v === undefined ? null : new Date(v as string).toISOString()
@@ -612,7 +619,7 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Claude quota windows: unused capacity and pick-back time',
         description:
-          'One row per account and quota window (five_hour | seven_day) that reset in the last ?hours=1..2160 (default 504 = 21 d): pctAtReset is the percent used in the last sample before the reset (lastSampleAt says how old it was), unusedPct = 100 − pctAtReset (capacity that expired unused). For five_hour windows, firstPickAt / minutesToFirstPick is the first picker decision for that account at or after the reset (null: not picked since). `summary` aggregates per account and window: resets, median/mean unused percent, median minutes to the first pick, and five-hour resets never picked after. A window only appears once a sample reported its reset instant.',
+          'One row per account and quota window (five_hour | seven_day) that reset in the last ?hours=1..2160 (default 504 = 21 d): pctAtReset is the percent used in the last sample before the reset (lastSampleAt says how old it was), unusedPct = 100 − pctAtReset (capacity that expired unused). For five_hour windows, firstPickAt / minutesToFirstPick is the first picker decision for that account at or after the reset and before the account’s next 5 h reset (null: not picked in that span), so one pick never counts for two windows. `summary` aggregates per account and window: resets, median/mean unused percent, median minutes to the first pick, and five-hour resets never picked after. A window only appears once a sample reported its reset instant.',
         security: [{ BearerAuth: [] }],
       },
     },

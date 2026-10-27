@@ -108,7 +108,9 @@ export function laneRows(
   for (const p of picks) {
     const t = Date.parse(p.ts)
     if (!(t >= start && t <= toMs)) continue
-    byLane.set(p.lane, [...(byLane.get(p.lane) ?? []), p])
+    const lane = byLane.get(p.lane)
+    if (lane === undefined) byLane.set(p.lane, [p])
+    else lane.push(p)
   }
   const lanes = [...byLane]
     .toSorted(([a, as], [b, bs]) => bs.length - as.length || a.localeCompare(b))

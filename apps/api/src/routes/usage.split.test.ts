@@ -147,3 +147,11 @@ describe('me2 payer and the project filter', () => {
     expect([sum('me2-sub'), sum('iu-sub')]).toEqual([3, 2])
   })
 })
+
+describe('project filter', () => {
+  it('matches nothing when every value normalizes away', async () => {
+    await db.insert(usageRecord).values([row({ project: 'argo', cost_usd: 3 })])
+    const body = await get<Split>('/split?by=project&range=7d&project=%20')
+    expect(body.rows).toEqual([])
+  })
+})
