@@ -1,24 +1,17 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { Anchor, Box, SimpleGrid, Text } from '@mantine/core'
 import { EmptyState, Section } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
-import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
+import type { WardenItems } from '../../lib/queries/warden'
 import classes from '../../components/upstream/decision-card.module.css'
 import queueClasses from './decision-queues.module.css'
 import { useNow } from '../../lib/use-now'
 import { BreakableTitle } from './breakable-title'
 import { HistoryPreview } from './history-preview'
-import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
+import { DecisionCard } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
-import { ActionPromptModal } from './action-prompt'
-import { VERB_LABEL, needsPrompt, type PromptState, type PromptVerb } from './action-verbs'
-import {
-  isSafeHttpUrl,
-  type AwaitingOwnerRow,
-  type AwaitingOwnerView,
-  type PendingActions,
-} from './model'
+import { isSafeHttpUrl, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
 import {
   cardCategory,
   latestHistoryAgeMs,
@@ -35,22 +28,17 @@ import {
   type AlertEntry,
   type AlertGroup,
   type TransitionHistory,
-  type ActionPlan,
   type QueueKind,
   type WardenAsk,
 } from './page-model'
 import { StatusChip } from './status-chip'
-
-type OnAction = (eventId: number, verb: WardenActionVerb, payload?: Record<string, unknown>) => void
 
 type Props = {
   view: AwaitingOwnerView
   /** When the snapshot was received: the card's `age_days` is frozen there. */
   receivedAt: string | null
   items: WardenItems | undefined
-  pending: PendingActions
   onSelectItem: (eventId: number) => void
-  onAction: OnAction
 }
 
 /** The whole ask, behind the card's disclosure; long identifiers and URLs wrap anywhere. */
@@ -71,65 +59,25 @@ function PrLink({ prUrl }: { prUrl: string }) {
   )
 }
 
-/**
- * Slots are explicit. The card's own verbs fill primary and secondary in that order. The timeline is
- * always an action: with no verb it is the primary, with one verb the secondary, and otherwise it
- * leads the menu.
- */
-function cardSlots(
-  plan: ActionPlan,
-  toAction: (verb: WardenActionVerb) => DecisionCardAction,
-  timeline: DecisionCardAction,
-): {
-  primary: DecisionCardAction
-  secondary: DecisionCardAction | undefined
-  menu: DecisionCardAction[]
-} {
-  const rest = plan.menu.map(toAction)
-  if (plan.primary === null) return { primary: timeline, secondary: undefined, menu: rest }
-  if (plan.secondary === null)
-    return { primary: toAction(plan.primary), secondary: timeline, menu: rest }
-  return {
-    primary: toAction(plan.primary),
-    secondary: toAction(plan.secondary),
-    menu: [timeline, ...rest],
-  }
-}
-
 function QueueCard({
   row,
   kind,
   ask,
-  pending,
   history,
   now,
   elapsedMs,
-  onFire,
   onSelectItem,
 }: {
   row: AwaitingOwnerRow
   kind: QueueKind
   ask: WardenAsk
-  pending: PendingActions[number] | undefined
   history: TransitionHistory
   /** The page clock and the time since the snapshot arrived, read once by `DecisionQueues`. */
   now: number
   elapsedMs: number
-  onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
-  const { plan, repo, tag, copy } = ask
-  const toAction = (verb: WardenActionVerb): DecisionCardAction => ({
-    label: VERB_LABEL[verb],
-    onClick: () => onFire(verb),
-    disabled: pending !== undefined,
-  })
-  const timeline: DecisionCardAction = {
-    label: 'Timeline',
-    onClick: onSelectItem,
-    icon: <IconListDetails size={14} />,
-  }
-  const { primary, secondary, menu } = cardSlots(plan, toAction, timeline)
+  const { tag, copy } = ask
   const category = cardCategory(kind, tag, row.failureClass)
   const status =
     category !== null ? (
@@ -144,7 +92,7 @@ function QueueCard({
       <DecisionCard
         question={copy.question}
         facts={capFacts(
-          cardFacts(row, repo, { elapsedMs, historyAgeMs: latestHistoryAgeMs(history, now) }),
+          cardFacts(row, ask.repo, { elapsedMs, historyAgeMs: latestHistoryAgeMs(history, now) }),
         )}
         status={status}
         subject={copy.entity ? <BreakableTitle text={copy.entity} /> : null}
@@ -154,20 +102,8 @@ function QueueCard({
           : {})}
         {...(view !== null ? { preview: <HistoryPreview view={view} now={now} /> } : {})}
         {...(view?.layout === 'inline' ? { previewPlacement: 'inline' as const } : {})}
-        primary={primary}
-        secondary={secondary}
-        menu={menu}
-        meta={
-          pending !== undefined || row.prUrl !== null ? (
-            <>
-              {row.prUrl !== null ? <PrLink prUrl={row.prUrl} /> : null}
-              {row.prUrl !== null && pending !== undefined ? ' · ' : null}
-              {pending !== undefined
-                ? `Queued: ${VERB_LABEL[pending.verb]} — warden applies it on its next poll`
-                : null}
-            </>
-          ) : undefined
-        }
+        primary={{ label: 'Timeline', onClick: onSelectItem, icon: <IconListDetails size={14} /> }}
+        meta={row.prUrl !== null ? <PrLink prUrl={row.prUrl} /> : undefined}
       />
     </Box>
   )
@@ -177,14 +113,12 @@ type GridProps = {
   items: WardenItems | undefined
   now: number
   elapsedMs: number
-  pending: PendingActions
-  onFire: (eventId: number, verb: WardenActionVerb) => void
   onSelectItem: (eventId: number) => void
 }
 
 const GRID_COLS = { base: 1, [CQ.wide]: 2 }
 
-/** One row's ordinary card, bound to its own pending write and history. */
+/** One row's ordinary card, bound to its own history. */
 function RowCard({
   row,
   kind,
@@ -192,8 +126,6 @@ function RowCard({
   items,
   now,
   elapsedMs,
-  pending,
-  onFire,
   onSelectItem,
 }: GridProps & { row: AwaitingOwnerRow; kind: QueueKind; ask: WardenAsk }) {
   return (
@@ -201,11 +133,9 @@ function RowCard({
       row={row}
       kind={kind}
       ask={ask}
-      pending={pending[row.eventId]}
       history={recentTransitions(items?.[String(row.eventId)])}
       now={now}
       elapsedMs={elapsedMs}
-      onFire={(verb) => onFire(row.eventId, verb)}
       onSelectItem={() => onSelectItem(row.eventId)}
     />
   )
@@ -232,8 +162,8 @@ function CardGrid({
 }
 
 /**
- * One repo's alerts as one card; Show/Hide toggles the members, which render as ordinary cards in
- * the same grid directly after it. No write lives on the group: every verb stays on a member.
+ * One repo's alerts folded into one card; Show/Hide toggles the members, which render as ordinary
+ * cards in the same grid directly after it.
  */
 function AlertGroupCards({
   group,
@@ -304,21 +234,12 @@ function AlertGrid({
 }
 
 /**
- * `Needs you <n>`, `Failed <n>` and `Alerts <n>` as decision cards, from `board.awaiting_owner`; alert-origin
- * asks fold out of Needs you, one group card per repo with two or more. Each card carries
- * one primary and at most one secondary action; every other offered verb sits in the card's menu.
- * `dismiss`/`note` collect a short text first (`ActionPromptModal`); the write contract
- * (`onAction` → `use-warden-actions`) is unchanged.
+ * `Needs you <n>`, `Failed <n>` and `Alerts <n>` as decision cards, from `board.awaiting_owner`;
+ * alert-origin asks fold out of Needs you, one group card per repo with two or more. Warden was
+ * switched off 2026-10-27 — these cards are read-only history, so the only action they carry is
+ * opening the item's Timeline.
  */
-export function DecisionQueues({
-  view,
-  receivedAt,
-  items,
-  pending,
-  onSelectItem,
-  onAction,
-}: Props) {
-  const [prompt, setPrompt] = useState<PromptState>(null)
+export function DecisionQueues({ view, receivedAt, items, onSelectItem }: Props) {
   const now = useNow()
   const elapsedMs = sinceSnapshotMs(receivedAt, now)
   const queue = needsCards(view)
@@ -335,26 +256,7 @@ export function DecisionQueues({
   const alertCount = queue.length - needs.length
   const needsAsks = needs.map((row) => askById.get(row.eventId)!)
   const failedAsks = view.failed.map((row) => askById.get(row.eventId)!)
-  const grid = { items, now, elapsedMs, pending, onSelectItem }
-
-  const fire = useCallback(
-    (eventId: number, verb: WardenActionVerb) => {
-      if (needsPrompt(verb))
-        setPrompt({ eventId, verb } satisfies { eventId: number; verb: PromptVerb })
-      else onAction(eventId, verb)
-    },
-    [onAction],
-  )
-
-  function submitPrompt(text: string) {
-    if (!prompt) return
-    onAction(
-      prompt.eventId,
-      prompt.verb,
-      prompt.verb === 'dismiss' ? { reason: text } : { note: text },
-    )
-    setPrompt(null)
-  }
+  const grid = { items, now, elapsedMs, onSelectItem }
 
   return (
     <>
@@ -371,20 +273,19 @@ export function DecisionQueues({
             }
           />
         ) : (
-          <CardGrid rows={needs} kind="decision" asks={needsAsks} {...grid} onFire={fire} />
+          <CardGrid rows={needs} kind="decision" asks={needsAsks} {...grid} />
         )}
       </Section>
       {view.failed.length > 0 ? (
         <Section title="Failed" count={view.failed.length}>
-          <CardGrid rows={view.failed} kind="failed" asks={failedAsks} {...grid} onFire={fire} />
+          <CardGrid rows={view.failed} kind="failed" asks={failedAsks} {...grid} />
         </Section>
       ) : null}
       {alertCount > 0 ? (
         <Section title="Alerts" count={alertCount}>
-          <AlertGrid entries={alertEntries} asks={askById} {...grid} onFire={fire} />
+          <AlertGrid entries={alertEntries} asks={askById} {...grid} />
         </Section>
       ) : null}
-      <ActionPromptModal prompt={prompt} onClose={() => setPrompt(null)} onSubmit={submitPrompt} />
     </>
   )
 }

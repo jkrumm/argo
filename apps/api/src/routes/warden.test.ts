@@ -348,55 +348,34 @@ describe('/warden/snapshot', () => {
 })
 
 describe('warden owner action queue', () => {
-  it('enqueues an action against a board item', async () => {
+  it('refuses to queue an action with 410, inserting nothing', async () => {
     const res = await post('/warden/items/986/actions', {
       machine: 'mini',
       verb: 'implement',
       payload: { reason: 'owner click' },
     })
-    expect(res.status).toBe(201)
-    const body = (await res.json()) as {
-      id: number
-      eventId: number
-      machine: string
-      verb: string
-      status: string
-    }
-    expect(body.eventId).toBe(986)
-    expect(body.machine).toBe('mini')
-    expect(body.verb).toBe('implement')
-    expect(body.status).toBe('pending')
+    expect(res.status).toBe(410)
+    expect(await res.text()).toBe('warden is switched off')
+    expect(await db.select().from(wardenAction)).toHaveLength(0)
   })
 
-  it('accepts the retry verb', async () => {
-    const res = await post('/warden/items/986/actions', { machine: 'mini', verb: 'retry' })
-    expect(res.status).toBe(201)
-    const body = (await res.json()) as { verb: string; status: string }
-    expect(body.verb).toBe('retry')
-    expect(body.status).toBe('pending')
-  })
-
-  it('rejects an unknown verb with 400', async () => {
+  it('refuses every verb alike, including one it does not recognize', async () => {
     const res = await post('/warden/items/986/actions', { machine: 'mini', verb: 'delete-repo' })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(410)
     expect(await db.select().from(wardenAction)).toHaveLength(0)
   })
 
   it('pulls only pending actions for the requested machine', async () => {
-    await post('/warden/items/1/actions', { machine: 'mini', verb: 'implement' })
-    await post('/warden/items/2/actions', {
-      machine: 'mini',
-      verb: 'dismiss',
-      payload: { reason: 'stale' },
-    })
-    await post('/warden/items/3/actions', { machine: 'iumac', verb: 'merge' })
-    const ids = (
-      await db.select({ id: wardenAction.id }).from(wardenAction).orderBy(wardenAction.id)
-    ).map((r) => r.id)
-    expect(ids).toHaveLength(3)
-    const secondId = ids[1]!
+    const rows = await db
+      .insert(wardenAction)
+      .values([
+        { machine: 'mini', event_id: 1, verb: 'implement' },
+        { machine: 'mini', event_id: 2, verb: 'dismiss', payload: { reason: 'stale' } },
+        { machine: 'iumac', event_id: 3, verb: 'merge' },
+      ])
+      .returning()
     await app.handle(
-      new Request(`http://localhost/warden/actions/${secondId}/ack`, {
+      new Request(`http://localhost/warden/actions/${rows[1]!.id}/ack`, {
         method: 'POST',
         headers: JSON_HEADERS,
         body: JSON.stringify({ status: 'applied' }),
@@ -412,11 +391,12 @@ describe('warden owner action queue', () => {
   })
 
   it('acks an action, transitioning it out of pending, and is idempotent on a repeat ack', async () => {
-    const enqueued = (await (
-      await post('/warden/items/986/actions', { machine: 'mini', verb: 'merge' })
-    ).json()) as { id: number }
+    const [enqueued] = await db
+      .insert(wardenAction)
+      .values({ machine: 'mini', event_id: 986, verb: 'merge' })
+      .returning()
 
-    const first = await post(`/warden/actions/${enqueued.id}/ack`, {
+    const first = await post(`/warden/actions/${enqueued!.id}/ack`, {
       status: 'applied',
       result: { pr_url: 'https://github.com/jkrumm/argo/pull/1' },
     })
@@ -424,7 +404,7 @@ describe('warden owner action queue', () => {
     const firstBody = (await first.json()) as { status: string }
     expect(firstBody.status).toBe('applied')
 
-    const second = await post(`/warden/actions/${enqueued.id}/ack`, {
+    const second = await post(`/warden/actions/${enqueued!.id}/ack`, {
       status: 'applied',
       result: { pr_url: 'https://github.com/jkrumm/argo/pull/1' },
     })
@@ -444,7 +424,7 @@ describe('warden owner action queue', () => {
   })
 
   it('atomically claims pending rows so a concurrent pull cannot double-deliver the same action', async () => {
-    await post('/warden/items/1/actions', { machine: 'mini', verb: 'implement' })
+    await db.insert(wardenAction).values({ machine: 'mini', event_id: 1, verb: 'implement' })
 
     const first = await get('/warden/actions?machine=mini&status=pending')
     expect(((await first.json()) as { event_id: number }[]).length).toBe(1)
@@ -481,21 +461,12 @@ describe('warden owner action queue', () => {
     expect(body.map((b) => b.event_id)).not.toContain(6)
   })
 
-  it('rejects an oversized enqueue payload with 413', async () => {
-    const res = await post('/warden/items/986/actions', {
-      machine: 'mini',
-      verb: 'implement',
-      payload: { huge: 'x'.repeat(100_001) },
-    })
-    expect(res.status).toBe(413)
-    expect(await db.select().from(wardenAction)).toHaveLength(0)
-  })
-
   it('rejects an oversized ack result with 413', async () => {
-    const enqueued = (await (
-      await post('/warden/items/986/actions', { machine: 'mini', verb: 'merge' })
-    ).json()) as { id: number }
-    const res = await post(`/warden/actions/${enqueued.id}/ack`, {
+    const [enqueued] = await db
+      .insert(wardenAction)
+      .values({ machine: 'mini', event_id: 986, verb: 'merge' })
+      .returning()
+    const res = await post(`/warden/actions/${enqueued!.id}/ack`, {
       status: 'applied',
       result: { huge: 'x'.repeat(100_001) },
     })

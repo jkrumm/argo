@@ -116,9 +116,11 @@ export function TodayPage() {
   })
 
   const decisions = deriveDecisions({
-    warden: wardenRaw,
+    // Warden was switched off 2026-10-27; its frozen board items can never be resolved, so the
+    // merged "needs you" inbox counts only the agent fleet now.
+    warden: null,
     agents: snapshot,
-    wardenReceivedAt: warden?.receivedAt,
+    wardenReceivedAt: null,
     now,
   })
 
