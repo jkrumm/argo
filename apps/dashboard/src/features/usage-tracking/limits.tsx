@@ -1,36 +1,31 @@
 /**
- * Where we stand on the limits, one row: the two Max subscriptions' weekly quota (with a pace tick at
- * the share of the week already elapsed) and the IU API's rolling 30-day cap. Each is a single meter,
- * its percentage and its reset or headroom in one line. A missing, failed or old reading is a state of
- * its own, never an empty meter that reads as headroom; the ink turns at 80 % and 100 %.
+ * The two limit meters, shared by the Overview's wallet cards and the wallet tabs: a Max
+ * subscription's weekly quota (with a pace tick at the share of the week already elapsed) and the IU
+ * API's rolling 30-day cap. Each is a single meter, its percentage and its reset or headroom in one
+ * line. A missing, failed or old reading is a state of its own, never an empty meter that reads as
+ * headroom; the ink turns at 80 % and 100 %.
  */
 import { useQuery } from '@tanstack/react-query'
-import { Box, Grid, Group, Stack, Text } from '@mantine/core'
+import { Group, Stack, Text } from '@mantine/core'
 import { Meter } from 'basalt-ui'
-import { ChartCard } from 'basalt-ui/charts'
-import { CONTAINER_GRID_BREAKPOINTS, VX } from 'basalt-ui/tokens'
+import { VX } from 'basalt-ui/tokens'
 import { withUnit } from '../../lib/format'
 import { usageQueries, type IuBudget, type QuotaLatest } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
-import { USAGE_ACCOUNTS } from './accounts'
+import type { Wallet } from './accounts'
 import {
   NO_PORTAL_DATA,
   accountTitle,
   budgetReading,
   freshnessBadge,
-  loadFailure,
   quotaReading,
   type CapState,
   type QuotaReading,
 } from './budget-model'
 import { fmtUsdWhole } from './model'
 
-const NO_ACCOUNTS: readonly QuotaLatest[] = []
 const WARN_AT = 0.8
-
-const INFO =
-  'Max subscriptions: share of each weekly window used, from the latest quota sample; the tick marks how far into the week it is, so fill past it means ahead of pace. IU API: spend over the rolling 30 days against the $500 cap, from the IU portal report; the tick marks 80 %. The ink turns at 80 % and 100 %.'
 
 const STATE_INK: Record<CapState, string | undefined> = {
   ok: undefined,
@@ -58,6 +53,7 @@ function Heading({
   marker?: string | null | undefined
   tone?: 'warn' | 'bad' | undefined
 }) {
+  if (title === '' && !marker) return null
   return (
     <Group justify="space-between" wrap="nowrap" gap="xs">
       <Text size="sm" fw={500}>
@@ -72,14 +68,17 @@ function Heading({
   )
 }
 
-function SubscriptionMeter({
+/** `titled={false}`: the card around it already names the wallet, so only a freshness marker heads the meter. */
+export function SubscriptionMeter({
   account,
   sample,
   now,
+  titled = true,
 }: {
   account: string
   sample: QuotaLatest | undefined
   now: number
+  titled?: boolean
 }) {
   const reading = quotaReading(sample, now)
   const ink = reading.state === null ? undefined : STATE_INK[reading.state]
@@ -87,7 +86,10 @@ function SubscriptionMeter({
   const title = `Max ${accountTitle(account)} · ${withUnit(7, 'd')}`
   return (
     <Stack gap={4}>
-      <Heading title={title} marker={reading.status === 'stale' ? reading.note : null} />
+      <Heading
+        title={titled ? title : ''}
+        marker={reading.status === 'stale' ? reading.note : null}
+      />
       <Meter
         label={`${title} weekly quota used`}
         value={reading.pct}
@@ -103,7 +105,15 @@ function SubscriptionMeter({
   )
 }
 
-function CapMeter({ budget, now }: { budget: IuBudget; now: number }) {
+export function CapMeter({
+  budget,
+  now,
+  titled = true,
+}: {
+  budget: IuBudget
+  now: number
+  titled?: boolean
+}) {
   const reading = budgetReading(budget, now)
   const badge = freshnessBadge(budget.fetchedAt, now)
   const ink = reading.state === null ? undefined : STATE_INK[reading.state]
@@ -111,7 +121,7 @@ function CapMeter({ budget, now }: { budget: IuBudget; now: number }) {
   return (
     <Stack gap={4}>
       <Heading
-        title={`IU API · ${withUnit('rolling 30', 'd')}`}
+        title={titled ? `IU API · ${withUnit('rolling 30', 'd')}` : ''}
         marker={stale ? badge.text : null}
         tone={badge?.tone === 'bad' ? 'bad' : 'warn'}
       />
@@ -135,60 +145,43 @@ function CapMeter({ budget, now }: { budget: IuBudget; now: number }) {
   )
 }
 
-export function Limits() {
+/**
+ * The limit meter of a wallet: its subscription's weekly quota, or the IU API's rolling cap. Owns
+ * the two queries; a failed one is a line of its own and a pending one a skeleton, never a meter
+ * that reads as headroom.
+ */
+export function WalletMeter({ wallet, titled = true }: { wallet: Wallet; titled?: boolean }) {
   const quota = useQuery(usageQueries.quotaLatest())
   const budget = useQuery(usageQueries.iuBudget())
   const now = useNow()
   const empty = shotState() === 'empty'
-  const samples = empty ? NO_ACCOUNTS : (quota.data?.accounts ?? NO_ACCOUNTS)
-  const failed = !empty && quota.isError && budget.isError
 
-  return (
-    <Box data-shot="limits" data-shot-states="empty">
-      <ChartCard
-        title="Limits"
-        info={INFO}
-        placeholderHeight={90}
-        stateNoun="the limits"
-        onRetry={() => {
-          void quota.refetch()
-          void budget.refetch()
-        }}
-        retrying={quota.isFetching || budget.isFetching}
-        state={{
-          pending: !empty && (quota.isPending || budget.isPending),
-          error: failed
-            ? loadFailure(quota.error ?? budget.error, 'The limits did not load from the API.')
-            : undefined,
-        }}
-      >
-        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-          {USAGE_ACCOUNTS.map((a) => (
-            <Grid.Col key={a.id} span={{ base: 12, lg: 4 }}>
-              {quota.isError && !empty ? (
-                <Text size="sm" c={VX.status.bad}>
-                  Max {accountTitle(a.id)}: quota samples did not load
-                </Text>
-              ) : (
-                <SubscriptionMeter
-                  account={a.id}
-                  sample={samples.find((s) => s.account === a.id)}
-                  now={now}
-                />
-              )}
-            </Grid.Col>
-          ))}
-          <Grid.Col span={{ base: 12, lg: 4 }}>
-            {budget.isError && !empty ? (
-              <Text size="sm" c={VX.status.bad}>
-                IU API: the budget did not load
-              </Text>
-            ) : budget.data === undefined ? null : (
-              <CapMeter budget={budget.data} now={now} />
-            )}
-          </Grid.Col>
-        </Grid>
-      </ChartCard>
-    </Box>
-  )
+  if (wallet.kind === 'sub') {
+    if (quota.isError && !empty) {
+      return (
+        <Text size="sm" c={VX.status.bad}>
+          Quota samples did not load
+        </Text>
+      )
+    }
+    if (quota.isPending && !empty) return <Meter label={`${wallet.title} weekly quota`} loading />
+    const samples = empty ? [] : (quota.data?.accounts ?? [])
+    return (
+      <SubscriptionMeter
+        account={wallet.account}
+        sample={samples.find((s) => s.account === wallet.account)}
+        now={now}
+        titled={titled}
+      />
+    )
+  }
+  if (budget.isError && !empty) {
+    return (
+      <Text size="sm" c={VX.status.bad}>
+        The budget did not load
+      </Text>
+    )
+  }
+  if (budget.data === undefined) return <Meter label="IU API spend against the cap" loading />
+  return <CapMeter budget={budget.data} now={now} titled={titled} />
 }

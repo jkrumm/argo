@@ -1,7 +1,8 @@
 /**
- * Spend or fresh tokens per day over the range, stacked by payer, tool, model or source (the legend
- * names the series; the API folds the tail into Other). The lens picks the metric. The figures live in
- * the headline above and the ranked lists below, so the chart carries no total of its own.
+ * One wallet's dollars or fresh tokens per hour, day or week over the range, stacked by tool, model
+ * or project (the legend names the series; the API folds the tail into Other). The measure picks
+ * the metric. The figures live in the strip above and the ranked lists below, so the chart carries
+ * no total of its own.
  */
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
@@ -11,20 +12,16 @@ import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
 import { USAGE_SOURCE } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
-import {
-  usageStore,
-  type UsageGroupBy,
-  type UsageLens,
-  type UsageScope,
-} from '../../lib/window-stores'
-import { scopePayers } from './budget-model'
-import { RANK_PALETTE, colorForPayer, colorForSource, groupBands, toTimePoints } from './constants'
+import { usageStore, type UsageGroupBy, type UsageLens } from '../../lib/window-stores'
+import type { Wallet } from './accounts'
+import { RANK_PALETTE, groupBands, toTimePoints } from './constants'
 import {
   dropPartialBucket,
   fmtUsdWhole,
   noDataInWindow,
   periodNoun,
   shortDay,
+  shortHour,
   tokensFormatterFor,
 } from './model'
 import { isFoldKey, keyTotals, seriesLabel } from './over-time-model'
@@ -37,36 +34,35 @@ const TOP_SERIES = 6
 const GROUP_NOUN: Record<UsageGroupBy, string> = {
   sub_tool: 'tool',
   model_norm: 'model',
-  source: 'source',
-  payer: 'payer',
+  project: 'project',
 }
 
 const INFO =
-  'Dollars (Spend) or fresh tokens (Tokens) per day, stacked by the grouping on the right. Subscription usage is list value, not money paid. Fresh tokens leave out the tokens re-read from the cache.'
+  'Dollars at API prices ($: list value for a subscription, spend for the API) or fresh tokens (Tokens) per bucket, stacked by the grouping on the right. A subscription is never charged these dollars. Fresh tokens leave out the tokens re-read from the cache. The hour grain reads at most 30 days.'
 
 export function OverTime({
   range,
   grain,
   lens,
-  scope,
+  wallet,
   groupBy,
   workspace,
 }: {
   range: Range
   grain: Grain
   lens: UsageLens
-  scope: UsageScope
+  wallet: Wallet
   groupBy: UsageGroupBy
   workspace: WorkspaceValue[] | undefined
 }) {
-  const spend = lens === 'spend'
+  const spend = lens === 'cost'
   const query = useSuspenseQuery(
     usageQueries.timeseries({
       range,
       grain,
       metric: spend ? 'cost' : 'tokens',
       groupBy,
-      payer: scopePayers(scope),
+      payer: [wallet.id],
       workspace,
       top: TOP_SERIES,
     }),
@@ -77,8 +73,6 @@ export function OverTime({
   const keys = data.groupKeys
   const colorOf = (key: string): string => {
     if (isFoldKey(key)) return USAGE_SOURCE.other
-    if (groupBy === 'source') return colorForSource(key)
-    if (groupBy === 'payer') return colorForPayer(key)
     return RANK_PALETTE[keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
   // The chart stops at the last complete bucket: the running one would draw as a drop.
@@ -94,27 +88,29 @@ export function OverTime({
   const format = spend ? fmtUsdWhole : tokensFormatterFor(peak)
   const series = groupBands(keys, colorOf, (k) => seriesLabel(groupBy, k), format)
   const total = keyTotals(points, keys).reduce((sum, t) => sum + t.value, 0)
-  const perBucket = grain === 'day' ? 'day' : 'week'
-  const what = spend ? (scope === 'all' ? 'Spend + list value' : 'Spend') : 'Fresh tokens'
+  // The API reads hourly series over 30 days at most.
+  const shown = grain === 'hour' && (range === '90d' || range === 'all') ? '30d' : range
+  const what = spend ? (wallet.kind === 'sub' ? 'List value' : 'Spend') : 'Fresh tokens'
+  const formatBucket = grain === 'hour' ? shortHour : shortDay
   const emptyText = noDataInWindow('usage', range)
 
   return (
-    <Box data-shot="over-time" data-shot-states="empty">
+    <Box data-shot={`over-time-${wallet.id}`} data-shot-states="empty">
       <ChartCard
-        title={`${what} per ${perBucket} · by ${GROUP_NOUN[groupBy]} · ${periodNoun(range)}`}
+        title={`${what} per ${grain} · by ${GROUP_NOUN[groupBy]} · ${periodNoun(shown)}`}
         info={INFO}
         actions={<ViewTabs field={usageStore.field.groupBy} label="Group by" />}
         state={{ empty: (keys.length === 0 || total <= 0 || drawn.length === 0) && emptyText }}
       >
         <StackedArea
-          ariaLabel={`${what} per ${perBucket}, stacked by ${GROUP_NOUN[groupBy]}`}
+          ariaLabel={`${what} per ${grain}, stacked by ${GROUP_NOUN[groupBy]}`}
           data={drawn}
           height={260}
           x={(d: TimePoint) => d.date}
           cursorResolution="leading"
           cursorGroup={USAGE_TIME_GROUP}
           series={series}
-          formatX={(d) => shortDay(d)}
+          formatX={(d) => formatBucket(d)}
           y={{ format }}
           tooltip={{
             rows: (d) => [

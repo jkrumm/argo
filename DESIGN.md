@@ -138,17 +138,17 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 
 ### Usage tracker — payer (`payer-` prefix — `USAGE_PAYER.*`)
 
-The page's default split and filter. The API derives the payer from billing + account; IU's family is warm (gold / orange), the personal one cool (blue / cerulean), the subscription the saturated step and the metered API its sibling hue.
+The page's default split and filter. The API derives the payer from billing + account. The three wallets sit side by side in one split bar, so each takes a hue of its own: IU Max gold, Me Max sky, IU API violet (orange read as a second gold beside IU Max, 2026-10-27); Me API keeps cerulean, it never shares a bar with Me Max.
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                |
 | ----------- | --------- | --------- | ------------------ | --------------------------------------------------- |
 | IU Max      | `#d1980b` | `#f0b726` | `iuSub`            | IU-paid Max 20x (billing max, account iu) — gold    |
-| IU API      | `#c87619` | `#ec9a3c` | `iuApi`            | IU metered API (billing iu) — orange                |
+| IU API      | `#9d3f9d` | `#bd6bbd` | `iuApi`            | IU metered API (billing iu) — violet                |
 | Me Max      | `#0284c7` | `#38bdf8` | `meSub`            | Personal Max 5x (billing max, account me) — sky     |
 | Me API      | `#147eb3` | `#3fa6da` | `meApi`            | Personal pay-per-token API (OpenRouter) — cerulean  |
 | Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else) |
 
-Contrast against the page surface (marks, not text): gold 2.6:1 light / 10.9:1 dark, orange 3.5 / 8.8, sky 4.1 / 9.3, cerulean 4.5 / 7.3. Gold in light mode is under the 3:1 mark guide, as everywhere else gold is drawn (agent-gateway, Max plan); the legend, list and hover name every series, so colour is never the only carrier.
+Contrast against the page surface (marks, not text): gold 2.6:1 light / 10.9:1 dark, violet 5.3 / 4.3, sky 4.1 / 9.3, cerulean 4.5 / 7.3. Gold in light mode is under the 3:1 mark guide, as everywhere else gold is drawn (agent-gateway, Max plan); the legend, list and hover name every series, so colour is never the only carrier.
 
 ### Usage tracker — rank (`rank-` prefix — `USAGE_RANK.*`, `RANK_PALETTE`)
 

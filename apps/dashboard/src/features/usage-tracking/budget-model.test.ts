@@ -8,7 +8,6 @@ import {
   capLine,
   capState,
   deltaDirection,
-  flowLensOf,
   fmtMoney,
   fmtUsdPerMillion,
   formatAge,
@@ -19,7 +18,6 @@ import {
   quotaReading,
   quotaState,
   rankPairs,
-  scopePayers,
   tokenTrio,
   toolSplits,
   cacheReadShare,
@@ -34,19 +32,6 @@ const H = 60 * MIN
 const D = 24 * H
 
 const plain = (s: string | null) => (s === null ? null : unglue(s))
-
-describe('scope and lens mapping', () => {
-  it('maps a scope onto the payer filter', () => {
-    expect(scopePayers('iu-api')).toEqual(['iu-api'])
-    expect(scopePayers('api')).toEqual(['iu-api', 'me-api'])
-    expect(scopePayers('all')).toBeUndefined()
-  })
-
-  it('maps the store lens onto the flow lens', () => {
-    expect(flowLensOf('spend')).toBe('cost')
-    expect(flowLensOf('tokens')).toBe('tokens')
-  })
-})
 
 describe('freshness', () => {
   it('is fresh up to and including 8 h, stale past it, dead past 48 h', () => {

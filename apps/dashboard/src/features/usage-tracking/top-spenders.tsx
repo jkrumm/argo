@@ -9,16 +9,9 @@ import { Box, Text } from '@mantine/core'
 import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import type { Range } from '../../lib/queries/usage'
-import type { UsageLens, UsageScope } from '../../lib/window-stores'
-import { flowLensOf, rankPairs, type PairRow } from './budget-model'
-import {
-  fmtTokens,
-  fmtUsdWhole,
-  noDataInWindow,
-  periodNoun,
-  tokensFormatterFor,
-  SPEND_NOUN,
-} from './model'
+import type { UsageLens } from '../../lib/window-stores'
+import { rankPairs, type PairRow } from './budget-model'
+import { fmtTokens, fmtUsdWhole, noDataInWindow, periodNoun, tokensFormatterFor } from './model'
 import { useFlow } from './use-flow'
 import type { WorkspaceValue } from './types'
 import classes from './usage.module.css'
@@ -34,17 +27,15 @@ const rowLabel = (r: PairRow): string => (r.pairs > 1 ? `Other (${r.pairs} pairs
 export default function TopSpenders({
   range,
   lens,
-  scope,
   workspace,
 }: {
   range: Range
   lens: UsageLens
-  scope: UsageScope
   workspace: WorkspaceValue[] | undefined
 }) {
-  const flow = useFlow({ range, lens, scope, workspace })
-  const ranked = rankPairs(flow.rows, flowLensOf(lens), TOP_PAIRS)
-  const spend = lens === 'spend'
+  const flow = useFlow({ range, lens, workspace })
+  const ranked = rankPairs(flow.rows, lens, TOP_PAIRS)
+  const spend = lens === 'cost'
   const peak = ranked.rows.reduce((max, r) => Math.max(max, r.value), 0)
   const format = spend ? fmtUsdWhole : tokensFormatterFor(peak)
   const second = spend ? fmtTokens : fmtUsdWhole
@@ -59,16 +50,10 @@ export default function TopSpenders({
         info={INFO}
         facts={
           spend
-            ? { value: fmtUsdWhole(ranked.total), period: SPEND_NOUN[scope] }
+            ? { value: fmtUsdWhole(ranked.total), period: 'IU API spend' }
             : { value: fmtTokens(ranked.total), period: 'incl. cache-read' }
         }
-        {...(spend
-          ? {
-              subtitle: `${scope === 'all' ? 'Includes subscriptions at list value · ' : ''}Muted figure: tokens`,
-            }
-          : scope === 'all'
-            ? { subtitle: 'Includes subscriptions at list value' }
-            : {})}
+        {...(spend ? { subtitle: 'Muted figure: tokens' } : {})}
         state={{ empty: (ranked.rows.length === 0 || ranked.total <= 0) && emptyText }}
       >
         <BarList

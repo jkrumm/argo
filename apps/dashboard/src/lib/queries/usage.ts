@@ -4,7 +4,7 @@ import type { PayerValue } from '../../features/usage-tracking/accounts'
 import { unwrap } from 'basalt-ui'
 
 export type Range = '7d' | '30d' | '90d' | 'all'
-export type Grain = 'day' | 'week'
+export type Grain = 'hour' | 'day' | 'week'
 export type Metric =
   | 'cost'
   | 'tokens'
@@ -68,6 +68,31 @@ const fetchFlow = async (query: {
   payer: PayerFilter[] | undefined
   workspace: WorkspaceValue[] | undefined
 }) => unwrap(await api.usage.flow.get({ query }))
+
+export type SplitBy = 'project' | 'sub_tool' | 'model_norm'
+export type SplitParams = {
+  by: SplitBy
+  range: Range
+  lens: FlowLens
+  payer?: PayerFilter[] | undefined
+  workspace?: WorkspaceValue[] | undefined
+  /** 2–50, the API default is 12: the rest folds into a trailing `other` row. */
+  top?: number | undefined
+}
+export type RhythmParams = {
+  range: Range
+  metric: 'cost' | 'tokens' | 'tokens_cache_read'
+  /** IANA zone the weekday × hour cells are read in: the browser's. */
+  tz: string
+  payer?: PayerFilter[] | undefined
+  workspace?: WorkspaceValue[] | undefined
+}
+
+const fetchSplit = async (query: SplitParams & { top: number }) =>
+  unwrap(await api.usage.split.get({ query }))
+const fetchRhythm = async (query: RhythmParams) => unwrap(await api.usage.rhythm.get({ query }))
+const fetchQuota = async (query: { hours: number; account: string[] | undefined }) =>
+  unwrap(await api.usage.quota.get({ query }))
 const fetchQuotaLatest = async (query: { account: string[] | undefined }) =>
   unwrap(await api.usage['quota-latest'].get({ query }))
 
@@ -75,6 +100,11 @@ export type IuBudget = Awaited<ReturnType<typeof fetchIuBudget>>
 export type IuReconcile = Awaited<ReturnType<typeof fetchIuReconcile>>
 export type FlowResponse = Awaited<ReturnType<typeof fetchFlow>>
 export type FlowRow = FlowResponse['rows'][number]
+export type SplitResponse = Awaited<ReturnType<typeof fetchSplit>>
+export type SplitRow = SplitResponse['rows'][number]
+export type SplitTotal = SplitResponse['totals'][number]
+export type RhythmResponse = Awaited<ReturnType<typeof fetchRhythm>>
+export type QuotaResponse = Awaited<ReturnType<typeof fetchQuota>>
 export type QuotaLatestResponse = Awaited<ReturnType<typeof fetchQuotaLatest>>
 export type QuotaLatest = QuotaLatestResponse['accounts'][number]
 
@@ -110,6 +140,22 @@ export const usageQueries = {
     queryOptions({
       queryKey: [...usageQueries.all(), 'timeseries', params] as const,
       queryFn: async () => unwrap(await api.usage.timeseries.get({ query: params })),
+    }),
+  split: (params: SplitParams) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'split', params] as const,
+      queryFn: () =>
+        fetchSplit({ ...params, top: params.top ?? 12, payer: payersOrUndefined(params.payer) }),
+    }),
+  rhythm: (params: RhythmParams) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'rhythm', params] as const,
+      queryFn: () => fetchRhythm({ ...params, payer: payersOrUndefined(params.payer) }),
+    }),
+  quota: (hours: number, account?: string[]) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'quota', hours, account] as const,
+      queryFn: () => fetchQuota({ hours, account }),
     }),
   quotaLatest: (account?: string[]) =>
     queryOptions({

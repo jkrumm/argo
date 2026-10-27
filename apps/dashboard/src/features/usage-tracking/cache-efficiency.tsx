@@ -8,7 +8,7 @@ import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { Box, Text } from '@mantine/core'
 import type { Range } from '../../lib/queries/usage'
-import type { UsageLens, UsageScope } from '../../lib/window-stores'
+import type { UsageLens } from '../../lib/window-stores'
 import { NO_CACHE_DATA, fmtUsdPerMillion, toolSplits, type ToolSplit } from './budget-model'
 import { fmtShare, noDataInWindow, periodNoun } from './model'
 import { useFlow } from './use-flow'
@@ -29,15 +29,13 @@ const readShare = (d: ToolSplit): string =>
 export default function CacheEfficiency({
   range,
   lens,
-  scope,
   workspace,
 }: {
   range: Range
   lens: UsageLens
-  scope: UsageScope
   workspace: WorkspaceValue[] | undefined
 }) {
-  const flow = useFlow({ range, lens, scope, workspace })
+  const flow = useFlow({ range, lens, workspace })
   const splits = toolSplits(flow.rows, { top: TOP_TOOLS })
   const emptyText = noDataInWindow('tool usage', range)
 

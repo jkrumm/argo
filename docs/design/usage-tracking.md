@@ -1,4 +1,4 @@
-# Usage Tracking — spec (v3)
+# Usage Tracking — spec (v5)
 
 Route `/usage-tracking` · `apps/dashboard/src/routes/usage-tracking.tsx`, `apps/dashboard/src/features/usage-tracking/` · API `/usage/*`.
 Replaces the Wave 21–51 concept (history: git log of this file). Plan: `docs/waves/PLAN.md` (Waves 2–3 build this).
@@ -50,22 +50,60 @@ Source: usage-tracker `usage.db` (769 k rows since 2026-04-14) mirrored in Argo 
 - Money is whole dollars, thousands separator, `<$1` below one. Tokens are `B` / `M`. Subscription cost is always labeled **list value**, never "cost" or "spend".
 - Payers: `IU Max` / `Me Max` (subscriptions, list value), `IU API` / `Me API` (spend).
 
-## Page structure (v3, Wave 4 — supersedes the Wave 1 layout)
+## Page structure (v5, Wave 5 — supersedes v3)
 
-Owner verdict on v2 (2026-10-26): too IU-API-centric and too deep; v1 showed the actual building better. v3 is one concise page: how much we build ($ and tokens), where it goes (projects, tools), where the limits are. The default scope is **all payers**; Max stays labelled list value, IU/me API is spend.
+Owner verdict on v3/v4 (2026-10-27): still IU-API-heavy; the two subscriptions' theoretical spend and token volume are not visible as wallets of their own. He wants all three side by side, when each was used, which projects and tools each went to, a combined view and an expert view, one glance first.
+
+### Mental model: three wallets, one currency
+
+| Wallet | Who pays | Limit | `$` means |
+|-|-|-|-|
+| **IU Max** 20x | IU, flat | weekly quota % (pace tick, reset) | list value: what the usage would cost at API prices, ≈ quota burn |
+| **Me Max** 5x | me, flat | weekly quota % | list value |
+| **IU API** | IU, metered | rolling 30 d, $500 cap | spend: real money |
+
+`$` at API prices is the one currency across all three (list value for the subs, spend for the API); it is never summed into a "cost". Tokens are the second measure: **fresh** (input + output + cache-write + reasoning) with **cache-read** beside it. `Me API` (OpenRouter, ~$0) gets no wallet; it appears only when its range total reaches $1.
+
+### Controls
+
+`PageBar` tabs = the view: **Overview · IU Max · Me Max · IU API**. Filters: Range (7d/30d/90d/All), Measure (`$` / Tokens), Workspace; Grain only where a chart reads it. The v3 "Payer scope" filter is gone: the tabs are the scope.
+
+### Overview (combined, one glance)
 
 ```
-PageBar: ( Spend $ | Tokens )   Range · Grain · Workspace · Payer scope (All payers | API only | IU API)
-1 Limits     Max iu 20x 7 d ▓▓▓░ pace tick · Max me 5x 7 d ▓▓░░ · IU API rolling 30 d ▓▓▓▓ 80 % tick
-2 Headline   Spend $646 ▲12 % vs prior 30 d (API spend · Max list value)   Tokens 2.4 B ▲ vs prior 30 d (fresh)
-3 Over time  stacked area per day by payer | tool | model | source, legend on, follows the lens
-4 Projects | Tools   ranked BarLists: bar = lens, muted = other measure, delta glyph vs prior period
-5 IU API detail (collapsed)   tool · model top 6 | $/1 M + cache-read % | portal vs tracked day strip + totals
+1 Wallets   [IU Max 20x ] [Me Max 5x ] [IU API     ]   one card each, click opens its tab
+            meter: 7 d quota + pace | 7 d quota + pace | 30 d cap + 80 % tick
+            $17,260 list ▲ | $1,515 list new | $662 spend ▲      (delta vs prior window)
+            1.1 B fresh · 36 B cache-read                        (tokens)
+            ▂▃▅▇▆▃ daily sparkline (measure)                    (when, magnitude)
+            mostly shutterflow 17 % · interactive 38 %           (where, top project + tool)
+2 When      Heatmap rows = wallets, cols = hours (7d) or days (30d+); each row scaled to its own peak
+3 Projects | Tools   split lists: one stacked bar per row, segment per wallet (payer hue), total + delta
 ```
 
-Rules: at most five visible blocks; one metric per bar (the lens), the other muted beside it; every delta is the change against the equally long period before (`up-bad` for dollars, neutral for tokens); fresh tokens leave cache-read out (stated in the headline footer and info). The IU detail always scopes to the IU API payer.
+Why: the wallets differ by 25× in `$` (IU Max list value vs IU API spend), so any shared axis buries IU API. Each wallet card owns its scale; the When heatmap normalizes per row (the tooltip carries the real figure); the split lists show the mix inside one project, with the wallet's share written out.
 
-Kept from v2: the limit meters (pace tick, state words, freshness), tool · model, cache-read share, portal vs tracked day strip. Cut: Movers card (the delta glyphs replace it), drop-off bars and burn text, the per-model reconciliation table, the per-day portal bars, Routing, Reliability, the token-class stack, the cache four-way bars. Cut from v1 and not restored: call-count headline, errors / p95 / cache-hit cells, payer split bar, 30 d quota line chart, picks-per-day bars.
+### Wallet tab (expert, one wallet)
+
+```
+1 Limit      the meter at full width; Max: this week's quota % line against the pace diagonal (from /usage/quota);
+             IU API: cap meter + can-spend-today + portal vs tracked day strip
+2 Figures    StatGroup: $ (list value | spend) Δ · fresh tokens Δ · cache-read · output
+3 Over time  StackedArea by tool | model | project (group-by tabs), measure-driven
+4 Rhythm     Heatmap weekday × hour of day (browser time zone), measure-driven
+5 Projects | Tools | Models   ranked BarLists from /usage/split?payer=<wallet>, delta glyph, Other as a text line
+6 IU API only: tool · model and cost per 1 M / cache-read % (the v3 IU detail, shown open)
+```
+
+### Data
+
+| Block | Endpoint |
+|-|-|
+| Wallet figures, deltas, mostly-line, split lists, wallet-tab figures and lists | `GET /usage/split?by=project|sub_tool|model_norm&range&lens&payer[]` (`totals` per payer = headline; rolling windows, prior = equally long window before) |
+| Sparklines, Over time | `GET /usage/timeseries` (day; `groupBy=payer` or tool/model/project with `payer=`) |
+| When | `GET /usage/timeseries?grain=hour&range=7d&groupBy=payer` (hour for 7d, day otherwise) |
+| Rhythm | `GET /usage/rhythm?payer=&metric=&tz=` |
+| Limits | `/usage/quota-latest`, `/usage/iu-budget`, `/usage/quota` (weekly curve), `/usage/iu-reconcile` |
 
 ## Data work (build spec)
 
@@ -141,3 +179,30 @@ Before/after shots (v1 at `63487b7a` from a throwaway worktree, v2 at `e37fd986`
 Decisions: default scope is **all payers**; the Max share is labelled list value in the headline caption, its footer and the chart / list titles. Deltas compare the last N complete days with the N before (the running day is left out of both); a key the API folded away has no prior and shows no glyph; `new` marks a prior of nothing or a tenfold rise. The Other row of the ranked lists is a text line, not a bar, so it cannot squash the named rows. Fresh tokens leave cache-read out and say so.
 
 Shot rounds (`basalt-ui shot /usage-tracking --base <evidence-server origin>`, live data): r1 own review (structure right, deltas of 3000 % and "0" token rows, fixed with the `new` rule and null figures); r2 reviewer 0 (page pass; the volume blocks had no anchors, headline $ unqualified, no definition of `new`); r3 reviewer 51 (page pass, 5 of 7 components pass). Fixed after r3 without a fourth shot: Other as a text line, `new` defined in the card info, tokens unit reads `B tokens`, empty-state grammar, anchors for Over time and both lists. Residuals: IU Max / IU API and Me Max / Me API payer hues are close (palette, not layout; group by Tool separates them); Limits empty copy is still `no reading`; loading and error states are route-level, not shot-declared; the tokens delta is neutral while the spend delta is red by design; the 390 px headline caption wraps.
+
+## Build record (Wave 5, 2026-10-27)
+
+Shipped to the v5 structure above, dashboard only (the API of `54a4e842` was already live): `PageBar` tabs Overview / IU Max / Me Max / IU API (`usageStore.view`), Measure (`$` / Tokens, `usageStore.lens` values `cost` | `tokens`), Range, Workspace, Grain (wallet tabs only; `hour` added, the API reads it at most 30 d). `scope` is gone: an old URL or stored value with it is dropped by the store (test in `window-stores.test.ts`); `groupBy` is tool / model / project.
+
+| Piece | Code | Data |
+|-|-|-|
+| Wallet cards | `wallet-cards.tsx`, meters from `limits.tsx` (`WalletMeter`) | split `totals` (deltas from `prior`), day timeseries by payer (sparkline), `mostlyOf` over the split rows |
+| When | `when.tsx`, `heat-model.ts` (`whenCells`) | timeseries by payer, hour grain for 7 d else day; each row scaled to its own peak, real figure in the tooltip |
+| Projects / Tools | `split-lists.tsx`, `split-model.ts` (`mixSegments`, `cutList`) | split `by=project|sub_tool`, `top=50`, first 8 rows shown, tail one text line |
+| Wallet limit | `wallet-limit.tsx`, `pace-model.ts` (`weekCurve`) | `/usage/quota-latest` (reset instant) + `/usage/quota?hours=168`; the window is reset − 7 d … reset |
+| Figures, lists, rhythm | `wallet-figures.tsx`, `ranked-list.tsx`, `rhythm.tsx` | split `payer[]=<wallet>`, `/usage/rhythm` in the browser zone |
+| IU API extras | `top-spenders.tsx`, `cache-efficiency.tsx`, `reconciliation.tsx` open under the cap meter | `/usage/flow` pinned to `iu-api`, `/usage/iu-reconcile` |
+
+Deleted: `headline.tsx`, `iu-detail.tsx` (the collapse wrapper), the period-sum / rank pieces of `period-model.ts` (only `change` stays), `scopePayers`, `flowLensOf`, `SPEND_NOUN`, the old three-meter `Limits` card.
+
+Deviations from the spec text:
+
+- The wallet card's `$` and token figures always read `cost` and `fresh`; the Measure filter drives the sparkline, the When heatmap, the "mostly" shares and both lists.
+- The "biggest wallet's share" of a split row sits in the row's header line (before the total), not on a line of its own: `Meter` already prints a caption per segment (amount + swatch) under each bar, so its own reading is turned off (`reading={false}`).
+- IU API moved from orange to violet (orchestrator, after r1): in one split bar orange read as a second gold beside IU Max. No separate wallet legend: the segment captions name the wallets.
+- Tooltips of the When heatmap name the wallet and the real figure; the cell shade is "% of the wallet's own peak" and is not comparable across rows.
+- Me API gets a card only at ≥ $1 (no tab, no meter); with one it wraps to a second row of the card grid.
+- Deltas now come from the API's rolling windows (`prior`), not from complete days; the running day is included on both sides.
+- The week curve draws the samples the collector has (since 2026-10-24); a week that began earlier says so under the chart.
+
+Shots: `make design-shot` rounds on live data (overview 30 d / 7 d tokens, the three wallet tabs, `shot-state=empty`), light + dark, 1440 + 390. Not run: the `basalt-design-reviewer` subagent and `basalt-ui shot detect`.

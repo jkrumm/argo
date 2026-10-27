@@ -84,23 +84,31 @@ describe('multi fields', () => {
   })
 })
 
-describe('usageStore lens, scope and groupBy', () => {
-  it('opens on spend across all payers, grouped by payer', () => {
+describe('usageStore view, lens and groupBy', () => {
+  it('opens on the overview, in dollars, grouped by tool', () => {
     const v = usageStore.validateSearch({})
-    expect([v.lens, v.scope, v.groupBy]).toEqual(['spend', 'all', 'payer'])
+    expect([v.view, v.lens, v.groupBy]).toEqual(['overview', 'cost', 'sub_tool'])
   })
 
   it('accepts every value from the URL', () => {
+    expect(usageStore.validateSearch({ view: 'iu-api' }).view).toBe('iu-api')
     expect(usageStore.validateSearch({ lens: 'tokens' }).lens).toBe('tokens')
-    expect(usageStore.validateSearch({ scope: 'iu-api' }).scope).toBe('iu-api')
-    expect(usageStore.validateSearch({ groupBy: 'source' }).groupBy).toBe('source')
+    expect(usageStore.validateSearch({ groupBy: 'project' }).groupBy).toBe('project')
+    expect(usageStore.validateSearch({ grain: 'hour' }).grain).toBe('hour')
   })
 
   it('unknown values fall back, storage beats the fallback', () => {
-    persist('usage-tracking', { scope: 'api' })
-    expect(usageStore.validateSearch({ lens: 'cost' }).lens).toBe('spend')
-    expect(usageStore.validateSearch({ scope: 'bogus' }).scope).toBe('api')
-    expect(usageStore.validateSearch({ groupBy: 'project' }).groupBy).toBe('payer')
+    persist('usage-tracking', { view: 'me-sub' })
+    expect(usageStore.validateSearch({ lens: 'spend' }).lens).toBe('cost')
+    expect(usageStore.validateSearch({ view: 'bogus' }).view).toBe('me-sub')
+    expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('sub_tool')
+  })
+
+  it('an old URL or stored value with the removed scope field neither crashes nor leaks', () => {
+    persist('usage-tracking', { scope: 'api', lens: 'spend', groupBy: 'source' })
+    const v = usageStore.validateSearch({ scope: 'iu-api', lens: 'spend' })
+    expect([v.lens, v.groupBy]).toEqual(['cost', 'sub_tool'])
+    expect('scope' in v).toBe(false)
   })
 })
 

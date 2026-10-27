@@ -1,27 +1,12 @@
 /**
  * Pure derivations for the v2 usage page (docs/design/usage-tracking.md): the IU cap and subscription
  * state words, freshness, the vocabulary lines, and the aggregation of `/usage/flow` rows for
- * sections B and C. No React, no queries. A missing reading is a state of its own, never headroom.
+ * the IU API detail lists. No React, no queries. A missing reading is a state of its own, never headroom.
  */
 import { formatDuration, withUnit } from '../../lib/format'
-import type { FlowLens, FlowRow, IuBudget, PayerFilter, QuotaLatest } from '../../lib/queries/usage'
-import type { UsageLens, UsageScope } from '../../lib/window-stores'
+import type { FlowLens, FlowRow, IuBudget, QuotaLatest } from '../../lib/queries/usage'
 import { USAGE_ACCOUNTS } from './accounts'
 import { EM_DASH, OTHER_KEY, fmtShare, fmtUsdWhole } from './model'
-
-// ── Scope and lens ───────────────────────────────────────────────────────────────────────────
-
-const SCOPE_PAYERS: Record<UsageScope, PayerFilter[] | undefined> = {
-  'iu-api': ['iu-api'],
-  api: ['iu-api', 'me-api'],
-  all: undefined,
-}
-
-/** The payer filter a scope sends; `undefined` (all) adds the subscriptions, which carry list value. */
-export const scopePayers = (scope: UsageScope): PayerFilter[] | undefined => SCOPE_PAYERS[scope]
-
-/** The store speaks `spend`; the flow API ranks by `cost`. */
-export const flowLensOf = (lens: UsageLens): FlowLens => (lens === 'spend' ? 'cost' : 'tokens')
 
 // ── State words and freshness ────────────────────────────────────────────────────────────────
 

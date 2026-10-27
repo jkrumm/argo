@@ -151,32 +151,34 @@ export const walkingStore = createSearchStore({
   metrics: { distance: 'Distance', duration: 'Duration', steps: 'Steps' },
 })
 
-export const USAGE_LENS_VALUES = ['spend', 'tokens'] as const
-export const USAGE_SCOPE_VALUES = ['all', 'api', 'iu-api'] as const
-export const USAGE_GROUP_BY_VALUES = ['payer', 'sub_tool', 'model_norm', 'source'] as const
+export const USAGE_VIEW_VALUES = ['overview', 'iu-sub', 'me-sub', 'iu-api'] as const
+/** The measure: dollars at API prices (list value for the subs, spend for the API) or fresh tokens. */
+export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
+export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project'] as const
+export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
-export type UsageScope = (typeof USAGE_SCOPE_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
 
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
   fields: {
+    // The page tab: the combined overview or one wallet (the payer it scopes to).
+    view: field.enum(USAGE_VIEW_VALUES, 'overview'),
     // `field.enum`, not `field.range`: the API takes `range` verbatim and there is no custom
     // window here, so three params would be two more than the page can use.
     range: field.enum(['7d', '30d', '90d', 'all'], '30d'),
-    grain: field.enum(['day', 'week'], 'day'),
+    grain: field.enum(['hour', 'day', 'week'], 'day'),
     workspace: field.multi(['work', 'private'], []),
-    lens: field.enum(USAGE_LENS_VALUES, 'spend'),
-    scope: field.enum(USAGE_SCOPE_VALUES, 'all'),
-    groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'payer'),
+    lens: field.enum(USAGE_LENS_VALUES, 'cost'),
+    groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'sub_tool'),
   },
 }).labels({
+  view: { overview: 'Overview', 'iu-sub': 'IU Max', 'me-sub': 'Me Max', 'iu-api': 'IU API' },
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
-  grain: { day: 'Day', week: 'Week' },
+  grain: { hour: 'Hour', day: 'Day', week: 'Week' },
   workspace: { work: 'Work', private: 'Private' },
-  lens: { spend: 'Spend $', tokens: 'Tokens' },
-  scope: { all: 'All payers', api: 'API only', 'iu-api': 'IU API' },
-  groupBy: { sub_tool: 'Tool', model_norm: 'Model', source: 'Source', payer: 'Payer' },
+  lens: { cost: '$', tokens: 'Tokens' },
+  groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project' },
 })
 
 export const astroStore = createSearchStore({

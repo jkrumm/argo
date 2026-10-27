@@ -6,16 +6,8 @@
 import { format as formatDate } from 'date-fns'
 import { NBSP, withUnit } from '../../lib/format'
 import type { Range } from '../../lib/queries/usage'
-import type { UsageScope } from '../../lib/window-stores'
 
 export const EM_DASH = '—'
-
-/** The scoped dollar total's name, the same on every section that shows it (`tracked` belongs to portal vs tracked only). */
-export const SPEND_NOUN: Record<UsageScope, string> = {
-  'iu-api': 'IU API spend',
-  api: 'all API spend',
-  all: 'all API spend',
-}
 
 /** `30 d` that never splits across lines. */
 const D30 = withUnit(30, 'd')
@@ -124,7 +116,11 @@ const glue = (text: string): string => text.replaceAll(' ', NBSP)
 /** `18 Oct`, unbreakable so a date never splits: a daily bucket's tooltip header and axis caption. */
 export const shortDay = (d: Date): string => glue(formatDate(d, 'd MMM'))
 
+/** `18 Oct 14:00`, local time: an hourly bucket's tooltip header and axis caption. */
+export const shortHour = (d: Date): string => glue(formatDate(d, 'd MMM HH:mm'))
+
 const DAY_MS = 86_400_000
+const HOUR_MS = 3_600_000
 
 /** Epoch ms of the UTC midnight a bucket date names (`dayToDate` keeps the bucket's year-month-day as local fields). */
 const bucketStartMs = (d: Date): number => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
@@ -143,10 +139,13 @@ const isClosedDay = (date: Date, now: number, span: number = DAY_MS): boolean =>
 export function dropPartialBucket<T extends { date: Date }>(
   points: readonly T[],
   now: number,
-  grain: 'day' | 'week',
+  grain: 'hour' | 'day' | 'week',
 ): T[] {
-  const span = (grain === 'day' ? 1 : 7) * DAY_MS
-  const complete = points.filter((p) => isClosedDay(p.date, now, span))
+  // An hour bucket is an exact UTC instant; day and week buckets are calendar dates.
+  const complete =
+    grain === 'hour'
+      ? points.filter((p) => p.date.getTime() + HOUR_MS <= now)
+      : points.filter((p) => isClosedDay(p.date, now, (grain === 'day' ? 1 : 7) * DAY_MS))
   return complete.length < 2 ? [...points] : complete
 }
 

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'bun:test'
 import { keyTotals, seriesLabel } from './over-time-model'
 
 describe('seriesLabel', () => {
-  it('names the API fold Other and a payer in words', () => {
+  it('names the API fold Other and an unset project in words', () => {
     expect(seriesLabel('sub_tool', 'other')).toBe('Other')
-    expect(seriesLabel('payer', 'iu-api')).toBe('IU API')
+    expect(seriesLabel('project', '(unset)')).toBe('(no project)')
     expect(seriesLabel('model_norm', 'deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash')
   })
 })

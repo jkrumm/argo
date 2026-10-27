@@ -57,10 +57,14 @@ export function dayToDate(day: string): Date {
   return new Date(`${day}T00:00:00`)
 }
 
+// An hour bucket is a UTC instant (`2026-10-21T14:00:00Z`); a day or week bucket is a bare date.
+export const bucketToDate = (bucket: string): Date =>
+  bucket.includes('T') ? new Date(bucket) : dayToDate(bucket)
+
 export function toTimePoints(
   buckets: ReadonlyArray<{ bucket: string; groups: Record<string, number | null> }>,
 ): TimePoint[] {
-  return buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups }))
+  return buckets.map((b) => ({ date: bucketToDate(b.bucket), groups: b.groups }))
 }
 
 // One band per group key, coloured by `color`; a missing bucket value stacks as 0.
