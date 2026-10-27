@@ -102,6 +102,7 @@ export const usageAnalyticsRoutes = new Elysia()
         workspace: toArray(query.workspace),
         account: toArray(query.account),
         payer: toArray(query.payer),
+        project: toArray(query.project),
       })
       const raw = rowsOf<Record<string, unknown>>(
         await db.execute(sql`
@@ -148,6 +149,7 @@ export const usageAnalyticsRoutes = new Elysia()
         workspace: workspaceFilter,
         account: accountFilter,
         payer: payerFilter,
+        project: stringFilter,
       }),
       response: { 200: z.object({ total: z.number(), rows: z.array(FlowRowSchema) }) },
       detail: {

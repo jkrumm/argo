@@ -32,6 +32,7 @@ export function buildFilterSql({
   workspace,
   account,
   payer,
+  project,
 }: {
   sources?: string[] | undefined
   machines?: string[] | undefined
@@ -39,6 +40,7 @@ export function buildFilterSql({
   workspace?: string[] | undefined
   account?: string[] | undefined
   payer?: string[] | undefined
+  project?: string[] | undefined
 }) {
   const parts: SQL[] = []
   if (sources && sources.length > 0) {
@@ -58,6 +60,9 @@ export function buildFilterSql({
   }
   if (payer && payer.length > 0) {
     parts.push(inList(PAYER_EXPR, payer))
+  }
+  if (project && project.length > 0) {
+    parts.push(inList(sql`project`, project))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`

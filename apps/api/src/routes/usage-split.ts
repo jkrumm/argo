@@ -9,7 +9,7 @@ import {
   resolveRange,
   toArray,
 } from '../lib/usage-query.js'
-import { buildFilterSql, payerFilter, workspaceFilter } from '../lib/usage-filters.js'
+import { buildFilterSql, payerFilter, stringFilter, workspaceFilter } from '../lib/usage-filters.js'
 import { foldSplit, type SplitCell } from '../lib/usage-split.js'
 
 // The usage page's wallet aggregates: `split` (a dimension's keys, each split by payer, with the
@@ -69,6 +69,7 @@ export const usageSplitRoutes = new Elysia()
       const filterSql = buildFilterSql({
         workspace: toArray(query.workspace),
         payer: toArray(query.payer),
+        project: toArray(query.project),
       })
       const cur = sql`ts >= ${current.fromIso}`
       const raw = rowsOf<Record<string, unknown>>(
@@ -114,6 +115,7 @@ export const usageSplitRoutes = new Elysia()
         top: z.coerce.number().int().min(2).max(50).default(12),
         workspace: workspaceFilter,
         payer: payerFilter,
+        project: stringFilter,
       }),
       response: {
         200: z.object({
@@ -148,6 +150,7 @@ export const usageSplitRoutes = new Elysia()
       const filterSql = buildFilterSql({
         workspace: toArray(query.workspace),
         payer: toArray(query.payer),
+        project: toArray(query.project),
       })
       const raw = rowsOf<Record<string, unknown>>(
         await db.execute(sql`
@@ -176,6 +179,7 @@ export const usageSplitRoutes = new Elysia()
         tz: z.string().max(64).default('Europe/Berlin'),
         workspace: workspaceFilter,
         payer: payerFilter,
+        project: stringFilter,
       }),
       response: {
         200: z.object({

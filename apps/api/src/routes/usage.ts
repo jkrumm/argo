@@ -409,6 +409,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         workspace: toArray(query.workspace),
         account: toArray(query.account),
         payer: toArray(query.payer),
+        project: toArray(query.project),
       })
       const mExpr = metricExpr(metric)
 
@@ -558,6 +559,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         workspace: workspaceFilter,
         account: accountFilter,
         payer: payerFilter,
+        project: stringFilter,
       }),
       response: {
         200: z.object({
@@ -597,6 +599,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         workspace: toArray(query.workspace),
         account: toArray(query.account),
         payer: toArray(query.payer),
+        project: toArray(query.project),
       })
 
       const [totalResult, rowsResult] = await Promise.all([
@@ -642,6 +645,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         workspace: workspaceFilter,
         account: accountFilter,
         payer: payerFilter,
+        project: stringFilter,
       }),
       response: {
         200: z.object({

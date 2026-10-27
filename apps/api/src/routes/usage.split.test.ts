@@ -128,3 +128,22 @@ describe('GET /usage/timeseries grain=hour', () => {
     expect(total).toBe(2)
   })
 })
+
+describe('me2 payer and the project filter', () => {
+  it('derives me2-sub and filters a timeseries to one project', async () => {
+    await db
+      .insert(usageRecord)
+      .values([
+        row({ project: 'argo', account: 'me2', cost_usd: 3 }),
+        row({ project: 'brain', account: 'me2', cost_usd: 1 }),
+        row({ project: 'argo', account: 'iu', cost_usd: 2 }),
+      ])
+    const split = await get<Split>('/split?by=project&range=7d&payer=me2-sub')
+    expect(split.totals).toMatchObject([{ payer: 'me2-sub', cost: 4 }])
+    const ts = await get<{ buckets: Array<{ groups: Record<string, number> }> }>(
+      '/timeseries?range=7d&grain=day&metric=cost&groupBy=payer&project=argo',
+    )
+    const sum = (k: string) => ts.buckets.reduce((s, b) => s + (b.groups[k] ?? 0), 0)
+    expect([sum('me2-sub'), sum('iu-sub')]).toEqual([3, 2])
+  })
+})
