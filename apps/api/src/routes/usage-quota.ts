@@ -4,6 +4,7 @@ import { and, desc, inArray, lte, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { accountPick, quotaSample } from '../db/schema.js'
 import { ACCOUNT_PATTERN, toArray } from '../lib/usage-query.js'
+import { laneSpills, snapshotOf, windowSummary, type QuotaWindow } from '../lib/routing.js'
 
 const HoursSchema = z.coerce.number().int().min(1).max(8760).default(168)
 
@@ -374,7 +375,7 @@ export const usageQuotaRoutes = new Elysia()
         `),
         db.execute(sql`
           SELECT extract(epoch FROM date_bin(${width}::interval, ts, ${BIN_ORIGIN}))::bigint AS epoch,
-                 picked,
+                 ${query.groupBy === 'reason' ? sql.raw('reason') : sql.raw('picked')} AS picked,
                  count(*)::int AS n
           FROM argo.account_pick
           WHERE ts >= ${fromIso}::timestamptz AND ts <= now()
@@ -417,16 +418,28 @@ export const usageQuotaRoutes = new Elysia()
         total: counts.reduce((sum, c) => sum + c.count, 0),
         bucketHours,
         counts,
+        lanes: laneSpills(counts),
         pickedKeys: Array.from(pickedKeys).toSorted(),
         series: Array.from(buckets, ([at, picks]) => ({ at, picks })),
       }
     },
     {
-      query: z.object({ hours: HoursSchema }),
+      query: z.object({
+        hours: HoursSchema,
+        groupBy: z.enum(['picked', 'reason']).default('picked'),
+      }),
       response: {
         200: z.object({
           total: z.number().int(),
           bucketHours: z.number().int(),
+          lanes: z.array(
+            z.object({
+              lane: z.string(),
+              total: z.number().int(),
+              spills: z.number().int(),
+              spillRate: z.number(),
+            }),
+          ),
           counts: z.array(
             z.object({
               lane: z.string(),
@@ -449,7 +462,157 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Claude account picker summary',
         description:
-          'Picker decisions over the last ?hours=1..8760 (default 168). `counts` is the lane × picked × reason breakdown (staleCount = decisions made on a sample older than 10 minutes). `series` counts picks per `picked` value per bucket (hourly up to 72 h, daily beyond; buckets with no pick are absent); `pickedKeys` is every picked value seen, sorted. `picked` is opaque: an account id or `spill`.',
+          'Picker decisions over the last ?hours=1..8760 (default 168). `counts` is the lane × picked × reason breakdown (staleCount = decisions made on a sample older than 10 minutes). `series` counts picks per bucket (hourly up to 72 h, daily beyond; buckets with no pick are absent) keyed by ?groupBy=picked (default: the account id or `spill`) or reason (home | pace | session | spill | no-eligible-account | …); `pickedKeys` is every key seen, sorted. `lanes` is per lane: total picks, spills (picked or reason = `spill`) and spillRate = spills / total. `picked` is opaque: an account id or `spill`.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/account-picks',
+    async ({ query }) => {
+      const fromIso = new Date(Date.now() - query.hours * 3_600_000).toISOString()
+      const rows = await db.execute(sql`
+        SELECT ts, lane, picked, reason, stale, snapshot
+        FROM argo.account_pick
+        WHERE ts >= ${fromIso}::timestamptz AND ts <= now()
+        ORDER BY ts
+      `)
+      return {
+        picks: (
+          rows as unknown as Array<{
+            ts: string | Date
+            lane: string
+            picked: string
+            reason: string
+            stale: boolean
+            snapshot: unknown
+          }>
+        ).map((r) => ({
+          ts: new Date(r.ts).toISOString(),
+          lane: r.lane,
+          picked: r.picked,
+          reason: r.reason,
+          stale: r.stale,
+          snapshot: snapshotOf(r.snapshot),
+        })),
+      }
+    },
+    {
+      query: z.object({ hours: z.coerce.number().int().min(1).max(504).default(168) }),
+      response: {
+        200: z.object({
+          picks: z.array(
+            z.object({
+              ts: z.string().describe('ISO 8601'),
+              lane: z.string(),
+              picked: z.string(),
+              reason: z.string(),
+              stale: z.boolean(),
+              snapshot: z.record(
+                z.string(),
+                z.object({ s: z.number().nullable(), w: z.number().nullable() }),
+              ),
+            }),
+          ),
+        }),
+      },
+      detail: {
+        tags: ['Usage Tracking'],
+        summary: 'Claude account picker decisions',
+        description:
+          'Every picker decision over the last ?hours=1..504 (21 days, default 168), oldest first: lane, picked (an account id or `spill`), reason, stale (made on a sample older than 10 minutes) and the snapshot the picker saw, per account `{s, w}` = 5-hour and weekly percent used (null when unknown). For aggregates use /usage/account-picks/summary.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/routing/windows',
+    async ({ query }) => {
+      const fromIso = new Date(Date.now() - query.hours * 3_600_000).toISOString()
+      const rows = await db.execute(sql`
+        WITH w AS (
+          SELECT account, 'five_hour' AS win, date_trunc('minute', five_hour_resets_at) AS reset_at,
+                 (array_agg(five_hour_pct ORDER BY sampled_at DESC) FILTER (WHERE five_hour_pct IS NOT NULL))[1] AS pct,
+                 max(sampled_at) FILTER (WHERE five_hour_pct IS NOT NULL) AS last_sample
+          FROM argo.quota_sample
+          WHERE five_hour_resets_at >= ${fromIso}::timestamptz AND five_hour_resets_at <= now()
+            AND sampled_at < five_hour_resets_at
+          GROUP BY 1, 2, 3
+          UNION ALL
+          SELECT account, 'seven_day', date_trunc('minute', seven_day_resets_at),
+                 (array_agg(seven_day_pct ORDER BY sampled_at DESC) FILTER (WHERE seven_day_pct IS NOT NULL))[1],
+                 max(sampled_at) FILTER (WHERE seven_day_pct IS NOT NULL)
+          FROM argo.quota_sample
+          WHERE seven_day_resets_at >= ${fromIso}::timestamptz AND seven_day_resets_at <= now()
+            AND sampled_at < seven_day_resets_at
+          GROUP BY 1, 2, 3
+        )
+        SELECT w.account, w.win, w.reset_at, w.pct, w.last_sample,
+               CASE WHEN w.win = 'five_hour' THEN (
+                 SELECT min(p.ts) FROM argo.account_pick p
+                 WHERE p.picked = w.account AND p.ts >= w.reset_at AND p.ts <= now()
+               ) END AS first_pick
+        FROM w
+        ORDER BY w.reset_at, w.account, w.win
+      `)
+      const iso = (v: unknown) =>
+        v === null || v === undefined ? null : new Date(v as string).toISOString()
+      const windows: QuotaWindow[] = (rows as unknown as Array<Record<string, unknown>>).map(
+        (r) => {
+          const resetAt = iso(r['reset_at'])!
+          const pct = r['pct'] === null || r['pct'] === undefined ? null : Number(r['pct'])
+          const firstPickAt = iso(r['first_pick'])
+          return {
+            account: String(r['account']),
+            window: r['win'] === 'five_hour' ? 'five_hour' : 'seven_day',
+            resetAt,
+            pctAtReset: pct,
+            unusedPct: pct === null ? null : Math.max(0, 100 - pct),
+            lastSampleAt: iso(r['last_sample']),
+            firstPickAt,
+            minutesToFirstPick:
+              firstPickAt === null
+                ? null
+                : (Date.parse(firstPickAt) - Date.parse(resetAt)) / 60_000,
+          }
+        },
+      )
+      return { windows, summary: windowSummary(windows) }
+    },
+    {
+      query: z.object({ hours: z.coerce.number().int().min(1).max(2160).default(504) }),
+      response: {
+        200: z.object({
+          windows: z.array(
+            z.object({
+              account: z.string(),
+              window: z.enum(['five_hour', 'seven_day']),
+              resetAt: z.string().describe('ISO 8601 reset instant (minute)'),
+              pctAtReset: z.number().nullable(),
+              unusedPct: z.number().nullable(),
+              lastSampleAt: z.string().nullable(),
+              firstPickAt: z.string().nullable(),
+              minutesToFirstPick: z.number().nullable(),
+            }),
+          ),
+          summary: z.array(
+            z.object({
+              account: z.string(),
+              window: z.enum(['five_hour', 'seven_day']),
+              resets: z.number().int(),
+              medianUnusedPct: z.number().nullable(),
+              meanUnusedPct: z.number().nullable(),
+              medianMinutesToFirstPick: z.number().nullable(),
+              neverPickedAfter: z.number().int(),
+            }),
+          ),
+        }),
+      },
+      detail: {
+        tags: ['Usage Tracking'],
+        summary: 'Claude quota windows: unused capacity and pick-back time',
+        description:
+          'One row per account and quota window (five_hour | seven_day) that reset in the last ?hours=1..2160 (default 504 = 21 d): pctAtReset is the percent used in the last sample before the reset (lastSampleAt says how old it was), unusedPct = 100 − pctAtReset (capacity that expired unused). For five_hour windows, firstPickAt / minutesToFirstPick is the first picker decision for that account at or after the reset (null: not picked since). `summary` aggregates per account and window: resets, median/mean unused percent, median minutes to the first pick, and five-hour resets never picked after. A window only appears once a sample reported its reset instant.',
         security: [{ BearerAuth: [] }],
       },
     },

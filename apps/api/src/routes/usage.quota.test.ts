@@ -477,3 +477,71 @@ describe('GET /usage/account-picks/summary', () => {
     expect(short.counts.filter((c) => c.lane === LANE).map((c) => c.picked)).toEqual([A])
   })
 })
+
+describe('routing views', () => {
+  it('lists picks with their snapshot and groups the summary by reason with spill rates', async () => {
+    await post('account-picks', {
+      picks: [
+        pick({ ts: at(1), reason: 'home' }),
+        pick({ ts: at(2), reason: 'spill', picked: B }),
+        pick({ ts: at(3), lane: `${LANE}-2`, picked: 'spill', reason: 'no-eligible-account' }),
+      ],
+    })
+    const list = await getJson<{
+      picks: Array<{ lane: string; reason: string; snapshot: Record<string, { s: number | null }> }>
+    }>('/usage/account-picks?hours=24')
+    const mine = list.picks.filter((p) => p.lane.startsWith(LANE))
+    expect(mine.map((p) => p.reason)).toEqual(['home', 'spill', 'no-eligible-account'])
+    expect(mine[0]!.snapshot).toEqual({ a: { s: 10, w: 20 } })
+
+    const summary = await getJson<{
+      lanes: Array<{ lane: string; total: number; spills: number; spillRate: number }>
+      pickedKeys: string[]
+    }>('/usage/account-picks/summary?hours=24&groupBy=reason')
+    expect(summary.pickedKeys).toEqual(
+      expect.arrayContaining(['home', 'spill', 'no-eligible-account']),
+    )
+    expect(summary.lanes.find((l) => l.lane === LANE)).toEqual({
+      lane: LANE,
+      total: 2,
+      spills: 1,
+      spillRate: 0.5,
+    })
+    expect(summary.lanes.find((l) => l.lane === `${LANE}-2`)?.spillRate).toBe(1)
+  })
+
+  it('reports the capacity left at each reset and the wait until the account is picked again', async () => {
+    const reset = at(60)
+    await post('quota-samples', {
+      samples: [
+        sample({ sampledAt: at(10), fiveHourPct: 40, fiveHourResetsAt: reset }),
+        sample({ sampledAt: at(50), fiveHourPct: 70, fiveHourResetsAt: reset }),
+        sample({ sampledAt: at(70), fiveHourPct: 5, fiveHourResetsAt: at(360) }),
+      ],
+    })
+    await post('account-picks', { picks: [pick({ ts: at(30) }), pick({ ts: at(75) })] })
+    const body = await getJson<{
+      windows: Array<{
+        account: string
+        window: string
+        pctAtReset: number | null
+        unusedPct: number | null
+        minutesToFirstPick: number | null
+      }>
+      summary: Array<{
+        account: string
+        window: string
+        resets: number
+        medianUnusedPct: number | null
+      }>
+    }>('/usage/routing/windows?hours=24')
+    const mine = body.windows.filter((w) => w.account === A && w.window === 'five_hour')
+    expect(mine).toEqual([
+      expect.objectContaining({ pctAtReset: 70, unusedPct: 30, minutesToFirstPick: 15 }),
+    ])
+    expect(body.summary.find((s) => s.account === A)).toMatchObject({
+      resets: 1,
+      medianUnusedPct: 30,
+    })
+  })
+})
