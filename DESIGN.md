@@ -45,6 +45,21 @@ three-font system (Nunito Sans body / Hubot Sans condensed headings / JetBrains 
   blue as its one earned hue, so this migration is a hue-family swap (Blueprint blue → basalt sky),
   not an identity change.
 
+### Series colour rules (owner-validated on the usage page, 2026-10-27)
+
+- **Siblings are shades, not hues.** Series of the same kind (the Claude subscriptions, the top-N
+  ranked tools or projects) take shades of the one accent, the biggest or first the strongest; a
+  different kind of thing in the same chart goes neutral grey. A hue per series is the exception
+  that has to be argued (status, or identities the reader already knows by colour), never the default.
+  Gold / violet / turquoise for three subscriptions read as "childish" and was replaced.
+- **Shades on one chart sit at least two ramp steps apart.** Adjacent steps (e.g. `blue[3]` vs
+  `blue[4]`) read as one colour in dark mode.
+- **Plain forms, question titles.** "By hour of day" bars over a weekday × hour heatmap; a title that
+  is the question ("Who served each lane", "Wait until picked again") over a noun.
+
+The older rows of the dictionary below predate these rules; bring a page in line when it is next
+touched, not in a sweep.
+
 ## Series dictionary
 
 The framework owns the **roles** and the **available hues** (see the `basalt-tokens` rule). This
