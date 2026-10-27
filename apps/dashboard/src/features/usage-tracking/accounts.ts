@@ -26,15 +26,17 @@ export const PLAN_PRICE_USD: Record<(typeof USAGE_ACCOUNTS)[number]['plan'], num
 
 /**
  * Who pays for a row (the API derives it from billing + account): the Max subscriptions and the two
- * metered APIs. The wallets share one split bar, so each takes its own hue (gold, sky, turquoise,
- * violet); the registry the labels and colours derive from; `unknown` is the neutral catch-all.
+ * metered APIs; the registry the labels and colours derive from. The subscriptions are one family
+ * (the same Claude Code usage) and take SHADES of the one accent, the biggest plan the strongest;
+ * the metered APIs are a different kind of spend and stay neutral. `shade` is `[family, light
+ * index, dark index]`: deeper ink on light, brighter on dark. `unknown` is the default grey.
  */
 export const USAGE_PAYERS = [
-  { id: 'iu-sub', token: 'iuSub', label: 'IU Max', hue: BP.gold },
-  { id: 'iu-api', token: 'iuApi', label: 'IU API', hue: BP.violet },
-  { id: 'me-sub', token: 'meSub', label: 'Me Max', hue: BP.blue },
-  { id: 'me2-sub', token: 'me2Sub', label: 'Me2 Max', hue: BP.turquoise },
-  { id: 'me-api', token: 'meApi', label: 'Me API', hue: BP.cerulean },
+  { id: 'iu-sub', token: 'iuSub', label: 'IU Max', shade: [BP.blue, 0, 4] },
+  { id: 'me-sub', token: 'meSub', label: 'Me Max', shade: [BP.blue, 2, 3] },
+  { id: 'me2-sub', token: 'me2Sub', label: 'Me2 Max', shade: [BP.blue, 3, 1] },
+  { id: 'iu-api', token: 'iuApi', label: 'IU API', shade: [BP.gray, 0, 2] },
+  { id: 'me-api', token: 'meApi', label: 'Me API', shade: [BP.gray, 1, 1] },
 ] as const
 
 export type PayerValue = (typeof USAGE_PAYERS)[number]['id'] | 'unknown'

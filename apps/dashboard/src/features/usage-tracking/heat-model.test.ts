@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
-import { busiestCell, rhythmCells } from './heat-model'
+import { busiestSlot, hourTotals, rhythmCells, weekdayTotals } from './heat-model'
 
-describe('rhythmCells and busiestCell', () => {
+describe('rhythm slots', () => {
   const cells = rhythmCells([
     { dow: 0, hour: 9, value: 3 },
     { dow: 6, hour: 23, value: 7 },
@@ -12,8 +12,11 @@ describe('rhythmCells and busiestCell', () => {
     expect(cells.map((c) => `${c.day} ${c.hour}`)).toEqual(['Mon 09', 'Sun 23', 'Wed 00'])
   })
 
-  it('finds the busiest cell, null when nothing ran', () => {
-    expect(busiestCell(cells)).toMatchObject({ day: 'Sun', hour: '23' })
-    expect(busiestCell(cells.map((c) => ({ ...c, value: 0 })))).toBeNull()
+  it('sums by hour of day and by weekday, and finds the busiest slot', () => {
+    const hours = hourTotals(cells)
+    expect(hours).toHaveLength(24)
+    expect(busiestSlot(hours)).toEqual({ label: '23', value: 7 })
+    expect(busiestSlot(weekdayTotals(cells))).toEqual({ label: 'Sun', value: 7 })
+    expect(busiestSlot(hourTotals([]))).toBeNull()
   })
 })

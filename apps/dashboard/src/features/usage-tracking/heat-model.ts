@@ -1,5 +1,5 @@
 /**
- * Pure derivations for the weekday × hour rhythm heatmap. No React, no queries.
+ * Pure derivations for the rhythm charts (hour of day, weekday). No React, no queries.
  */
 import type { RhythmResponse } from '../../lib/queries/usage'
 
@@ -16,10 +16,26 @@ export const rhythmCells = (cells: RhythmResponse['cells']): RhythmCell[] =>
     value: c.value,
   }))
 
-/** The busiest weekday-hour, or `null` when nothing ran. */
-export function busiestCell(cells: readonly RhythmCell[]): RhythmCell | null {
-  const top = cells.reduce<RhythmCell | null>(
-    (best, c) => (best === null || c.value > best.value ? c : best),
+export type Slot = { label: string; value: number }
+
+/** Usage per hour of day (00 … 23), every weekday summed. */
+export const hourTotals = (cells: readonly RhythmCell[]): Slot[] =>
+  HOURS.map((label) => ({
+    label,
+    value: cells.reduce((sum, c) => (c.hour === label ? sum + c.value : sum), 0),
+  }))
+
+/** Usage per weekday (Mon … Sun), every hour summed. */
+export const weekdayTotals = (cells: readonly RhythmCell[]): Slot[] =>
+  DAYS.map((label) => ({
+    label,
+    value: cells.reduce((sum, c) => (c.day === label ? sum + c.value : sum), 0),
+  }))
+
+/** The busiest slot, or `null` when nothing ran. */
+export function busiestSlot(slots: readonly Slot[]): Slot | null {
+  const top = slots.reduce<Slot | null>(
+    (best, s) => (best === null || s.value > best.value ? s : best),
     null,
   )
   return top === null || top.value <= 0 ? null : top

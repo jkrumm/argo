@@ -133,22 +133,22 @@ const USAGE_SOURCE_MAP = defineSeries({
 
 /** Usage tracker — payer identity, one hue per `USAGE_PAYERS` entry plus `unknown`. */
 const USAGE_PAYER_MAP: SeriesMap = defineSeries({
-  ...Object.fromEntries(USAGE_PAYERS.map((x) => [x.token, p(x.hue)])),
+  ...Object.fromEntries(USAGE_PAYERS.map((x) => [x.token, p(x.shade[0], x.shade[1], x.shade[2])])),
   unknown: p(BP.gray),
 } satisfies SeriesMap)
 
 /**
- * Usage tracker — rank identity: the nth-ranked series of a stacked chart (tools, models). Six hue
- * families none of which is a status ink (no amber, red or green: those read warn, error and ok);
- * cerulean is left out because beside sky it differs only in shade.
+ * Usage tracker — rank identity: the nth-ranked series of a stacked chart (tools, models, projects).
+ * Shades, not hues: four steps of the accent from the strongest down, then two greys; the folded
+ * Other stays the default grey. Rank is an order, so lightness carries it.
  */
 const USAGE_RANK_MAP = defineSeries({
-  sky: p(BP.blue),
-  violet: p(BP.violet),
-  turquoise: p(BP.turquoise),
-  indigo: p(BP.indigo),
-  rose: p(BP.rose),
-  sepia: p(BP.sepia),
+  rank1: p(BP.blue, 0, 4),
+  rank2: p(BP.blue, 1, 3),
+  rank3: p(BP.blue, 2, 2),
+  rank4: p(BP.blue, 3, 1),
+  rank5: p(BP.gray, 0, 2),
+  rank6: p(BP.gray, 1, 1),
 } satisfies SeriesMap)
 
 /**

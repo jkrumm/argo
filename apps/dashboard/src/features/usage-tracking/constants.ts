@@ -37,18 +37,14 @@ export function colorForPayer(payer: string): string {
   return USAGE_PAYER[token] ?? USAGE_SOURCE.other
 }
 
-/**
- * Rank-assigned hues for the named series of a stacked chart: six hue families (sky, violet,
- * turquoise, indigo, rose, sepia), none of them a status ink. Amber, red and green stay with warn,
- * error and ok; cerulean is absent because next to sky it differs only in shade.
- */
+/** Rank-assigned shades for the named series of a stacked chart, strongest first (see `USAGE_RANK`). */
 export const RANK_PALETTE = [
-  USAGE_RANK.sky,
-  USAGE_RANK.violet,
-  USAGE_RANK.turquoise,
-  USAGE_RANK.indigo,
-  USAGE_RANK.rose,
-  USAGE_RANK.sepia,
+  USAGE_RANK.rank1,
+  USAGE_RANK.rank2,
+  USAGE_RANK.rank3,
+  USAGE_RANK.rank4,
+  USAGE_RANK.rank5,
+  USAGE_RANK.rank6,
 ]
 
 // Day buckets arrive as `YYYY-MM-DD` text; a bare date parses as UTC midnight, which labels the

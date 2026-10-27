@@ -138,31 +138,31 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 
 ### Usage tracker — payer (`payer-` prefix — `USAGE_PAYER.*`)
 
-The page's default split and filter. The API derives the payer from billing + account. The three wallets sit side by side in one split bar, so each takes a hue of its own: IU Max gold, Me Max sky, IU API violet (orange read as a second gold beside IU Max, 2026-10-27); Me API keeps cerulean, it never shares a bar with Me Max.
+The page's default split and filter. The API derives the payer from billing + account. The Max subscriptions are one family (the same Claude Code usage), so they take SHADES of the one accent, the biggest plan the strongest; the metered APIs are a different kind of spend and stay neutral grey. Owner verdict 2026-10-27: the v5/v6 hues (gold, violet, turquoise) read as unprofessional; shades replace them.
 
-| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                |
-| ----------- | --------- | --------- | ------------------ | --------------------------------------------------- |
-| IU Max      | `#d1980b` | `#f0b726` | `iuSub`            | IU-paid Max 20x (billing max, account iu) — gold    |
-| IU API      | `#9d3f9d` | `#bd6bbd` | `iuApi`            | IU metered API (billing iu) — violet                |
-| Me Max      | `#0284c7` | `#38bdf8` | `meSub`            | Personal Max 5x (billing max, account me) — sky     |
-| Me2 Max     | `#00a396` | `#13c9ba` | `me2Sub`           | Third Max 5x (billing max, account me2) — turquoise |
-| Me API      | `#147eb3` | `#3fa6da` | `meApi`            | Personal pay-per-token API (OpenRouter) — cerulean  |
-| Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else) |
+| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                     |
+| ----------- | --------- | --------- | ------------------ | -------------------------------------------------------- |
+| IU Max      | `#0c4a6e` | `#7dd3fc` | `iuSub`            | IU-paid Max 20x — strongest accent shade                 |
+| Me Max      | `#0284c7` | `#38bdf8` | `meSub`            | Personal Max 5x — middle accent shade                    |
+| Me2 Max     | `#38bdf8` | `#0369a1` | `me2Sub`           | Third Max 5x — lightest accent shade (light), deep (dark) |
+| IU API      | `#52525c` | `#a1a1aa` | `iuApi`            | IU metered API — neutral, a different kind of spend      |
+| Me API      | `#71717a` | `#71717a` | `meApi`            | Personal pay-per-token API (OpenRouter) — neutral        |
+| Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else)      |
 
-Contrast against the page surface (marks, not text): gold 2.6:1 light / 10.9:1 dark, violet 5.3 / 4.3, sky 4.1 / 9.3, cerulean 4.5 / 7.3. Gold in light mode is under the 3:1 mark guide, as everywhere else gold is drawn (agent-gateway, Max plan); the legend, list and hover name every series, so colour is never the only carrier.
+Shades separate by lightness, so the legend, the segment captions and the hover name every wallet; colour is never the only carrier.
 
 ### Usage tracker — rank (`rank-` prefix — `USAGE_RANK.*`, `RANK_PALETTE`)
 
-The nth-ranked series of a stacked chart (tools, models), assigned by rank, not by identity. By "ink earns its color" amber, red and green belong to warn, error and ok, so none of the six is a status hue (the tool and source identities above are separate and keep theirs). Cerulean is left out: beside sky it differs only in shade.
+The nth-ranked series of a stacked chart (tools, models, projects), assigned by rank, not by identity. Rank is an order, so lightness carries it: four accent shades from the strongest down, then two greys; the folded Other is the default grey.
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
 | ----------- | --------- | --------- | ------------------ | -------------------- |
-| Rank 1      | `#0284c7` | `#38bdf8` | `sky`              | Sky                  |
-| Rank 2      | `#9d3f9d` | `#bd6bbd` | `violet`           | Violet               |
-| Rank 3      | `#00a396` | `#13c9ba` | `turquoise`        | Turquoise            |
-| Rank 4      | `#7961db` | `#9881f3` | `indigo`           | Indigo               |
-| Rank 5      | `#db2c6f` | `#f5498b` | `rose`             | Rose                 |
-| Rank 6      | `#946638` | `#af855a` | `sepia`            | Sepia                |
+| Rank 1      | `#0c4a6e` | `#7dd3fc` | `rank1`            | Strongest shade      |
+| Rank 2      | `#0369a1` | `#38bdf8` | `rank2`            | Accent shade         |
+| Rank 3      | `#0284c7` | `#0284c7` | `rank3`            | Accent shade         |
+| Rank 4      | `#38bdf8` | `#0369a1` | `rank4`            | Lightest accent      |
+| Rank 5      | `#52525c` | `#a1a1aa` | `rank5`            | Grey                 |
+| Rank 6      | `#71717a` | `#71717a` | `rank6`            | Grey                 |
 
 ### Light pollution ramp (`lp-` prefix — `LP.*`)
 
