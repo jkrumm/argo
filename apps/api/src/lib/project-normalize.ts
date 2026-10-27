@@ -7,6 +7,7 @@
  *   /Users/jkrumm/SourceRoot/<repo>                        → <repo>
  *   any other path                                         → basename
  *   null / empty                                           → null
+ *   a `<repo>-wt` worktree folder (either form above)      → <repo>
  *
  * Worktrees collapse to the main repo so filters and groupBy
  * don't fragment by branch.
@@ -17,17 +18,24 @@ export function normalizeProject(project: string | null | undefined): string | n
   if (trimmed === '') return null
 
   const worktree = trimmed.match(/\/worktrees\/([^/]+)\//)
-  if (worktree) return worktree[1] ?? null
+  if (worktree) return stripWorktreeSuffix(worktree[1] ?? null)
 
   // Anchor on the workspace root so a cwd inside a subdirectory of the repo
   // (e.g. /IuRoot/prometheus-scripts/vpn) collapses to the repo name rather
   // than the leaf segment.
   const rooted = trimmed.match(/\/(?:Source|Iu)Root\/([^/]+)/)
-  if (rooted) return rooted[1] ?? null
+  if (rooted) return stripWorktreeSuffix(rooted[1] ?? null)
 
   const segments = trimmed.split('/').filter(Boolean)
   const last = segments[segments.length - 1]
-  return last ?? trimmed
+  return stripWorktreeSuffix(last ?? trimmed)
+}
+
+/** A sibling worktree folder (`shutterflow-wt`) is its repo; migration 0027 applied this to history. */
+function stripWorktreeSuffix(name: string | null): string | null {
+  if (name === null) return null
+  const stripped = name.replace(/-wt$/, '')
+  return stripped === '' ? name : stripped
 }
 
 export type Workspace = 'work' | 'private'

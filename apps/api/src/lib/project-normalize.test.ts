@@ -91,3 +91,14 @@ describe('classifyWorkspace', () => {
     expect(classifyWorkspace('')).toBeNull()
   })
 })
+
+describe('normalizeProject — sibling worktree folders', () => {
+  it('folds a -wt suffix into the repo', () => {
+    expect(normalizeProject('/Users/jkrumm/SourceRoot/shutterflow-wt/feat-x')).toBe('shutterflow')
+    expect(normalizeProject('shutterflow-wt')).toBe('shutterflow')
+    expect(normalizeProject('/Users/jkrumm/IuRoot/worktrees/epos-wt/branch/epos')).toBe('epos')
+  })
+  it('keeps a bare -wt name', () => {
+    expect(normalizeProject('-wt')).toBe('-wt')
+  })
+})

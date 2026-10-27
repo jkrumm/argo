@@ -28,6 +28,7 @@ import {
 import { usageQuotaRoutes } from './usage-quota.js'
 import { usagePortalRoutes } from './usage-portal.js'
 import { usageAnalyticsRoutes } from './usage-analytics.js'
+import { usageSplitRoutes } from './usage-split.js'
 import { classifyWorkspace, normalizeProject } from '../lib/project-normalize.js'
 
 const UsageRecordInputSchema = z.object({
@@ -389,9 +390,18 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const grain = query.grain
       const metric = query.metric
       const groupBy = query.groupBy
-      const { fromIso, toIso } = resolveRange(range)
+      // Hour grain reads at most 30 days: a 90 d or all-time hourly series is thousands of buckets.
+      const { fromIso, toIso } = resolveRange(
+        grain === 'hour' && (range === '90d' || range === 'all') ? '30d' : range,
+      )
 
-      const interval = grain === 'day' ? sql`interval '1 day'` : sql`interval '1 week'`
+      const interval = sql.raw(`interval '1 ${grain}'`)
+      // Day and week buckets are dates (`2026-10-21`); hour buckets are UTC instants (`2026-10-21T14:00:00Z`).
+      const bucketType = sql.raw(grain === 'hour' ? 'timestamp' : 'date')
+      const bucketText =
+        grain === 'hour'
+          ? sql.raw(`to_char(b.bucket, 'YYYY-MM-DD"T"HH24":00:00Z"')`)
+          : sql.raw('b.bucket::text')
       const filterSql = buildFilterSql({
         sources: toArray(query.sources),
         machines: toArray(query.machines),
@@ -409,18 +419,18 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
               ${utcBucket(grain, sql`${fromIso}::timestamptz`)},
               ${utcBucket(grain, sql`${toIso}::timestamptz`)},
               ${interval}
-            )::date AS bucket
+            )::${bucketType} AS bucket
           ),
           data AS (
             SELECT
-              ${utcBucket(grain, sql`ts`)}::date AS bucket,
+              ${utcBucket(grain, sql`ts`)}::${bucketType} AS bucket,
               ${mExpr} AS value
             FROM argo.usage_record
             WHERE ts >= ${fromIso} AND ts <= ${toIso}
               ${filterSql}
             GROUP BY 1
           )
-          SELECT b.bucket::text, d.value
+          SELECT ${bucketText} AS bucket, d.value
           FROM buckets b
           LEFT JOIN data d ON d.bucket = b.bucket
           ORDER BY b.bucket
@@ -450,11 +460,11 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             ${utcBucket(grain, sql`${fromIso}::timestamptz`)},
             ${utcBucket(grain, sql`${toIso}::timestamptz`)},
             ${interval}
-          )::date AS bucket
+          )::${bucketType} AS bucket
         ),
         data AS (
           SELECT
-            ${utcBucket(grain, sql`ts`)}::date AS bucket,
+            ${utcBucket(grain, sql`ts`)}::${bucketType} AS bucket,
             COALESCE(${col}, '(unset)') AS group_key,
             ${mExpr} AS value
           FROM argo.usage_record
@@ -462,7 +472,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             ${filterSql}
           GROUP BY 1, 2
         )
-        SELECT b.bucket::text, d.group_key, d.value
+        SELECT ${bucketText} AS bucket, d.group_key, d.value
         FROM buckets b
         LEFT JOIN data d ON d.bucket = b.bucket
         ORDER BY b.bucket, d.group_key
@@ -564,7 +574,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage timeseries',
         description:
-          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write|errors|error_rate|latency_p95|cache_ratio (tokens excludes cache-read and is kept for old callers; tokens_output includes reasoning), ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/payer[] (payer = iu-sub|me-sub|iu-api|me-api|unknown, derived from billing + account). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window. ?top=N (additive metrics only) keeps the N largest keys and folds the rest into a trailing "other" key.',
+          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=hour|day|week (hour reads at most 30 d; buckets are UTC instants `YYYY-MM-DDTHH:00:00Z`), ?metric=cost|tokens|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write|errors|error_rate|latency_p95|cache_ratio (tokens excludes cache-read and is kept for old callers; tokens_output includes reasoning), ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/payer[] (payer = iu-sub|me-sub|iu-api|me-api|unknown, derived from billing + account). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window. ?top=N (additive metrics only) keeps the N largest keys and folds the rest into a trailing "other" key.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -657,3 +667,4 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .use(usageQuotaRoutes)
   .use(usagePortalRoutes)
   .use(usageAnalyticsRoutes)
+  .use(usageSplitRoutes)

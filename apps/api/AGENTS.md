@@ -243,7 +243,13 @@ All env vars are validated at startup via Zod in `src/env.ts`. Missing required 
 - `GET /usage/movers?days=7&limit=3&payer` — top `(sub_tool, model)` pairs by |Δ$| vs the prior window, API payers by default, pairs under $2 in both windows dropped, empty when the prior window predates the data floor.
 - `GET /usage/timeseries` gained `metric=tokens_input|tokens_output|tokens_cache_read|tokens_cache_write` (output includes reasoning) and `top=N` (additive metrics: N largest keys + a trailing `other`). `tokens` is unchanged (no cache-read) because Tinycast reads it.
 
-Filter schemas and `buildFilterSql` live in `src/lib/usage-filters.ts`; routes in `usage-portal.ts` and `usage-analytics.ts`, mounted in `usageRoutes`. Tests: `src/lib/iu-budget.test.ts` (DB-free), `src/routes/usage.portal.test.ts`, `usage.flow.test.ts`.
+- `GET /usage/split?by=project|sub_tool|model_norm&range&lens=cost|tokens&top=12&payer[]&workspace[]` — the wallet aggregate: one row per key with cost, fresh tokens (input + output + cache-write + reasoning), cache-read, output, calls, its per-payer split and `prior` {cost, fresh} over the equally long rolling window before (null for `all` or before the data floor); the tail past `top` is one `other` row. `totals` is per payer over every key, so the page's per-wallet headline comes from the same query as its lists. Pure fold in `src/lib/usage-split.ts`.
+- `GET /usage/rhythm?range&metric=cost|tokens|tokens_cache_read&tz=Europe/Berlin&payer[]` — 168 dense weekday (0 = Monday) × hour cells in the reader's zone (unknown zone → UTC, echoed).
+- `GET /usage/timeseries?grain=hour` — UTC hour buckets as instants (`YYYY-MM-DDTHH:00:00Z`), at most 30 days (a longer range reads 30 d).
+
+Projects: `normalizeProject` folds a `<repo>-wt` sibling worktree folder into `<repo>`; migration `0027` applied it to history.
+
+Filter schemas and `buildFilterSql` live in `src/lib/usage-filters.ts`; routes in `usage-portal.ts`, `usage-analytics.ts` and `usage-split.ts`, mounted in `usageRoutes`. Tests: `src/lib/iu-budget.test.ts`, `src/lib/usage-split.test.ts` (DB-free), `src/routes/usage.portal.test.ts`, `usage.flow.test.ts`, `usage.split.test.ts`.
 
 ## Garmin (Connect Personal API)
 

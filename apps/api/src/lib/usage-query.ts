@@ -13,7 +13,7 @@ import { z } from 'zod'
 export const USAGE_DATA_FLOOR_ISO = '2026-05-28T11:00:00Z'
 
 export const RangeEnum = z.enum(['7d', '30d', '90d', 'all'])
-export const GrainEnum = z.enum(['day', 'week'])
+export const GrainEnum = z.enum(['hour', 'day', 'week'])
 export const MetricEnum = z.enum([
   'cost',
   'tokens',
