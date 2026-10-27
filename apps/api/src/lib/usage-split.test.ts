@@ -64,3 +64,21 @@ describe('foldSplit — a real key named other', () => {
     expect(rows.map((r) => r.key)).toEqual(['other', '(other)'])
   })
 })
+
+describe('foldSplit — the unset bucket', () => {
+  it('is never folded into (other)', () => {
+    const { rows } = foldSplit({
+      cells: [
+        cell({ key: 'a', payer: 'iu-api', cost: 50 }),
+        cell({ key: 'b', payer: 'iu-api', cost: 40 }),
+        cell({ key: 'c', payer: 'iu-api', cost: 30 }),
+        cell({ key: '(unset)', payer: 'iu-api', cost: 1 }),
+      ],
+      lens: 'cost',
+      top: 2,
+      hasPrior: false,
+    })
+    expect(rows.map((r) => r.key)).toEqual(['a', '(unset)', '(other)'])
+    expect(rows.at(-1)).toMatchObject({ cost: 70 })
+  })
+})

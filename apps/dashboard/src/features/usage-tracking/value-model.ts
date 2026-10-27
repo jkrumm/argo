@@ -75,14 +75,17 @@ export function comparedRows({
   subs,
   totals,
   daily,
+  held = daily,
   peaks,
   range,
   now,
 }: {
   subs: readonly SubWallet[]
   totals: readonly Total[]
-  /** ALL-TIME day buckets by payer (cost): each subscription's first row, and its active days in the range. */
+  /** All-time day buckets by payer (cost), workspace-filtered: the active days in the range. */
   daily: Buckets
+  /** All-time day buckets by payer, unfiltered: each subscription's first row (days held). */
+  held?: Buckets
   /** Weekly quota peak by account id. */
   peaks: Readonly<Record<string, number | null>>
   range: RangeKey
@@ -90,10 +93,10 @@ export function comparedRows({
 }): { rows: ComparedRow[]; sum: ComparedRow } {
   const rows = subs.map((w): ComparedRow => {
     const total = totals.find((t) => t.payer === w.id)
-    const price = PLAN_PRICE_USD[w.plan as keyof typeof PLAN_PRICE_USD] ?? 0
+    const price = PLAN_PRICE_USD[w.plan]
     const days = proratedDays(
       range,
-      firstDay(daily, (b) => used(b.groups[w.id])),
+      firstDay(held, (b) => used(b.groups[w.id])),
       now,
     )
     const listValue = total?.cost ?? 0

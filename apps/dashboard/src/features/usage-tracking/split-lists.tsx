@@ -189,12 +189,12 @@ export function SplitList({
         state={{ empty: cut.named.length === 0 && noDataInWindow(dim.usage, range) }}
       >
         <Stack gap="sm">
-          {cut.named.map((row) => {
+          {cut.named.map((row, index) => {
             const total = measureOf(row, lens)
             const label = dim.label(row.key)
             const expandable = dim.hasTimeline(row.key)
             const isOpen = open === row.key
-            const timelineId = `usage-${dimension}-timeline-${row.key.replaceAll(/\W+/g, '-')}`
+            const timelineId = `usage-${dimension}-timeline-${index}`
             const known = daily.data?.groupKeys.includes(row.key) ?? false
             const rowPoints = known ? dailyPoints : []
             const rowValues = rowPoints.map((p) => p.groups[row.key] ?? 0)
@@ -256,7 +256,6 @@ export function SplitList({
                     w="100%"
                     aria-expanded={isOpen}
                     aria-controls={timelineId}
-                    aria-label={`${label}: ${isOpen ? 'hide' : 'show'} timeline`}
                     onClick={() => setOpen(isOpen ? null : row.key)}
                   >
                     {body}

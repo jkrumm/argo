@@ -55,7 +55,7 @@ export const PAYER_LABELS: Record<PayerValue, string> = {
 export type SubWallet = {
   id: PayerValue
   title: string
-  plan: string
+  plan: (typeof USAGE_ACCOUNTS)[number]['plan']
   who: string
   kind: 'sub'
   account: AccountId

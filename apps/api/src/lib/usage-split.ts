@@ -35,6 +35,9 @@ export type SplitTotal = Measures & { payer: string; prior: Prior | null }
 /** Parenthesised like `(unset)`, so it can never be a real project, tool or model name. */
 export const SPLIT_FOLD_KEY = '(other)'
 
+/** Rows with no key read this; never folded, so its share (spend without a project) is always visible. */
+export const SPLIT_UNSET_KEY = '(unset)'
+
 const zero = (): Measures => ({ cost: 0, fresh: 0, cacheRead: 0, output: 0, calls: 0 })
 
 function addInto(into: Measures, from: Measures): void {
@@ -98,8 +101,11 @@ export function foldSplit({
   const ranked = [...byKey.entries()]
     .filter(([, r]) => value(r) > 0)
     .toSorted(([, a], [, b]) => value(b) - value(a))
-  const head = ranked.length <= top ? ranked : ranked.slice(0, top - 1)
-  const tail = ranked.length <= top ? [] : ranked.slice(top - 1)
+  const cut = ranked.length <= top ? ranked : ranked.slice(0, top - 1)
+  const rest = ranked.length <= top ? [] : ranked.slice(top - 1)
+  // The unset bucket is never folded: a page reads "how much has no project" from it.
+  const head = [...cut, ...rest.filter(([key]) => key === SPLIT_UNSET_KEY)]
+  const tail = rest.filter(([key]) => key !== SPLIT_UNSET_KEY)
 
   const toRow = (key: string, r: Acc): SplitRow => ({
     key,

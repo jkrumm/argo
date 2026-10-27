@@ -114,3 +114,22 @@ describe('comparedRows', () => {
     expect(rows[0]).toMatchObject({ listValue: 0, multiple: null, days: null, activeDays: 0 })
   })
 })
+
+describe('comparedRows — days held ignore the workspace filter', () => {
+  it('counts from the first row in any workspace', () => {
+    const iu = SUB_WALLETS.find((w) => w.id === 'iu-sub')!
+    const { rows } = comparedRows({
+      subs: [iu],
+      totals: [{ payer: 'iu-sub', cost: 100, fresh: 1, cacheRead: 1 }],
+      daily: [{ bucket: '2026-10-26', groups: { 'iu-sub': 100 } }],
+      held: [
+        { bucket: '2026-09-01', groups: { 'iu-sub': 5 } },
+        { bucket: '2026-10-26', groups: { 'iu-sub': 100 } },
+      ],
+      peaks: {},
+      range: '30d',
+      now,
+    })
+    expect(rows[0]).toMatchObject({ days: 30, activeDays: 1 })
+  })
+})

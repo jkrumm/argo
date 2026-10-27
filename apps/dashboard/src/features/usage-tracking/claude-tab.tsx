@@ -59,17 +59,15 @@ export function ClaudeTab({
   workspace: WorkspaceValue[] | undefined
 }) {
   const now = useNow()
-  const [split, quota, daily] = useSuspenseQueries({
+  // Days held count from a subscription's first row in ANY workspace; the workspace filter only
+  // narrows the usage (active days, list value), never how long the plan was paid for.
+  const allTime = { range: 'all', grain: 'day', metric: 'cost', groupBy: 'payer' } as const
+  const [split, quota, daily, held] = useSuspenseQueries({
     queries: [
       usageQueries.split({ by: 'project', range, lens, workspace, top: SPLIT_TOP }),
       usageQueries.quota(QUOTA_HOURS),
-      usageQueries.timeseries({
-        range: 'all',
-        grain: 'day',
-        metric: 'cost',
-        groupBy: 'payer',
-        workspace,
-      }),
+      usageQueries.timeseries({ ...allTime, workspace }),
+      usageQueries.timeseries(allTime),
     ],
   })
   const subs = liveSubscriptions(split.data.totals, quotaAccounts(quota.data.series))
@@ -94,6 +92,7 @@ export function ClaudeTab({
     subs: shown,
     totals: split.data.totals,
     daily: daily.data.buckets,
+    held: held.data.buckets,
     peaks,
     range,
     now,

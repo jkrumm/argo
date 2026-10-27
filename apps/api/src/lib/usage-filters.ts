@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { sql, type SQL } from 'drizzle-orm'
+import { normalizeProject } from './project-normalize.js'
 import { ACCOUNT_PATTERN, PAYER_EXPR, PayerEnum, WorkspaceEnum } from './usage-query.js'
 
 export const BillingEnum = z.enum(['max', 'iu', 'openrouter', 'unknown'])
@@ -62,7 +63,9 @@ export function buildFilterSql({
     parts.push(inList(PAYER_EXPR, payer))
   }
   if (project && project.length > 0) {
-    parts.push(inList(sql`project`, project))
+    // Same normalization as ingest, so `argo-wt` or a cwd path finds the stored repo name.
+    const names = project.flatMap((p) => normalizeProject(p) ?? [])
+    if (names.length > 0) parts.push(inList(sql`project`, names))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`
