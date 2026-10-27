@@ -43,6 +43,8 @@ export type TimeseriesParams = {
   workspace?: WorkspaceValue[] | undefined
   account?: string[] | undefined
   payer?: PayerFilter[] | undefined
+  /** Normalized project names (the keys of `/usage/split?by=project`). */
+  project?: string[] | undefined
   /** Additive metrics only: keep the N largest keys, fold the rest into a trailing `other` key. */
   top?: number | undefined
 }

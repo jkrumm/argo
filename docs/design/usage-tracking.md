@@ -1,4 +1,4 @@
-# Usage Tracking — spec (v5)
+# Usage Tracking — spec (v6)
 
 Route `/usage-tracking` · `apps/dashboard/src/routes/usage-tracking.tsx`, `apps/dashboard/src/features/usage-tracking/` · API `/usage/*`.
 Replaces the Wave 21–51 concept (history: git log of this file). Plan: `docs/waves/PLAN.md` (Waves 2–3 build this).
@@ -49,6 +49,51 @@ Source: usage-tracker `usage.db` (769 k rows since 2026-04-14) mirrored in Argo 
 - Lines: `{$} / $500 ({pct} %)`, `can spend today {$}` (negative reads `over by {$}`), `frees {$} over 7 days`.
 - Money is whole dollars, thousands separator, `<$1` below one. Tokens are `B` / `M`. Subscription cost is always labeled **list value**, never "cost" or "spend".
 - Payers: `IU Max` / `Me Max` (subscriptions, list value), `IU API` / `Me API` (spend).
+
+## Page structure (v6, Wave 6 — supersedes v5's layout, keeps its mental model)
+
+Owner verdict on v5 (2026-10-27): the wallet cards work; tokens must be as prominent as dollars; the When heatmap reads poorly (cut); show how each subscription's weekly volume built up over time; projects need a timeline (when did we work on what); IU API spend without a project is a gap to fix at the source; the Claude subscriptions do the same job, so compare them and show them combined instead of one tab each; IU API stays apart (different use). A third subscription (`me2`, Max 5x, payer `me2-sub`) is being onboarded and must slot in without a layout change.
+
+### Families
+
+- **Claude Max** = every Max subscription (`iu-sub` 20x, `me-sub` 5x, `me2-sub` 5x, any later one). Same work, compared and summed. Hues: IU Max gold, Me Max sky, Me2 Max turquoise.
+- **IU API** = the metered lane (violet), different use cases, its own tab. `Me API` stays a footnote card at ≥ $1.
+
+A subscription with no usage and no quota sample in the range has no card and no series (me2 before its first login).
+
+### Tabs and controls
+
+`Overview · Claude Max · IU API`. Filters: Range, Measure (`$` / Tokens), Workspace; Grain where a chart reads it. Claude Max tab adds an Account segmented control (All + one per subscription) that scopes the whole tab.
+
+### Overview
+
+```
+1 Wallet cards     one per subscription + IU API (span 12 / n). Inside: limit meter with pace,
+                   then TWO equal figures side by side — $ (list value | spend, Δ) left, tokens (fresh Δ, cache-read under it) right,
+                   daily sparkline (measure), "mostly <project> · <tool>"
+2 Weekly volume    Claude Max: stacked weekly bars per subscription (measure), whole history   | Weekly quota: seven-day % per account
+                                                                                                  over 30 d (the sawtooth of each window filling and resetting), 100 % line
+3 Rhythm           weekday × hour, all wallets (measure)
+4 Projects | Tools split rows (bar segmented by wallet) + an inline daily sparkline per row; a row opens its timeline:
+                   daily bars stacked by wallet for that project over the range (timeseries project=<key>)
+```
+
+### Claude Max tab (combined, compare)
+
+```
+1 Compared         one row per subscription: plan · price / month · list value · value multiple (list value ÷ price prorated to the range)
+                   · fresh tokens · cache-read · active days · weekly quota peak; summed row for All
+2 Weekly quota     sawtooth per account (bigger), current week's pace for the selection
+3 Volume per day   stacked by subscription | tool | model | project (measure)
+4 Rhythm           weekday × hour (selection)
+5 Projects | Tools | Models   ranked lists (selection)
+```
+
+### IU API tab
+
+v5's wallet tab for `iu-api`, plus a coverage line: the share of spend with no project. Attribution fix: agent-gateway's `recordIuUsage` gains `job_id` + `cwd` (dispatch `iu-usage-project-attribution`), usage-tracker maps `cwd` → project; a history backfill follows if the job ledger allows a deterministic match.
+
+Plan prices (list, per month, edit in `accounts.ts` when a plan changes): Max 20x $200, Max 5x $100. The value multiple is list value at API prices over that price — what the flat fee bought.
 
 ## Page structure (v5, Wave 5 — supersedes v3)
 
@@ -206,3 +251,35 @@ Deviations from the spec text:
 - The week curve draws the samples the collector has (since 2026-10-24); a week that began earlier says so under the chart.
 
 Shots: `make design-shot` rounds on live data (overview 30 d / 7 d tokens, the three wallet tabs, `shot-state=empty`), light + dark, 1440 + 390. Not run: the `basalt-design-reviewer` subagent and `basalt-ui shot detect`.
+
+## Build record (Wave 6, 2026-10-27)
+
+Shipped to the v6 structure above, dashboard only (the API of `a670f121` was already live). `PageBar` tabs Overview / Claude Max / IU API (`usageStore.view`: `overview | claude | iu-api`); the retired `iu-sub` / `me-sub` values from an old URL or stored value fold into `claude` with that account selected (`migrateUsageSearch`, tests in `window-stores.test.ts`). The Claude Max tab's Account control is `usageStore.account` (`all` plus every id of the registry, shown in a `Section` tabs slot). `groupBy` gained `payer` (labelled Subscription, offered on the Claude Max tab only).
+
+| Piece | Code | Data |
+|-|-|-|
+| Registry | `accounts.ts`: `USAGE_ACCOUNTS` (iu 20x, me 5x, me2 5x), `USAGE_PAYERS` (+ `me2-sub`, turquoise), `PLAN_PRICE_USD` (20x $200, 5x $100), `SUB_WALLETS` derived | every subscription list derives from it; a fourth is one registry entry |
+| Live list | `wallet-model.ts` (`liveSubscriptions`, `liveWallets`) | split `totals` (usage in the range) plus the accounts named by `/usage/quota` (30 d); no usage and no sample = no card, no series, no Account option, no Compared row |
+| Wallet cards | `wallet-cards.tsx` (`Figure`) | split `totals` and `prior`, day timeseries by payer, `mostlyOf`; $ left, tokens right, cache-read under the tokens |
+| Weekly volume | `weekly-volume.tsx` | `timeseries range=all grain=week groupBy=payer payer[]=<subs>`; the running week is drawn lighter |
+| Weekly quota | `weekly-quota.tsx`, `quota-model.ts` (`quotaRows`, `quotaPeaks`, `dayTicks`) | `/usage/quota?hours=720`, one line per account in its payer hue, 100 % reference line; the card states where the samples begin |
+| Projects / Tools rows | `split-lists.tsx` | split `by=project|sub_tool`; one `timeseries groupBy=<dim> top=12` call feeds every row's sparkline; a project row opens `timeseries groupBy=payer project[]=<key>` as daily bars by wallet; one row open at a time, `UnstyledButton` with `aria-expanded` / `aria-controls` |
+| Compared | `compared.tsx`, `value-model.ts` (`comparedRows`, `valueMultiple`, `proratedDays`) | split totals, day timeseries by payer (active days, first row), quota peaks; value multiple = list value ÷ (price × days / 30), `all` counts days from the subscription's first row; a summed row (pooled multiple, union of active days) |
+| Claude Max tab | `claude-tab.tsx` | everything scoped by `payer[]` through `scope.ts` (`claudeScope`); `This week · quota vs pace` is one `SubscriptionMeter` per selected account |
+| IU API tab | `iu-api-tab.tsx` | the v5 wallet tab for `iu-api` plus `ProjectCoverage` (the `(unset)` row of split `by=project` over the wallet's total, `unsetShare`) |
+
+Deleted: `when.tsx` and the When pieces of `heat-model.ts`, `wallet-tab.tsx`, `wallet-limit.tsx` (the per-subscription week curve), `pace-model.ts` and its test, `WALLETS` / `walletOf` / `CardWallet`, `biggestWallet`.
+
+Deviations from the spec text:
+
+- The wallet card's two figures are a local `Figure` pair, not `ChartCard facts`: the card is ~300 px wide at four cards and `facts` stacks them. They read the lens-independent `cost` and `fresh`; the Measure filter drives the sparkline, the "mostly" shares, the rows and both charts.
+- The biggest wallet's share left the Projects / Tools row header: at 390 px it crowded the name to an ellipsis, and the amounts under the bar already name every wallet.
+- A Tools row's timeline is one neutral series, not stacked by wallet: `/usage/timeseries` has no `sub_tool` filter, so a per-wallet series for a tool would need one call per wallet. API gap, reported, not worked around.
+- A project's `(unset)` row has no timeline (the `project` filter matches a column value, the row is NULL).
+- "No usage and no quota sample in the range": the quota side is the 30 d history of `/usage/quota`, whatever the Range filter says. me2 (live 2026-10-27: a `quota-latest` sample, no usage rows) therefore shows a card with its 0 % meter and "No usage in this window", a Weekly quota line, an Account option and a Compared row of dashes.
+- Quota peak is the highest reading in the range among the collector's samples (since 2026-10-24); "—" without samples.
+- Weekly quota draws the samples that exist, not an empty 30 d axis, and says so ("Samples since 24 Oct").
+
+Shots: `make design-shot` rounds `usage-v6-r1` .. `r3` on live data, `/usage-tracking`, `?view=claude`, `?view=iu-api`, light + dark, 1440 + 390. Not run: the `basalt-design-reviewer` subagent and `basalt-ui shot detect`. Not verified on real data: me2 with usage (unit tests cover the live list, the value multiple and the pooled row with a no-usage subscription).
+
+- Orchestrator fix after r3: the value multiple prorates each subscription over the days it was held in the range (first row ever, from an all-time day series), not the whole range; Me Max (held since 24 Oct) read 16× over 30 d, the held-days figure is several times that.

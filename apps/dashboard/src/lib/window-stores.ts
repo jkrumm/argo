@@ -22,6 +22,8 @@
  */
 import { format, startOfYear, subMonths, subYears } from 'date-fns'
 import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
+// The one feature import: the usage registry is a dependency-free leaf (as `series.ts` also reads it).
+import { ACCOUNT_IDS, PAYER_LABELS, USAGE_ACCOUNTS } from '../features/usage-tracking/accounts'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
@@ -151,19 +153,32 @@ export const walkingStore = createSearchStore({
   metrics: { distance: 'Distance', duration: 'Duration', steps: 'Steps' },
 })
 
-export const USAGE_VIEW_VALUES = ['overview', 'iu-sub', 'me-sub', 'iu-api'] as const
+/**
+ * The page tabs. `iu-sub` / `me-sub` are the retired per-subscription tabs: still accepted from an
+ * old URL or stored value so they never read as unknown, then folded into `claude` with that account
+ * selected by `migrateUsageSearch`. They are not offered as tabs.
+ */
+export const USAGE_VIEW_VALUES = ['overview', 'claude', 'iu-api', 'iu-sub', 'me-sub'] as const
+/** The tabs a visitor can pick, in display order. */
+export const USAGE_TAB_VALUES = ['overview', 'claude', 'iu-api'] as const
 /** The measure: dollars at API prices (list value for the subs, spend for the API) or fresh tokens. */
 export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
-export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project'] as const
+/** `payer` is the Claude Max tab's "by subscription"; the IU API tab, one wallet, never offers it. */
+export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
+/** The Account control of the Claude Max tab: `all`, or one account id from the registry. */
+export const USAGE_ACCOUNT_VALUES = ['all', ...ACCOUNT_IDS] as const
 export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
+export type UsageAccount = (typeof USAGE_ACCOUNT_VALUES)[number]
 
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
   fields: {
-    // The page tab: the combined overview or one wallet (the payer it scopes to).
+    // The page tab: the combined overview, the Claude Max subscriptions together, or the IU API.
     view: field.enum(USAGE_VIEW_VALUES, 'overview'),
+    // Scopes the whole Claude Max tab to one subscription; `all` compares and sums them.
+    account: field.enum(USAGE_ACCOUNT_VALUES, 'all'),
     // `field.enum`, not `field.range`: the API takes `range` verbatim and there is no custom
     // window here, so three params would be two more than the page can use.
     range: field.enum(['7d', '30d', '90d', 'all'], '30d'),
@@ -173,13 +188,45 @@ export const usageStore = createSearchStore({
     groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'sub_tool'),
   },
 }).labels({
-  view: { overview: 'Overview', 'iu-sub': 'IU Max', 'me-sub': 'Me Max', 'iu-api': 'IU API' },
+  view: {
+    overview: 'Overview',
+    claude: 'Claude Max',
+    'iu-api': 'IU API',
+    'iu-sub': 'Claude Max',
+    'me-sub': 'Claude Max',
+  },
+  account: {
+    all: 'All',
+    ...Object.fromEntries(USAGE_ACCOUNTS.map((a) => [a.id, PAYER_LABELS[a.payer]] as const)),
+  },
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { hour: 'Hour', day: 'Day', week: 'Week' },
   workspace: { work: 'Work', private: 'Private' },
   lens: { cost: '$', tokens: 'Tokens' },
-  groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project' },
+  groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project', payer: 'Subscription' },
 })
+
+/** The retired tabs and the account each one scoped to. */
+const LEGACY_VIEW_ACCOUNT: Partial<Record<UsageView, UsageAccount>> = {
+  'iu-sub': 'iu',
+  'me-sub': 'me',
+}
+
+/**
+ * Folds a retired per-subscription tab into the Claude Max tab with that account selected; every
+ * other search passes through. A leftover account the registry no longer lists reads as `all`
+ * already (the enum drops it).
+ */
+export function migrateUsageSearch<S extends { view: UsageView; account: UsageAccount }>(
+  search: S,
+): S {
+  const account = LEGACY_VIEW_ACCOUNT[search.view]
+  return account === undefined ? search : { ...search, view: 'claude', account }
+}
+
+/** The route's `validateSearch`: the store's, then the old tab values migrated. */
+export const validateUsageSearch = (raw: Record<string, unknown>) =>
+  migrateUsageSearch(usageStore.validateSearch(raw))
 
 export const astroStore = createSearchStore({
   key: 'astro-window',

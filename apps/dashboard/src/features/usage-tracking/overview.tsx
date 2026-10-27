@@ -1,24 +1,32 @@
 /**
- * The combined view, one glance: a card per wallet (how much, how many tokens, when, where, the
- * limit), when each wallet was used, and the projects and tools that took the usage with the wallet
- * mix inside every row. Three wallets, one currency: dollars at API prices are list value for the
- * subscriptions and spend for the API, and are never summed into a "cost" on a card.
+ * The combined view, one glance: a card per wallet (the limit, dollars and tokens side by side, when,
+ * where), how each Claude Max subscription's weekly volume and quota built up, the weekly rhythm of
+ * all wallets, and the projects and tools that took the usage with an inline timeline per row.
+ * Three wallets, one currency: dollars at API prices are list value for the subscriptions and
+ * spend for the API, and are never summed into a "cost" on a card.
  */
+import { Suspense } from 'react'
 import { useSuspenseQueries } from '@tanstack/react-query'
 import { Grid, Stack } from '@mantine/core'
+import { ChartCard } from 'basalt-ui/charts'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { useNow } from '../../lib/use-now'
 import type { UsageLens } from '../../lib/window-stores'
-import { ME_API, WALLETS, type CardWallet } from './accounts'
-import { SHOW_AT_USD, totalOf } from './split-model'
+import { QUOTA_HOURS, quotaAccounts } from './quota-model'
+import { Rhythm } from './rhythm'
+import { ALL_WALLETS } from './scope'
+import { SPLIT_TOP, totalOf } from './split-model'
 import { SplitList } from './split-lists'
 import { WalletCard } from './wallet-cards'
-import { When } from './when'
+import { liveSubscriptions, liveWallets } from './wallet-model'
+import { WeeklyQuota } from './weekly-quota'
+import { WeeklyVolume } from './weekly-volume'
 import type { WorkspaceValue } from './types'
 
-/** Keys the API keeps before folding the tail: wide enough that a wallet's own top row is in it. */
-const SPLIT_TOP = 50
+const fallback = (height: number) => (
+  <ChartCard state={{ pending: true }} placeholderHeight={height} />
+)
 
 export function Overview({
   range,
@@ -31,21 +39,17 @@ export function Overview({
 }) {
   const now = useNow()
   const metric = lens === 'cost' ? 'cost' : 'tokens'
-  const hourly = range === '7d'
-  const series = { range, metric, groupBy: 'payer', workspace } as const
-  const [projects, tools, daily, when] = useSuspenseQueries({
+  const [projects, tools, daily, quota] = useSuspenseQueries({
     queries: [
       usageQueries.split({ by: 'project', range, lens, workspace, top: SPLIT_TOP }),
       usageQueries.split({ by: 'sub_tool', range, lens, workspace, top: SPLIT_TOP }),
-      usageQueries.timeseries({ ...series, grain: 'day' }),
-      usageQueries.timeseries({ ...series, grain: hourly ? 'hour' : 'day' }),
+      usageQueries.timeseries({ range, metric, groupBy: 'payer', workspace, grain: 'day' }),
+      usageQueries.quota(QUOTA_HOURS),
     ],
   })
-  const meApi = totalOf(projects.data.totals, ME_API.id)
-  const wallets: CardWallet[] = [
-    ...WALLETS,
-    ...(meApi !== undefined && meApi.cost >= SHOW_AT_USD ? [ME_API] : []),
-  ]
+  const accounts = quotaAccounts(quota.data.series)
+  const wallets = liveWallets(projects.data.totals, accounts)
+  const subs = liveSubscriptions(projects.data.totals, accounts)
 
   return (
     <Stack gap="md">
@@ -66,14 +70,43 @@ export function Overview({
         ))}
       </Grid>
 
-      <When range={range} lens={lens} rows={wallets.map((w) => w.id)} buckets={when.data.buckets} />
+      {subs.length === 0 ? null : (
+        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
+          <Grid.Col span={{ base: 12, lg: 6 }}>
+            <Suspense fallback={fallback(240)}>
+              <WeeklyVolume subs={subs} lens={lens} workspace={workspace} />
+            </Suspense>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, lg: 6 }}>
+            <Suspense fallback={fallback(240)}>
+              <WeeklyQuota subs={subs} height={240} />
+            </Suspense>
+          </Grid.Col>
+        </Grid>
+      )}
+
+      <Suspense fallback={fallback(240)}>
+        <Rhythm scope={ALL_WALLETS} range={range} lens={lens} workspace={workspace} />
+      </Suspense>
 
       <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
         <Grid.Col span={{ base: 12, lg: 6 }}>
-          <SplitList dimension="project" rows={projects.data.rows} lens={lens} range={range} />
+          <SplitList
+            dimension="project"
+            rows={projects.data.rows}
+            lens={lens}
+            range={range}
+            workspace={workspace}
+          />
         </Grid.Col>
         <Grid.Col span={{ base: 12, lg: 6 }}>
-          <SplitList dimension="tool" rows={tools.data.rows} lens={lens} range={range} />
+          <SplitList
+            dimension="tool"
+            rows={tools.data.rows}
+            lens={lens}
+            range={range}
+            workspace={workspace}
+          />
         </Grid.Col>
       </Grid>
     </Stack>

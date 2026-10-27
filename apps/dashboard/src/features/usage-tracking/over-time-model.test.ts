@@ -7,6 +7,12 @@ describe('seriesLabel', () => {
     expect(seriesLabel('project', '(unset)')).toBe('(no project)')
     expect(seriesLabel('model_norm', 'deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash')
   })
+
+  it('names a payer key by its wallet', () => {
+    expect(seriesLabel('payer', 'me2-sub')).toBe('Me2 Max')
+    expect(seriesLabel('payer', 'iu-sub')).toBe('IU Max')
+    expect(seriesLabel('payer', 'other')).toBe('Other')
+  })
 })
 
 describe('keyTotals', () => {

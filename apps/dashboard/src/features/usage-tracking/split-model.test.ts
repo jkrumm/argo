@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { SplitRow } from '../../lib/queries/usage'
-import {
-  biggestWallet,
-  cutList,
-  mixSegments,
-  mostlyOf,
-  priorMeasureOf,
-  totalOf,
-} from './split-model'
+import { cutList, mixSegments, mostlyOf, priorMeasureOf, totalOf, unsetShare } from './split-model'
 
 const cell = (payer: string, cost: number, fresh = cost * 10) => ({
   payer,
@@ -44,17 +37,6 @@ describe('mixSegments', () => {
   it('reads fresh tokens under the tokens measure', () => {
     const r = row('argo', [cell('iu-sub', 1, 500), cell('me-sub', 9, 5)])
     expect(mixSegments(r, 'tokens').map((s) => s.value)).toEqual([500, 5])
-  })
-})
-
-describe('biggestWallet', () => {
-  it('names the wallet with the largest cell and its share of the row', () => {
-    const r = row('argo', [cell('iu-api', 25), cell('iu-sub', 75)])
-    expect(biggestWallet(r, 'cost')).toEqual({ payer: 'iu-sub', label: 'IU Max', share: 0.75 })
-  })
-
-  it('is null for an empty row', () => {
-    expect(biggestWallet(row('argo', []), 'cost')).toBeNull()
   })
 })
 
@@ -101,5 +83,19 @@ describe('priorMeasureOf and totalOf', () => {
     const totals = [{ payer: 'iu-sub', ...cell('iu-sub', 1), prior: null }]
     expect(totalOf(totals, 'iu-sub')?.cost).toBe(1)
     expect(totalOf(totals, 'me-sub')).toBeUndefined()
+  })
+})
+
+describe('unsetShare', () => {
+  const rows = [row('argo', [cell('iu-api', 75)]), row('(unset)', [cell('iu-api', 25)])]
+
+  it('is the (unset) row over the payer total', () => {
+    expect(unsetShare(rows, { cost: 100 })).toEqual({ share: 0.25, cost: 25 })
+  })
+
+  it('is zero when every row has a project, null without a total', () => {
+    expect(unsetShare([rows[0]!], { cost: 75 })).toEqual({ share: 0, cost: 0 })
+    expect(unsetShare(rows, undefined)).toBeNull()
+    expect(unsetShare(rows, { cost: 0 })).toBeNull()
   })
 })

@@ -17,6 +17,7 @@ const {
   strengthStore,
   toApiWindow,
   usageStore,
+  validateUsageSearch,
   walkingStore,
 } = await import('./window-stores')
 
@@ -98,10 +99,35 @@ describe('usageStore view, lens and groupBy', () => {
   })
 
   it('unknown values fall back, storage beats the fallback', () => {
-    persist('usage-tracking', { view: 'me-sub' })
+    persist('usage-tracking', { view: 'claude' })
     expect(usageStore.validateSearch({ lens: 'spend' }).lens).toBe('cost')
-    expect(usageStore.validateSearch({ view: 'bogus' }).view).toBe('me-sub')
-    expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('sub_tool')
+    expect(usageStore.validateSearch({ view: 'bogus' }).view).toBe('claude')
+    expect(usageStore.validateSearch({ groupBy: 'source' }).groupBy).toBe('sub_tool')
+  })
+
+  it('opens on every account of the registry, falling back to all', () => {
+    expect(usageStore.validateSearch({}).account).toBe('all')
+    expect(usageStore.validateSearch({ account: 'me2' }).account).toBe('me2')
+    expect(usageStore.validateSearch({ account: 'nobody' }).account).toBe('all')
+  })
+
+  it('groups the Claude Max tab by subscription', () => {
+    expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('payer')
+  })
+
+  it('folds the retired per-subscription tabs into Claude Max with that account selected', () => {
+    const iu = validateUsageSearch({ view: 'iu-sub' })
+    expect([iu.view, iu.account]).toEqual(['claude', 'iu'])
+    const me = validateUsageSearch({ view: 'me-sub', account: 'me2' })
+    expect([me.view, me.account]).toEqual(['claude', 'me'])
+  })
+
+  it('migrates a stored retired tab too, and leaves the live tabs alone', () => {
+    persist('usage-tracking', { view: 'me-sub' })
+    const stored = validateUsageSearch({})
+    expect([stored.view, stored.account]).toEqual(['claude', 'me'])
+    const api = validateUsageSearch({ view: 'iu-api', account: 'iu' })
+    expect([api.view, api.account]).toEqual(['iu-api', 'iu'])
   })
 
   it('an old URL or stored value with the removed scope field neither crashes nor leaks', () => {

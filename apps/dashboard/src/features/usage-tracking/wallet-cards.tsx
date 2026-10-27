@@ -1,16 +1,18 @@
 /**
  * The Overview's first row: one card per wallet. Each card owns its scale, because the wallets differ
- * ~25× in dollars and a shared axis would bury the small one. It reads top to bottom as: how much
- * (the dollars at API prices with the change against the window before), how many tokens (fresh,
- * with the cache-read beside it), when (a daily sparkline in the wallet's hue), where (the project
- * and tool that hold most of it) and the limit meter. The card opens its wallet tab.
+ * ~25× in dollars and a shared axis would bury the small one. It reads top to bottom as: who pays,
+ * the limit meter, two equal figures (dollars at API prices left, fresh tokens right, each with the change
+ * against the window before and the cache-read under the tokens), when (a daily sparkline in the
+ * wallet's hue) and where (the project and tool that hold most of it). The card opens its tab.
  */
-import { Box, Button, Stack, Text } from '@mantine/core'
+import type { ReactNode } from 'react'
+import { Box, Button, Group, SimpleGrid, Stack, Text } from '@mantine/core'
 import { ChartCard, Sparkline } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import type { SplitRow, SplitTotal } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { usageStore, type UsageLens } from '../../lib/window-stores'
-import { dollarWord, walletOf, type CardWallet } from './accounts'
+import { dollarWord, type Wallet } from './accounts'
 import { colorForPayer, bucketToDate } from './constants'
 import { ChangeBadge } from './change-badge'
 import { WalletMeter } from './limits'
@@ -22,8 +24,10 @@ import {
   periodNoun,
   shortDay,
   tokensFormatterFor,
+  tokensQuantity,
 } from './model'
 import { change } from './period-model'
+import classes from './usage.module.css'
 import { measureOf, mostlyOf, type Mostly } from './split-model'
 
 type Buckets = ReadonlyArray<{ bucket: string; groups: Record<string, number | null> }>
@@ -45,6 +49,47 @@ function MostlyLine({ project, tool }: { project: Mostly | null; tool: Mostly | 
   )
 }
 
+/** One of the card's two equal figures: caption, the figure and its unit, the change, a note under it. */
+function Figure({
+  caption,
+  value,
+  unit,
+  delta,
+  note,
+}: {
+  caption: string
+  value: string
+  unit?: string | undefined
+  delta: ReactNode
+  note?: string | undefined
+}) {
+  return (
+    <Stack gap={2} miw={0}>
+      <Text size="xs" c="dimmed">
+        {caption}
+      </Text>
+      <Group gap={4} align="baseline" wrap="nowrap">
+        <Text fz={VX.text.xl} fw={600} lh={1.1} ff="monospace">
+          {value}
+        </Text>
+        {unit === undefined ? null : (
+          <Text size="xs" c="dimmed">
+            {unit}
+          </Text>
+        )}
+      </Group>
+      <Text size="xs" c="dimmed" component="div">
+        {delta}
+      </Text>
+      {note === undefined ? null : (
+        <Text size="xs" c="dimmed">
+          {note}
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
 export function WalletCard({
   wallet,
   total,
@@ -55,7 +100,7 @@ export function WalletCard({
   range,
   now,
 }: {
-  wallet: CardWallet
+  wallet: Wallet
   total: SplitTotal | undefined
   projects: readonly SplitRow[]
   tools: readonly SplitRow[]
@@ -65,12 +110,14 @@ export function WalletCard({
   now: number
 }) {
   const [, setView] = usageStore.field.view.use()
-  const tab = walletOf(wallet.id)
+  const [, setAccount] = usageStore.field.account.use()
   const word = dollarWord(wallet.kind)
   const polarity = wallet.kind === 'api' ? 'up-bad' : 'neutral'
-  const empty =
-    shotState() === 'empty' || total === undefined || (total.cost <= 0 && total.fresh <= 0)
+  const fresh = tokensQuantity(total?.fresh ?? 0)
+  const noUsage = total === undefined || (total.cost <= 0 && total.fresh <= 0)
+  const shotEmpty = shotState() === 'empty'
   const walletTotal = total === undefined ? 0 : measureOf(total, lens)
+  const period = periodNoun(range)
 
   const points = daily.map((b) => ({
     date: bucketToDate(b.bucket),
@@ -80,65 +127,88 @@ export function WalletCard({
   const peak = drawn.reduce((max, p) => Math.max(max, p.value), 0)
   const format = lens === 'cost' ? fmtUsdWhole : tokensFormatterFor(peak)
 
+  const open = () => {
+    if (wallet.kind === 'sub') {
+      setAccount(wallet.account)
+      setView('claude')
+      return
+    }
+    setView('iu-api')
+  }
+  const canOpen = wallet.id !== 'me-api'
+
   return (
-    <Box data-shot={`wallet-${wallet.id}`} data-shot-states="empty">
+    <Box data-shot={`wallet-${wallet.id}`} data-shot-states="empty" h="100%">
       <ChartCard
+        className={classes.fill}
         title={wallet.plan === null ? wallet.title : `${wallet.title} ${wallet.plan}`}
-        subtitle={wallet.who}
         placeholderHeight="content"
         actions={
-          tab ? (
+          canOpen ? (
             <Button
               variant="subtle"
               size="compact-xs"
-              aria-label={`Open the ${tab.title} tab`}
-              onClick={() => setView(tab.id)}
+              aria-label={`Open the ${wallet.kind === 'sub' ? 'Claude Max' : wallet.title} tab`}
+              onClick={open}
             >
               Open
             </Button>
           ) : undefined
         }
-        state={{ empty: empty && 'No usage in this window' }}
-        {...(empty || total === undefined
-          ? {}
-          : {
-              facts: {
-                value: fmtUsdWhole(total.cost),
-                period: [word, periodNoun(range)],
-                comparison: (
-                  <ChangeBadge
-                    change={change(total.cost, total.prior === null ? null : total.prior.cost)}
-                    polarity={polarity}
-                  />
-                ),
-              },
-            })}
+        state={{ empty: shotEmpty && 'No usage in this window' }}
       >
-        {total === undefined ? null : (
-          <Stack gap="sm">
-            {tab ? <WalletMeter wallet={tab} titled={false} /> : null}
-            <Text size="sm">
-              {fmtTokens(total.fresh)} fresh{' '}
-              <Text component="span" inherit c="dimmed">
-                · {fmtTokens(total.cacheRead)} cache-read
-              </Text>
+        <Stack gap="sm">
+          <Text size="xs" c="dimmed">
+            {wallet.who}
+          </Text>
+          {canOpen ? <WalletMeter wallet={wallet} titled={false} /> : null}
+          {noUsage || total === undefined ? (
+            <Text size="sm" c="dimmed">
+              No usage in this window
             </Text>
-            <Sparkline
-              ariaLabel={`${wallet.title} ${lens === 'cost' ? word : 'fresh tokens'} per day, ${periodNoun(range)}`}
-              data={drawn.map((p) => p.value)}
-              labels={drawn.map((p) => shortDay(p.date))}
-              height={SPARK_HEIGHT}
-              mark="bar"
-              color={colorForPayer(wallet.id)}
-              emphasizeLast={false}
-              format={format}
-            />
-            <MostlyLine
-              project={mostlyOf(projects, wallet.id, walletTotal, lens)}
-              tool={mostlyOf(tools, wallet.id, walletTotal, lens)}
-            />
-          </Stack>
-        )}
+          ) : (
+            <>
+              <SimpleGrid cols={2} spacing="sm">
+                <Figure
+                  caption={`${word} · ${period}`}
+                  value={fmtUsdWhole(total.cost)}
+                  delta={
+                    <ChangeBadge
+                      change={change(total.cost, total.prior === null ? null : total.prior.cost)}
+                      polarity={polarity}
+                    />
+                  }
+                />
+                <Figure
+                  caption={`fresh tokens · ${period}`}
+                  value={fresh.value}
+                  unit={fresh.unit === '' ? undefined : fresh.unit}
+                  delta={
+                    <ChangeBadge
+                      change={change(total.fresh, total.prior === null ? null : total.prior.fresh)}
+                      polarity="neutral"
+                    />
+                  }
+                  note={`+ ${fmtTokens(total.cacheRead)} cache-read`}
+                />
+              </SimpleGrid>
+              <Sparkline
+                ariaLabel={`${wallet.title} ${lens === 'cost' ? word : 'fresh tokens'} per day, ${period}`}
+                data={drawn.map((p) => p.value)}
+                labels={drawn.map((p) => shortDay(p.date))}
+                height={SPARK_HEIGHT}
+                mark="bar"
+                color={colorForPayer(wallet.id)}
+                emphasizeLast={false}
+                format={format}
+              />
+              <MostlyLine
+                project={mostlyOf(projects, wallet.id, walletTotal, lens)}
+                tool={mostlyOf(tools, wallet.id, walletTotal, lens)}
+              />
+            </>
+          )}
+        </Stack>
       </ChartCard>
     </Box>
   )

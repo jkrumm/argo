@@ -145,6 +145,7 @@ The page's default split and filter. The API derives the payer from billing + ac
 | IU Max      | `#d1980b` | `#f0b726` | `iuSub`            | IU-paid Max 20x (billing max, account iu) — gold    |
 | IU API      | `#9d3f9d` | `#bd6bbd` | `iuApi`            | IU metered API (billing iu) — violet                |
 | Me Max      | `#0284c7` | `#38bdf8` | `meSub`            | Personal Max 5x (billing max, account me) — sky     |
+| Me2 Max     | `#00a396` | `#13c9ba` | `me2Sub`           | Third Max 5x (billing max, account me2) — turquoise |
 | Me API      | `#147eb3` | `#3fa6da` | `meApi`            | Personal pay-per-token API (OpenRouter) — cerulean  |
 | Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else) |
 

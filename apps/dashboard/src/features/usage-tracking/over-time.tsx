@@ -1,6 +1,7 @@
 /**
- * One wallet's dollars or fresh tokens per hour, day or week over the range, stacked by tool, model
- * or project (the legend names the series; the API folds the tail into Other). The measure picks
+ * A scope's dollars or fresh tokens per hour, day or week over the range, stacked by tool, model,
+ * project or (the Claude Max tab) subscription (the legend names the series; the API folds the tail
+ * into Other). The measure picks
  * the metric. The figures live in the strip above and the ranked lists below, so the chart carries
  * no total of its own.
  */
@@ -13,8 +14,7 @@ import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
 import { USAGE_SOURCE } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
 import { usageStore, type UsageGroupBy, type UsageLens } from '../../lib/window-stores'
-import type { Wallet } from './accounts'
-import { RANK_PALETTE, groupBands, toTimePoints } from './constants'
+import { RANK_PALETTE, colorForPayer, groupBands, toTimePoints } from './constants'
 import {
   dropPartialBucket,
   fmtUsdWhole,
@@ -25,6 +25,8 @@ import {
   tokensFormatterFor,
 } from './model'
 import { isFoldKey, keyTotals, seriesLabel } from './over-time-model'
+import { pickOptions } from './pick-options'
+import type { Scope } from './scope'
 import { USAGE_TIME_GROUP } from './quota-model'
 import type { TimePoint, WorkspaceValue } from './types'
 
@@ -35,6 +37,7 @@ const GROUP_NOUN: Record<UsageGroupBy, string> = {
   sub_tool: 'tool',
   model_norm: 'model',
   project: 'project',
+  payer: 'subscription',
 }
 
 const INFO =
@@ -44,16 +47,19 @@ export function OverTime({
   range,
   grain,
   lens,
-  wallet,
+  scope,
   groupBy,
+  groupOptions,
   workspace,
 }: {
   range: Range
   grain: Grain
   lens: UsageLens
-  wallet: Wallet
+  scope: Scope
   groupBy: UsageGroupBy
   workspace: WorkspaceValue[] | undefined
+  /** The tabs offered for the grouping: the IU API has no subscription split. */
+  groupOptions: readonly UsageGroupBy[]
 }) {
   const spend = lens === 'cost'
   const query = useSuspenseQuery(
@@ -62,7 +68,7 @@ export function OverTime({
       grain,
       metric: spend ? 'cost' : 'tokens',
       groupBy,
-      payer: [wallet.id],
+      payer: scope.payers,
       workspace,
       top: TOP_SERIES,
     }),
@@ -73,6 +79,7 @@ export function OverTime({
   const keys = data.groupKeys
   const colorOf = (key: string): string => {
     if (isFoldKey(key)) return USAGE_SOURCE.other
+    if (groupBy === 'payer') return colorForPayer(key)
     return RANK_PALETTE[keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
   // The chart stops at the last complete bucket: the running one would draw as a drop.
@@ -90,16 +97,22 @@ export function OverTime({
   const total = keyTotals(points, keys).reduce((sum, t) => sum + t.value, 0)
   // The API reads hourly series over 30 days at most.
   const shown = grain === 'hour' && (range === '90d' || range === 'all') ? '30d' : range
-  const what = spend ? (wallet.kind === 'sub' ? 'List value' : 'Spend') : 'Fresh tokens'
+  const what = spend ? scope.word.charAt(0).toUpperCase() + scope.word.slice(1) : 'Fresh tokens'
   const formatBucket = grain === 'hour' ? shortHour : shortDay
   const emptyText = noDataInWindow('usage', range)
 
   return (
-    <Box data-shot={`over-time-${wallet.id}`} data-shot-states="empty">
+    <Box data-shot={`over-time-${scope.id}`} data-shot-states="empty">
       <ChartCard
         title={`${what} per ${grain} · by ${GROUP_NOUN[groupBy]} · ${periodNoun(shown)}`}
         info={INFO}
-        actions={<ViewTabs field={usageStore.field.groupBy} label="Group by" />}
+        actions={
+          <ViewTabs
+            field={usageStore.field.groupBy}
+            options={pickOptions(usageStore.field.groupBy.options, groupOptions)}
+            label="Group by"
+          />
+        }
         state={{ empty: (keys.length === 0 || total <= 0 || drawn.length === 0) && emptyText }}
       >
         <StackedArea

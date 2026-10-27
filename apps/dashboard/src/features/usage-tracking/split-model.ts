@@ -56,27 +56,6 @@ export function mixSegments(row: SplitRow, lens: UsageLens): MeterSegment[] {
     }))
 }
 
-/** The wallet that holds most of a row, with its share of the row; `null` for an empty row. */
-export function biggestWallet(
-  row: SplitRow,
-  lens: UsageLens,
-): { payer: string; label: string; share: number } | null {
-  const total = measureOf(row, lens)
-  if (total <= 0) return null
-  const top = row.payers
-    .map((p) => ({ payer: p.payer, value: measureOf(p, lens) }))
-    .reduce<{ payer: string; value: number } | null>(
-      (best, p) => (best === null || p.value > best.value ? p : best),
-      null,
-    )
-  if (top === null || top.value <= 0) return null
-  return {
-    payer: top.payer,
-    label: PAYER_LABELS[top.payer as PayerValue] ?? top.payer,
-    share: top.value / total,
-  }
-}
-
 export type Mostly = { key: string; share: number }
 
 /**
@@ -132,5 +111,22 @@ export function cutList(rows: readonly SplitRow[], limit: number): CutList {
   }
 }
 
+/** Keys the API keeps before folding the tail: wide enough that a wallet's own top row is in it. */
+export const SPLIT_TOP = 50
+
 /** Whether a range total clears the bar for Me API to get a card of its own ("only when it reaches $1"). */
 export const SHOW_AT_USD = 1
+
+/**
+ * The share of a payer's dollars that carries no project: the `(unset)` row of a project split over
+ * the payer's total. `null` without a total to divide by. A row folded into `(other)` reads as
+ * missing, so ask for enough keys that the unset row is never in the tail.
+ */
+export function unsetShare(
+  rows: readonly SplitRow[],
+  total: { cost: number } | undefined,
+): { share: number; cost: number } | null {
+  if (total === undefined || total.cost <= 0) return null
+  const cost = rows.find((r) => r.key === UNSET_KEY)?.cost ?? 0
+  return { share: cost / total.cost, cost }
+}

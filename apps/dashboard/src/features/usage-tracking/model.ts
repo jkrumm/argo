@@ -129,6 +129,10 @@ const bucketStartMs = (d: Date): number => Date.UTC(d.getFullYear(), d.getMonth(
 const isClosedDay = (date: Date, now: number, span: number = DAY_MS): boolean =>
   bucketStartMs(date) + span <= now
 
+/** Whether the day or week bucket starting on `date` is still running at `now`. */
+export const isRunningBucket = (date: Date, now: number, grain: 'day' | 'week'): boolean =>
+  !isClosedDay(date, now, (grain === 'day' ? 1 : 7) * DAY_MS)
+
 /**
  * A chart's complete buckets: a day or week bucket still running at `now` would draw as a drop
  * against full ones. Buckets are UTC calendar days (a week bucket starts on its date), so they are
@@ -158,4 +162,10 @@ const PERIOD_NOUN: Record<'7d' | '30d' | '90d' | 'all', string> = {
 
 export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {
   return PERIOD_NOUN[range]
+}
+
+/** A value multiple as `12×` from ten up, `3.4×` below; `—` without one. */
+export function fmtMultiple(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return EM_DASH
+  return `${n >= 10 ? Math.round(n) : n.toFixed(1)}×`
 }
