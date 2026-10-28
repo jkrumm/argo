@@ -28,6 +28,16 @@ export function fmtUsdWhole(n: number | null | undefined): string {
   return `$${usdFormat.format(Math.round(n))}`
 }
 
+/**
+ * The dollar formatter of an axis or tooltip whose largest value is `reference`: whole dollars, but
+ * cents below ten dollars, where whole dollars repeat on the ticks (`$1, $1, $1, <$1`) and a series of
+ * a few dollars vanishes.
+ */
+export function usdFormatterFor(reference: number): (n: number) => string {
+  if (!(reference > 0 && reference < 10)) return fmtUsdWhole
+  return (n) => (Number.isFinite(n) ? `$${n.toFixed(2)}` : EM_DASH)
+}
+
 /** A 0–1 share as a whole percentage, glued (`62 %`); a non-zero share under 1 % reads `<1 %`. */
 export function fmtShare(ratio: number | null | undefined): string {
   if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return EM_DASH
@@ -138,19 +148,25 @@ export const isRunningBucket = (date: Date, now: number, grain: 'day' | 'week'):
  * against full ones. Buckets are UTC calendar days (a week bucket starts on its date), so they are
  * measured against the UTC clock, whatever the browser's offset. With fewer than two complete
  * buckets (a 7 d window at week grain) dropping the running one would leave nothing to draw, so
- * all of them stay. Whether a figure includes the running bucket is the call site's choice.
+ * all of them stay. With `valueOf`, the same holds when the complete buckets carry nothing but the
+ * running one does (a wallet whose first rows landed today would draw as an empty chart). Whether a
+ * figure includes the running bucket is the call site's choice.
  */
 export function dropPartialBucket<T extends { date: Date }>(
   points: readonly T[],
   now: number,
   grain: 'hour' | 'day' | 'week',
+  valueOf?: (point: T) => number,
 ): T[] {
   // An hour bucket is an exact UTC instant; day and week buckets are calendar dates.
   const complete =
     grain === 'hour'
       ? points.filter((p) => p.date.getTime() + HOUR_MS <= now)
       : points.filter((p) => isClosedDay(p.date, now, (grain === 'day' ? 1 : 7) * DAY_MS))
-  return complete.length < 2 ? [...points] : complete
+  if (complete.length < 2) return [...points]
+  if (valueOf === undefined) return complete
+  const sum = (rows: readonly T[]) => rows.reduce((total, p) => total + valueOf(p), 0)
+  return sum(complete) <= 0 && sum(points) > 0 ? [...points] : complete
 }
 
 const PERIOD_NOUN: Record<'7d' | '30d' | '90d' | 'all', string> = {

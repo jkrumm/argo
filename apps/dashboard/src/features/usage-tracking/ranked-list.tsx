@@ -11,12 +11,12 @@ import { ChartCard } from 'basalt-ui/charts'
 import { usageQueries, type Range, type SplitBy } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import type { UsageLens } from '../../lib/window-stores'
-import { UNKNOWN_MODEL } from './budget-model'
+import { modelLabel } from './budget-model'
 import { ChangeBadge } from './change-badge'
 import { fmtTokens, fmtUsdWhole, noDataInWindow, periodNoun, tokensFormatterFor } from './model'
 import { change } from './period-model'
 import type { Scope } from './scope'
-import { cutList, measureOf, priorMeasureOf, UNSET_KEY } from './split-model'
+import { cutList, measureOf, mergeByLabel, priorMeasureOf, UNSET_KEY } from './split-model'
 import type { WorkspaceValue } from './types'
 
 const ROWS = 8
@@ -41,7 +41,7 @@ const DIMENSIONS = {
     noun: 'models',
     usage: 'model usage',
     info: 'The models that account for the most, with version suffixes normalized.',
-    label: (key: string) => (key === UNSET_KEY ? UNKNOWN_MODEL : key),
+    label: modelLabel,
   },
 } as const satisfies Record<SplitBy, unknown>
 
@@ -66,7 +66,10 @@ export default function RankedList({
   const query = useSuspenseQuery(
     usageQueries.split({ by, range, lens, payer: scope.payers, workspace }),
   )
-  const cut = cutList(shotState() === 'empty' ? [] : query.data.rows, ROWS)
+  const cut = cutList(
+    shotState() === 'empty' ? [] : mergeByLabel(query.data.rows, lens, dim.label),
+    ROWS,
+  )
   const peak = cut.named.reduce((max, r) => Math.max(max, measureOf(r, lens)), 0)
   const word = cost ? scope.word : 'fresh tokens'
 

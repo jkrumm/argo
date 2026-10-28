@@ -10,6 +10,7 @@ import {
   periodNoun,
   tokensQuantity,
   tokensFormatterFor,
+  usdFormatterFor,
 } from './model'
 
 describe('fmtUsdWhole', () => {
@@ -164,5 +165,47 @@ describe('noDataInWindow', () => {
       'No usage in this window — clear a filter or widen the range',
     )
     expect(noDataInWindow('usage', 'all')).toBe('No usage in this window — clear a filter')
+  })
+})
+
+describe('usdFormatterFor', () => {
+  it('keeps whole dollars from ten dollars up, so a large axis reads as before', () => {
+    expect(usdFormatterFor(10)).toBe(fmtUsdWhole)
+    expect(usdFormatterFor(2865)(1500)).toBe('$1,500')
+  })
+
+  it('prints cents under ten dollars, so the ticks of a small axis are unique', () => {
+    const format = usdFormatterFor(2.7)
+    const ticks = [0, 0.5, 1, 1.5, 2, 2.5].map(format)
+    expect(ticks).toEqual(['$0.00', '$0.50', '$1.00', '$1.50', '$2.00', '$2.50'])
+    expect(new Set(ticks).size).toBe(ticks.length)
+  })
+
+  it('reads an empty axis and a non-finite value as before', () => {
+    expect(usdFormatterFor(0)).toBe(fmtUsdWhole)
+    expect(usdFormatterFor(3)(Number.NaN)).toBe('—')
+  })
+})
+
+describe('dropPartialBucket with a value', () => {
+  const day = (d: number, value: number) => ({ date: new Date(2026, 9, d), value })
+  const NOW = Date.UTC(2026, 9, 28, 12)
+  const valueOf = (p: { value: number }) => p.value
+
+  it('keeps the running day when it holds all there is (a wallet whose first rows landed today)', () => {
+    const points = [day(25, 0), day(26, 0), day(27, 0), day(28, 2.7)]
+    expect(dropPartialBucket(points, NOW, 'day', valueOf)).toHaveLength(4)
+  })
+
+  it('still drops the running day once a complete day carries something', () => {
+    const points = [day(25, 0), day(26, 1), day(27, 0), day(28, 2.7)]
+    expect(dropPartialBucket(points, NOW, 'day', valueOf)).toHaveLength(3)
+  })
+
+  it('drops the running day without a value reading, as before, and keeps an all-empty series as is', () => {
+    const points = [day(26, 0), day(27, 0), day(28, 2.7)]
+    expect(dropPartialBucket(points, NOW, 'day')).toHaveLength(2)
+    const empty = [day(26, 0), day(27, 0), day(28, 0)]
+    expect(dropPartialBucket(empty, NOW, 'day', valueOf)).toHaveLength(2)
   })
 })

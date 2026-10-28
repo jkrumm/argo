@@ -57,18 +57,18 @@ Owner verdict on v5 (2026-10-27): the wallet cards work; tokens must be as promi
 ### Families
 
 - **Claude Max** = every Max subscription (`iu-sub` 20x, `me-sub` 5x, `me2-sub` 5x, any later one). Same work, compared and summed. Hues: IU Max gold, Me Max sky, Me2 Max turquoise.
-- **IU API** = the metered lane (violet), different use cases, its own tab. `Me API` stays a footnote card at ≥ $1.
+- **IU API** = the metered lane (neutral greys), different use cases, its own tab. It has one wallet per IU API key (`personal`, payer `iu-api`; `athena-team`, payer `iu-team-api`, Athena Teamchat's shared key), each with its own rolling-30-day $500 cap. `Me API` stays a footnote card at ≥ $1.
 
 A subscription with no usage and no quota sample in the range has no card and no series (me2 before its first login).
 
 ### Tabs and controls
 
-`Overview · Claude Max · IU API`. Filters: Range, Measure (`$` / Tokens), Workspace; Grain where a chart reads it. Claude Max tab adds an Account segmented control (All + one per subscription) that scopes the whole tab.
+`Overview · Claude Max · IU API`. Filters: Range, Measure (`$` / Tokens), Workspace; Grain where a chart reads it. Claude Max tab adds an Account segmented control (All + one per subscription) that scopes the whole tab; the IU API tab adds a Key segmented control (`All | Personal | Athena team`, `usageStore.iuKey`, same home and persistence) that scopes the whole tab.
 
 ### Overview
 
 ```
-1 Wallet cards     one per subscription + IU API (span 12 / n). Inside: limit meter with pace,
+1 Wallet cards     one per subscription + one per IU API key (span 12 / n up to four per row; five or more split into two even rows, 5 = 3 + 2). Inside: limit meter with pace,
                    then TWO equal figures side by side — $ (list value | spend, Δ) left, tokens (fresh Δ, cache-read under it) right,
                    daily sparkline (measure), "mostly <project> · <tool>"
 2 Weekly volume    Claude Max: stacked weekly bars per subscription (measure), whole history   | Weekly quota: seven-day % per account
@@ -91,7 +91,17 @@ A subscription with no usage and no quota sample in the range has no card and no
 
 ### IU API tab
 
-v5's wallet tab for `iu-api`, plus a coverage line: the share of spend with no project. Attribution fix: agent-gateway's `recordIuUsage` gains `job_id` + `cwd` (dispatch `iu-usage-project-attribution`), usage-tracker maps `cwd` → project; a history backfill follows if the job ledger allows a deterministic match.
+v5's wallet tab for the IU API, plus a coverage line: the share of spend with no project. Attribution fix: agent-gateway's `recordIuUsage` gains `job_id` + `cwd` (dispatch `iu-usage-project-attribution`), usage-tracker maps `cwd` → project; a history backfill follows if the job ledger allows a deterministic match.
+
+**Key control** (2026-10-28): a segmented control `All | Personal | Athena team` in the `Section` tabs slot, built like the Claude Max Account control. It scopes the whole tab: the cap meter, can-spend-today, portal vs tracked, figures, over time, rhythm, the ranked lists, where the tokens go, cost per 1 M, the no-project line. Personal reads payer `iu-api`, Athena team payer `iu-team-api` (the payer already carries the key, so no `iuKey` filter is sent on the records endpoints).
+
+**All = two meters, never a sum.** Each key has its own $500 cap in IU's portal, so under All the Limit row is two cards side by side titled by the key (`Limit · Personal`, `Limit · Athena team`; each its own meter and can-spend-today), and Portal vs tracked is two equal cards side by side, one per key; a summed cap would read as headroom neither key has. The records views (figures, charts, lists) add the two keys' spend, and a line under the meters says so. Selecting one key shows one full-width card.
+
+**What a gap means is per key** (`gapReading` in the `IU_KEYS` registry). Personal, `pricing`: we price those rows ourselves, so portal above tracked is mostly a pricing or unpriced-row difference (Gap 4); the card reads exactly as before (amber flag, `−$41 · 0.42×`, signed totals line). Athena team, `unseen`: its tracked costs are producer-reported, so the gap is **spend by producers we do not see**, in neutral words and ink: "Portal $34 · tracked $10 · $24 from producers we do not see", differing days drawn in `VX.line` (not a status ink) and read `$41 unseen · 0.42×`. The team key's portal total ($33.85 on 2026-10-28) exceeds what is tracked (~$10.06) because its 2026-10-22..25 build-phase spend predates the teamchat DB rows. The per-day flag rule (max($1, 20 %) of the portal figure) is the same for both. Tracked above portal keeps a signed excess for either.
+
+**Few rows.** The team key's portal models are few (Deepseek V4.1 Flash, Gemini 3.5 Flash, Sonar); every ranked list, the per-model list and the pair list render one to three rows as a short card, and none as the section's empty line. A row with no model (Athena teamchat mostly reports none; the API sends `(unknown model)` or `(unset)`) reads **Unknown model** in lists, pair labels and series legends (`modelLabel`), and a leading `provider/` (the team key reports `deepseek/deepseek-v4.1-flash`) is dropped. Rows that then read the same are one row: `mergeByLabel` sums their measures, prior windows and payer cells in the ranked lists, and `rankPairs` merges the (tool, model) pairs by label, so Key = All never lists a model twice.
+
+**No portal report yet** (a key IU's portal has not reported for: `fetchedAt` null, or no portal days). One shared cause and next step on the wallet card, the Limit card and the Portal vs tracked card: "No portal report for this key yet · the next portal sync fills the cap" ("… fills this comparison" on the Portal vs tracked card), and on the cap a plain line "tracked so far $3 of $500 · 30 d" from the rolling-30-day split. A meter is never drawn from tracked spend (the portal is the cap's truth), and the Limit card's info says so instead of describing a meter and its tick. The Portal vs tracked card keeps its frame and title (`Portal vs tracked · Athena team spend · 30 d`) with that line inside, so keys side by side stay two equal cards. A synthetic empty state (a shot with the data withheld) keeps the section's original line, "Portal vs tracked · connect the portal sync".
 
 Plan prices (list, per month, edit in `accounts.ts` when a plan changes): Max 20x $200, Max 5x $100. The value multiple is list value at API prices over that price — what the flat fee bought.
 
@@ -176,7 +186,7 @@ Every endpoint takes `range`, `payer[]`, `workspace[]` like the existing ones an
 
 | Surface | Empty | Stale |
 |-|-|-|
-| Q1 | `No portal data yet` | `stale · fetched {age}` > 8 h; dead > 48 h with the login command |
+| Q1 | `No portal report for this key yet · the next portal sync fills the cap` | `stale · fetched {age}` > 8 h; dead > 48 h with the login command |
 | Q2 | `no reading` per account | `stale {age}` > 30 min |
 | Q3 | `Spend is flat vs the prior 7 days` | n/a |
 | A–C, E | `ChartCard state.empty` | `last event {age} ago` footer; red dot > 30 min |
@@ -307,3 +317,28 @@ Deviations from the brief:
 - The facts strip pools the 5 h windows of every account (median of windows, not of per-account medians).
 
 Not verified on live data: the 7 d reset label (no weekly reset has been sampled yet; checked once with a temporary stand-in, then removed), the hover tooltip content (static shots), a populated 14d / 21d range (the log is three days old), unknown reasons or accounts (the model tests cover them).
+
+## IU API keys (2026-10-28)
+
+Dashboard only; the API with `iu-team-api`, the `iuKey` parameters on `/usage/iu-budget` and `/usage/iu-reconcile` and the `iu_key` dimension was already in the tree.
+
+| Piece | Code | Data |
+|-|-|-|
+| Key registry | `accounts.ts`: `IU_KEYS` (id, label, payer, wallet title and who-line), `IU_KEY_WALLETS` (the team wallet comes from here), `IU_API` (looked up by payer id), `isKeyWallet`; `USAGE_PAYERS` + `iu-team-api` ("Athena team") | a later key is one `IU_KEYS` entry plus one payer entry; a `KeyWallet` is told from `ApiWallet` (Me API) by its `iuKey` |
+| Key control | `window-stores.ts` (`iuKey`: `all` + registry ids, URL + persisted like `account`), `iu-api-tab.tsx` (`Section` tabs slot) | none |
+| Scope | `scope.ts` (`iuKeyScope`: one payer, or both for All; `selectedKeyWallets`) | `payer[]` on split / timeseries / rhythm / flow |
+| Caps | `limits.tsx` (`WalletMeter` mounts `SubscriptionWalletMeter` or `KeyCapMeter`; `useKeyBudget` reads `usageQueries.iuBudget(key)`), one `KeyLimit` card per selected key | `/usage/iu-budget?iuKey=` |
+| Team wallet card | `wallet-model.ts` (`liveWallets` lists every key's wallet, `cardsPerRow`), `wallet-cards.tsx` (Open selects the key) | split totals + `/usage/iu-budget?iuKey=athena-team` |
+| Portal vs tracked | `reconciliation.tsx` per key wallet (title, anchor from the registry), `reconcile-model.ts` (`GAP_PRESENTATION`: info, strip states, band function per `GapReading`; `gapLine`, `dayReading`) | `/usage/iu-reconcile?iuKey=` |
+| Figures / lists | `wallet-figures.tsx` and `use-flow.ts` take the scope's payers; `split-model.ts` `combinedTotal` sums the keys for All, `mergeByLabel` folds rows with the same label | split totals, flow |
+
+Colours: a five-step grey ramp holds only three greys two steps apart, and four payers share it. Athena team takes light step 2 (`#a1a1aa`, the strongest legible step two from IU API's 0) and dark step 4; Me API (~$0, a card only from $1) moves from light step 1 to 4 (dark unchanged at 1), which keeps it two steps from Athena team; `unknown` moves from light step 2 to 3 so no two payers share a shade. The faint Me API / unknown light greys are the price: both are rare. IU API keeps its shade, its card and its numbers.
+
+Decisions and deviations:
+
+- A cap or reconcile response carries the key it computed in `iuKey`. `answersKey` refuses another key's answer (shown as no portal report, never as this key's headroom); a response without the echo (an API from before keys) counts as the personal key's. Callers always name their key (`usageQueries.iuBudget(key)`), and `WalletMeter` fires the budget query only for key wallets.
+- The Overview shows the team wallet card always, like the personal one: its cap is worth seeing at $0. Five cards fill two rows as 3 + 2 instead of 4 + 1 (it also fixes the existing Me API orphan); the personal card's content is unchanged.
+- Group by on the IU tab stays Tool / Model / Project; a "by key" grouping under All is not offered (the store's `groupBy` `payer` value is labelled Subscription and belongs to the Claude Max tab).
+- The Wallet card's title stays "IU API"; the IU API tab's cards use the key label.
+
+Shots: `make design-shot` rounds `iu-keys-r1` .. `r4` and basalt shot rounds `iu-keys-r5` .. `r7` on production data, `/usage-tracking` with `?view=iu-api`, `&iuKey=personal` and `&iuKey=athena-team`, light + dark, 1440 + 390. The team key had records but no portal report during the rounds, so its no-portal state is what the shots show; its 1–3-row layouts are covered by model tests.

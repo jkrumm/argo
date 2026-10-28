@@ -10,6 +10,7 @@ import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import type { Range } from '../../lib/queries/usage'
 import type { UsageLens } from '../../lib/window-stores'
+import type { PayerValue } from './accounts'
 import { rankPairs, type PairRow } from './budget-model'
 import { fmtTokens, fmtUsdWhole, noDataInWindow, periodNoun, tokensFormatterFor } from './model'
 import { useFlow } from './use-flow'
@@ -27,13 +28,15 @@ const rowLabel = (r: PairRow): string => (r.pairs > 1 ? `Other (${r.pairs} pairs
 export default function TopSpenders({
   range,
   lens,
+  payers,
   workspace,
 }: {
   range: Range
   lens: UsageLens
+  payers: PayerValue[]
   workspace: WorkspaceValue[] | undefined
 }) {
-  const flow = useFlow({ range, lens, workspace })
+  const flow = useFlow({ range, lens, payers, workspace })
   const ranked = rankPairs(flow.rows, lens, TOP_PAIRS)
   const spend = lens === 'cost'
   const peak = ranked.rows.reduce((max, r) => Math.max(max, r.value), 0)
@@ -42,9 +45,8 @@ export default function TopSpenders({
   const emptyText = noDataInWindow(spend ? 'spend' : 'token usage', range)
 
   return (
-    <Box data-shot="top-spenders" data-shot-states="empty" h="100%">
+    <Box data-shot="top-spenders" data-shot-states="empty">
       <ChartCard
-        className={classes.fill}
         placeholderHeight="content"
         title={`Where the tokens go: tool · model · ${periodNoun(range)}`}
         info={INFO}

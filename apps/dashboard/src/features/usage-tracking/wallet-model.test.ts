@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { liveSubscriptions, liveWallets } from './wallet-model'
+import { cardsPerRow, liveSubscriptions, liveWallets } from './wallet-model'
 
 const total = (payer: string, cost: number, fresh = cost) => ({ payer, cost, fresh })
 
@@ -32,12 +32,24 @@ const ids = (cost: number) =>
   liveWallets([total('iu-sub', 9), total('me-api', cost)], []).map((w) => w.id)
 
 describe('liveWallets', () => {
-  it('ends with the IU API, which always has a card', () => {
-    expect(liveWallets([], []).map((w) => w.id)).toEqual(['iu-api'])
+  it('ends with one card per IU API key, which always has one', () => {
+    expect(liveWallets([], []).map((w) => w.id)).toEqual(['iu-api', 'iu-team-api'])
+  })
+
+  it('gives the team key its own wallet and cap, apart from the personal one', () => {
+    const [personal, team] = liveWallets([], []).map((w) => (w.kind === 'api' ? w.iuKey : null))
+    expect([personal, team]).toEqual(['personal', 'athena-team'])
   })
 
   it('adds Me API only from a dollar', () => {
-    expect(ids(0.4)).toEqual(['iu-sub', 'iu-api'])
-    expect(ids(1)).toEqual(['iu-sub', 'iu-api', 'me-api'])
+    expect(ids(0.4)).toEqual(['iu-sub', 'iu-api', 'iu-team-api'])
+    expect(ids(1)).toEqual(['iu-sub', 'iu-api', 'iu-team-api', 'me-api'])
+  })
+})
+
+describe('cardsPerRow', () => {
+  it('keeps up to four cards in one row and splits more into two even rows', () => {
+    expect([1, 2, 4].map(cardsPerRow)).toEqual([1, 2, 4])
+    expect([5, 6, 7, 8].map(cardsPerRow)).toEqual([3, 3, 4, 4])
   })
 })

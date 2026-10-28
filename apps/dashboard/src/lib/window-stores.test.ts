@@ -111,6 +111,13 @@ describe('usageStore view, lens and groupBy', () => {
     expect(usageStore.validateSearch({ account: 'nobody' }).account).toBe('all')
   })
 
+  it('opens the IU API tab on every key of the registry, falling back to all', () => {
+    expect(usageStore.validateSearch({}).iuKey).toBe('all')
+    expect(usageStore.validateSearch({ iuKey: 'athena-team' }).iuKey).toBe('athena-team')
+    expect(usageStore.validateSearch({ iuKey: 'personal' }).iuKey).toBe('personal')
+    expect(usageStore.validateSearch({ iuKey: 'nobody' }).iuKey).toBe('all')
+  })
+
   it('groups the Claude Max tab by subscription', () => {
     expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('payer')
   })

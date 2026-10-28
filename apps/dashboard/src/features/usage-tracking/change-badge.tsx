@@ -5,6 +5,7 @@
  */
 import { Text } from '@mantine/core'
 import { DeltaBadge } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 import { fmtPctChange, type Change } from './period-model'
 
 export function ChangeBadge({
@@ -18,9 +19,19 @@ export function ChangeBadge({
 }) {
   if (change === null) return null
   if (change.kind === 'new') {
+    // Sized like a DeltaBadge (value small, period micro), not inherited: in a stat strip the
+    // inherited size is the figure's.
     return (
-      <Text component="span" inherit c="dimmed">
-        new{period === undefined ? '' : ` vs ${period}`}
+      <Text component="span" fz={VX.text.sm} c="dimmed">
+        new
+        {period === undefined ? null : (
+          <>
+            {' '}
+            <Text component="span" fz={VX.text.micro}>
+              vs {period}
+            </Text>
+          </>
+        )}
       </Text>
     )
   }

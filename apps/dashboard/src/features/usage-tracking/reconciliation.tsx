@@ -1,71 +1,71 @@
 /**
- * Section D, portal vs tracked: can tracked spend stand in for the IU number, and on which days does
- * it not? One totals line (the portal's figure, ours, the gap) over a delta strip per day (ok within
- * max($1, 20 %), warn beyond: the API's `flagged`, the newest portal day marked partial). No portal
- * data collapses the section to one line.
+ * Section D, portal vs tracked, for one IU API key: can tracked spend stand in for the IU number, and
+ * on which days does it not? One totals line (the portal's figure, ours, the gap) over a delta strip
+ * per day (ok within max($1, 20 %), flagged beyond: the API's `flagged`, the newest portal day marked
+ * partial). The key's `gapReading` decides what a portal figure above ours means (`GAP_PRESENTATION`).
+ * A key IU's portal has not reported for keeps its card, with the cause and the next step inside, so
+ * keys side by side read as equal cards.
  */
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Stack, Text } from '@mantine/core'
 import { BandStrip, ChartCard } from 'basalt-ui/charts'
-import type { BandSpan } from 'basalt-ui/charts'
-import { alpha, VX } from 'basalt-ui/tokens'
+import { VX } from 'basalt-ui/tokens'
 import { shotState } from '../../lib/shot-state'
-import { usageQueries, type IuReconcile } from '../../lib/queries/usage'
+import { usageQueries } from '../../lib/queries/usage'
+import type { KeyWallet } from './accounts'
+import { answersKey, noPortalNote } from './budget-model'
 import { fmtUsdWhole, shortDay } from './model'
 import {
+  GAP_PRESENTATION,
   RECON_NO_PORTAL,
   RECON_WINDOW_DAYS,
-  dayReading,
-  fmtSignedUsd,
+  gapLine,
   reconDays,
   unpricedNote,
   type ReconDay,
 } from './reconcile-model'
-
-const EMPTY: IuReconcile = {
-  iuKey: 'personal',
-  days: [],
-  models: [],
-  unpricedRows: 0,
-  windowTotals: { portalUsd: 0, trackedUsd: 0 },
-}
+import classes from './usage.module.css'
 
 const STRIP_HEIGHT = 56
 
-const INFO =
-  "Portal is what IU's own billing report says the API cost; tracked is our estimate, priced from the usage-tracker rows billed to IU. The strip flags a UTC day when the two differ by more than the larger of $1 and 20 % of the portal figure. The newest portal day is still settling and is marked partial. Tracking prices some models at far less than the portal does, and rows without a recorded cost count as zero."
+export default function Reconciliation({
+  wallet,
+  named,
+}: {
+  wallet: KeyWallet
+  /** More than one key's card is on screen: the synthetic empty line then says whose it is. */
+  named: boolean
+}) {
+  const query = useSuspenseQuery(usageQueries.iuReconcile(RECON_WINDOW_DAYS, wallet.iuKey))
+  const present = GAP_PRESENTATION[wallet.gapReading]
 
-const STRIP_STATES = [
-  {
-    key: 'ok',
-    label: 'Within max($1, 20 %)',
-    color: alpha(VX.muted, 0.2),
-    formatValue: (d: ReconDay) => dayReading(d),
-  },
-  {
-    key: 'warn',
-    label: 'Off by more',
-    color: VX.warnSolid,
-    formatValue: (d: ReconDay) => dayReading(d),
-  },
-  { key: 'partial', label: 'Partial day', color: VX.muted },
-] as const
-
-const bandOf = (d: ReconDay): BandSpan => ({
-  state: d.flagged ? 'warn' : 'ok',
-  ...(d.partial ? { marker: { state: 'partial' } } : {}),
-})
-
-export default function Reconciliation() {
-  const query = useSuspenseQuery(usageQueries.iuReconcile(RECON_WINDOW_DAYS))
-  const data = shotState() === 'empty' ? EMPTY : query.data
-
-  if (data.days.length === 0) {
+  // A synthetic empty state (a shot with the data withheld) keeps the section's original line.
+  if (shotState() === 'empty') {
     return (
-      <Box data-shot="reconciliation" data-shot-states="empty">
+      <Box data-shot={wallet.anchor} data-shot-states="empty">
         <Text size="sm" c="dimmed">
-          Portal vs tracked · {RECON_NO_PORTAL}
+          Portal vs tracked · {named ? `${wallet.title} · ` : ''}
+          {RECON_NO_PORTAL}
         </Text>
+      </Box>
+    )
+  }
+
+  // IU's portal has not reported for this key: no portal days, or an answer for another key.
+  const data = answersKey(query.data, wallet.iuKey) ? query.data : null
+  if (data === null || data.days.length === 0) {
+    return (
+      <Box data-shot={wallet.anchor} data-shot-states="empty" h="100%">
+        <ChartCard
+          className={classes.fill}
+          title={`Portal vs tracked · ${wallet.spend} · ${RECON_WINDOW_DAYS} d`}
+          info={present.info}
+          placeholderHeight="content"
+        >
+          <Text size="sm" c="dimmed">
+            {noPortalNote({ target: 'comparison' }).head}
+          </Text>
+        </ChartCard>
       </Box>
     )
   }
@@ -76,26 +76,27 @@ export default function Reconciliation() {
   const trackedUsd = Math.round(data.windowTotals.trackedUsd)
 
   return (
-    <Box data-shot="reconciliation" data-shot-states="empty">
+    <Box data-shot={wallet.anchor} data-shot-states="empty" h="100%">
       <ChartCard
-        title={`Portal vs tracked · IU spend · ${days.length} d`}
+        className={classes.fill}
+        title={`Portal vs tracked · ${wallet.spend} · ${days.length} d`}
         subtitle="Portal: IU's own billing report · tracked: our estimate"
-        info={INFO}
+        info={present.info}
       >
         <Stack gap="sm">
           <Text size="sm">
             Portal {fmtUsdWhole(portalUsd)} · tracked {fmtUsdWhole(trackedUsd)} ·{' '}
-            {fmtSignedUsd(trackedUsd - portalUsd)}
+            {gapLine(wallet.gapReading, portalUsd, trackedUsd)}
           </Text>
           <BandStrip
-            ariaLabel={`Tracked minus portal per day, ${days.length} days: flagged when off by more than the larger of $1 and 20 %`}
+            ariaLabel={`Tracked minus portal per day, ${days.length} days: ${present.flagged} than the larger of $1 and 20 %`}
             data={days}
             height={STRIP_HEIGHT}
             x={(d: ReconDay) => d.date}
             xTicks={5}
             formatX={(d) => shortDay(d)}
-            states={STRIP_STATES}
-            getBand={bandOf}
+            states={present.states}
+            getBand={present.bandOf}
             legend={{ placement: 'bottom' }}
             tooltip={{ formatHeader: (x) => shortDay(x) }}
           />

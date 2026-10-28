@@ -5,7 +5,7 @@
  */
 import { formatDuration, withUnit } from '../../lib/format'
 import type { FlowLens, FlowRow, IuBudget, QuotaLatest } from '../../lib/queries/usage'
-import { USAGE_ACCOUNTS } from './accounts'
+import { USAGE_ACCOUNTS, type IuKeyId } from './accounts'
 import { EM_DASH, OTHER_KEY, fmtShare, fmtUsdWhole } from './model'
 
 // ── State words and freshness ────────────────────────────────────────────────────────────────
@@ -159,10 +159,55 @@ export function loadFailure(error: unknown, cause: string): Error {
   return new Error(typeof status === 'number' ? `${cause} (HTTP ${status})` : cause)
 }
 
-export const NO_PORTAL_DATA = 'No portal data yet'
+/**
+ * Whether a cap or reconcile answer is for `key`. The response names the key it computed; one
+ * without the echo comes from an API that predates keys, which knew the personal key only. Another
+ * key's answer is never shown as this key's.
+ */
+export const answersKey = (response: { iuKey?: IuKeyId | undefined }, key: IuKeyId): boolean =>
+  (response.iuKey ?? 'personal') === key
+
+export const NO_PORTAL_REPORT = 'No portal report for this key yet'
+
+/** What the next portal sync fills in: the key's cap, or its portal-vs-tracked comparison. */
+export type PortalTarget = 'cap' | 'comparison'
+
+/**
+ * What a key shows while IU's portal has not reported for it: the cause, the next step, and (for the
+ * cap) what is tracked so far against the limit, as plain lines. Never a meter drawn from tracked
+ * spend: the portal is the cap's truth. `tracked` is `null` when nothing is tracked or no figure is
+ * at hand.
+ */
+export function noPortalNote(input: {
+  target: PortalTarget
+  trackedUsd?: number | null | undefined
+  limitUsd?: number | null | undefined
+}): { head: string; tracked: string | null } {
+  const { target, trackedUsd, limitUsd } = input
+  const fills = target === 'cap' ? 'the cap' : 'this comparison'
+  const tracked =
+    trackedUsd === null || trackedUsd === undefined || trackedUsd <= 0
+      ? null
+      : `tracked so far ${fmtUsdWhole(trackedUsd)}${
+          limitUsd === null || limitUsd === undefined ? '' : ` of ${fmtUsdWhole(limitUsd)}`
+        } · ${withUnit(30, 'd')}`
+  return { head: `${NO_PORTAL_REPORT} · the next portal sync fills ${fills}`, tracked }
+}
 export const PORTAL_DEAD_NOTE = 'portal session expired — run make iu-portal-login in usage-tracker'
 export const NO_CACHE_DATA = 'no cache data'
+/** How the API names a row with no model (a producer that reports cost without one, e.g. Athena teamchat). */
 export const UNKNOWN_MODEL = '(unknown model)'
+export const UNKNOWN_MODEL_LABEL = 'Unknown model'
+
+/**
+ * A model key as a list reads it: the API's parenthesised no-model keys become a plain label, and a
+ * leading `provider/` (a producer that reports the routed name, `deepseek/deepseek-v4.1-flash`) is
+ * dropped so the same model reads the same whoever sent it.
+ */
+export const modelLabel = (model: string): string =>
+  model === UNKNOWN_MODEL || model === '(unset)'
+    ? UNKNOWN_MODEL_LABEL
+    : model.replace(/^[^/\s]+\//, '')
 
 export const staleNote = (fetchedAgeMs: number): string =>
   `stale · fetched ${formatAge(fetchedAgeMs)}`
@@ -347,7 +392,7 @@ export function rankPairs(
       continue
     }
     const model = r.model || UNKNOWN_MODEL
-    const key = pairKey(r.subTool, model)
+    const key = pairKey(r.subTool, modelLabel(model))
     const entry = merged.get(key) ?? { subTool: r.subTool, model, sums: emptySums() }
     addTo(entry.sums, r)
     merged.set(key, entry)
@@ -355,7 +400,13 @@ export function rankPairs(
   const ranked = [...merged.entries()]
     .map(([key, e]) =>
       toPairRow(
-        { key, subTool: e.subTool, model: e.model, label: `${e.subTool} · ${e.model}`, pairs: 1 },
+        {
+          key,
+          subTool: e.subTool,
+          model: e.model,
+          label: `${e.subTool} · ${modelLabel(e.model)}`,
+          pairs: 1,
+        },
         e.sums,
         lens,
       ),

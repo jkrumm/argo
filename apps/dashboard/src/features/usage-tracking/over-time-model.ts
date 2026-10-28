@@ -3,6 +3,7 @@
  * totals the ranked legend prints. No React, no queries.
  */
 import { PAYER_LABELS, type PayerValue } from './accounts'
+import { modelLabel } from './budget-model'
 import { OTHER_KEY } from './model'
 import type { TimePoint } from './types'
 import type { UsageGroupBy } from '../../lib/window-stores'
@@ -15,6 +16,7 @@ export function seriesLabel(groupBy: UsageGroupBy, key: string): string {
   if (key === API_FOLD_KEY) return OTHER_KEY
   if (groupBy === 'payer') return PAYER_LABELS[key as PayerValue] ?? key
   if (groupBy === 'project' && key === '(unset)') return '(no project)'
+  if (groupBy === 'model_norm') return modelLabel(key)
   return key
 }
 

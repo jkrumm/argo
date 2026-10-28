@@ -8,6 +8,12 @@ describe('seriesLabel', () => {
     expect(seriesLabel('model_norm', 'deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash')
   })
 
+  it('reads a model-less row as Unknown model, not the API’s parenthesised key', () => {
+    expect(seriesLabel('model_norm', '(unset)')).toBe('Unknown model')
+    expect(seriesLabel('model_norm', '(unknown model)')).toBe('Unknown model')
+    expect(seriesLabel('project', '(unknown model)')).toBe('(unknown model)')
+  })
+
   it('names a payer key by its wallet', () => {
     expect(seriesLabel('payer', 'me2-sub')).toBe('Me2 Max')
     expect(seriesLabel('payer', 'iu-sub')).toBe('IU Max')

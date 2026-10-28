@@ -25,6 +25,7 @@ import {
   shortDay,
   tokensFormatterFor,
   tokensQuantity,
+  usdFormatterFor,
 } from './model'
 import { change } from './period-model'
 import classes from './usage.module.css'
@@ -111,6 +112,7 @@ export function WalletCard({
 }) {
   const [, setView] = usageStore.field.view.use()
   const [, setAccount] = usageStore.field.account.use()
+  const [, setIuKey] = usageStore.field.iuKey.use()
   const word = dollarWord(wallet.kind)
   const polarity = wallet.kind === 'api' ? 'up-bad' : 'neutral'
   const fresh = tokensQuantity(total?.fresh ?? 0)
@@ -123,9 +125,9 @@ export function WalletCard({
     date: bucketToDate(b.bucket),
     value: b.groups[wallet.id] ?? 0,
   }))
-  const drawn = dropPartialBucket(points, now, 'day')
+  const drawn = dropPartialBucket(points, now, 'day', (p) => p.value)
   const peak = drawn.reduce((max, p) => Math.max(max, p.value), 0)
-  const format = lens === 'cost' ? fmtUsdWhole : tokensFormatterFor(peak)
+  const format = lens === 'cost' ? usdFormatterFor(peak) : tokensFormatterFor(peak)
 
   const open = () => {
     if (wallet.kind === 'sub') {
@@ -133,6 +135,8 @@ export function WalletCard({
       setView('claude')
       return
     }
+    // An IU API key's card opens the IU API tab on that key; Me API has no tab.
+    if (wallet.iuKey !== null) setIuKey(wallet.iuKey)
     setView('iu-api')
   }
   const canOpen = wallet.id !== 'me-api'

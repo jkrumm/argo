@@ -9,6 +9,7 @@ import { ChartCard } from 'basalt-ui/charts'
 import { Box, Text } from '@mantine/core'
 import type { Range } from '../../lib/queries/usage'
 import type { UsageLens } from '../../lib/window-stores'
+import type { PayerValue } from './accounts'
 import { NO_CACHE_DATA, fmtUsdPerMillion, toolSplits, type ToolSplit } from './budget-model'
 import { fmtShare, noDataInWindow, periodNoun } from './model'
 import { useFlow } from './use-flow'
@@ -29,20 +30,21 @@ const readShare = (d: ToolSplit): string =>
 export default function CacheEfficiency({
   range,
   lens,
+  payers,
   workspace,
 }: {
   range: Range
   lens: UsageLens
+  payers: PayerValue[]
   workspace: WorkspaceValue[] | undefined
 }) {
-  const flow = useFlow({ range, lens, workspace })
+  const flow = useFlow({ range, lens, payers, workspace })
   const splits = toolSplits(flow.rows, { top: TOP_TOOLS })
   const emptyText = noDataInWindow('tool usage', range)
 
   return (
-    <Box data-shot="cache-efficiency" data-shot-states="empty" h="100%">
+    <Box data-shot="cache-efficiency" data-shot-states="empty">
       <ChartCard
-        className={classes.fill}
         placeholderHeight="content"
         title={`Cost per 1 M tokens · ${periodNoun(range)}`}
         info={INFO}

@@ -30,6 +30,38 @@ export const priorMeasureOf = (m: { prior: Measures | null }, lens: UsageLens): 
 export const totalOf = (totals: SplitResponse['totals'], payer: string): SplitTotal | undefined =>
   totals.find((t) => t.payer === payer)
 
+/**
+ * Several payers' totals as one (a scope that covers two IU API keys): records, summed. A caps view
+ * never goes through here. `undefined` when none of the payers has a total; `prior` is `null` as soon
+ * as one of them has no prior window.
+ */
+export function combinedTotal(
+  totals: SplitResponse['totals'],
+  payers: readonly string[],
+): Omit<SplitTotal, 'payer'> | undefined {
+  const found = payers.flatMap((p) => {
+    const t = totalOf(totals, p)
+    return t === undefined ? [] : [t]
+  })
+  const [first, ...rest] = found
+  if (first === undefined) return undefined
+  const { payer: _payer, ...head } = first
+  return rest.reduce<Omit<SplitTotal, 'payer'>>(
+    (sum, t) => ({
+      cost: sum.cost + t.cost,
+      fresh: sum.fresh + t.fresh,
+      cacheRead: sum.cacheRead + t.cacheRead,
+      output: sum.output + t.output,
+      calls: sum.calls + t.calls,
+      prior:
+        sum.prior === null || t.prior === null
+          ? null
+          : { cost: sum.prior.cost + t.prior.cost, fresh: sum.prior.fresh + t.prior.fresh },
+    }),
+    head,
+  )
+}
+
 /** A payer's cell of a row: payers are listed only when they have something in the window. */
 const cellOf = (row: SplitRow, payer: string): Measures =>
   row.payers.find((p) => p.payer === payer) ?? { cost: 0, fresh: 0 }
@@ -91,6 +123,71 @@ export type CutList = {
     cacheRead: number
     rows: number
   } | null
+}
+
+const sumPayers = (a: SplitRow['payers'], b: SplitRow['payers']): SplitRow['payers'] => {
+  const byPayer = new Map(a.map((p) => [p.payer, p] as const))
+  for (const p of b) {
+    const prev = byPayer.get(p.payer)
+    byPayer.set(
+      p.payer,
+      prev === undefined
+        ? p
+        : {
+            payer: p.payer,
+            cost: prev.cost + p.cost,
+            fresh: prev.fresh + p.fresh,
+            cacheRead: prev.cacheRead + p.cacheRead,
+            output: prev.output + p.output,
+            calls: prev.calls + p.calls,
+          },
+    )
+  }
+  return [...byPayer.values()]
+}
+
+const sumRows = (a: SplitRow, b: SplitRow): SplitRow => ({
+  ...a,
+  cost: a.cost + b.cost,
+  fresh: a.fresh + b.fresh,
+  cacheRead: a.cacheRead + b.cacheRead,
+  output: a.output + b.output,
+  calls: a.calls + b.calls,
+  prior:
+    a.prior === null || b.prior === null
+      ? null
+      : { cost: a.prior.cost + b.prior.cost, fresh: a.prior.fresh + b.prior.fresh },
+  payers: sumPayers(a.payers, b.payers),
+})
+
+/**
+ * Rows that read the same in a list are one row: a model a producer reports as `deepseek/x` and
+ * another as `x` both read `x`, so their measures, prior windows and payer cells are summed (the
+ * first, largest row names it). Merged lists are re-ranked by the lens; a list with nothing to merge
+ * comes back as it was, and the API's folded `(other)` row is never merged.
+ */
+export function mergeByLabel(
+  rows: readonly SplitRow[],
+  lens: UsageLens,
+  labelOf: (key: string) => string,
+): SplitRow[] {
+  const merged = new Map<string, SplitRow>()
+  let combined = false
+  for (const r of rows) {
+    const id = r.key === FOLD_KEY ? r.key : labelOf(r.key)
+    const prev = merged.get(id)
+    if (prev === undefined) {
+      merged.set(id, r)
+      continue
+    }
+    combined = true
+    merged.set(id, sumRows(prev, r))
+  }
+  const all = [...merged.values()]
+  if (!combined) return all
+  const named = all.filter((r) => r.key !== FOLD_KEY)
+  const fold = all.filter((r) => r.key === FOLD_KEY)
+  return [...named.toSorted((a, b) => measureOf(b, lens) - measureOf(a, lens)), ...fold]
 }
 
 /** The head of a ranked list and its tail as one `Other` line (a text line, never a bar). */

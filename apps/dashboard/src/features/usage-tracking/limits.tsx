@@ -1,7 +1,7 @@
 /**
  * The two limit meters, shared by the Overview's wallet cards and the wallet tabs: a Max
- * subscription's weekly quota (with a pace tick at the share of the week already elapsed) and the IU
- * API's rolling 30-day cap. Each is a single meter, its percentage and its reset or headroom in one
+ * subscription's weekly quota (with a pace tick at the share of the week already elapsed) and an IU
+ * API key's rolling 30-day cap (each key has its own, never summed). Each is a single meter, its percentage and its reset or headroom in one
  * line. A missing, failed or old reading is a state of its own, never an empty meter that reads as
  * headroom; the ink turns at 80 % and 100 %.
  */
@@ -13,17 +13,19 @@ import { withUnit } from '../../lib/format'
 import { usageQueries, type IuBudget, type QuotaLatest } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
-import type { Wallet } from './accounts'
+import { isKeyWallet, type KeyWallet, type SubWallet, type Wallet } from './accounts'
 import {
-  NO_PORTAL_DATA,
   accountTitle,
+  answersKey,
   budgetReading,
   freshnessBadge,
+  noPortalNote,
   quotaReading,
   type CapState,
   type QuotaReading,
 } from './budget-model'
 import { fmtUsdWhole } from './model'
+import { totalOf } from './split-model'
 
 const WARN_AT = 0.8
 
@@ -105,13 +107,36 @@ export function SubscriptionMeter({
   )
 }
 
+/**
+ * A key whose cap has no portal report yet: the cause and what is tracked so far, as plain lines.
+ * Never a meter drawn from tracked spend: the portal is the cap's truth.
+ */
+function NoPortalReport({ trackedUsd, limitUsd }: { trackedUsd: number | null; limitUsd: number }) {
+  const note = noPortalNote({ target: 'cap', trackedUsd, limitUsd })
+  return (
+    <Stack gap={2}>
+      <Text size="sm" c="dimmed">
+        {note.head}
+      </Text>
+      {note.tracked === null ? null : (
+        <Text size="xs" c="dimmed">
+          {note.tracked}
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
 export function CapMeter({
   budget,
   now,
+  title,
   titled = true,
 }: {
   budget: IuBudget
   now: number
+  /** The key's wallet name (`IU API`, `Athena team`). */
+  title: string
   titled?: boolean
 }) {
   const reading = budgetReading(budget, now)
@@ -121,17 +146,15 @@ export function CapMeter({
   return (
     <Stack gap={4}>
       <Heading
-        title={titled ? `IU API · ${withUnit('rolling 30', 'd')}` : ''}
+        title={titled ? `${title} · ${withUnit('rolling 30', 'd')}` : ''}
         marker={stale ? badge.text : null}
         tone={badge?.tone === 'bad' ? 'bad' : 'warn'}
       />
       {reading.freshness === 'empty' ? (
-        <Text size="sm" c="dimmed">
-          {NO_PORTAL_DATA}
-        </Text>
+        <NoPortalReport trackedUsd={null} limitUsd={budget.limitUsd} />
       ) : (
         <Meter
-          label="IU API spend over the rolling 30 days against the cap"
+          label={`${title} spend over the rolling 30 days against the cap`}
           value={budget.rolling30Usd}
           max={budget.limitUsd}
           format={fmtUsdWhole}
@@ -145,36 +168,60 @@ export function CapMeter({
   )
 }
 
-/**
- * The limit meter of a wallet: its subscription's weekly quota, or the IU API's rolling cap. Owns
- * the two queries; a failed one is a line of its own and a pending one a skeleton, never a meter
- * that reads as headroom.
- */
-export function WalletMeter({ wallet, titled = true }: { wallet: Wallet; titled?: boolean }) {
+/** A subscription's weekly quota meter: owns the quota query. */
+function SubscriptionWalletMeter({ wallet, titled }: { wallet: SubWallet; titled: boolean }) {
   const quota = useQuery(usageQueries.quotaLatest())
-  const budget = useQuery(usageQueries.iuBudget())
   const now = useNow()
   const empty = shotState() === 'empty'
 
-  if (wallet.kind === 'sub') {
-    if (quota.isError && !empty) {
-      return (
-        <Text size="sm" c={VX.status.bad}>
-          Quota samples did not load
-        </Text>
-      )
-    }
-    if (quota.isPending && !empty) return <Meter label={`${wallet.title} weekly quota`} loading />
-    const samples = empty ? [] : (quota.data?.accounts ?? [])
+  if (quota.isError && !empty) {
     return (
-      <SubscriptionMeter
-        account={wallet.account}
-        sample={samples.find((s) => s.account === wallet.account)}
-        now={now}
-        titled={titled}
-      />
+      <Text size="sm" c={VX.status.bad}>
+        Quota samples did not load
+      </Text>
     )
   }
+  if (quota.isPending && !empty) return <Meter label={`${wallet.title} weekly quota`} loading />
+  const samples = empty ? [] : (quota.data?.accounts ?? [])
+  return (
+    <SubscriptionMeter
+      account={wallet.account}
+      sample={samples.find((s) => s.account === wallet.account)}
+      now={now}
+      titled={titled}
+    />
+  )
+}
+
+/**
+ * One IU API key's cap answer, and whether IU's portal has reported for it: not when the answer names
+ * another key, or carries no fetch (`fetchedAt` null). Owns the budget query of that key.
+ */
+export function useKeyBudget(wallet: KeyWallet) {
+  const budget = useQuery(usageQueries.iuBudget(wallet.iuKey))
+  const missing =
+    budget.data !== undefined &&
+    (!answersKey(budget.data, wallet.iuKey) || budget.data.fetchedAt === null)
+  return { budget, missing }
+}
+
+/** An IU API key's rolling cap meter: its own budget query, fired for key wallets only. */
+function KeyCapMeter({ wallet, titled }: { wallet: KeyWallet; titled: boolean }) {
+  const { budget, missing } = useKeyBudget(wallet)
+  const now = useNow()
+  const empty = shotState() === 'empty'
+  // Only a key without a portal report reads what is tracked: the rolling window of the cap.
+  const tracked = useQuery({
+    ...usageQueries.split({
+      by: 'project',
+      range: '30d',
+      lens: 'cost',
+      payer: [wallet.id],
+      top: 2,
+    }),
+    enabled: missing,
+  })
+
   if (budget.isError && !empty) {
     return (
       <Text size="sm" c={VX.status.bad}>
@@ -182,6 +229,23 @@ export function WalletMeter({ wallet, titled = true }: { wallet: Wallet; titled?
       </Text>
     )
   }
-  if (budget.data === undefined) return <Meter label="IU API spend against the cap" loading />
-  return <CapMeter budget={budget.data} now={now} titled={titled} />
+  if (budget.data === undefined)
+    return <Meter label={`${wallet.title} spend against the cap`} loading />
+  if (missing) {
+    const trackedUsd =
+      tracked.data === undefined ? null : (totalOf(tracked.data.totals, wallet.id)?.cost ?? null)
+    return <NoPortalReport trackedUsd={trackedUsd} limitUsd={budget.data.limitUsd} />
+  }
+  return <CapMeter budget={budget.data} now={now} title={wallet.title} titled={titled} />
+}
+
+/**
+ * The limit meter of a wallet: its subscription's weekly quota, or its IU API key's rolling cap. Each
+ * meter owns its one query, mounted only for the wallets that have it (Me API has no meter); a failed
+ * query is a line of its own and a pending one a skeleton, never a meter that reads as headroom.
+ */
+export function WalletMeter({ wallet, titled = true }: { wallet: Wallet; titled?: boolean }) {
+  if (wallet.kind === 'sub') return <SubscriptionWalletMeter wallet={wallet} titled={titled} />
+  if (isKeyWallet(wallet)) return <KeyCapMeter wallet={wallet} titled={titled} />
+  return null
 }

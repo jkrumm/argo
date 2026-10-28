@@ -3,6 +3,7 @@ import { unglue } from '../../lib/format'
 import type { FlowRow, IuBudget } from '../../lib/queries/usage'
 import {
   accountTitle,
+  answersKey,
   budgetReading,
   canSpendLine,
   capLine,
@@ -12,6 +13,8 @@ import {
   fmtUsdPerMillion,
   formatAge,
   loadFailure,
+  modelLabel,
+  noPortalNote,
   freshnessBadge,
   freshness,
   paceFraction,
@@ -360,13 +363,37 @@ describe('rankPairs', () => {
     expect(rows[0]).toMatchObject({ value: 7, calls: 7, pairs: 1 })
   })
 
-  it('names a missing model (unknown model) and keeps its call count', () => {
+  it('names a missing model as Unknown model in the label and keeps its call count', () => {
     const { rows } = rankPairs([flow({ subTool: 'x', model: '', cost: 5, calls: 736 })], 'cost')
     expect(rows[0]).toMatchObject({
       model: '(unknown model)',
-      label: 'x · (unknown model)',
+      label: 'x · Unknown model',
       calls: 736,
     })
+  })
+
+  it('reads the API’s own (unknown model) key the same way, merged with an empty model', () => {
+    const { rows } = rankPairs(
+      [
+        flow({ subTool: 'chat-turn:chat', model: '(unknown model)', cost: 3, calls: 2 }),
+        flow({ subTool: 'chat-turn:chat', model: '', cost: 1, calls: 1 }),
+      ],
+      'cost',
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ label: 'chat-turn:chat · Unknown model', value: 4, calls: 3 })
+  })
+
+  it('folds a provider-prefixed model into the same pair as its plain name', () => {
+    const { rows } = rankPairs(
+      [
+        flow({ subTool: 'review', model: 'deepseek/deepseek-v4.1-flash', cost: 3, calls: 2 }),
+        flow({ subTool: 'review', model: 'deepseek-v4.1-flash', cost: 4, calls: 5 }),
+      ],
+      'cost',
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ label: 'review · deepseek-v4.1-flash', value: 7, calls: 7 })
   })
 
   it('keeps zero-cost pairs (unpriced) instead of dropping them', () => {
@@ -524,5 +551,65 @@ describe('freshnessBadge', () => {
 
   it('has no badge without a fetch', () => {
     expect(freshnessBadge(null, NOW)).toBeNull()
+  })
+})
+
+describe('answersKey', () => {
+  it('accepts an answer that names the key it was asked for', () => {
+    expect(answersKey({ iuKey: 'athena-team' }, 'athena-team')).toBe(true)
+    expect(answersKey({ iuKey: 'personal' }, 'personal')).toBe(true)
+  })
+
+  it('refuses another key’s answer, so a key never shows a neighbour’s headroom', () => {
+    expect(answersKey({ iuKey: 'personal' }, 'athena-team')).toBe(false)
+    expect(answersKey({ iuKey: 'athena-team' }, 'personal')).toBe(false)
+  })
+
+  it('counts an answer without the echo (an API from before keys) as the personal key’s', () => {
+    expect(answersKey({}, 'personal')).toBe(true)
+    expect(answersKey({}, 'athena-team')).toBe(false)
+  })
+})
+
+describe('modelLabel', () => {
+  it('reads the no-model keys as Unknown model', () => {
+    expect(modelLabel('(unknown model)')).toBe('Unknown model')
+    expect(modelLabel('(unset)')).toBe('Unknown model')
+  })
+
+  it('drops a leading provider/ so one model reads the same whoever reported it', () => {
+    expect(modelLabel('deepseek/deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash')
+    expect(modelLabel('deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash')
+  })
+
+  it('leaves a name with no provider prefix, or only a trailing slash segment, alone', () => {
+    expect(modelLabel('gpt-5.6-terra')).toBe('gpt-5.6-terra')
+    expect(modelLabel('claude-opus-5-5')).toBe('claude-opus-5-5')
+  })
+})
+
+describe('noPortalNote', () => {
+  it('names the cause and the next step for the cap', () => {
+    expect(noPortalNote({ target: 'cap' }).head).toBe(
+      'No portal report for this key yet · the next portal sync fills the cap',
+    )
+  })
+
+  it('names the same cause for the comparison, with its own next step', () => {
+    expect(noPortalNote({ target: 'comparison' }).head).toBe(
+      'No portal report for this key yet · the next portal sync fills this comparison',
+    )
+  })
+
+  it('adds what is tracked so far against the limit over the cap window, only when something is', () => {
+    expect(plain(noPortalNote({ target: 'cap', trackedUsd: 2.7, limitUsd: 500 }).tracked)).toBe(
+      'tracked so far $3 of $500 · 30 d',
+    )
+    expect(plain(noPortalNote({ target: 'cap', trackedUsd: 2.7 }).tracked)).toBe(
+      'tracked so far $3 · 30 d',
+    )
+    expect(noPortalNote({ target: 'cap', trackedUsd: 0, limitUsd: 500 }).tracked).toBeNull()
+    expect(noPortalNote({ target: 'cap', trackedUsd: null }).tracked).toBeNull()
+    expect(noPortalNote({ target: 'cap' }).tracked).toBeNull()
   })
 })

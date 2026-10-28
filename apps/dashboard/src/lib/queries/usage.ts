@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api } from '../eden'
-import type { PayerValue } from '../../features/usage-tracking/accounts'
+import type { IuKeyId, PayerValue } from '../../features/usage-tracking/accounts'
 import { unwrap } from 'basalt-ui'
 
 export type Range = '7d' | '30d' | '90d' | 'all'
@@ -60,9 +60,10 @@ export type FlowParams = {
   top?: number | undefined
 }
 
-const fetchIuBudget = async () => unwrap(await api.usage['iu-budget'].get())
-const fetchIuReconcile = async (days: number) =>
-  unwrap(await api.usage['iu-reconcile'].get({ query: { days } }))
+const fetchIuBudget = async (iuKey: IuKeyId) =>
+  unwrap(await api.usage['iu-budget'].get({ query: { iuKey } }))
+const fetchIuReconcile = async (days: number, iuKey: IuKeyId) =>
+  unwrap(await api.usage['iu-reconcile'].get({ query: { days, iuKey } }))
 const fetchFlow = async (query: {
   range: Range
   lens: FlowLens
@@ -129,15 +130,16 @@ const payersOrUndefined = (payer: PayerFilter[] | undefined) =>
 
 export const usageQueries = {
   all: () => ['usage'] as const,
-  iuBudget: () =>
+  /** One IU API key's cap (each key has its own). */
+  iuBudget: (iuKey: IuKeyId) =>
     queryOptions({
-      queryKey: [...usageQueries.all(), 'iu-budget'] as const,
-      queryFn: fetchIuBudget,
+      queryKey: [...usageQueries.all(), 'iu-budget', iuKey] as const,
+      queryFn: () => fetchIuBudget(iuKey),
     }),
-  iuReconcile: (days: number) =>
+  iuReconcile: (days: number, iuKey: IuKeyId) =>
     queryOptions({
-      queryKey: [...usageQueries.all(), 'iu-reconcile', days] as const,
-      queryFn: () => fetchIuReconcile(days),
+      queryKey: [...usageQueries.all(), 'iu-reconcile', days, iuKey] as const,
+      queryFn: () => fetchIuReconcile(days, iuKey),
     }),
   flow: (params: FlowParams) =>
     queryOptions({

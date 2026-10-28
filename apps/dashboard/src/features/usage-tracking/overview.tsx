@@ -19,7 +19,7 @@ import { ALL_WALLETS } from './scope'
 import { SPLIT_TOP, totalOf } from './split-model'
 import { SplitList } from './split-lists'
 import { WalletCard } from './wallet-cards'
-import { liveSubscriptions, liveWallets } from './wallet-model'
+import { cardsPerRow, liveSubscriptions, liveWallets } from './wallet-model'
 import { WeeklyQuota } from './weekly-quota'
 import { WeeklyVolume } from './weekly-volume'
 import type { WorkspaceValue } from './types'
@@ -50,12 +50,13 @@ export function Overview({
   const accounts = quotaAccounts(quota.data.series)
   const wallets = liveWallets(projects.data.totals, accounts)
   const subs = liveSubscriptions(projects.data.totals, accounts)
+  const perRow = cardsPerRow(wallets.length)
 
   return (
     <Stack gap="md">
       <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
         {wallets.map((wallet) => (
-          <Grid.Col key={wallet.id} span={{ base: 12, lg: 12 / Math.min(wallets.length, 4) }}>
+          <Grid.Col key={wallet.id} span={{ base: 12, lg: 12 / perRow }}>
             <WalletCard
               wallet={wallet}
               total={totalOf(projects.data.totals, wallet.id)}

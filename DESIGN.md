@@ -161,8 +161,9 @@ The page's default split and filter. The API derives the payer from billing + ac
 | Me Max      | `#0284c7` | `#0284c7` | `meSub`            | Personal Max 5x — middle accent shade                    |
 | Me2 Max     | `#38bdf8` | `#0369a1` | `me2Sub`           | Third Max 5x — lightest accent shade (light), deep (dark) |
 | IU API      | `#52525c` | `#a1a1aa` | `iuApi`            | IU metered API — neutral, a different kind of spend      |
-| Me API      | `#71717a` | `#71717a` | `meApi`            | Personal pay-per-token API (OpenRouter) — neutral        |
-| Unknown     | `#a1a1aa` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else)      |
+| Athena team | `#a1a1aa` | `#e4e4e7` | `iuTeamApi`        | IU team key (Athena Teamchat) — grey ramp steps 2 / 4: two steps from IU API (0 / 2) in both modes, the strongest legible light step |
+| Me API      | `#e4e4e7` | `#71717a` | `meApi`            | Personal pay-per-token API (OpenRouter, ~$0, a card only from $1) — neutral; the faint light step is the price of keeping four greys apart |
+| Unknown     | `#d4d4d8` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else)      |
 
 Shades sit at least two ramp steps apart where they share a chart (adjacent steps read as one colour in dark mode, routing shot 2026-10-27). Shades separate by lightness, so the legend, the segment captions and the hover name every wallet; colour is never the only carrier.
 

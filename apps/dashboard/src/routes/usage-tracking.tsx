@@ -18,8 +18,8 @@ import { pickOptions } from '../features/usage-tracking/pick-options'
 export const Route = createFileRoute('/usage-tracking')({
   // The store's validator, then the retired per-subscription tabs folded into Claude Max.
   validateSearch: validateUsageSearch,
-  // The IU cap is the first thing the wallet cards paint; everything below streams behind Suspense.
-  loader: ({ context }) => context.queryClient.ensureQueryData(usageQueries.iuBudget()),
+  // The personal IU cap is the first thing the wallet cards paint; everything below streams behind Suspense.
+  loader: ({ context }) => context.queryClient.ensureQueryData(usageQueries.iuBudget('personal')),
   component: UsageTrackingPage,
 })
 
@@ -67,6 +67,7 @@ function UsageTrackingPage() {
           />
         ) : search.view === 'iu-api' ? (
           <IuApiTab
+            iuKey={search.iuKey}
             range={search.range}
             grain={search.grain}
             lens={search.lens}

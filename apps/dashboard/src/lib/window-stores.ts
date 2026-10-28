@@ -23,7 +23,13 @@
 import { format, startOfYear, subMonths, subYears } from 'date-fns'
 import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
 // The one feature import: the usage registry is a dependency-free leaf (as `series.ts` also reads it).
-import { ACCOUNT_IDS, PAYER_LABELS, USAGE_ACCOUNTS } from '../features/usage-tracking/accounts'
+import {
+  ACCOUNT_IDS,
+  IU_KEYS,
+  IU_KEY_IDS,
+  PAYER_LABELS,
+  USAGE_ACCOUNTS,
+} from '../features/usage-tracking/accounts'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
@@ -167,12 +173,15 @@ export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
 export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
 /** The Account control of the Claude Max tab: `all`, or one account id from the registry. */
 export const USAGE_ACCOUNT_VALUES = ['all', ...ACCOUNT_IDS] as const
+/** The IU API tab's Key control: `all` (one meter per key, never summed), or one key id from the registry. */
+export const USAGE_IU_KEY_VALUES = ['all', ...IU_KEY_IDS] as const
 /** The Routing section's own range: how many days of picker decisions it reads, independent of the page Range. */
 export const USAGE_ROUTING_RANGE_VALUES = ['1d', '3d', '7d', '14d', '21d'] as const
 export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
 export type UsageAccount = (typeof USAGE_ACCOUNT_VALUES)[number]
+export type UsageIuKey = (typeof USAGE_IU_KEY_VALUES)[number]
 export type UsageRoutingRange = (typeof USAGE_ROUTING_RANGE_VALUES)[number]
 
 export const usageStore = createSearchStore({
@@ -182,6 +191,8 @@ export const usageStore = createSearchStore({
     view: field.enum(USAGE_VIEW_VALUES, 'overview'),
     // Scopes the whole Claude Max tab to one subscription; `all` compares and sums them.
     account: field.enum(USAGE_ACCOUNT_VALUES, 'all'),
+    // Scopes the whole IU API tab to one API key; `all` shows every key side by side.
+    iuKey: field.enum(USAGE_IU_KEY_VALUES, 'all'),
     // `field.enum`, not `field.range`: the API takes `range` verbatim and there is no custom
     // window here, so three params would be two more than the page can use.
     range: field.enum(['7d', '30d', '90d', 'all'], '30d'),
@@ -203,6 +214,10 @@ export const usageStore = createSearchStore({
   account: {
     all: 'All',
     ...Object.fromEntries(USAGE_ACCOUNTS.map((a) => [a.id, PAYER_LABELS[a.payer]] as const)),
+  },
+  iuKey: {
+    all: 'All',
+    ...Object.fromEntries(IU_KEYS.map((k) => [k.id, k.label] as const)),
   },
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { hour: 'Hour', day: 'Day', week: 'Week' },

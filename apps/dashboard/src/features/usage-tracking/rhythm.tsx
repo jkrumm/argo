@@ -12,7 +12,7 @@ import { shotState } from '../../lib/shot-state'
 import type { UsageLens } from '../../lib/window-stores'
 import type { Scope } from './scope'
 import { busiestSlot, hourTotals, rhythmCells, weekdayTotals, type Slot } from './heat-model'
-import { fmtUsdWhole, noDataInWindow, periodNoun, tokensFormatterFor } from './model'
+import { noDataInWindow, periodNoun, tokensFormatterFor, usdFormatterFor } from './model'
 import type { WorkspaceValue } from './types'
 
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -75,8 +75,12 @@ export function Rhythm({
   const cells = shotState() === 'empty' ? [] : rhythmCells(query.data.cells)
   const hours = hourTotals(cells)
   const days = weekdayTotals(cells)
-  const peak = hours.reduce((max, s) => Math.max(max, s.value), 0)
-  const format = lens === 'cost' ? fmtUsdWhole : tokensFormatterFor(peak)
+  const peakOf = (slots: readonly Slot[]) => slots.reduce((max, s) => Math.max(max, s.value), 0)
+  // Each chart formats from its own largest value: cents under ten dollars, the token unit that fits.
+  const formatOf = (slots: readonly Slot[]) =>
+    lens === 'cost' ? usdFormatterFor(peakOf(slots)) : tokensFormatterFor(peakOf(slots))
+  const hourFormat = formatOf(hours)
+  const dayFormat = formatOf(days)
   const busiestHour = busiestSlot(hours)
   const busiestDay = busiestSlot(days)
 
@@ -98,10 +102,15 @@ export function Rhythm({
       >
         <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 8 }}>
-            <SlotBars label="By hour of day" slots={hours} color={scope.color} format={format} />
+            <SlotBars
+              label="By hour of day"
+              slots={hours}
+              color={scope.color}
+              format={hourFormat}
+            />
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 4 }}>
-            <SlotBars label="By weekday" slots={days} color={scope.color} format={format} />
+            <SlotBars label="By weekday" slots={days} color={scope.color} format={dayFormat} />
           </Grid.Col>
         </Grid>
       </ChartCard>

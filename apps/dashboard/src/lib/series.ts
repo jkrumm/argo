@@ -134,7 +134,8 @@ const USAGE_SOURCE_MAP = defineSeries({
 /** Usage tracker — payer identity, one hue per `USAGE_PAYERS` entry plus `unknown`. */
 const USAGE_PAYER_MAP: SeriesMap = defineSeries({
   ...Object.fromEntries(USAGE_PAYERS.map((x) => [x.token, p(x.shade[0], x.shade[1], x.shade[2])])),
-  unknown: p(BP.gray),
+  // Light step 3, not the default 2: the team key's light shade is step 2, and two payers never share one.
+  unknown: p(BP.gray, 3, 3),
 } satisfies SeriesMap)
 
 /**

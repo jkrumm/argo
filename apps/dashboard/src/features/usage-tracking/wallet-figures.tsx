@@ -1,6 +1,6 @@
 /**
- * One wallet's figures, a strip of four from `/usage/split` totals: dollars at API prices (list
- * value for a subscription, spend for the API) and fresh tokens, each with the change against the
+ * One scope's figures (a wallet, or the IU API keys together), a strip of four from `/usage/split`
+ * totals: dollars at API prices (list value for a subscription, spend for the API) and fresh tokens, each with the change against the
  * equally long window before, then the cache-read and output tokens beside them.
  */
 import { useSuspenseQuery } from '@tanstack/react-query'
@@ -8,11 +8,11 @@ import { Box } from '@mantine/core'
 import { StatGroup, type StatStripCell } from 'basalt-ui'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
-import { dollarWord, type Wallet } from './accounts'
 import { ChangeBadge } from './change-badge'
 import { fmtUsdWhole, periodNoun, tokensQuantity } from './model'
 import { change } from './period-model'
-import { totalOf } from './split-model'
+import type { PayerScope } from './scope'
+import { combinedTotal } from './split-model'
 import type { WorkspaceValue } from './types'
 
 const FRESH_INFO =
@@ -27,20 +27,20 @@ const tokenCell = (n: number): Pick<StatStripCell, 'value' | 'unit'> => {
 }
 
 export function WalletFigures({
-  wallet,
+  scope,
   range,
   workspace,
 }: {
-  wallet: Wallet
+  scope: PayerScope
   range: Range
   workspace: WorkspaceValue[] | undefined
 }) {
   const query = useSuspenseQuery(
-    usageQueries.split({ by: 'project', range, lens: 'cost', payer: [wallet.id], workspace }),
+    usageQueries.split({ by: 'project', range, lens: 'cost', payer: scope.payers, workspace }),
   )
-  const total = shotState() === 'empty' ? undefined : totalOf(query.data.totals, wallet.id)
+  const total = shotState() === 'empty' ? undefined : combinedTotal(query.data.totals, scope.payers)
   const period = periodNoun(range)
-  const word = dollarWord(wallet.kind)
+  const spend = scope.word === 'spend'
   const dollars = total?.prior === null || total === undefined ? null : total.prior.cost
   const fresh = total?.prior === null || total === undefined ? null : total.prior.fresh
   const reason = 'No usage in this window'
@@ -49,18 +49,17 @@ export function WalletFigures({
   const cells: StatStripCell[] = [
     {
       key: 'dollars',
-      caption: word === 'spend' ? 'Spend' : 'List value',
+      caption: spend ? 'Spend' : 'List value',
       qualifier: period,
-      info:
-        wallet.kind === 'sub'
-          ? 'What the usage would cost at API prices over the range. The subscription is flat: this was never charged.'
-          : 'API spend over the range: money paid, priced per row from the tokens.',
+      info: spend
+        ? 'API spend over the range: money paid, priced per row from the tokens.'
+        : 'What the usage would cost at API prices over the range. The subscription is flat: this was never charged.',
       value: total === undefined ? null : fmtUsdWhole(total.cost),
       delta:
         total === undefined ? undefined : (
           <ChangeBadge
             change={change(total.cost, dollars)}
-            polarity={wallet.kind === 'api' ? 'up-bad' : 'neutral'}
+            polarity={scope.polarity}
             period={range === 'all' ? undefined : `prior ${period}`}
           />
         ),
@@ -101,8 +100,8 @@ export function WalletFigures({
   ]
 
   return (
-    <Box data-shot={`figures-${wallet.id}`} data-shot-states="empty">
-      <StatGroup variant="strip" label={`${wallet.title} over ${period}`} cols={4} cells={cells} />
+    <Box data-shot={`figures-${scope.id}`} data-shot-states="empty">
+      <StatGroup variant="strip" label={`${scope.title} over ${period}`} cols={4} cells={cells} />
     </Box>
   )
 }

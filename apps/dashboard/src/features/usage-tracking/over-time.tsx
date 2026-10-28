@@ -17,12 +17,12 @@ import { usageStore, type UsageGroupBy, type UsageLens } from '../../lib/window-
 import { RANK_PALETTE, colorForPayer, groupBands, toTimePoints } from './constants'
 import {
   dropPartialBucket,
-  fmtUsdWhole,
   noDataInWindow,
   periodNoun,
   shortDay,
   shortHour,
   tokensFormatterFor,
+  usdFormatterFor,
 } from './model'
 import { isFoldKey, keyTotals, seriesLabel } from './over-time-model'
 import { pickOptions } from './pick-options'
@@ -83,16 +83,11 @@ export function OverTime({
     return RANK_PALETTE[keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
   // The chart stops at the last complete bucket: the running one would draw as a drop.
-  const drawn = dropPartialBucket(points, now, grain)
-  const peak = drawn.reduce(
-    (max, p) =>
-      Math.max(
-        max,
-        Object.values(p.groups).reduce<number>((s, v) => s + (v ?? 0), 0),
-      ),
-    0,
-  )
-  const format = spend ? fmtUsdWhole : tokensFormatterFor(peak)
+  const stackOf = (p: TimePoint): number =>
+    Object.values(p.groups).reduce<number>((s, v) => s + (v ?? 0), 0)
+  const drawn = dropPartialBucket(points, now, grain, stackOf)
+  const peak = drawn.reduce((max, p) => Math.max(max, stackOf(p)), 0)
+  const format = spend ? usdFormatterFor(peak) : tokensFormatterFor(peak)
   const series = groupBands(keys, colorOf, (k) => seriesLabel(groupBy, k), format)
   const total = keyTotals(points, keys).reduce((sum, t) => sum + t.value, 0)
   // The API reads hourly series over 30 days at most.
