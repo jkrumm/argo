@@ -26,6 +26,7 @@ function row(over: Partial<typeof usageRecord.$inferInsert>) {
     ts,
     billing: 'max',
     account: 'iu',
+    iu_key: over.billing === 'iu' ? 'personal' : null,
     ingested_at: ts,
     ...over,
   } satisfies typeof usageRecord.$inferInsert

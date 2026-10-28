@@ -23,6 +23,7 @@ import {
 } from './reconcile-model'
 
 const EMPTY: IuReconcile = {
+  iuKey: 'personal',
   days: [],
   models: [],
   unpricedRows: 0,

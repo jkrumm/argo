@@ -22,6 +22,7 @@ import {
   stringFilter,
   workspaceFilter,
   accountFilter,
+  iuKeyFilter,
   payerFilter,
   buildFilterSql,
 } from '../lib/usage-filters.js'
@@ -29,6 +30,7 @@ import { usageQuotaRoutes } from './usage-quota.js'
 import { usagePortalRoutes } from './usage-portal.js'
 import { usageAnalyticsRoutes } from './usage-analytics.js'
 import { usageSplitRoutes } from './usage-split.js'
+import { DEFAULT_IU_KEY, parseIuKey } from '../lib/iu-keys.js'
 import { classifyWorkspace, normalizeProject } from '../lib/project-normalize.js'
 
 const UsageRecordInputSchema = z.object({
@@ -45,6 +47,8 @@ const UsageRecordInputSchema = z.object({
   billing: z.string(),
   // Any string: it is normalised in the handler (see `normalizeAccount`), never rejected, so one odd value cannot 422 a batch.
   account: z.string().nullable().optional(),
+  // Any string: resolved in the handler (see `resolveIuKey`), never rejected, so an unregistered key cannot 422 a batch.
+  iu_key: z.string().nullable().optional(),
   outcome: z.string().default('ok'),
   input_tokens: z.number().int().default(0),
   output_tokens: z.number().int().default(0),
@@ -67,6 +71,17 @@ function normalizeAccount(raw: string | null | undefined): string | null {
   return id !== undefined && ACCOUNT_PATTERN.test(id) ? id : null
 }
 
+/**
+ * The IU API key a record is stored under. Only `billing='iu'` rows have one: absent, null or blank
+ * means the personal key (the only one before the dimension), a registered id is kept, and an
+ * unregistered id is stored as null ("unknown key"): never invented into a key, never filed as personal.
+ */
+function resolveIuKey(r: { billing: string; iu_key?: string | null | undefined }): string | null {
+  if (r.billing !== 'iu') return null
+  if (r.iu_key == null || r.iu_key.trim() === '') return DEFAULT_IU_KEY
+  return parseIuKey(r.iu_key)
+}
+
 function groupColumnSql(groupBy: string) {
   switch (groupBy) {
     case 'source':
@@ -85,6 +100,8 @@ function groupColumnSql(groupBy: string) {
       return sql.raw('billing')
     case 'account':
       return sql.raw('account')
+    case 'iu_key':
+      return sql.raw('iu_key')
     case 'payer':
       return PAYER_EXPR
     case 'outcome':
@@ -165,9 +182,22 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       if (dropped > 0) {
         console.warn(`usage ingest: ${dropped} record(s) with an invalid account stored as null`)
       }
+      const unknownKeys = body.records.filter(
+        (r) =>
+          r.billing === 'iu' &&
+          r.iu_key != null &&
+          r.iu_key.trim() !== '' &&
+          resolveIuKey(r) === null,
+      ).length
+      if (unknownKeys > 0) {
+        console.warn(
+          `usage ingest: ${unknownKeys} iu record(s) with an unregistered iu_key stored as null`,
+        )
+      }
       const records = body.records.map((r) => ({
         ...r,
         account: normalizeAccount(r.account),
+        iu_key: resolveIuKey(r),
         workspace: r.workspace ?? classifyWorkspace(r.project),
         project: normalizeProject(r.project),
       }))
@@ -189,6 +219,8 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             billing: sql`excluded.billing`,
             // Null/absent means unknown, never clears a stored value.
             account: sql`COALESCE(excluded.account, ${usageRecord.account})`,
+            // The producer always sends the key, so a re-post overwrites it (null = unknown key).
+            iu_key: sql`excluded.iu_key`,
             outcome: sql`excluded.outcome`,
             input_tokens: sql`excluded.input_tokens`,
             output_tokens: sql`excluded.output_tokens`,
@@ -217,7 +249,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Batch upsert usage records',
         description:
-          'Idempotent batch insert-or-update for usage records. Keyed on (source, source_id, machine) so the same logical event from different machines stays distinct. A matching triple overwrites all mutable columns (tokens, cost, duration, raw, …). Called by the usage-tracker LaunchAgent every 15 min to sync local SQLite rows into Argo. Accepts 1–1000 records per call (client batches at 500). `account` (the Claude account id, null off Max billing) is trimmed and must match `^[a-z][a-z0-9-]{0,15}$`; an empty or non-matching value is stored as null (logged once per batch) instead of rejecting the batch, and a null or absent value never clears a stored account.',
+          'Idempotent batch insert-or-update for usage records. Keyed on (source, source_id, machine) so the same logical event from different machines stays distinct. A matching triple overwrites all mutable columns (tokens, cost, duration, raw, …). Called by the usage-tracker LaunchAgent every 15 min to sync local SQLite rows into Argo. Accepts 1–1000 records per call (client batches at 500). `account` (the Claude account id, null off Max billing) is trimmed and must match `^[a-z][a-z0-9-]{0,15}$`; an empty or non-matching value is stored as null (logged once per batch) instead of rejecting the batch, and a null or absent value never clears a stored account. `iu_key` (optional, the IU API key: `personal` | `athena-team`) is stored for billing=iu rows only (NULL for every other billing): absent, null or empty reads `personal`, a registered id is kept, an unregistered id is stored as NULL (an iu row with NULL iu_key means unknown key; logged once per batch, never rejecting the batch). It is not the Claude `account` dimension. A re-post overwrites the stored iu_key.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -265,6 +297,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
     async ({ query }) => {
       const accountFilterSql = buildFilterSql({
         account: toArray(query.account),
+        iuKey: toArray(query.iuKey),
         payer: toArray(query.payer),
       })
       const now = new Date()
@@ -348,7 +381,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       }
     },
     {
-      query: z.object({ account: accountFilter, payer: payerFilter }),
+      query: z.object({ account: accountFilter, iuKey: iuKeyFilter, payer: payerFilter }),
       response: {
         200: z.object({
           costUsd30d: z.number(),
@@ -378,7 +411,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage headline KPIs',
         description:
-          'One-shot KPI bundle for the Usage Tracking dashboard. All windowed fields use a 30-day lookback unless suffixed (e.g. costUsd7d). calls30d is the record count behind errorRate30d (0 means the rate is not a measurement). The *Prior30d fields cover the 30 days before that window (null when it would reach before the data floor, or has no rows for a ratio). p95Ms uses percentile_cont; cacheHitRatio is the weighted ratio sum(cache_read) / sum(cache_read + input).',
+          'One-shot KPI bundle for the Usage Tracking dashboard. All windowed fields use a 30-day lookback unless suffixed (e.g. costUsd7d). calls30d is the record count behind errorRate30d (0 means the rate is not a measurement). The *Prior30d fields cover the 30 days before that window (null when it would reach before the data floor, or has no rows for a ratio). Optional account[], iuKey[] and payer[] filters. p95Ms uses percentile_cont; cacheHitRatio is the weighted ratio sum(cache_read) / sum(cache_read + input).',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -408,6 +441,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: toArray(query.billing),
         workspace: toArray(query.workspace),
         account: toArray(query.account),
+        iuKey: toArray(query.iuKey),
         payer: toArray(query.payer),
         project: toArray(query.project),
       })
@@ -558,6 +592,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: billingFilter,
         workspace: workspaceFilter,
         account: accountFilter,
+        iuKey: iuKeyFilter,
         payer: payerFilter,
         project: stringFilter,
       }),
@@ -576,7 +611,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage timeseries',
         description:
-          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=hour|day|week (hour reads at most 30 d; buckets are UTC instants `YYYY-MM-DDTHH:00:00Z`), ?metric=cost|tokens|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write|errors|error_rate|latency_p95|cache_ratio (tokens excludes cache-read and is kept for old callers; tokens_output includes reasoning), ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/payer[]/project[] (payer = iu-sub|me-sub|me2-sub|iu-api|me-api|unknown, derived from billing + account; project = normalized names, a <repo>-wt spelling folds to <repo>). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window. ?top=N (additive metrics only) keeps the N largest keys and folds the rest into a trailing "other" key.',
+          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=hour|day|week (hour reads at most 30 d; buckets are UTC instants `YYYY-MM-DDTHH:00:00Z`), ?metric=cost|tokens|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write|errors|error_rate|latency_p95|cache_ratio (tokens excludes cache-read and is kept for old callers; tokens_output includes reasoning), ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|iu_key|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/iuKey[]/payer[]/project[] (iuKey = the IU API key, personal|athena-team; groupBy=iu_key reads "(unset)" for non-IU rows and for an IU row of unknown key; payer = iu-sub|me-sub|me2-sub|iu-api|iu-team-api|me-api|unknown, derived from billing + account + iu_key; project = normalized names, a <repo>-wt spelling folds to <repo>). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window. ?top=N (additive metrics only) keeps the N largest keys and folds the rest into a trailing "other" key.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -598,6 +633,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: toArray(query.billing),
         workspace: toArray(query.workspace),
         account: toArray(query.account),
+        iuKey: toArray(query.iuKey),
         payer: toArray(query.payer),
         project: toArray(query.project),
       })
@@ -644,6 +680,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         billing: billingFilter,
         workspace: workspaceFilter,
         account: accountFilter,
+        iuKey: iuKeyFilter,
         payer: payerFilter,
         project: stringFilter,
       }),
@@ -663,7 +700,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage breakdown',
         description:
-          'Top-N grouped aggregate for a single metric over a window. share is value / total over the window (so the displayed top-N can sum to less than 1).',
+          'Top-N grouped aggregate for a single metric over a window. dimension = project|workspace|model_norm|billing|account|iu_key|payer|outcome|source|machine|sub_tool (a NULL value reads "(unset)"). Filters as /usage/timeseries (sources[]/machines[]/billing[]/workspace[]/account[]/iuKey[]/payer[]/project[]; payer = iu-sub|me-sub|me2-sub|iu-api|iu-team-api|me-api|unknown). share is value / total over the window (so the displayed top-N can sum to less than 1).',
         security: [{ BearerAuth: [] }],
       },
     },

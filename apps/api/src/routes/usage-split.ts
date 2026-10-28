@@ -9,8 +9,19 @@ import {
   resolveRange,
   toArray,
 } from '../lib/usage-query.js'
-import { buildFilterSql, payerFilter, stringFilter, workspaceFilter } from '../lib/usage-filters.js'
-import { SPLIT_UNSET_KEY, foldSplit, type SplitCell } from '../lib/usage-split.js'
+import {
+  buildFilterSql,
+  iuKeyFilter,
+  payerFilter,
+  stringFilter,
+  workspaceFilter,
+} from '../lib/usage-filters.js'
+import {
+  SPLIT_UNKNOWN_MODEL_KEY,
+  SPLIT_UNSET_KEY,
+  foldSplit,
+  type SplitCell,
+} from '../lib/usage-split.js'
 
 // The usage page's wallet aggregates: `split` (a dimension's keys, each split by payer, with the
 // equally long window before) and `rhythm` (weekday × hour of day in the reader's time zone).
@@ -67,14 +78,17 @@ export const usageSplitRoutes = new Elysia()
       const col = sql.raw(SPLIT_COLUMN[query.by])
       const filterSql = buildFilterSql({
         workspace: toArray(query.workspace),
+        iuKey: toArray(query.iuKey),
         payer: toArray(query.payer),
         project: toArray(query.project),
       })
+      // A model-less row (Athena teamchat reports cost without a model) reads like the flow's "(unknown model)".
+      const emptyKey = query.by === 'model_norm' ? SPLIT_UNKNOWN_MODEL_KEY : SPLIT_UNSET_KEY
       const cur = sql`ts >= ${current.fromIso}`
       const raw = rowsOf<Record<string, unknown>>(
         await db.execute(sql`
           SELECT
-            COALESCE(NULLIF(${col}, ''), ${SPLIT_UNSET_KEY}) AS key,
+            COALESCE(NULLIF(${col}, ''), ${emptyKey}) AS key,
             ${PAYER_EXPR} AS payer,
             COALESCE(SUM(cost_usd) FILTER (WHERE ${cur}), 0)::float AS cost,
             COALESCE(SUM(${FRESH_SQL}) FILTER (WHERE ${cur}), 0)::float AS fresh,
@@ -113,6 +127,7 @@ export const usageSplitRoutes = new Elysia()
         lens: z.enum(['cost', 'tokens']).default('cost'),
         top: z.coerce.number().int().min(2).max(50).default(12),
         workspace: workspaceFilter,
+        iuKey: iuKeyFilter,
         payer: payerFilter,
         project: stringFilter,
       }),
@@ -135,7 +150,7 @@ export const usageSplitRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Usage by project, tool or model, split by payer',
         description:
-          'One row per ?by key (project | sub_tool | model_norm; empty or NULL reads "(unset)") over the rolling ?range window, each with cost (USD; list value for the Max payers), fresh tokens (input + output + cache-write + reasoning), cache-read tokens, output tokens (incl. reasoning), call count, its per-payer split (iu-sub | me-sub | me2-sub | iu-api | me-api | unknown) and `prior` = {cost, fresh} over the equally long window before (null for range=all or when that window predates the data floor). Ranked by ?lens=cost|tokens (tokens = fresh); keys with nothing in the window are dropped; past ?top (default 12) the tail is one trailing "(other)" row; "(unset)" is never folded, so it can follow the top rows out of rank order (up to top + 1 rows). `totals` is per payer over every key, so it is also the headline. Filter by workspace[], payer[] and project[] (normalized names).',
+          'One row per ?by key (project | sub_tool | model_norm; empty or NULL reads "(unset)", a model-less model_norm row "(unknown model)") over the rolling ?range window, each with cost (USD; list value for the Max payers), fresh tokens (input + output + cache-write + reasoning), cache-read tokens, output tokens (incl. reasoning), call count, its per-payer split (iu-sub | me-sub | me2-sub | iu-api | iu-team-api | me-api | unknown) and `prior` = {cost, fresh} over the equally long window before (null for range=all or when that window predates the data floor). Ranked by ?lens=cost|tokens (tokens = fresh); keys with nothing in the window are dropped; past ?top (default 12) the tail is one trailing "(other)" row; "(unset)" and "(unknown model)" are never folded, so it can follow the top rows out of rank order (up to top + 1 rows). `totals` is per payer over every key, so it is also the headline. Filter by workspace[], iuKey[] (IU API key: personal | athena-team), payer[] and project[] (normalized names).',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -148,6 +163,7 @@ export const usageSplitRoutes = new Elysia()
       const local = sql`(ts AT TIME ZONE ${tz})`
       const filterSql = buildFilterSql({
         workspace: toArray(query.workspace),
+        iuKey: toArray(query.iuKey),
         payer: toArray(query.payer),
         project: toArray(query.project),
       })
@@ -177,6 +193,7 @@ export const usageSplitRoutes = new Elysia()
         metric: z.enum(['cost', 'tokens', 'tokens_cache_read']).default('cost'),
         tz: z.string().max(64).default('Europe/Berlin'),
         workspace: workspaceFilter,
+        iuKey: iuKeyFilter,
         payer: payerFilter,
         project: stringFilter,
       }),
@@ -193,7 +210,7 @@ export const usageSplitRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Usage by weekday and hour of day',
         description:
-          'Sum of ?metric (cost USD | tokens = fresh tokens | tokens_cache_read) per weekday (dow 0 = Monday … 6 = Sunday) and hour of day (0–23) in the IANA time zone ?tz (default Europe/Berlin; an unknown zone reads as UTC, echoed in `tz`) over the rolling ?range window. Always 168 cells, empty ones 0. Filter by payer[], workspace[] and project[].',
+          'Sum of ?metric (cost USD | tokens = fresh tokens | tokens_cache_read) per weekday (dow 0 = Monday … 6 = Sunday) and hour of day (0–23) in the IANA time zone ?tz (default Europe/Berlin; an unknown zone reads as UTC, echoed in `tz`) over the rolling ?range window. Always 168 cells, empty ones 0. Filter by payer[], workspace[], iuKey[] and project[].',
         security: [{ BearerAuth: [] }],
       },
     },

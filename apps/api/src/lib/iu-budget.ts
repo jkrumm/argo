@@ -51,9 +51,13 @@ export interface IuBudget {
 /**
  * `today` is the newest day the portal reported (the portal's own clock), not the server's, so the
  * window matches what IU measured. `cells` are the non-zero (day, label) sums; days outside the
- * window are ignored.
+ * window are ignored. `limitUsd` is the key's cap (default `IU_CAP_USD`).
  */
-export function computeBudget(cells: readonly PortalCell[], today: string): IuBudget {
+export function computeBudget(
+  cells: readonly PortalCell[],
+  today: string,
+  limitUsd: number = IU_CAP_USD,
+): IuBudget {
   const windowFrom = addDays(today, -(IU_WINDOW_DAYS - 1))
   const perDay = new Map<string, number>()
   const perLabel = new Map<string, number>()
@@ -76,17 +80,17 @@ export function computeBudget(cells: readonly PortalCell[], today: string): IuBu
     return {
       day,
       freesUsd: round2(usd(day)),
-      headroomUsd: round2(IU_CAP_USD - (rolling30 - freed)),
+      headroomUsd: round2(limitUsd - (rolling30 - freed)),
     }
   })
 
   return {
-    limitUsd: IU_CAP_USD,
+    limitUsd,
     windowDays: IU_WINDOW_DAYS,
     windowFrom,
     windowTo: today,
     rolling30Usd: round2(rolling30),
-    canSpendTodayUsd: round2(IU_CAP_USD - sum(span(-(IU_WINDOW_DAYS - 1), -1).map(usd))),
+    canSpendTodayUsd: round2(limitUsd - sum(span(-(IU_WINDOW_DAYS - 1), -1).map(usd))),
     burn7dUsdPerDay: round2(burn7),
     projected7dUsd: round2(rolling30 - freed + BURN_DAYS * burn7),
     daily: span(-30, 0).map((day) => ({ day, usd: round2(usd(day)) })),

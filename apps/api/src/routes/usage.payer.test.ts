@@ -13,7 +13,13 @@ beforeAll(async () => {
 const app = new Elysia().use(usageRoutes)
 const SOURCE = 'payer-test'
 
-function payload(sourceId: string, billing: string, account: string | null, costUsd: number) {
+function payload(
+  sourceId: string,
+  billing: string,
+  account: string | null,
+  costUsd: number,
+  iuKey?: string | null,
+) {
   const ts = new Date().toISOString()
   return {
     source: SOURCE,
@@ -27,6 +33,7 @@ function payload(sourceId: string, billing: string, account: string | null, cost
     machine: 'm1',
     billing,
     account,
+    ...(iuKey === undefined ? {} : { iu_key: iuKey }),
     duration_ms: null,
     cost_usd: costUsd,
     raw: null,
@@ -98,6 +105,43 @@ describe('usage payer', () => {
     expect((await getJson<Rows>(`${base}&payer=me-sub&payer=iu-api`)).total).toBe(6)
     expect((await getJson<Rows>(`${base}&billing=max`)).total).toBe(3)
     expect((await getJson<Rows>(`${base}&account=iu`)).total).toBe(1)
+  })
+
+  it('derives iu-team-api from the athena-team key; an iu row of unknown key is unknown', async () => {
+    await ingest([
+      payload('k1', 'iu', null, 4),
+      payload('k2', 'iu', null, 8, 'athena-team'),
+      payload('k3', 'iu', null, 16, 'not-registered'),
+    ])
+    const grouped = await getJson<Rows>(
+      `/usage/breakdown?range=7d&metric=cost&dimension=payer&sources=${SOURCE}`,
+    )
+    expect(Object.fromEntries(grouped.rows.map((r) => [r.key, r.value]))).toEqual({
+      'iu-api': 4,
+      'iu-team-api': 8,
+      unknown: 16,
+    })
+    const base = `/usage/breakdown?range=7d&metric=cost&dimension=source&sources=${SOURCE}`
+    expect((await getJson<Rows>(`${base}&payer=iu-team-api`)).total).toBe(8)
+  })
+
+  it('leaves iu-api totals exactly as they were when athena-team rows exist', async () => {
+    const iuApi = async () => {
+      const r = await getJson<Rows>(
+        `/usage/breakdown?range=7d&metric=cost&dimension=payer&sources=${SOURCE}&payer=iu-api`,
+      )
+      return r.rows.find((x) => x.key === 'iu-api')?.value ?? 0
+    }
+    await ingest([payload('u1', 'iu', null, 4), payload('u2', 'iu', null, 2, 'personal')])
+    const before = await iuApi()
+    expect(before).toBe(6)
+
+    await ingest([payload('u3', 'iu', null, 100, 'athena-team')])
+    expect(await iuApi()).toBe(before)
+    const series = await getJson<{ groupKeys: string[] }>(
+      `/usage/timeseries?range=7d&grain=day&metric=cost&groupBy=payer&sources=${SOURCE}&payer=iu-api`,
+    )
+    expect(series.groupKeys).toEqual(['iu-api'])
   })
 
   it('rejects an unknown payer', async () => {

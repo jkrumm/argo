@@ -131,3 +131,13 @@ describe('reconcileDays', () => {
     expect(days[0]).toMatchObject({ portalUsd: 0, ratio: null, flagged: false })
   })
 })
+
+describe('computeBudget — per-key limit', () => {
+  it('measures headroom against the limit it is given, default unchanged', () => {
+    const small = computeBudget(cells, '2026-10-26', 700)
+    const base = computeBudget(cells, '2026-10-26')
+    expect(small.limitUsd).toBe(700)
+    expect(small.canSpendTodayUsd - base.canSpendTodayUsd).toBe(200)
+    expect(small.rolling30Usd).toBe(base.rolling30Usd)
+  })
+})

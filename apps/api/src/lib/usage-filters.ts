@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { sql, type SQL } from 'drizzle-orm'
+import { IuKeyEnum } from './iu-keys.js'
 import { normalizeProject } from './project-normalize.js'
 import { ACCOUNT_PATTERN, PAYER_EXPR, PayerEnum, WorkspaceEnum } from './usage-query.js'
 
@@ -18,6 +19,7 @@ export const payerFilter = z.union([PayerEnum, z.array(PayerEnum)]).optional()
 export const workspaceFilter = z.union([WorkspaceEnum, z.array(WorkspaceEnum)]).optional()
 export const AccountSchema = z.string().regex(ACCOUNT_PATTERN)
 export const accountFilter = z.union([AccountSchema, z.array(AccountSchema)]).optional()
+export const iuKeyFilter = z.union([IuKeyEnum, z.array(IuKeyEnum)]).optional()
 
 function inList(column: SQL, values: string[]): SQL {
   return sql`${column} IN (${sql.join(
@@ -32,6 +34,7 @@ export function buildFilterSql({
   billing,
   workspace,
   account,
+  iuKey,
   payer,
   project,
 }: {
@@ -40,6 +43,7 @@ export function buildFilterSql({
   billing?: string[] | undefined
   workspace?: string[] | undefined
   account?: string[] | undefined
+  iuKey?: string[] | undefined
   payer?: string[] | undefined
   project?: string[] | undefined
 }) {
@@ -58,6 +62,9 @@ export function buildFilterSql({
   }
   if (account && account.length > 0) {
     parts.push(inList(sql`account`, account))
+  }
+  if (iuKey && iuKey.length > 0) {
+    parts.push(inList(sql`iu_key`, iuKey))
   }
   if (payer && payer.length > 0) {
     parts.push(inList(PAYER_EXPR, payer))

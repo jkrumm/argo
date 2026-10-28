@@ -149,13 +149,20 @@ describe('GET /usage/iu-budget', () => {
   })
 })
 
-const track = (id: string, ts: string, usd: number | null, model = 'gpt-5.6-terra') =>
+const track = (
+  id: string,
+  ts: string,
+  usd: number | null,
+  model: string | null = 'gpt-5.6-terra',
+  iuKey: string | null = 'personal',
+) =>
   db.insert(usageRecord).values({
     source: 't',
     source_id: id,
     grain: 'event',
     ts,
     billing: 'iu',
+    iu_key: iuKey,
     model_norm: model,
     cost_usd: usd,
     ingested_at: ts,

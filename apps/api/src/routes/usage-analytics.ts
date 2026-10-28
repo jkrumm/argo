@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
+  API_PAYERS,
   PayerEnum,
   RangeEnum,
   USAGE_DATA_FLOOR_ISO,
@@ -13,6 +14,7 @@ import {
   accountFilter,
   billingFilter,
   buildFilterSql,
+  iuKeyFilter,
   payerFilter,
   stringFilter,
   workspaceFilter,
@@ -101,6 +103,7 @@ export const usageAnalyticsRoutes = new Elysia()
         billing: toArray(query.billing),
         workspace: toArray(query.workspace),
         account: toArray(query.account),
+        iuKey: toArray(query.iuKey),
         payer: toArray(query.payer),
         project: toArray(query.project),
       })
@@ -148,6 +151,7 @@ export const usageAnalyticsRoutes = new Elysia()
         billing: billingFilter,
         workspace: workspaceFilter,
         account: accountFilter,
+        iuKey: iuKeyFilter,
         payer: payerFilter,
         project: stringFilter,
       }),
@@ -156,7 +160,7 @@ export const usageAnalyticsRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Usage by tool and model',
         description:
-          'One row per (source, sub_tool, model_norm) with cost, the four token classes (input is fresh uncached input, output excludes reasoning, cache-read and cache-write are separate) and call count. ?lens=cost|tokens picks the ranking and `total`: dollars, or all token classes including cache-read. At most ?top rows (default 200): the tail is summed into one trailing row named "other" so the rows still add up to the total. A NULL sub_tool reads "(unset)", a NULL model "(unknown model)". Filters as /usage/timeseries.',
+          'One row per (source, sub_tool, model_norm) with cost, the four token classes (input is fresh uncached input, output excludes reasoning, cache-read and cache-write are separate) and call count. ?lens=cost|tokens picks the ranking and `total`: dollars, or all token classes including cache-read. At most ?top rows (default 200): the tail is summed into one trailing row named "other" so the rows still add up to the total. A NULL sub_tool reads "(unset)", a NULL model "(unknown model)". Filters as /usage/timeseries (incl. iuKey[]).',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -170,8 +174,8 @@ export const usageAnalyticsRoutes = new Elysia()
       const iso = (ms: number) => new Date(ms).toISOString()
       const current = { from: iso(now - days * 86_400_000), to: iso(now) }
       const prior = { from: iso(now - 2 * days * 86_400_000), to: current.from }
-      const payer = toArray(query.payer) ?? ['iu-api', 'me-api']
-      const filterSql = buildFilterSql({ payer })
+      const payer = toArray(query.payer) ?? [...API_PAYERS]
+      const filterSql = buildFilterSql({ payer, iuKey: toArray(query.iuKey) })
 
       const empty = { current, prior, rows: [] }
       // A prior window reaching before the data floor is not comparable: every pair would read as growth.
@@ -213,6 +217,7 @@ export const usageAnalyticsRoutes = new Elysia()
         days: z.coerce.number().int().min(1).max(30).default(7),
         limit: z.coerce.number().int().min(1).max(20).default(3),
         payer: z.union([PayerEnum, z.array(PayerEnum)]).optional(),
+        iuKey: iuKeyFilter,
       }),
       response: {
         200: z.object({
@@ -233,7 +238,7 @@ export const usageAnalyticsRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Biggest spend movers',
         description:
-          'Top ?limit (default 3) (sub_tool, model_norm) pairs by |change| in dollars between the last ?days (default 7) and the ?days before that, for ?payer (default iu-api and me-api: Max rows carry list value, not spend). Pairs under $2 in both windows are dropped. rows is empty when nothing moved, or when the prior window reaches before the data floor (not comparable).',
+          'Top ?limit (default 3) (sub_tool, model_norm) pairs by |change| in dollars between the last ?days (default 7) and the ?days before that, for ?payer (default iu-api, iu-team-api and me-api: Max rows carry list value, not spend). Optional ?iuKey[] narrows to IU rows of those API keys. Pairs under $2 in both windows are dropped. rows is empty when nothing moved, or when the prior window reaches before the data floor (not comparable).',
         security: [{ BearerAuth: [] }],
       },
     },

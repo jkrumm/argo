@@ -1,6 +1,7 @@
 import { db } from '../db/index.js'
 import { usageRecord } from '../db/schema.js'
 import { log } from '../telemetry.js'
+import { DEFAULT_IU_KEY } from './iu-keys.js'
 
 export interface AiUsageData {
   prompt_tokens: number
@@ -114,6 +115,7 @@ export function computeCost(
  */
 export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
   const modelNorm = normalizeDeepseekModel(params.model)
+  const billing = params.billing ?? 'iu'
   // `usage_record.input_tokens` is the uncached-only convention (see
   // `routes/usage.ts`'s `cache_hit_ratio` / `tokens` metrics, which sum
   // input_tokens and cache_read_tokens as disjoint quantities) — split the
@@ -139,7 +141,9 @@ export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
       project: 'argo',
       workspace: 'private',
       sub_tool: params.subTool ?? null,
-      billing: params.billing ?? 'iu',
+      billing,
+      // Argo's own IU calls go through the personal key.
+      iu_key: billing === 'iu' ? DEFAULT_IU_KEY : null,
       machine: null,
       outcome: params.outcome ?? 'ok',
       input_tokens: uncachedTokens,

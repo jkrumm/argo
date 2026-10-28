@@ -25,6 +25,7 @@ function row(over: Partial<typeof usageRecord.$inferInsert>) {
     grain: 'event',
     ts,
     billing: 'iu',
+    iu_key: 'personal',
     ingested_at: ts,
     ...over,
   } satisfies typeof usageRecord.$inferInsert
@@ -152,6 +153,22 @@ describe('GET /usage/movers', () => {
     expect(m.rows.map((r) => r.subTool)).toEqual(['research', 'review_ocr'])
     expect(m.rows[0]).toMatchObject({ costUsd: 1, priorCostUsd: 25, deltaUsd: -24 })
     expect(m.rows[1]).toMatchObject({ costUsd: 30, priorCostUsd: 10, deltaUsd: 20 })
+  })
+
+  it('counts the team key as API spend by default and narrows by iuKey', async () => {
+    await db
+      .insert(usageRecord)
+      .values([
+        row({ sub_tool: 'chat-turn:chat', iu_key: 'athena-team', cost_usd: 40, ts: ago(2) }),
+        row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
+        row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
+        row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 5, ts: ago(10) }),
+      ])
+    const all = await get<{ rows: Array<{ subTool: string; model: string }> }>('/movers')
+    expect(all.rows.map((r) => r.subTool)).toEqual(['chat-turn:chat', 'review_ocr'])
+    expect(all.rows[0]?.model).toBe('(unknown model)')
+    const team = await get<{ rows: Array<{ subTool: string }> }>('/movers?iuKey=athena-team')
+    expect(team.rows.map((r) => r.subTool)).toEqual(['chat-turn:chat'])
   })
 
   it('is empty when nothing moved', async () => {

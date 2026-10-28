@@ -285,6 +285,8 @@ export const usageRecord = argoSchema.table(
     sub_tool: text('sub_tool'),
     billing: text('billing').notNull(),
     account: text('account'),
+    // IU API key that paid (billing='iu' only); NULL on an iu row = unknown key. See lib/iu-keys.ts.
+    iu_key: text('iu_key'),
     machine: text('machine'),
     outcome: text('outcome').notNull().default('ok'),
     input_tokens: integer('input_tokens').notNull().default(0),
@@ -313,6 +315,7 @@ export const usageRecord = argoSchema.table(
     index('idx_usage_sub_tool').on(t.sub_tool),
     index('idx_usage_workspace').on(t.workspace),
     index('idx_usage_account').on(t.account),
+    index('idx_usage_iu_key').on(t.iu_key),
   ],
 )
 
@@ -377,6 +380,7 @@ export const accountPick = argoSchema.table(
 export const iuPortalCost = argoSchema.table(
   'iu_portal_cost',
   {
+    iu_key: text('iu_key').notNull().default('personal'),
     day: date('day', { mode: 'string' }).notNull(),
     label: text('label').notNull(),
     row: integer('row').notNull(),
@@ -384,14 +388,19 @@ export const iuPortalCost = argoSchema.table(
     cost_usd: doublePrecision('cost_usd').notNull(),
     fetched_at: timestamp('fetched_at', { withTimezone: true, mode: 'string' }).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.day, t.label, t.row] })],
+  (t) => [primaryKey({ columns: [t.iu_key, t.day, t.label, t.row] })],
 )
 
-export const iuPortalTotal = argoSchema.table('iu_portal_total', {
-  month: text('month').primaryKey(),
-  total_usd: doublePrecision('total_usd').notNull(),
-  fetched_at: timestamp('fetched_at', { withTimezone: true, mode: 'string' }).notNull(),
-})
+export const iuPortalTotal = argoSchema.table(
+  'iu_portal_total',
+  {
+    iu_key: text('iu_key').notNull().default('personal'),
+    month: text('month').notNull(),
+    total_usd: doublePrecision('total_usd').notNull(),
+    fetched_at: timestamp('fetched_at', { withTimezone: true, mode: 'string' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.iu_key, t.month] })],
+)
 
 // ── WalkingPad achievements (unlocked milestones, surfaced by the dashboard) ─
 //

@@ -81,4 +81,19 @@ describe('foldSplit — the unset bucket', () => {
     expect(rows.map((r) => r.key)).toEqual(['a', '(unset)', '(other)'])
     expect(rows.at(-1)).toMatchObject({ cost: 70 })
   })
+
+  it('keeps the unknown-model bucket whole too', () => {
+    const { rows } = foldSplit({
+      cells: [
+        cell({ key: 'a', payer: 'iu-api', cost: 50 }),
+        cell({ key: 'b', payer: 'iu-api', cost: 40 }),
+        cell({ key: 'c', payer: 'iu-api', cost: 30 }),
+        cell({ key: '(unknown model)', payer: 'iu-team-api', cost: 1 }),
+      ],
+      lens: 'cost',
+      top: 2,
+      hasPrior: false,
+    })
+    expect(rows.map((r) => r.key)).toEqual(['a', '(unknown model)', '(other)'])
+  })
 })
