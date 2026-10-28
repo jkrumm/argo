@@ -78,7 +78,7 @@ export const unpricedNote = (rows: number): string =>
   `${rows} IU ${rows === 1 ? 'row' : 'rows'} unpriced (no cost recorded)`
 
 const COMMON_INFO =
-  'The strip flags a UTC day when the two differ by more than the larger of $1 and 20 % of the portal figure. The newest portal day is still settling and is marked partial.'
+  'The strip flags a UTC day when the two differ by more than the larger of $1 and 20 % of the portal figure. The newest portal day is still settling and is marked partial. This card always compares the last 30 days of the whole key: the Range and Workspace filters do not apply to it (the portal has no workspace).'
 
 const INFO: Record<GapReading, string> = {
   pricing: `Portal is what IU's own billing report says the API cost; tracked is our estimate, priced from the usage-tracker rows billed to IU. ${COMMON_INFO} Tracking prices some models at far less than the portal does, and rows without a recorded cost count as zero.`,

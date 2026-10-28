@@ -165,7 +165,7 @@ export function WalletCard({
           <Text size="xs" c="dimmed">
             {wallet.who}
           </Text>
-          {canOpen ? <WalletMeter wallet={wallet} titled={false} /> : null}
+          {canOpen ? <WalletMeter wallet={wallet} heading="window" /> : null}
           {noUsage || total === undefined ? (
             <Text size="sm" c="dimmed">
               No usage in this window

@@ -68,7 +68,7 @@ A subscription with no usage and no quota sample in the range has no card and no
 ### Overview
 
 ```
-1 Wallet cards     one per subscription + one per IU API key (span 12 / n up to four per row; five or more split into two even rows, 5 = 3 + 2). Inside: limit meter with pace,
+1 Wallet cards     one per subscription + one per IU API key, by container width (`walletSpans`, Grid of 60 columns): all in ONE row when each card stays at least 288 px (5 wallets from a 1504 px container, about a 1810 px viewport), then two rows that split their own row evenly (5 = 3 × ⅓ + 2 × ½), then three, then one per row. Inside: limit meter with pace,
                    then TWO equal figures side by side — $ (list value | spend, Δ) left, tokens (fresh Δ, cache-read under it) right,
                    daily sparkline (measure), "mostly <project> · <tool>"
 2 Weekly volume    Claude Max: stacked weekly bars per subscription (measure), whole history   | Weekly quota: seven-day % per account
@@ -192,6 +192,31 @@ Every endpoint takes `range`, `payer[]`, `workspace[]` like the existing ones an
 | A–C, E | `ChartCard state.empty` | `last event {age} ago` footer; red dot > 30 min |
 | D | one-line note | latest day marked `partial` |
 | F | `Not enough picks yet` | coverage line |
+
+## Controls × cards (audited 2026-10-28)
+
+Each control was checked against the query arguments of every card (`lib/queries/usage.ts` and each component's call). Range = the Range filter, Measure = `$ / Tokens`, WS = Workspace.
+
+| Card | Range | Measure | Grain | WS | Account / Key |
+|-|-|-|-|-|-|
+| Overview wallet card figures | applies | fixed: `$` and fresh tokens always | n/a | applies | n/a |
+| Overview wallet card sparkline, "mostly" line | applies | applies | n/a (day) | applies | n/a |
+| Wallet card meters (quota week, IU rolling cap) | fixed window, said in the card ("weekly quota · 7 d", "cap · rolling 30 d") | n/a | n/a | n/a (portal and quota have no workspace) | the card's own wallet |
+| Weekly volume | fixed, all time (title says so) | applies | fixed week | applies | n/a |
+| Weekly quota (30 d) | fixed, 30 d (title says so) | n/a | n/a | n/a | n/a |
+| Rhythm | applies | applies | n/a | applies | Account / Key scope it |
+| Projects / Tools rows, sparklines, timelines | applies | applies | fixed day | applies | n/a on Overview |
+| Compared | applies | fixed: `$` and tokens columns | n/a | applies (days held ignore it on purpose) | Account scopes the rows |
+| Claude Max: quota vs pace meters | fixed, this week (title says so) | n/a | n/a | n/a | Account scopes |
+| Over time | applies | applies | applies (hour reads at most 30 d, said in the title) | applies | Account / Key scope it |
+| Ranked lists, flow lists (top spenders, cost per 1 M) | applies | applies (cost per 1 M is `$` per million) | n/a | applies | Account / Key scope them |
+| Figures strip (IU API) | applies | fixed | n/a | applies | Key scopes it |
+| No-project line (IU API) | applies | fixed: dollars | n/a | applies | Key scopes it |
+| Limit card (IU API) | fixed, rolling 30 d (title says so) | n/a | n/a | n/a (portal) | Key picks the card(s) |
+| Portal vs tracked | fixed, 30 d of the whole key (title and info say so) | n/a | n/a | n/a: neither side is filtered, so no workspace-filtered tracked meets an unfiltered portal | Key picks the card(s) |
+| Routing | own range control | n/a | n/a | n/a (the picker log has no workspace) | not filtered by Account on purpose |
+
+The Grain control is shown only on the Claude Max and IU API tabs, where Over time reads it. Fixes from this audit: the wallet cards' meters name their fixed window; the Portal vs tracked info says the Range and Workspace filters do not apply.
 
 ## Pass criteria (v3)
 

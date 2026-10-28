@@ -123,6 +123,12 @@ describe('GAP_PRESENTATION', () => {
     expect(GAP_PRESENTATION.unseen.states).toBe(GAP_PRESENTATION.unseen.states)
   })
 
+  it('says it ignores the Range and Workspace filters, so no filtered tracked side meets an unfiltered portal', () => {
+    for (const reading of ['pricing', 'unseen'] as const) {
+      expect(GAP_PRESENTATION[reading].info).toContain('Range and Workspace filters do not apply')
+    }
+  })
+
   it('states the unseen reading only in the team key’s info', () => {
     expect(GAP_PRESENTATION.unseen.info).toContain('producers we do not see')
     expect(GAP_PRESENTATION.pricing.info).not.toContain('producers we do not see')

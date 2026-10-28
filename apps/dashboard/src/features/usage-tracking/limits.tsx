@@ -50,15 +50,18 @@ function Heading({
   title,
   marker,
   tone,
+  quiet = false,
 }: {
   title: string
   marker?: string | null | undefined
   tone?: 'warn' | 'bad' | undefined
+  /** A window label under a card that already names the wallet: small and dimmed, not a title. */
+  quiet?: boolean
 }) {
   if (title === '' && !marker) return null
   return (
     <Group justify="space-between" wrap="nowrap" gap="xs">
-      <Text size="sm" fw={500}>
+      <Text size={quiet ? 'xs' : 'sm'} fw={quiet ? 400 : 500} {...(quiet ? { c: 'dimmed' } : {})}>
         {title}
       </Text>
       {marker ? (
@@ -70,17 +73,29 @@ function Heading({
   )
 }
 
-/** `titled={false}`: the card around it already names the wallet, so only a freshness marker heads the meter. */
+/**
+ * How a meter is headed: `title` names the wallet and its window; `window` (a wallet card, which
+ * already names the wallet) states only the fixed window the meter reads, which no page filter moves;
+ * `none` (a card titled with its window) leaves just a freshness marker.
+ */
+export type MeterHeading = 'title' | 'window' | 'none'
+
+/** The heading text and weight of a meter: the full title, the quiet window label, or nothing. */
+const headingOf = (heading: MeterHeading, title: string, window: string) => ({
+  title: heading === 'title' ? title : heading === 'window' ? window : '',
+  quiet: heading === 'window',
+})
+
 export function SubscriptionMeter({
   account,
   sample,
   now,
-  titled = true,
+  heading = 'title',
 }: {
   account: string
   sample: QuotaLatest | undefined
   now: number
-  titled?: boolean
+  heading?: MeterHeading
 }) {
   const reading = quotaReading(sample, now)
   const ink = reading.state === null ? undefined : STATE_INK[reading.state]
@@ -89,7 +104,7 @@ export function SubscriptionMeter({
   return (
     <Stack gap={4}>
       <Heading
-        title={titled ? title : ''}
+        {...headingOf(heading, title, `weekly quota · ${withUnit(7, 'd')}`)}
         marker={reading.status === 'stale' ? reading.note : null}
       />
       <Meter
@@ -131,13 +146,13 @@ export function CapMeter({
   budget,
   now,
   title,
-  titled = true,
+  heading = 'title',
 }: {
   budget: IuBudget
   now: number
   /** The key's wallet name (`IU API`, `Athena team`). */
   title: string
-  titled?: boolean
+  heading?: MeterHeading
 }) {
   const reading = budgetReading(budget, now)
   const badge = freshnessBadge(budget.fetchedAt, now)
@@ -146,7 +161,11 @@ export function CapMeter({
   return (
     <Stack gap={4}>
       <Heading
-        title={titled ? `${title} · ${withUnit('rolling 30', 'd')}` : ''}
+        {...headingOf(
+          heading,
+          `${title} · ${withUnit('rolling 30', 'd')}`,
+          `cap · ${withUnit('rolling 30', 'd')}`,
+        )}
         marker={stale ? badge.text : null}
         tone={badge?.tone === 'bad' ? 'bad' : 'warn'}
       />
@@ -169,7 +188,13 @@ export function CapMeter({
 }
 
 /** A subscription's weekly quota meter: owns the quota query. */
-function SubscriptionWalletMeter({ wallet, titled }: { wallet: SubWallet; titled: boolean }) {
+function SubscriptionWalletMeter({
+  wallet,
+  heading,
+}: {
+  wallet: SubWallet
+  heading: MeterHeading
+}) {
   const quota = useQuery(usageQueries.quotaLatest())
   const now = useNow()
   const empty = shotState() === 'empty'
@@ -188,7 +213,7 @@ function SubscriptionWalletMeter({ wallet, titled }: { wallet: SubWallet; titled
       account={wallet.account}
       sample={samples.find((s) => s.account === wallet.account)}
       now={now}
-      titled={titled}
+      heading={heading}
     />
   )
 }
@@ -206,7 +231,7 @@ export function useKeyBudget(wallet: KeyWallet) {
 }
 
 /** An IU API key's rolling cap meter: its own budget query, fired for key wallets only. */
-function KeyCapMeter({ wallet, titled }: { wallet: KeyWallet; titled: boolean }) {
+function KeyCapMeter({ wallet, heading }: { wallet: KeyWallet; heading: MeterHeading }) {
   const { budget, missing } = useKeyBudget(wallet)
   const now = useNow()
   const empty = shotState() === 'empty'
@@ -236,7 +261,7 @@ function KeyCapMeter({ wallet, titled }: { wallet: KeyWallet; titled: boolean })
       tracked.data === undefined ? null : (totalOf(tracked.data.totals, wallet.id)?.cost ?? null)
     return <NoPortalReport trackedUsd={trackedUsd} limitUsd={budget.data.limitUsd} />
   }
-  return <CapMeter budget={budget.data} now={now} title={wallet.title} titled={titled} />
+  return <CapMeter budget={budget.data} now={now} title={wallet.title} heading={heading} />
 }
 
 /**
@@ -244,8 +269,14 @@ function KeyCapMeter({ wallet, titled }: { wallet: KeyWallet; titled: boolean })
  * meter owns its one query, mounted only for the wallets that have it (Me API has no meter); a failed
  * query is a line of its own and a pending one a skeleton, never a meter that reads as headroom.
  */
-export function WalletMeter({ wallet, titled = true }: { wallet: Wallet; titled?: boolean }) {
-  if (wallet.kind === 'sub') return <SubscriptionWalletMeter wallet={wallet} titled={titled} />
-  if (isKeyWallet(wallet)) return <KeyCapMeter wallet={wallet} titled={titled} />
+export function WalletMeter({
+  wallet,
+  heading = 'title',
+}: {
+  wallet: Wallet
+  heading?: MeterHeading
+}) {
+  if (wallet.kind === 'sub') return <SubscriptionWalletMeter wallet={wallet} heading={heading} />
+  if (isKeyWallet(wallet)) return <KeyCapMeter wallet={wallet} heading={heading} />
   return null
 }

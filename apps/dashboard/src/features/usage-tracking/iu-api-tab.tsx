@@ -97,7 +97,7 @@ function KeyLimit({ wallet, children }: { wallet: KeyWallet; children?: ReactNod
         placeholderHeight="content"
       >
         <Stack gap="sm">
-          <WalletMeter wallet={wallet} titled={false} />
+          <WalletMeter wallet={wallet} heading="none" />
           {children}
         </Stack>
       </ChartCard>
