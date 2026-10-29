@@ -1,10 +1,10 @@
 /**
  * The expert view of the IU API, the metered lane (different use, so its own tab). The Key control
- * scopes the whole tab to one API key or, on All, to both: each key has its own rolling 30-day cap, so
- * All shows one cap meter per key side by side and never a summed one; the records views (figures,
- * charts, lists) add the keys up. Per key: the cap meter, the portal-vs-tracked strip; for the scope:
- * how much of the spend carries no project, figures, spend over time, the weekly rhythm, the ranked
- * projects, tools and models, and where the tokens go and what they cost.
+ * scopes the whole tab to one API key: each key is its own wallet with its own rolling 30-day cap, so
+ * no view here ever adds two keys up (the Overview's wallet cards put the keys side by side). For the
+ * key: the cap meter, how much of the spend carries no project, the portal-vs-tracked strip, figures,
+ * spend over time, the weekly rhythm, the ranked projects, tools and models, and where the tokens go
+ * and what they cost.
  */
 import { Suspense, type ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
@@ -32,7 +32,7 @@ import { pickOptions } from './pick-options'
 import RankedList from './ranked-list'
 import Reconciliation from './reconciliation'
 import { Rhythm } from './rhythm'
-import { iuKeyScope, selectedKeyWallets, type PayerScope } from './scope'
+import { iuKeyScope, selectedKeyWallet, type PayerScope } from './scope'
 import { SPLIT_TOP, combinedTotal, unsetShare } from './split-model'
 import TopSpenders from './top-spenders'
 import type { WorkspaceValue } from './types'
@@ -75,7 +75,7 @@ function ProjectCoverage({
       ? null
       : unsetShare(query.data.rows, combinedTotal(query.data.totals, scope.payers))
   if (gap === null) return null
-  const spend = scope.id === 'iu-keys' ? 'IU API spend across both keys' : `${scope.title} spend`
+  const spend = `${scope.title} spend`
   return (
     <Text size="sm" c="dimmed" data-shot={`project-coverage-${scope.id}`} data-shot-absent="empty">
       {gap.cost <= 0
@@ -121,13 +121,7 @@ export function IuApiTab({
   workspace: WorkspaceValue[] | undefined
 }) {
   const scope = iuKeyScope(iuKey)
-  const wallets = selectedKeyWallets(iuKey)
-  const several = wallets.length > 1
-  const coverage = (
-    <Suspense fallback={null}>
-      <ProjectCoverage scope={scope} range={range} workspace={workspace} />
-    </Suspense>
-  )
+  const wallet = selectedKeyWallet(iuKey)
 
   return (
     <Section
@@ -141,30 +135,14 @@ export function IuApiTab({
       }
     >
       <Stack gap="md">
-        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-          {wallets.map((wallet) => (
-            <Grid.Col key={wallet.id} span={{ base: 12, lg: 12 / wallets.length }}>
-              <KeyLimit wallet={wallet}>{several ? null : coverage}</KeyLimit>
-            </Grid.Col>
-          ))}
-        </Grid>
-        {several ? (
-          <Stack gap={4}>
-            {coverage}
-            <Text size="sm" c="dimmed">
-              Each key has its own cap. Everything below adds both keys up.
-            </Text>
-          </Stack>
-        ) : null}
-        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-          {wallets.map((wallet) => (
-            <Grid.Col key={wallet.id} span={{ base: 12, lg: 12 / wallets.length }}>
-              <Suspense fallback={fallback(200)}>
-                <Reconciliation wallet={wallet} named={several} />
-              </Suspense>
-            </Grid.Col>
-          ))}
-        </Grid>
+        <KeyLimit wallet={wallet}>
+          <Suspense fallback={null}>
+            <ProjectCoverage scope={scope} range={range} workspace={workspace} />
+          </Suspense>
+        </KeyLimit>
+        <Suspense fallback={fallback(200)}>
+          <Reconciliation wallet={wallet} />
+        </Suspense>
         <Suspense fallback={fallback(120)}>
           <WalletFigures scope={scope} range={range} workspace={workspace} />
         </Suspense>

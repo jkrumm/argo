@@ -99,7 +99,7 @@ export const IU_KEYS = [
 
 export type IuKeyId = (typeof IU_KEYS)[number]['id']
 
-/** The key ids in registry order: the values of the IU API tab's Key control (after `all`). */
+/** The key ids in registry order: the values of the IU API tab's Key control. */
 export const IU_KEY_IDS: readonly IuKeyId[] = IU_KEYS.map((k) => k.id)
 
 /**

@@ -1,12 +1,12 @@
 /**
  * What a section of a tab covers: the payers it filters by, what its dollars are called and the ink
  * it draws in. The Overview covers every wallet, the Claude Max tab one subscription or all of them,
- * the IU API tab one API key or both. The one shape the shared sections (rhythm, over time, ranked lists,
+ * the IU API tab one API key. The one shape the shared sections (rhythm, over time, ranked lists,
  * figures) take instead of a wallet.
  */
 import { VX } from 'basalt-ui/tokens'
 import type { UsageIuKey } from '../../lib/window-stores'
-import { IU_KEY_WALLETS, type KeyWallet, type PayerValue, type SubWallet } from './accounts'
+import { IU_API, IU_KEY_WALLETS, type KeyWallet, type PayerValue, type SubWallet } from './accounts'
 import { colorForPayer } from './constants'
 
 export type Scope = {
@@ -35,34 +35,23 @@ export const ALL_WALLETS: Scope = {
 /** A scope that always filters by payer: the IU API tab's, whose payers are the keys it covers. */
 export type PayerScope = Scope & { payers: PayerValue[] }
 
-/** The IU API key wallets a selection covers, in registry order. */
-export const selectedKeyWallets = (key: UsageIuKey): KeyWallet[] =>
-  IU_KEY_WALLETS.filter((w) => key === 'all' || w.iuKey === key)
+/** The IU API key wallet a selection names; anything unregistered reads as the personal key's. */
+export const selectedKeyWallet = (key: UsageIuKey): KeyWallet =>
+  IU_KEY_WALLETS.find((w) => w.iuKey === key) ?? IU_API
 
 /**
- * The IU API tab's selection: one API key's wallet (its payer), or every key when `key` is `all`
- * (the records views sum them; the caps never do). The personal key keeps the id `iu-api`.
+ * The IU API tab's selection: always one API key's wallet (its payer). Two keys are two wallets with
+ * two caps, so no view of the tab ever adds them up. The personal key keeps the id `iu-api`.
  */
 export function iuKeyScope(key: UsageIuKey): PayerScope {
-  const wallets = selectedKeyWallets(key)
-  const [one, ...rest] = wallets
-  if (one !== undefined && rest.length === 0) {
-    return {
-      id: one.id,
-      title: one.title,
-      payers: [one.id],
-      word: 'spend',
-      polarity: 'up-bad',
-      color: colorForPayer(one.id),
-    }
-  }
+  const one = selectedKeyWallet(key)
   return {
-    id: 'iu-keys',
-    title: 'IU API',
-    payers: wallets.map((w) => w.id),
+    id: one.id,
+    title: one.title,
+    payers: [one.id],
     word: 'spend',
     polarity: 'up-bad',
-    color: VX.line,
+    color: colorForPayer(one.id),
   }
 }
 

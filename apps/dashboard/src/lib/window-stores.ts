@@ -173,8 +173,11 @@ export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
 export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
 /** The Account control of the Claude Max tab: `all`, or one account id from the registry. */
 export const USAGE_ACCOUNT_VALUES = ['all', ...ACCOUNT_IDS] as const
-/** The IU API tab's Key control: `all` (one meter per key, never summed), or one key id from the registry. */
-export const USAGE_IU_KEY_VALUES = ['all', ...IU_KEY_IDS] as const
+/**
+ * The IU API tab's Key control: one key id from the registry. There is no `all`: each key is its own
+ * wallet with its own cap, and the records views (ranked lists, figures, charts) never add two keys up.
+ */
+export const USAGE_IU_KEY_VALUES = IU_KEY_IDS
 /** The Routing section's own range: how many days of picker decisions it reads, independent of the page Range. */
 export const USAGE_ROUTING_RANGE_VALUES = ['1d', '3d', '7d', '14d', '21d'] as const
 export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
@@ -191,8 +194,8 @@ export const usageStore = createSearchStore({
     view: field.enum(USAGE_VIEW_VALUES, 'overview'),
     // Scopes the whole Claude Max tab to one subscription; `all` compares and sums them.
     account: field.enum(USAGE_ACCOUNT_VALUES, 'all'),
-    // Scopes the whole IU API tab to one API key; `all` shows every key side by side.
-    iuKey: field.enum(USAGE_IU_KEY_VALUES, 'all'),
+    // Scopes the whole IU API tab to one API key; a leftover `all` from an old URL reads as personal.
+    iuKey: field.enum(USAGE_IU_KEY_VALUES, 'personal'),
     // `field.enum`, not `field.range`: the API takes `range` verbatim and there is no custom
     // window here, so three params would be two more than the page can use.
     range: field.enum(['7d', '30d', '90d', 'all'], '30d'),
@@ -215,10 +218,7 @@ export const usageStore = createSearchStore({
     all: 'All',
     ...Object.fromEntries(USAGE_ACCOUNTS.map((a) => [a.id, PAYER_LABELS[a.payer]] as const)),
   },
-  iuKey: {
-    all: 'All',
-    ...Object.fromEntries(IU_KEYS.map((k) => [k.id, k.label] as const)),
-  },
+  iuKey: Object.fromEntries(IU_KEYS.map((k) => [k.id, k.label] as const)),
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { hour: 'Hour', day: 'Day', week: 'Week' },
   workspace: { work: 'Work', private: 'Private' },

@@ -28,14 +28,7 @@ import classes from './usage.module.css'
 
 const STRIP_HEIGHT = 56
 
-export default function Reconciliation({
-  wallet,
-  named,
-}: {
-  wallet: KeyWallet
-  /** More than one key's card is on screen: the synthetic empty line then says whose it is. */
-  named: boolean
-}) {
+export default function Reconciliation({ wallet }: { wallet: KeyWallet }) {
   const query = useSuspenseQuery(usageQueries.iuReconcile(RECON_WINDOW_DAYS, wallet.iuKey))
   const present = GAP_PRESENTATION[wallet.gapReading]
 
@@ -44,8 +37,7 @@ export default function Reconciliation({
     return (
       <Box data-shot={wallet.anchor} data-shot-states="empty">
         <Text size="sm" c="dimmed">
-          Portal vs tracked · {named ? `${wallet.title} · ` : ''}
-          {RECON_NO_PORTAL}
+          Portal vs tracked · {RECON_NO_PORTAL}
         </Text>
       </Box>
     )
