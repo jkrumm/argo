@@ -89,12 +89,12 @@ export const NO_SNAPSHOT_SHORT = 'No snapshot yet'
 export const noSnapshotCaption = (hasSnapshot: boolean, hours: number): string =>
   hasSnapshot ? `No snapshot in the last ${withUnit(hours, 'h')}` : NO_SNAPSHOT_SHORT
 
-/** agent-gateway's push cadence, minutes: every "nothing pushed yet" line names it. */
-const AGENT_GATEWAY_PUSH_MIN = 10
+/** The overview push cadence (agent-workflows' `agw` overview workflow), minutes: every "nothing pushed yet" line names it. */
+const OVERVIEW_PUSH_MIN = 10
 
 /** The one wording for "no overview snapshot has arrived": the gap and the cadence to wait for. */
 export const noSnapshotText = (): string =>
-  `${NO_SNAPSHOT_SHORT} — agent-gateway pushes every ${withUnit(AGENT_GATEWAY_PUSH_MIN, 'min')}`
+  `${NO_SNAPSHOT_SHORT} — agent-workflows pushes every ${withUnit(OVERVIEW_PUSH_MIN, 'min')}`
 
 export type OldestWait = { ms: number; project: string }
 

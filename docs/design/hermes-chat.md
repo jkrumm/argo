@@ -37,7 +37,7 @@ Decision: resume a thread, start a new one, or clean up dead ones.
 
 390: rows become two lines (chip + title; summary clamped to one line) with time on the title line; filter chips scroll horizontally; composer sticky with the safe-area inset; record header collapses facts to `<time> · <type>`.
 
-Stay: composer, message renderer, voice, thread stream behaviour. Change: list rows, grouping, header. Go: chevrons, repeated `New chat` rows, German relative time (use the app locale: English).
+Stay: composer, message renderer, thread stream behaviour. Change: list rows, grouping, header. Go: chevrons, repeated `New chat` rows, German relative time (use the app locale: English).
 
 ## Copy
 
@@ -46,7 +46,7 @@ Stay: composer, message renderer, voice, thread stream behaviour. Change: list r
 - Disclosure: `{n} untitled chats · oldest {age}`
 - Header facts: `Started {date} · last reply {time} · {type}`
 - Health: `Hermes reachable` / `Hermes degraded · replies may fail`
-- Composer placeholder: `New chat with Hermes…` (`Talk or type a new chat…` in voice mode) — one line at 390
+- Composer placeholder: `New chat with Hermes…` — one line at 390
 
 ## Upstream candidates
 

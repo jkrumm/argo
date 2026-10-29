@@ -18,21 +18,17 @@ import {
   UnstyledButton,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconMessageChatbot, IconMicrophone, IconSend } from '@tabler/icons-react'
+import { IconMessageChatbot, IconSend } from '@tabler/icons-react'
 import { hermesQueries, type HermesThread, type HermesThreadType } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
-import { useVoicePlayback } from './voice/voice-playback'
-import { useVoiceRecorder } from './voice/use-voice-recorder'
 import classes from './hermes-widget.module.css'
 
 // Global Hermes widget, rendered in the header via GlobalActions. A one-tap entry
 // point to Hermes Chat from anywhere: peek at recent threads, hand the chat page a
-// draft or an open-thread intent, dictate, or jump straight in. The trigger doubles
-// as the app-wide TTS status light — when a reply is being spoken it wraps the icon
-// in a progress ring with a remaining-time readout (mirrors ReadAloudButton).
+// draft or an open-thread intent, or jump straight in.
 //
-// Identity blue earns its place on exactly two surfaces (DESIGN.md): the speaking
-// ring and the send button. Everything else stays neutral gray.
+// Identity blue earns its place on the send button (DESIGN.md). Everything else
+// stays neutral gray.
 
 // Allowed Mantine accents only (DESIGN.md: no teal/violet/grape/indigo/pink).
 // Mirrors hermes-row.tsx so the type badges read identically everywhere.
@@ -60,7 +56,6 @@ const MAX_THREADS = 6
 export function HermesWidget() {
   const navigate = useNavigate()
   const setHermesIntent = useUiStore((s) => s.setHermesIntent)
-  const { playingThreadId, audioAvailable, setAudioAvailable, primePlayback } = useVoicePlayback()
 
   const [opened, { open, close, toggle }] = useDisclosure(false)
   const [input, setInput] = useState('')
@@ -72,17 +67,6 @@ export function HermesWidget() {
     enabled: opened,
   })
   const threads = (data?.data ?? []).slice(0, MAX_THREADS)
-
-  const {
-    isRecording,
-    isTranscribing,
-    toggle: toggleRecording,
-  } = useVoiceRecorder({
-    setAudioAvailable,
-    onPrime: primePlayback,
-    // Append each transcript to the current input (space-joined) for review before send.
-    onResult: (transcript) => setInput((prev) => (prev ? `${prev} ${transcript}` : transcript)),
-  })
 
   function goToChat() {
     void navigate({ to: '/hermes-chat' })
@@ -140,12 +124,7 @@ export function HermesWidget() {
           ) : (
             <Stack gap={4}>
               {threads.map((thread) => (
-                <ThreadRow
-                  key={thread.id}
-                  thread={thread}
-                  speaking={thread.id === playingThreadId}
-                  onClick={() => openThread(thread.id)}
-                />
+                <ThreadRow key={thread.id} thread={thread} onClick={() => openThread(thread.id)} />
               ))}
             </Stack>
           )}
@@ -168,19 +147,6 @@ export function HermesWidget() {
                 }
               }}
             />
-            <Tooltip label={isRecording ? 'Stop recording' : 'Dictate'} withArrow>
-              <ActionIcon
-                size={36}
-                variant={isRecording ? 'light' : 'subtle'}
-                color="gray"
-                onClick={toggleRecording}
-                loading={isTranscribing}
-                disabled={audioAvailable === false}
-                aria-label={isRecording ? 'Stop recording' : 'Dictate'}
-              >
-                <IconMicrophone size={18} />
-              </ActionIcon>
-            </Tooltip>
             <Tooltip label="Send" withArrow>
               <ActionIcon
                 size={36}
@@ -209,15 +175,7 @@ export function HermesWidget() {
   )
 }
 
-function ThreadRow({
-  thread,
-  speaking,
-  onClick,
-}: {
-  thread: HermesThread
-  speaking: boolean
-  onClick: () => void
-}) {
+function ThreadRow({ thread, onClick }: { thread: HermesThread; onClick: () => void }) {
   return (
     <UnstyledButton
       className={classes['threadRow']}
@@ -243,9 +201,7 @@ function ThreadRow({
             </Text>
           </Group>
           <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-            {speaking
-              ? 'Speaking'
-              : formatDistanceToNowStrict(new Date(thread.updated_at), { addSuffix: false })}
+            {formatDistanceToNowStrict(new Date(thread.updated_at), { addSuffix: false })}
           </Text>
         </Group>
       </Box>

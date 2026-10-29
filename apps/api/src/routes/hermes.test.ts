@@ -1839,7 +1839,7 @@ describe('plugin-level auth (every Hermes route requires a bearer token)', () =>
 // test file. One representative path per domain-route group mounted BELOW
 // authGuard in app.ts's .use() chain must 401 unauthenticated; the
 // deliberately public groups mounted ABOVE authGuard (healthRoute,
-// oauthRoutes, audioFileRoutes) must NOT.
+// oauthRoutes) must NOT.
 //
 // `buildFullApp()` (aliased from `buildApp` in app.ts) is side-effect-free on
 // call — no migrations, no .listen(), no port — so this needs no DB fixture
@@ -1889,7 +1889,6 @@ const GUARDED_ROUTE_CASES: Array<{
 const PUBLIC_ROUTE_CASES: Array<{ group: string; method: string; path: string }> = [
   { group: 'healthRoute', method: 'GET', path: '/health' },
   { group: 'oauthRoutes', method: 'GET', path: '/oauth/google/init' },
-  { group: 'audioFileRoutes', method: 'GET', path: `/ai/v1/audio/file/${'a'.repeat(64)}` },
 ]
 
 describe('order-level auth (composed app.ts — mount order, not the plugin)', () => {

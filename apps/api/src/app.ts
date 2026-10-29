@@ -40,7 +40,7 @@ import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { hermesRoutes, hermesPublicHealthRoute } from './routes/hermes.js'
-import { aiRoutes, audioFileRoutes } from './routes/ai.js'
+import { aiRoutes } from './routes/ai.js'
 import { agentRoutes } from './routes/agents.js'
 import { wardenRoutes } from './routes/warden.js'
 import { authGuard } from './lib/auth-guard.js'
@@ -175,7 +175,7 @@ export function buildApp() {
               {
                 name: 'Agents',
                 description:
-                  'Agent observation surface. agent-gateway on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. Argo stores and serves; it derives nothing — the producer owns the semantics.',
+                  'Agent observation surface. agent-workflows (the `agw` overview workflow) on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. Argo stores and serves; it derives nothing — the producer owns the semantics.',
               },
               {
                 name: 'Warden',
@@ -260,7 +260,6 @@ export function buildApp() {
       .use(healthRoute)
       .use(hermesPublicHealthRoute)
       .use(oauthRoutes)
-      .use(audioFileRoutes)
       // Everything below this line is auth-gated by authGuard. This ordering
       // is load-bearing — moving a route above this .use() would expose it
       // without Bearer auth — and is asserted by a test that imports

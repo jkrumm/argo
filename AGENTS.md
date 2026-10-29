@@ -21,10 +21,11 @@ The **marine** half of that feature exists **API-only**: `/marine/window` and `/
 
 The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`. All routes require a bearer except `GET /hermes/health/public` (unauthenticated, `{ok, degraded}` only, for Uptime Kuma).
 
-## Agents — the agent-gateway overview surface
+## Agents — the agent-workflows overview surface
 
-`POST /agents/overview` ingests the agent-gateway overview payload (machine, generatedAt, optional
-`humanQueue`) pushed every 10 minutes from every dev host; `GET /agents/overview[?machine=]` and
+`POST /agents/overview` ingests the overview payload (machine, generatedAt, optional
+`humanQueue`) pushed every 10 minutes from every dev host by agent-workflows (the `agw` overview
+workflow); `GET /agents/overview[?machine=]` and
 `/agents/overview/history?hours=` (max 168) read it back — raw jsonb, loosely validated, 7-day
 retention pruned on ingest. `POST`/`GET /agents/narratives` stores the per-project narrative
 upserts from `hermes-agent`'s `project-narratives.py`. The dashboard's **System → Agents** page

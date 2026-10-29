@@ -19,14 +19,8 @@ import { ThreadList } from './thread-list'
 import { buildView, emptyNote, listEndNote, summaryHeadline, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
-import { ThreadSpeaker } from './use-auto-speak'
 import { useThreadActions } from './use-thread-actions'
-import { HERMES_CHAT_FEATURES } from './features'
 import { isLiveRun, settledRunIds } from './run-liveness'
-import { useVoicePlayback } from './voice/voice-playback'
-import { useVoiceRecorder } from './voice/use-voice-recorder'
-import { VoiceControls } from './voice/voice-controls'
-import { RecordingIndicator } from './voice/recording-indicator'
 import { isThreadPersisted, useHermesThreads } from './threads-store'
 import {
   hermesTransport,
@@ -62,9 +56,7 @@ const BLEED_MARGIN = 'calc(var(--app-shell-padding) * -1)'
 // thread's own composer, so the composer stays on screen.
 const THREAD_BODY_HEIGHT = `calc(${FILL_HEIGHT} - 17rem)`
 
-// The playback provider is lifted to the app root so the header widget and every thread
-// share ONE <audio> element — the key to iOS autoplay surviving navigation. The page is
-// just the feed now.
+// The page is just the feed.
 export function HermesChatPage() {
   return <HermesChatFeed />
 }
@@ -212,33 +204,6 @@ function HermesChatFeed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hermesIntent])
 
-  // ── Voice: master toggle + dictation that starts a chat ──────────────────────
-  const voiceMode = useUiStore((s) => s.voiceMode)
-  const toggleVoiceMode = useUiStore((s) => s.toggleVoiceMode)
-  const { audioAvailable, setAudioAvailable, primePlayback } = useVoicePlayback()
-
-  // Mirror voice mode into a ref for the recorder's async onResult. Assigned in render
-  // (no effect) to avoid a frame of staleness.
-  const voiceModeRef = useRef(voiceMode)
-  voiceModeRef.current = voiceMode
-
-  const {
-    isRecording,
-    isTranscribing,
-    recordingMs,
-    toggle: toggleRecording,
-  } = useVoiceRecorder({
-    setAudioAvailable,
-    onPrime: primePlayback,
-    onResult: (transcript) => {
-      // Voice mode: dictation immediately starts a new chat (the new thread inherits
-      // voice mode from the shared store and speaks its reply). Otherwise fill the
-      // composer's draft so it can be reviewed before sending.
-      if (voiceModeRef.current) startChatWith(transcript)
-      else composerRef.current?.insertText(transcript)
-    },
-  })
-
   if (!store.hydrated) {
     if (store.error !== undefined) {
       return (
@@ -272,9 +237,6 @@ function HermesChatFeed() {
 
   return (
     <Stack h={FILL_HEIGHT} gap={0} style={{ margin: BLEED_MARGIN }}>
-      {store.threads.map((thread) => (
-        <ThreadSpeaker key={thread.id} threadId={thread.id} run={runs.get(thread.id)} />
-      ))}
       <PageBar
         actions={[
           { key: 'health', kind: 'custom', node: <HermesHealth />, primary: true, mobile: 'bar' },
@@ -368,24 +330,11 @@ function HermesChatFeed() {
               paddingBottom: 'max(var(--mantine-spacing-sm), env(safe-area-inset-bottom))',
             }}
           >
-            {isRecording && <RecordingIndicator recordingMs={recordingMs} />}
             <Composer
               ref={composerRef}
               onSubmit={handleComposerSubmit}
               draftKey="hermes-new-chat"
-              placeholder={voiceMode ? 'Talk or type a new chat…' : 'New chat with Hermes…'}
-              rightSection={
-                HERMES_CHAT_FEATURES.audioTranscription ? (
-                  <VoiceControls
-                    voiceMode={voiceMode}
-                    onToggleVoiceMode={toggleVoiceMode}
-                    isRecording={isRecording}
-                    isTranscribing={isTranscribing}
-                    audioAvailable={audioAvailable}
-                    onMicClick={toggleRecording}
-                  />
-                ) : undefined
-              }
+              placeholder="New chat with Hermes…"
             />
           </Box>
         </>

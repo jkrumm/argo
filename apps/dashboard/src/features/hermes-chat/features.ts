@@ -7,12 +7,9 @@
 export const HERMES_CHAT_FEATURES: {
   imageUpload: boolean
   fileUpload: boolean
-  audioTranscription: boolean
 } = {
   // Image attachments are not yet forwarded to Hermes (no multimodal support).
   imageUpload: false,
   // File attachments are not yet forwarded to Hermes.
   fileUpload: false,
-  // Voice input (mic → STT transcription) + voice mode (auto-send + spoken replies).
-  audioTranscription: true,
 }

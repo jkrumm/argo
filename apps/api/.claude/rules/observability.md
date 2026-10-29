@@ -115,7 +115,7 @@ A response with **no body**, a **non-2xx status**, or the caller simply not pass
 
 **Current opt-in call sites** — set `streamLifecycle: true` because they genuinely stream a body the caller consumes over time:
 
-- `apps/api/src/routes/ai.ts` — the `/ai/v1/chat/completions` passthrough and the three `/ai/v1/audio/*` proxies (transcriptions, speech, podcast).
+- `apps/api/src/routes/ai.ts` — the `/ai/v1/chat/completions` passthrough.
 - `apps/api/src/routes/hermes.ts` — the Hermes chat-stream call. (`ensureHermesSession` in `hermes-upstream.ts` deliberately stays on the default — it never reads its 201 body.)
 
 Everything else stays on the default. Don't flip `streamLifecycle: true` on a call site unless its caller actually consumes the body over time (streams it to a client, or reads it to completion as part of the request) — flipping it on a fire-and-forget or `.ok`-only call reintroduces the exact defect this opt-in exists to prevent.

@@ -58,7 +58,7 @@ export const Env = z.object({
 
   // ── Hermes Chat (see docs/HERMES-CHAT-V2.md) ──────────────────────────────
   // All optional so the API boots in test/CI without live cross-machine
-  // upstreams (Hermes Mac Mini, audio-proxy, IU AI endpoint). Real values are
+  // upstreams (Hermes Mac Mini, IU AI endpoint). Real values are
   // provisioned in Group 0 (op://vps/argo/*). Group 1 wires config only — no
   // behavior; handlers land in Groups 2–3.
 
@@ -95,11 +95,6 @@ export const Env = z.object({
   // modelpick/docs/decisions/model-configs.md. Enum is the set live-probed for
   // deepseek-v4.1-flash ("medium" is not accepted).
   DEEPSEEK_REASONING_EFFORT: z.enum(['low', 'high', 'xhigh', 'max']).default('high'),
-
-  // Audio (STT + TTS) — forwarded to the audio-gateway service (audio-gateway:7714).
-  // The gateway is the single source of truth for all audio processing; Argo proxies.
-  // Defaults to the in-cluster Docker service name; override for local dev if needed.
-  AUDIO_GATEWAY_URL: z.string().default('http://audio-gateway:7714'),
 
   // Valkey/Redis URL for durable/resumable Hermes chat streaming (resumable-stream
   // pub/sub + sentinel key). Empty DISABLES durability — POST /hermes/chat then
