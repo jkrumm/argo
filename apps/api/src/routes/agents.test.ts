@@ -12,7 +12,7 @@ const snapshot = (overrides: Record<string, unknown> = {}) => ({
   machine: 'mini',
   generatedAt: NOW,
   staleAfterHours: 24,
-  summary: { needsYou: 1, working: 2, idle: 0, stale: 0, done: 1, dispatch: 0 },
+  summary: { needsYou: 1, working: 2, idle: 0, stale: 0, done: 1 },
   projects: [
     {
       name: 'argo',
@@ -103,11 +103,18 @@ describe('/agents/overview', () => {
       idle: 0,
       stale: 0,
       done: 1,
-      dispatch: 0,
     })
     const agent = (stored['projects'] as { agents: Record<string, unknown>[] }[])[0]!.agents[0]!
     expect(agent['futureField']).toEqual({ nested: true })
     expect((stored['humanQueue'] as unknown[]).length).toBe(1)
+  })
+
+  it('accepts a summary without dispatch and one that still carries it', async () => {
+    const counts = { needsYou: 1, working: 2, idle: 0, stale: 0, done: 1 }
+    const without = await post('/agents/overview', snapshot({ summary: counts }))
+    expect(without.status).toBe(201)
+    const legacy = await post('/agents/overview', snapshot({ summary: { ...counts, dispatch: 3 } }))
+    expect(legacy.status).toBe(201)
   })
 
   it('accepts an ISO generatedAt and rejects an unparsable one', async () => {
@@ -182,7 +189,7 @@ describe('/agents/overview', () => {
       received_at: new Date(NOW - 30 * 3_600_000).toISOString(),
       raw: {
         generatedAt: NOW - 30 * 3_600_000,
-        summary: { needsYou: 9, working: 0, idle: 0, stale: 0, done: 0, dispatch: 0 },
+        summary: { needsYou: 9, working: 0, idle: 0, stale: 0, done: 0 },
       },
     })
     await db.insert(agentOverviewSnapshot).values({
