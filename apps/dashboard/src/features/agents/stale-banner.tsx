@@ -13,7 +13,7 @@ type Props = {
 /**
  * Renders only when the feed itself is suspect: no snapshot at all, or the latest one older than
  * 30 minutes. A quiet machine still pushes on schedule, so age is a statement about the producer
- * (agent-gateway on the dev host), not about the agents.
+ * (agent-workflows on the dev host), not about the agents.
  */
 export function StaleBanner({ latest, fetchFailed = false }: Props) {
   if (fetchFailed) return null
@@ -27,8 +27,9 @@ export function StaleBanner({ latest, fetchFailed = false }: Props) {
         icon={<IconInfoCircle size={16} />}
         title={NO_SNAPSHOT_SHORT}
       >
-        agent-gateway pushes to <Code>POST /agents/overview</Code> every 10&nbsp;min from each dev
-        host. If this stays empty, check that agent-gateway is running on a dev host.
+        agent-workflows (<Code>agw</Code> overview workflow) pushes to{' '}
+        <Code>POST /agents/overview</Code> every 10&nbsp;min from each dev host. If this stays
+        empty, check that agent-workflows is running on a dev host.
       </Alert>
     )
   }

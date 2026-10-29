@@ -16,9 +16,7 @@ import { CrashFallback } from '../lib/error-boundary'
 import { TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
 import { useSidebarBlocks } from '../components/app-shell/use-sidebar-blocks'
-import { HermesVoiceButton } from '../features/hermes-chat/hermes-voice-button'
 import { HermesWidget } from '../features/hermes-chat/hermes-widget'
-import { VoicePlaybackProvider } from '../features/hermes-chat/voice/voice-playback'
 import { NAV } from '../lib/nav'
 
 export const Route = createRootRouteWithContext<BasaltRouterContext>()({
@@ -75,8 +73,7 @@ function RootLayout() {
    * A `'more'` node is mounted a SECOND time inside the header's single kebab, so anything holding
    * live local state rides the bar instead: the timer widget (its own engine state, and it renders
    * null when idle), the notification bell, and the Hermes widget (a local `input` value — two
-   * mounts would be two half-typed prompts). Hermes VOICE is safe to double-mount because its
-   * state lives in `VoicePlaybackProvider` above the shell.
+   * mounts would be two half-typed prompts).
    *
    * Theme is `'hidden'`: the three theme rows are already in the sidebar settings menu below, and
    * a second entry in the kebab would be the same control twice.
@@ -85,7 +82,6 @@ function RootLayout() {
     { key: 'timer', node: <TimerNavWidget />, mobile: 'bar' },
     { key: 'bell', node: <NotificationBell />, mobile: 'bar' },
     { key: 'hermes-widget', node: <HermesWidget />, mobile: 'bar' },
-    { key: 'hermes-voice', node: <HermesVoiceButton />, mobile: 'more' },
     {
       key: 'sync',
       // `scope: 'global'` is icon-only at every viewport — the same shape the local
@@ -104,22 +100,20 @@ function RootLayout() {
   ]
 
   return (
-    <VoicePlaybackProvider>
-      <BasaltShell
-        brand={{ name: 'Argo', logoSrc: '/favicon.svg', version: __APP_VERSION__ }}
-        nav={NAV}
-        badges={{ calendar: badges.calendar, m365: badges.m365 }}
-        globalActions={globalActions}
-        sidebarBlocks={sidebarBlocks}
-        settingsMenuItems={settingsMenuItems}
-        // The three theme rows are CONTROLS, not destinations, so the ≤3 flat-footer rule reads
-        // them wrong — a radio group flattened into the footer is a widget pile. Force the menu.
-        settingsMenu="menu"
-        // Must stay `argo-sidebar`: it keys the `basalt:argo-sidebar` envelope already in users' browsers.
-        storageKey="argo-sidebar"
-      >
-        <Outlet />
-      </BasaltShell>
-    </VoicePlaybackProvider>
+    <BasaltShell
+      brand={{ name: 'Argo', logoSrc: '/favicon.svg', version: __APP_VERSION__ }}
+      nav={NAV}
+      badges={{ calendar: badges.calendar, m365: badges.m365 }}
+      globalActions={globalActions}
+      sidebarBlocks={sidebarBlocks}
+      settingsMenuItems={settingsMenuItems}
+      // The three theme rows are CONTROLS, not destinations, so the ≤3 flat-footer rule reads
+      // them wrong — a radio group flattened into the footer is a widget pile. Force the menu.
+      settingsMenu="menu"
+      // Must stay `argo-sidebar`: it keys the `basalt:argo-sidebar` envelope already in users' browsers.
+      storageKey="argo-sidebar"
+    >
+      <Outlet />
+    </BasaltShell>
   )
 }

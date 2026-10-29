@@ -19,7 +19,7 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 
 - `__root.tsx` — AppShell sidebar layout + theme toggle + `<Outlet />`
 - `index.tsx` — Today (the home page: merged needs-you inbox, day strip, agenda, activity; `features/home/`, `lib/decisions.ts`)
-- `agents.tsx` — Agents page (System → the agent-gateway overview snapshot Argo stores)
+- `agents.tsx` — Agents page (System → the agent-workflows overview snapshot Argo stores)
 - `astro-window.tsx` — Astro Window page
 - `body-composition.tsx` — Body Composition page
 - `calendar.tsx` — Calendar page

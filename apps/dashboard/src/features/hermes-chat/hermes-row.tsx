@@ -1,22 +1,20 @@
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ThreadFeedRow,
   type AgentPart,
   type AgentThread,
-  type ComposerHandle,
   type ThreadRunState,
 } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import { isThreadPersisted, mergeOptimisticMessages, toChatMessage } from './threads-store'
 import type { HermesChatMessage } from './threads-store'
 import { hermesThreadRenderers } from './thread-renderers'
-import { useHermesThreadVoice } from './use-hermes-thread-voice'
 import classes from './hermes-row.module.css'
 
 // The open Hermes thread: adopts basalt's own `ThreadFeedRow` (1.29.0) for the lazy-mount/
 // transcript/composer shell, and supplies only what's genuinely app-specific — the confirmed-vs-
-// optimistic message merge and voice. The row's own header is hidden: the thread's title, type and
+// optimistic message merge. The row's own header is hidden: the thread's title, type and
 // facts live in `ThreadRecordHeader` (the list in `ThreadList` is where threads are chosen), so
 // this renders the transcript and composer only.
 
@@ -53,9 +51,6 @@ export function HermesRow({
     [serverMessages, thread.messages],
   )
 
-  const composerRef = useRef<ComposerHandle>(null)
-  const voice = useHermesThreadVoice({ thread, run, composerRef, onSend })
-
   return (
     <ThreadFeedRow
       thread={thread}
@@ -69,13 +64,9 @@ export function HermesRow({
       onSend={(payload) => onSend(payload.text)}
       onStop={onStop}
       renderers={hermesThreadRenderers}
-      affordances={voice.affordances}
       composerProps={{
-        ref: composerRef,
         draftKey: `hermes-thread-${thread.id}`,
         placeholder: 'Message Hermes…',
-        rightSection: voice.rightSection,
-        leftSection: voice.recordingIndicator,
       }}
     />
   )

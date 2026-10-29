@@ -84,7 +84,7 @@ describe('agents cell without a fleet', () => {
     (agentsCell(undefined, null, feed).state as { reason: string }).reason
 
   it('names the cause and the next step, one wording per feed state', () => {
-    expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10\u00a0min')
+    expect(emptyText('none')).toBe('No snapshot yet — agent-workflows pushes every 10\u00a0min')
     expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
     expect(emptyText(null)).toBe('No fleet counts in this snapshot')
   })

@@ -1,6 +1,7 @@
 # Hermes Chat — Design Reference
 
 > **Status (2026-09-07): shipped.** P0–P1, B1–B4 (basalt-ui 1.10–1.13), A1–A3 and A5 landed — the thin idempotent proxy, the named-event transport, the dashboard on basalt's agent primitives, voice on the composer slots.
+> **Voice removed (2026-10-29):** Argo has no audio integration any more — the `/ai/v1/audio/*` proxy, the mic, read-aloud and auto-speak are gone; the audio rows below are history. Stored `audio` cards still parse and render as a non-playing label.
 > **Deferred:** A4 (Slack rows in the feed — the bot token carries `chat:write`, but `sendMessage` still lacks the `not_in_channel` join retry and no dashboard Slack surface exists) and the hermes-agent half of A6 (its `CLAUDE.md` `API_SERVER_ENABLED` correction).
 > This file is the design reference — the phase-by-phase build record, the defect audit that drove it, and the two earlier specs it superseded were all retired 2026-09-07; `git log --since=2026-08-02 -- apps/api/src/routes/hermes.ts apps/dashboard/src/features/hermes-chat` is the build history.
 

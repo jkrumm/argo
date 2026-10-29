@@ -39,7 +39,7 @@ export const AudioCard = z.object({
   title: z.string().optional(),
   src: z.string().optional(),
   durationMs: z.number().optional(),
-  // The podcast script — synthesized on first play (lazy). NEVER rendered as prose.
+  // The podcast script — no longer synthesized; kept so stored cards still parse. NEVER rendered as prose.
   script: z.string().optional(),
 })
 

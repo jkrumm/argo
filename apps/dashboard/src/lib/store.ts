@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 
 // A one-shot navigation intent handed from the global Hermes widget to the chat
 // page: either prefill the composer with a draft, or open an existing thread.
@@ -7,44 +6,22 @@ import { persist } from 'zustand/middleware'
 export type HermesIntent = { type: 'draft'; text: string } | { type: 'open'; threadId: string }
 
 type UiState = {
-  // Hermes Chat voice mode: when on, dictated messages auto-send and replies are
-  // spoken back (a short summary). Persisted so the master toggle survives reloads
-  // and is shared across the feed composer and every open thread.
-  voiceMode: boolean
-  setVoiceMode: (v: boolean) => void
-  toggleVoiceMode: () => void
   hermesIntent: HermesIntent | null
   setHermesIntent: (i: HermesIntent) => void
   // Returns the current intent then clears it, so the chat page consumes it once.
   consumeHermesIntent: () => HermesIntent | null
-  // Persisted playback rate for the podcast audio player (0.75/1/1.25/1.5/2).
-  playbackRate: number
-  setPlaybackRate: (v: number) => void
 }
 
-export const useUiStore = create<UiState>()(
-  persist(
-    (set, get) => ({
-      voiceMode: false,
-      setVoiceMode: (v) => set({ voiceMode: v }),
-      toggleVoiceMode: () => set((s) => ({ voiceMode: !s.voiceMode })),
-      hermesIntent: null,
-      setHermesIntent: (i) => set({ hermesIntent: i }),
-      consumeHermesIntent: () => {
-        const current = get().hermesIntent
-        if (current) set({ hermesIntent: null })
-        return current
-      },
-      playbackRate: 1,
-      setPlaybackRate: (v) => set({ playbackRate: v }),
-    }),
-    {
-      name: 'argo-ui',
-      // Only the durable UI prefs persist — hermesIntent is transient routing state.
-      partialize: (s) => ({
-        voiceMode: s.voiceMode,
-        playbackRate: s.playbackRate,
-      }),
-    },
-  ),
-)
+// The store used to persist `voiceMode` / `playbackRate` under `argo-ui`. Nothing durable is
+// left, so it no longer persists; drop the orphaned key from browsers that still carry it.
+if (typeof localStorage !== 'undefined') localStorage.removeItem('argo-ui')
+
+export const useUiStore = create<UiState>()((set, get) => ({
+  hermesIntent: null,
+  setHermesIntent: (i) => set({ hermesIntent: i }),
+  consumeHermesIntent: () => {
+    const current = get().hermesIntent
+    if (current) set({ hermesIntent: null })
+    return current
+  },
+}))

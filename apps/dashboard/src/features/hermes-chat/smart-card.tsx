@@ -1,15 +1,28 @@
 import { type z } from 'zod'
 import { Badge, Card, Checkbox, Group, Stack, Text, ThemeIcon } from '@mantine/core'
-import { IconAlertTriangle, IconCircleCheck, IconCircleX, IconNote } from '@tabler/icons-react'
+import {
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconCircleX,
+  IconNote,
+  IconVolumeOff,
+} from '@tabler/icons-react'
 import { settledOnly, type FenceRenderer } from 'basalt-ui/content'
-import { AudioPlayerCard } from './voice/audio-player-card'
-import { InfraCard, NoteCard, TodoCard, parseCard, type SmartCardData } from './smart-card-schema'
+import {
+  AudioCard,
+  InfraCard,
+  NoteCard,
+  TodoCard,
+  parseCard,
+  type SmartCardData,
+} from './smart-card-schema'
 
 // Fenced ` ```card ` blocks. The agent emits JSON; this renders it as a Mantine
 // component themed to DESIGN.md. Parsing is total: any malformed / unknown shape
 // returns null so the fence renderer declines to a plain code block (never throws,
 // and only ever runs once the fence has fully settled — see `cardFenceRenderer`).
-// Card catalog v1: infra / todo / note / audio.
+// Card catalog v1: infra / todo / note / audio. Audio is parse-only: messages stored before
+// Argo's audio proxy was removed still carry the card, but it renders as a non-playing label.
 // See docs/HERMES-CHAT-V2.md → Rendering, "Cards live in markdown".
 
 const STATUS_META = {
@@ -120,6 +133,24 @@ function NoteView({ card }: { card: z.infer<typeof NoteCard> }) {
   )
 }
 
+function AudioView({ card }: { card: z.infer<typeof AudioCard> }) {
+  return (
+    <Card>
+      <Group gap="xs" wrap="nowrap">
+        <ThemeIcon size="sm" radius="sm" variant="light" color="gray">
+          <IconVolumeOff size={14} />
+        </ThemeIcon>
+        <Text fw="semibold" size="sm">
+          {card.title ?? 'Audio'}
+        </Text>
+        <Text size="xs" c="dimmed">
+          Playback is no longer available
+        </Text>
+      </Group>
+    </Card>
+  )
+}
+
 export function SmartCard({ card }: { card: SmartCardData }) {
   switch (card.type) {
     case 'infra':
@@ -129,12 +160,12 @@ export function SmartCard({ card }: { card: SmartCardData }) {
     case 'note':
       return <NoteView card={card} />
     case 'audio':
-      return <AudioPlayerCard card={card} />
+      return <AudioView card={card} />
   }
 }
 
 // Fence renderer for ```card blocks — registered into `hermesFenceRenderers`
-// (markdown-part.tsx). Wrapped in `settledOnly`: SmartCard (particularly the audio variant) is
+// (markdown-part.tsx). Wrapped in `settledOnly`: SmartCard is
 // heavyweight and must not render against a half-streamed fence. A parse failure DECLINES
 // (returns undefined) so basalt falls back to its default CodeBlock rather than a bespoke error
 // box — basalt already wraps fence renderers in a sync try/catch and a keyed error boundary.
