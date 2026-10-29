@@ -165,7 +165,7 @@ export function buildApp() {
               {
                 name: 'AI Gateway',
                 description:
-                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): the model configured by `DEEPSEEK_MODEL` on the IU unified endpoint for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
+                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): the model configured by `DEEPSEEK_MODEL` on the IU unified endpoint for titling/classification, plus STT (transcriptions) and TTS (speech) via the agent-workflows audio door.',
               },
               {
                 name: 'Reading',

@@ -95,6 +95,7 @@ DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
 # exercise audio locally — empty keeps /ai/v1/audio/* at 503. Prod's URL + token come
 # from the VPS compose (op://vps/argo/AUDIO_DOOR_TOKEN).
 AUDIO_DOOR_URL=http://localhost:7792
+# AUDIO_DOOR_TOKEN=
 #
 # Valkey/Redis for durable/resumable Hermes chat streaming. Points at the shared
 # dev Valkey from ~/SourceRoot/vps/compose.dev.yml (exposed on :6379). Empty

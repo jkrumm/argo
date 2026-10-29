@@ -94,13 +94,20 @@ const AUDIO_SOURCE_HEADER: Record<string, string> = { 'x-audio-source': 'argo-ap
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
+interface AudioDoor {
+  url: string
+  headers: Record<string, string>
+  /** A redirect would replay the bearer at another location: every door call errors on one. */
+  redirect: 'error'
+}
+
 /**
- * Resolved audio door target: base URL plus the headers every upstream call carries
- * (bearer + caller label). `null` when the door is not usable — URL or token unset,
+ * Resolved audio door target: base URL plus what every upstream call carries
+ * (bearer + caller label, no redirects). `null` when the door is not usable — URL or token unset,
  * unparseable URL, or plain http to a non-loopback host (the bearer must never cross
  * the network in clear) — and the route then answers 503.
  */
-function audioDoor(deps: AiRouteDeps): { url: string; headers: Record<string, string> } | null {
+function audioDoor(deps: AiRouteDeps): AudioDoor | null {
   if (!deps.audioDoorUrl || !deps.audioDoorToken) return null
   let parsed: URL
   try {
@@ -116,7 +123,42 @@ function audioDoor(deps: AiRouteDeps): { url: string; headers: Record<string, st
   return {
     url: deps.audioDoorUrl.replace(/\/+$/, ''),
     headers: { ...AUDIO_SOURCE_HEADER, ...bearer(deps.audioDoorToken) },
+    redirect: 'error',
   }
+}
+
+const doorFailure = (message: string) =>
+  Response.json({ error: { message, type: 'upstream_error' } }, { status: 502 })
+
+/**
+ * One call to the audio door. The door's own auth failure (401/403: argo's credential,
+ * not the client's) and a thrown fetch (door down, TLS, redirect) both become a 502 with
+ * a generic message — never the door's status as argo's own 401, never the URL or host
+ * in a body or log.
+ */
+async function doorFetch(
+  deps: AiRouteDeps,
+  door: AudioDoor,
+  path: string,
+  init: Omit<RequestInit, 'redirect' | 'headers'> & { headers?: Record<string, string> },
+): Promise<Response> {
+  let res: Response
+  try {
+    res = await deps.fetchImpl(
+      `${door.url}${path}`,
+      { ...init, headers: { ...init.headers, ...door.headers }, redirect: door.redirect },
+      { streamLifecycle: true },
+    )
+  } catch {
+    log.error('argo audio door unreachable', { path })
+    return doorFailure('audio door unreachable')
+  }
+  if (res.status === 401 || res.status === 403) {
+    await res.body?.cancel().catch(() => {})
+    log.error('argo audio door rejected the caller credential', { path, status: res.status })
+    return doorFailure('audio door rejected the request')
+  }
+  return res
 }
 
 const audioNotConfigured = (what: 'STT' | 'TTS') => ({
@@ -406,15 +448,10 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           } else if (value !== null && value !== undefined) form.append(key, String(value))
         }
         // Do NOT set Content-Type — fetch sets the multipart boundary automatically.
-        const upstream = await deps.fetchImpl(
-          `${door.url}/v1/audio/transcriptions`,
-          {
-            method: 'POST',
-            headers: door.headers,
-            body: form,
-          },
-          { streamLifecycle: true },
-        )
+        const upstream = await doorFetch(deps, door, '/v1/audio/transcriptions', {
+          method: 'POST',
+          body: form,
+        })
         const headers = new Headers()
         headers.set('content-type', upstream.headers.get('content-type') ?? 'application/json')
         return new Response(upstream.body, { status: upstream.status, headers })
@@ -437,15 +474,11 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
       async ({ body, status }) => {
         const door = audioDoor(deps)
         if (!door) return status(503, audioNotConfigured('TTS'))
-        const upstream = await deps.fetchImpl(
-          `${door.url}/v1/audio/speech`,
-          {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', ...door.headers },
-            body: JSON.stringify(body),
-          },
-          { streamLifecycle: true },
-        )
+        const upstream = await doorFetch(deps, door, '/v1/audio/speech', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        })
         const headers = new Headers()
         headers.set('content-type', upstream.headers.get('content-type') ?? 'audio/mpeg')
         const audioTitle = upstream.headers.get('x-audio-title')
@@ -466,30 +499,28 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
     .post(
       '/v1/audio/podcast',
       async ({ body, status }) => {
-        const door = audioDoor(deps)
-        if (!door) return status(503, audioNotConfigured('TTS'))
         const { script, title: requestTitle } = body as { script: string; title?: string }
         const hash = hashScript(script)
 
-        // Cache hit — return metadata without calling the door again.
+        // Cache hit — answered before the door config check: a cached episode needs
+        // no door, and the door is not called again.
         if (await deps.audioStore.has(hash)) {
           const cached = await deps.audioStore.read(hash)
           return { hash, title: requestTitle ?? '', bytes: cached?.length ?? 0 }
         }
 
+        const door = audioDoor(deps)
+        if (!door) return status(503, audioNotConfigured('TTS'))
+
         const startedAt = new Date().toISOString()
         const startMs = Date.now()
 
         // Only send `input` — the audio door owns model selection.
-        const upstream = await deps.fetchImpl(
-          `${door.url}/v1/audio/speech`,
-          {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', ...door.headers },
-            body: JSON.stringify({ input: script }),
-          },
-          { streamLifecycle: true },
-        )
+        const upstream = await doorFetch(deps, door, '/v1/audio/speech', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ input: script }),
+        })
 
         if (!upstream.ok) {
           const detail = await upstream.text().catch(() => '')
@@ -499,6 +530,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           // 502 the client is about to receive.
           deps
             .recordUsage({
+              // Legacy label kept on purpose: renaming would split the per-model usage history.
               model: 'audio-gateway/tts',
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
               subTool: 'podcast',
@@ -530,6 +562,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
 
         deps
           .recordUsage({
+            // Legacy label kept on purpose: renaming would split the per-model usage history.
             model: 'audio-gateway/tts',
             usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
             subTool: 'podcast',

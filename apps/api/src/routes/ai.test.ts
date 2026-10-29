@@ -48,6 +48,7 @@ interface Captured {
   method: string
   headers: Headers
   body: RequestInit['body']
+  redirect?: RequestInit['redirect']
 }
 
 /** Fake OpenAI-compatible upstream + a log of what each route received. */
@@ -60,6 +61,7 @@ function fakeUpstream(): { fetchImpl: FetchImpl; calls: Captured[] } {
       method: init?.method ?? 'GET',
       headers: new Headers(init?.headers ?? {}),
       body: init?.body,
+      redirect: init?.redirect,
     })
     if (url.endsWith('/chat/completions')) {
       return Promise.resolve(
@@ -94,6 +96,7 @@ function fakeFailingAudioDoor(): { fetchImpl: FetchImpl; calls: Captured[] } {
       method: init?.method ?? 'GET',
       headers: new Headers(init?.headers ?? {}),
       body: init?.body,
+      redirect: init?.redirect,
     })
     return Promise.resolve(new Response('upstream synthesis failed', { status: 500 }))
   }
@@ -110,6 +113,7 @@ function fakeAudioDoor(): { fetchImpl: FetchImpl; calls: Captured[] } {
       method: init?.method ?? 'GET',
       headers: new Headers(init?.headers ?? {}),
       body: init?.body,
+      redirect: init?.redirect,
     })
     if (url.endsWith('/v1/audio/transcriptions')) {
       return Promise.resolve(
@@ -389,6 +393,91 @@ describe('audio door configuration guard', () => {
     const res = await appWith(fetchImpl, { audioDoorUrl: 'not a url' }).handle(speechReq())
     expect(res.status).toBe(503)
     expect(calls).toHaveLength(0)
+  })
+})
+
+describe('audio door failure handling', () => {
+  const speechReq = () =>
+    new Request('http://localhost/ai/v1/audio/speech', {
+      method: 'POST',
+      headers: { ...authHeaders, 'content-type': 'application/json' },
+      body: JSON.stringify({ input: 'Hallo' }),
+    })
+  const transcribeReq = () => {
+    const form = new FormData()
+    form.append('file', new File([new Uint8Array([1])], 'c.webm'))
+    return new Request('http://localhost/ai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: authHeaders,
+      body: form,
+    })
+  }
+  const podcastReq = (script = 'Door failure') =>
+    new Request('http://localhost/ai/v1/audio/podcast', {
+      method: 'POST',
+      headers: { ...authHeaders, 'content-type': 'application/json' },
+      body: JSON.stringify({ script }),
+    })
+  const routes = [
+    ['speech', speechReq],
+    ['transcriptions', transcribeReq],
+    ['podcast', podcastReq],
+  ] as const
+  const appFor = (fetchImpl: FetchImpl, audioStore?: AudioStore) =>
+    new Elysia().use(authGuard).use(createAiRoutes(buildDeps(fetchImpl, audioStore)))
+
+  it.each(routes)('%s: every door call sets redirect "error"', async (_name, req) => {
+    const { fetchImpl, calls } = fakeAudioDoor()
+    await appFor(fetchImpl).handle(req())
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.redirect).toBe('error')
+  })
+
+  it.each(routes)('%s: door 401 → argo 502 upstream_error, not 401', async (_name, req) => {
+    const fetchImpl: FetchImpl = () => Promise.resolve(new Response('nope', { status: 401 }))
+    const res = await appFor(fetchImpl).handle(req())
+    expect(res.status).toBe(502)
+    const body = (await res.json()) as { error: { type: string; message: string } }
+    expect(body.error.type).toBe('upstream_error')
+    expect(body.error.message).not.toContain('nope')
+  })
+
+  it.each(routes)('%s: door 403 → argo 502', async (_name, req) => {
+    const fetchImpl: FetchImpl = () => Promise.resolve(new Response('no', { status: 403 }))
+    const res = await appFor(fetchImpl).handle(req())
+    expect(res.status).toBe(502)
+  })
+
+  it.each(routes)('%s: thrown fetch → 502 without the URL or host', async (_name, req) => {
+    const fetchImpl: FetchImpl = () =>
+      Promise.reject(new Error(`connect ECONNREFUSED ${AUDIO_DOOR}/v1/audio/speech`))
+    const res = await appFor(fetchImpl).handle(req())
+    expect(res.status).toBe(502)
+    const text = await res.text()
+    expect(text).toContain('upstream_error')
+    expect(text).not.toContain('audio-door.test')
+    expect(text).not.toContain('ECONNREFUSED')
+  })
+
+  it('podcast: a cache hit is answered without door config or a door call', async () => {
+    const store = makeMemoryStore()
+    const { fetchImpl, calls } = fakeAudioDoor()
+    const warm = await appFor(fetchImpl, store).handle(podcastReq('Cached episode'))
+    expect(warm.status).toBe(200)
+    expect(calls).toHaveLength(1)
+
+    const unconfigured = new Elysia().use(authGuard).use(
+      createAiRoutes({
+        ...buildDeps(fetchImpl, store),
+        audioDoorUrl: '',
+        audioDoorToken: '',
+      }),
+    )
+    const hit = await unconfigured.handle(podcastReq('Cached episode'))
+    expect(hit.status).toBe(200)
+    expect(calls).toHaveLength(1)
+    const miss = await unconfigured.handle(podcastReq('Uncached episode'))
+    expect(miss.status).toBe(503)
   })
 })
 
