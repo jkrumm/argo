@@ -147,7 +147,7 @@ const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isF
 
 // ── Fleet by state ───────────────────────────────────────────────────────────────────────────
 
-/** Segment order of the fleet meter. `dispatch` is a source count that overlaps working/done, so it is never a part. */
+/** Segment order of the fleet meter. */
 const FLEET_STATES = ['working', 'needs_you', 'idle', 'stale', 'done'] as const
 type SummaryState = (typeof FLEET_STATES)[number]
 export type FleetState = SummaryState | 'unknown'

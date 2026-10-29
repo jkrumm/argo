@@ -111,8 +111,8 @@ describe('isAbandonedWait', () => {
 // ── fleetParts ──────────────────────────────────────────────────────────────
 
 describe('fleetParts', () => {
-  it('orders the five parts and totals exactly their sum, leaving dispatch out', () => {
-    const summary = { needsYou: 2, working: 5, idle: 3, stale: 1, done: 4, dispatch: 9 }
+  it('orders the five parts and totals exactly their sum', () => {
+    const summary = { needsYou: 2, working: 5, idle: 3, stale: 1, done: 4 }
     const fleet = fleetParts(summary)
     expect(fleet?.parts.map((p) => p.key)).toEqual([
       'working',
@@ -126,7 +126,7 @@ describe('fleetParts', () => {
   })
 
   it('adds unknown-state agents as a sixth part so the total matches the roster', () => {
-    const summary = { needsYou: 0, working: 1, idle: 0, stale: 0, done: 0, dispatch: 0 }
+    const summary = { needsYou: 0, working: 1, idle: 0, stale: 0, done: 0 }
     const fleet = fleetParts(summary, 2)
     expect(fleet?.parts.at(-1)).toEqual({ key: 'unknown', label: 'unknown', value: 2 })
     expect(fleet?.total).toBe(3)

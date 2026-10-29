@@ -83,7 +83,6 @@ const SummarySchema = z.looseObject({
   idle: z.number().int(),
   stale: z.number().int(),
   done: z.number().int(),
-  dispatch: z.number().int(),
 })
 
 const OverviewMetaSchema = z.looseObject({
@@ -280,7 +279,7 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
         tags: ['Agents'],
         summary: 'Agent state counts over time',
         description:
-          'Returns one point per stored snapshot in the last `hours` (default 24, max 168), oldest first, carrying only the `summary` counts (needsYou, working, idle, stale, done, dispatch) — the shape a sparkline wants. `summary` is null for a snapshot that carried none. For the full latest payload use GET /agents/overview.',
+          'Returns one point per stored snapshot in the last `hours` (default 24, max 168), oldest first, carrying only the `summary` counts (needsYou, working, idle, stale, done) — the shape a sparkline wants. `summary` is null for a snapshot that carried none. For the full latest payload use GET /agents/overview.',
         security: [{ BearerAuth: [] }],
       },
     },
