@@ -37,7 +37,8 @@ function makeMemoryStore(): AudioStore {
 
 const DEEPSEEK_KEY = 'DEEPSEEK_SECRET_KEY'
 const DEEPSEEK_BASE = 'https://deepseek-eu.bridge.test/v1'
-const AUDIO_GATEWAY = 'https://audio-gateway.test'
+const AUDIO_DOOR = 'https://audio-door.test'
+const AUDIO_TOKEN = 'door-token-secret'
 
 const SECRET = process.env['API_SECRET'] ?? ''
 const authHeaders = { Authorization: `Bearer ${SECRET}` }
@@ -83,8 +84,8 @@ function fakeUpstream(): { fetchImpl: FetchImpl; calls: Captured[] } {
   return { fetchImpl, calls }
 }
 
-/** Fake audio-gateway upstream whose /v1/audio/speech leg always fails. */
-function fakeFailingAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } {
+/** Fake audio door upstream whose /v1/audio/speech leg always fails. */
+function fakeFailingAudioDoor(): { fetchImpl: FetchImpl; calls: Captured[] } {
   const calls: Captured[] = []
   const fetchImpl: FetchImpl = (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -99,8 +100,8 @@ function fakeFailingAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } 
   return { fetchImpl, calls }
 }
 
-/** Fake audio-gateway upstream for the audio proxy tests. */
-function fakeAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } {
+/** Fake audio door upstream for the audio proxy tests. */
+function fakeAudioDoor(): { fetchImpl: FetchImpl; calls: Captured[] } {
   const calls: Captured[] = []
   const fetchImpl: FetchImpl = (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -112,7 +113,7 @@ function fakeAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } {
     })
     if (url.endsWith('/v1/audio/transcriptions')) {
       return Promise.resolve(
-        new Response(JSON.stringify({ text: 'gateway transcribed' }), {
+        new Response(JSON.stringify({ text: 'door transcribed' }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
         }),
@@ -124,7 +125,7 @@ function fakeAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } {
           status: 200,
           headers: {
             'content-type': 'audio/mpeg',
-            'x-audio-title': encodeURIComponent('Gateway Title'),
+            'x-audio-title': encodeURIComponent('Door Title'),
           },
         }),
       )
@@ -139,7 +140,8 @@ function buildDeps(fetchImpl: FetchImpl, audioStore?: AudioStore): Partial<AiRou
     deepseekBaseURL: DEEPSEEK_BASE,
     deepseekApiKey: DEEPSEEK_KEY,
     deepseekModel: 'DeepSeek-V4-Flash',
-    audioGatewayUrl: AUDIO_GATEWAY,
+    audioDoorUrl: AUDIO_DOOR,
+    audioDoorToken: AUDIO_TOKEN,
     // No-op by default so HTTP tests don't touch the DB; usage-specific tests
     // override this with a capturing recorder.
     recordUsage: async () => {},
@@ -229,8 +231,8 @@ describe('POST /ai/v1/chat/completions', () => {
 })
 
 describe('POST /ai/v1/audio/transcriptions (proxy)', () => {
-  it('forwards multipart body to audio-gateway and returns its response', async () => {
-    const { fetchImpl, calls } = fakeAudioGateway()
+  it('forwards multipart body to the audio door with the caller bearer and returns its response', async () => {
+    const { fetchImpl, calls } = fakeAudioDoor()
     const form = new FormData()
     form.append('file', new File([new Uint8Array([1, 2, 3])], 'clip.webm', { type: 'audio/webm' }))
     form.append('model', 'gpt-4o-transcribe')
@@ -244,24 +246,25 @@ describe('POST /ai/v1/audio/transcriptions (proxy)', () => {
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as { text: string }
-    expect(body.text).toBe('gateway transcribed')
+    expect(body.text).toBe('door transcribed')
 
     const call = calls.find((c) => c.url.endsWith('/v1/audio/transcriptions'))
-    expect(call?.url).toBe(`${AUDIO_GATEWAY}/v1/audio/transcriptions`)
+    expect(call?.url).toBe(`${AUDIO_DOOR}/v1/audio/transcriptions`)
     expect(call?.method).toBe('POST')
     // Content-Type must NOT be set manually — fetch sets the multipart boundary.
     expect(call?.headers.get('content-type')).toBeNull()
     expect(call?.headers.get('x-audio-source')).toBe('argo-api')
+    expect(call?.headers.get('authorization')).toBe(`Bearer ${AUDIO_TOKEN}`)
     const forwarded = call?.body as FormData
     expect(forwarded).toBeInstanceOf(FormData)
     expect(forwarded.get('file')).toBeInstanceOf(Blob)
   })
 
-  it('returns 503 when AUDIO_GATEWAY_URL is unset', async () => {
-    const { fetchImpl } = fakeAudioGateway()
+  it('returns 503 when AUDIO_DOOR_URL is unset', async () => {
+    const { fetchImpl } = fakeAudioDoor()
     const app = new Elysia()
       .use(authGuard)
-      .use(createAiRoutes({ ...buildDeps(fetchImpl), audioGatewayUrl: '' }))
+      .use(createAiRoutes({ ...buildDeps(fetchImpl), audioDoorUrl: '' }))
     const form = new FormData()
     form.append('file', new File([new Uint8Array([1])], 'c.webm'))
     const res = await app.handle(
@@ -276,8 +279,8 @@ describe('POST /ai/v1/audio/transcriptions (proxy)', () => {
 })
 
 describe('POST /ai/v1/audio/speech (proxy)', () => {
-  it('forwards JSON body to audio-gateway and passes through content-type and x-audio-title', async () => {
-    const { fetchImpl, calls } = fakeAudioGateway()
+  it('forwards JSON body to the audio door with the caller bearer and passes through content-type and x-audio-title', async () => {
+    const { fetchImpl, calls } = fakeAudioDoor()
     const res = await buildApp(fetchImpl).handle(
       new Request('http://localhost/ai/v1/audio/speech', {
         method: 'POST',
@@ -287,26 +290,27 @@ describe('POST /ai/v1/audio/speech (proxy)', () => {
     )
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('audio/mpeg')
-    expect(res.headers.get('x-audio-title')).toBe(encodeURIComponent('Gateway Title'))
+    expect(res.headers.get('x-audio-title')).toBe(encodeURIComponent('Door Title'))
     const buf = new Uint8Array(await res.arrayBuffer())
     expect(buf.length).toBe(3)
 
     const call = calls.find((c) => c.url.endsWith('/v1/audio/speech'))
-    expect(call?.url).toBe(`${AUDIO_GATEWAY}/v1/audio/speech`)
+    expect(call?.url).toBe(`${AUDIO_DOOR}/v1/audio/speech`)
     expect(call?.method).toBe('POST')
     expect(call?.headers.get('content-type')).toBe('application/json')
     expect(call?.headers.get('x-audio-source')).toBe('argo-api')
+    expect(call?.headers.get('authorization')).toBe(`Bearer ${AUDIO_TOKEN}`)
     // summarize flag flows through transparently
     const sent = JSON.parse(String(call?.body)) as Record<string, unknown>
     expect(sent['summarize']).toBe(true)
     expect(sent['input']).toBe('Hallo Welt')
   })
 
-  it('returns 503 when AUDIO_GATEWAY_URL is unset', async () => {
-    const { fetchImpl } = fakeAudioGateway()
+  it('returns 503 when AUDIO_DOOR_URL is unset', async () => {
+    const { fetchImpl } = fakeAudioDoor()
     const app = new Elysia()
       .use(authGuard)
-      .use(createAiRoutes({ ...buildDeps(fetchImpl), audioGatewayUrl: '' }))
+      .use(createAiRoutes({ ...buildDeps(fetchImpl), audioDoorUrl: '' }))
     const res = await app.handle(
       new Request('http://localhost/ai/v1/audio/speech', {
         method: 'POST',
@@ -315,6 +319,76 @@ describe('POST /ai/v1/audio/speech (proxy)', () => {
       }),
     )
     expect(res.status).toBe(503)
+  })
+})
+
+describe('audio door configuration guard', () => {
+  const speechReq = () =>
+    new Request('http://localhost/ai/v1/audio/speech', {
+      method: 'POST',
+      headers: { ...authHeaders, 'content-type': 'application/json' },
+      body: JSON.stringify({ input: 'Hallo' }),
+    })
+  const transcribeReq = () => {
+    const form = new FormData()
+    form.append('file', new File([new Uint8Array([1])], 'c.webm'))
+    return new Request('http://localhost/ai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: authHeaders,
+      body: form,
+    })
+  }
+  const podcastReq = () =>
+    new Request('http://localhost/ai/v1/audio/podcast', {
+      method: 'POST',
+      headers: { ...authHeaders, 'content-type': 'application/json' },
+      body: JSON.stringify({ script: 'Guarded' }),
+    })
+  const appWith = (fetchImpl: FetchImpl, over: Partial<AiRouteDeps>) =>
+    new Elysia().use(authGuard).use(createAiRoutes({ ...buildDeps(fetchImpl), ...over }))
+
+  it.each([
+    ['speech', speechReq],
+    ['transcriptions', transcribeReq],
+    ['podcast', podcastReq],
+  ])('%s: 503 and no upstream call when AUDIO_DOOR_TOKEN is unset', async (_name, req) => {
+    const { fetchImpl, calls } = fakeAudioDoor()
+    const res = await appWith(fetchImpl, { audioDoorToken: '' }).handle(req())
+    expect(res.status).toBe(503)
+    expect(calls).toHaveLength(0)
+  })
+
+  it.each([
+    ['speech', speechReq],
+    ['transcriptions', transcribeReq],
+    ['podcast', podcastReq],
+  ])(
+    '%s: refuses to send the bearer over plain http to a non-loopback host',
+    async (_name, req) => {
+      const { fetchImpl, calls } = fakeAudioDoor()
+      const res = await appWith(fetchImpl, { audioDoorUrl: 'http://audio-door.test:8792' }).handle(
+        req(),
+      )
+      expect(res.status).toBe(503)
+      expect(calls).toHaveLength(0)
+    },
+  )
+
+  it('allows plain http to a loopback host', async () => {
+    const { fetchImpl, calls } = fakeAudioDoor()
+    const res = await appWith(fetchImpl, { audioDoorUrl: 'http://127.0.0.1:7792/' }).handle(
+      speechReq(),
+    )
+    expect(res.status).toBe(200)
+    expect(calls[0]?.url).toBe('http://127.0.0.1:7792/v1/audio/speech')
+    expect(calls[0]?.headers.get('authorization')).toBe(`Bearer ${AUDIO_TOKEN}`)
+  })
+
+  it('503s on an unparseable URL', async () => {
+    const { fetchImpl, calls } = fakeAudioDoor()
+    const res = await appWith(fetchImpl, { audioDoorUrl: 'not a url' }).handle(speechReq())
+    expect(res.status).toBe(503)
+    expect(calls).toHaveLength(0)
   })
 })
 
@@ -540,9 +614,9 @@ describe('aiComplete()', () => {
 })
 
 describe('POST /ai/v1/audio/podcast', () => {
-  it('synthesizes on cache miss — calls gateway once and returns hash/title/bytes', async () => {
+  it('synthesizes on cache miss — calls the door once with the bearer and returns hash/title/bytes', async () => {
     const store = makeMemoryStore()
-    const { fetchImpl, calls } = fakeAudioGateway()
+    const { fetchImpl, calls } = fakeAudioDoor()
     const app = new Elysia().use(authGuard).use(createAiRoutes(buildDeps(fetchImpl, store)))
 
     const res = await app.handle(
@@ -564,11 +638,12 @@ describe('POST /ai/v1/audio/podcast', () => {
     expect(sent['input']).toBe('Hello podcast world')
     expect(sent['model']).toBeUndefined()
     expect(speechCalls[0]!.headers.get('x-audio-source')).toBe('argo-api')
+    expect(speechCalls[0]!.headers.get('authorization')).toBe(`Bearer ${AUDIO_TOKEN}`)
   })
 
-  it('cache hit — second POST with same script does NOT call gateway again', async () => {
+  it('cache hit — second POST with same script does NOT call the door again', async () => {
     const store = makeMemoryStore()
-    const { fetchImpl, calls } = fakeAudioGateway()
+    const { fetchImpl, calls } = fakeAudioDoor()
     const app = new Elysia().use(authGuard).use(createAiRoutes(buildDeps(fetchImpl, store)))
 
     const body1 = JSON.stringify({ script: 'Cached script' })
@@ -598,14 +673,14 @@ describe('POST /ai/v1/audio/podcast', () => {
 
     // Same hash returned
     expect(data2.hash).toBe(data1.hash)
-    // Gateway still called only once
+    // Door still called only once
     const callCountAfterHit = calls.filter((c) => c.url.endsWith('/v1/audio/speech')).length
     expect(callCountAfterHit).toBe(1)
   })
 
   it('cache hit — recordUsage NOT called on second request', async () => {
     const store = makeMemoryStore()
-    const { fetchImpl } = fakeAudioGateway()
+    const { fetchImpl } = fakeAudioDoor()
     const captured: unknown[] = []
     const app = new Elysia().use(authGuard).use(
       createAiRoutes({
@@ -638,7 +713,7 @@ describe('POST /ai/v1/audio/podcast', () => {
   })
 
   it('returns 401 without bearer token', async () => {
-    const { fetchImpl } = fakeAudioGateway()
+    const { fetchImpl } = fakeAudioDoor()
     const app = new Elysia().use(authGuard).use(createAiRoutes(buildDeps(fetchImpl)))
     const res = await app.handle(
       new Request('http://localhost/ai/v1/audio/podcast', {
@@ -650,23 +725,23 @@ describe('POST /ai/v1/audio/podcast', () => {
     expect(res.status).toBe(401)
   })
 
-  it('returns 503 when audioGatewayUrl is unset', async () => {
-    const { fetchImpl } = fakeAudioGateway()
+  it('returns 503 when audioDoorUrl is unset', async () => {
+    const { fetchImpl } = fakeAudioDoor()
     const app = new Elysia()
       .use(authGuard)
-      .use(createAiRoutes({ ...buildDeps(fetchImpl), audioGatewayUrl: '' }))
+      .use(createAiRoutes({ ...buildDeps(fetchImpl), audioDoorUrl: '' }))
     const res = await app.handle(
       new Request('http://localhost/ai/v1/audio/podcast', {
         method: 'POST',
         headers: { ...authHeaders, 'content-type': 'application/json' },
-        body: JSON.stringify({ script: 'No gateway' }),
+        body: JSON.stringify({ script: 'No door' }),
       }),
     )
     expect(res.status).toBe(503)
   })
 
-  it('records an error-outcome, iu-billed row when the audio-gateway call fails', async () => {
-    const { fetchImpl } = fakeFailingAudioGateway()
+  it('records an error-outcome, iu-billed row when the audio door call fails', async () => {
+    const { fetchImpl } = fakeFailingAudioDoor()
     const captured: Parameters<AiRouteDeps['recordUsage']>[0][] = []
     const app = new Elysia().use(authGuard).use(
       createAiRoutes({
@@ -696,7 +771,7 @@ describe('POST /ai/v1/audio/podcast', () => {
   })
 
   it('records nothing when the request is unauthenticated (pre-call failure)', async () => {
-    const { fetchImpl } = fakeAudioGateway()
+    const { fetchImpl } = fakeAudioDoor()
     const captured: unknown[] = []
     const app = new Elysia().use(authGuard).use(
       createAiRoutes({
@@ -719,7 +794,7 @@ describe('POST /ai/v1/audio/podcast', () => {
   })
 
   it('a throwing recordUsage does not change the 502 response the client receives', async () => {
-    const { fetchImpl } = fakeFailingAudioGateway()
+    const { fetchImpl } = fakeFailingAudioDoor()
     const app = new Elysia().use(authGuard).use(
       createAiRoutes({
         ...buildDeps(fetchImpl),
@@ -741,9 +816,9 @@ describe('POST /ai/v1/audio/podcast', () => {
     expect(body.error.type).toBe('upstream_error')
   })
 
-  it('tags a successful synthesis with billing "iu" (audio-gateway fronts the IU unified endpoint)', async () => {
+  it('tags a successful synthesis with billing "iu" (the audio door fronts the IU unified endpoint)', async () => {
     const store = makeMemoryStore()
-    const { fetchImpl } = fakeAudioGateway()
+    const { fetchImpl } = fakeAudioDoor()
     const captured: Parameters<AiRouteDeps['recordUsage']>[0][] = []
     const app = new Elysia().use(authGuard).use(
       createAiRoutes({

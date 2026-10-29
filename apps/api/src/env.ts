@@ -58,7 +58,7 @@ export const Env = z.object({
 
   // ── Hermes Chat (see docs/HERMES-CHAT-V2.md) ──────────────────────────────
   // All optional so the API boots in test/CI without live cross-machine
-  // upstreams (Hermes Mac Mini, audio-proxy, IU AI endpoint). Real values are
+  // upstreams (Hermes Mac Mini, audio door, IU AI endpoint). Real values are
   // provisioned in Group 0 (op://vps/argo/*). Group 1 wires config only — no
   // behavior; handlers land in Groups 2–3.
 
@@ -96,10 +96,13 @@ export const Env = z.object({
   // deepseek-v4.1-flash ("medium" is not accepted).
   DEEPSEEK_REASONING_EFFORT: z.enum(['low', 'high', 'xhigh', 'max']).default('high'),
 
-  // Audio (STT + TTS) — forwarded to the audio-gateway service (audio-gateway:7714).
-  // The gateway is the single source of truth for all audio processing; Argo proxies.
-  // Defaults to the in-cluster Docker service name; override for local dev if needed.
-  AUDIO_GATEWAY_URL: z.string().default('http://audio-gateway:7714'),
+  // Audio (STT + TTS) — forwarded to the agent-workflows audio door on the dev host
+  // (loopback :7792, reached from the VPS over the tailnet via a `tailscale serve` port).
+  // The door is the single source of truth for all audio processing; Argo proxies with a
+  // caller bearer. Both empty (default) → /ai/v1/audio/* answers 503. Plain http is only
+  // sent to a loopback host; any other host must be https.
+  AUDIO_DOOR_URL: z.string().default(''),
+  AUDIO_DOOR_TOKEN: z.string().default(''),
 
   // Valkey/Redis URL for durable/resumable Hermes chat streaming (resumable-stream
   // pub/sub + sentinel key). Empty DISABLES durability — POST /hermes/chat then

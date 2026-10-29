@@ -17,13 +17,14 @@ import {
 //
 //   • POST /ai/v1/chat/completions   — the model named by DEEPSEEK_MODEL on the
 //                                       IU unified endpoint (thread titling, classification)
-//   • POST /ai/v1/audio/transcriptions — proxied to the audio-gateway service
-//   • POST /ai/v1/audio/speech        — proxied to the audio-gateway service
+//   • POST /ai/v1/audio/transcriptions — proxied to the agent-workflows audio door
+//   • POST /ai/v1/audio/speech        — proxied to the agent-workflows audio door
 //   • GET  /ai/v1/models              — advertise the configured model(s)
 //
 // The chat/models handlers are thin proxies that inject the upstream bearer
 // server-side (never leaked to the client). The audio handlers forward requests
-// to the audio-gateway service (the single source of truth for STT + TTS).
+// to the agent-workflows audio door (the single source of truth for STT + TTS), with a
+// caller bearer (`AUDIO_DOOR_TOKEN`).
 // `aiComplete()` is the in-process seam thread titling imports without an HTTP hop.
 // All upstreams are reached via `tracedFetch` (OTel CLIENT spans). See docs/HERMES-CHAT-V2.md.
 
@@ -41,7 +42,7 @@ export type FetchImpl = (
   traceOptions?: TraceOptions,
 ) => Promise<Response>
 
-/** Injectable upstream config so tests can point at fake endpoint / audio-gateway. */
+/** Injectable upstream config so tests can point at fake endpoint / audio door. */
 export interface AiRouteDeps {
   /** Chat upstream base URL (IU unified endpoint, OpenAI transport), incl. `/v1`. */
   deepseekBaseURL: string
@@ -49,8 +50,10 @@ export interface AiRouteDeps {
   deepseekModel: string
   /** Top-level `reasoning_effort` sent with every `aiComplete` call. */
   deepseekReasoningEffort: string
-  /** Audio-gateway base URL (e.g. `http://audio-gateway:7714`); empty → audio 503. */
-  audioGatewayUrl: string
+  /** Audio door base URL (`https://<host>:<port>`); empty → audio 503. */
+  audioDoorUrl: string
+  /** Audio door caller bearer; empty → audio 503. */
+  audioDoorToken: string
   /** Underlying transport the gateway wraps (defaults to the OTel-traced fetch). */
   fetchImpl: FetchImpl
   /**
@@ -69,7 +72,8 @@ function defaultDeps(): AiRouteDeps {
     deepseekApiKey: env.DEEPSEEK_API_KEY,
     deepseekModel: env.DEEPSEEK_MODEL,
     deepseekReasoningEffort: env.DEEPSEEK_REASONING_EFFORT,
-    audioGatewayUrl: env.AUDIO_GATEWAY_URL,
+    audioDoorUrl: env.AUDIO_DOOR_URL,
+    audioDoorToken: env.AUDIO_DOOR_TOKEN,
     fetchImpl: tracedFetch,
     recordUsage: recordAiUsage,
     audioStore: createDiskAudioStore(join(env.DATA_DIR, 'audio-cache')),
@@ -85,8 +89,42 @@ function bearer(key: string): Record<string, string> {
   return key ? { authorization: `Bearer ${key}` } : {}
 }
 
-/** Caller identity forwarded to the audio-gateway for `audio.caller` attribution. */
+/** Caller label forwarded to the audio door (`x-audio-source`) next to the bearer. */
 const AUDIO_SOURCE_HEADER: Record<string, string> = { 'x-audio-source': 'argo-api' }
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/**
+ * Resolved audio door target: base URL plus the headers every upstream call carries
+ * (bearer + caller label). `null` when the door is not usable — URL or token unset,
+ * unparseable URL, or plain http to a non-loopback host (the bearer must never cross
+ * the network in clear) — and the route then answers 503.
+ */
+function audioDoor(deps: AiRouteDeps): { url: string; headers: Record<string, string> } | null {
+  if (!deps.audioDoorUrl || !deps.audioDoorToken) return null
+  let parsed: URL
+  try {
+    parsed = new URL(deps.audioDoorUrl)
+  } catch {
+    return null
+  }
+  if (
+    parsed.protocol !== 'https:' &&
+    !(parsed.protocol === 'http:' && LOOPBACK_HOSTS.has(parsed.hostname))
+  )
+    return null
+  return {
+    url: deps.audioDoorUrl.replace(/\/+$/, ''),
+    headers: { ...AUDIO_SOURCE_HEADER, ...bearer(deps.audioDoorToken) },
+  }
+}
+
+const audioNotConfigured = (what: 'STT' | 'TTS') => ({
+  error: {
+    message: `audio ${what} not configured (AUDIO_DOOR_URL / AUDIO_DOOR_TOKEN unset, or http to a non-loopback host)`,
+    type: 'config_error',
+  },
+})
 
 /**
  * Re-wrap an upstream response for the client: keep the content-type, drop the
@@ -141,7 +179,7 @@ const PodcastBodySchema = z
     script: z.string().min(1).describe('Full spoken text to synthesize as a podcast episode.'),
     title: z
       .string()
-      .describe('Human-readable title for the episode. Falls back to the gateway x-audio-title.')
+      .describe('Human-readable title for the episode. Falls back to the audio door x-audio-title.')
       .optional(),
   })
   .passthrough()
@@ -352,14 +390,8 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
     .post(
       '/v1/audio/transcriptions',
       async ({ body, status }) => {
-        if (!deps.audioGatewayUrl) {
-          return status(503, {
-            error: {
-              message: 'audio STT not configured (AUDIO_GATEWAY_URL unset)',
-              type: 'config_error',
-            },
-          })
-        }
+        const door = audioDoor(deps)
+        if (!door) return status(503, audioNotConfigured('STT'))
         // Elysia parses multipart/form-data into a plain object (File fields stay
         // File/Blob). Rebuild the FormData faithfully so the upstream filename is
         // preserved (the STT endpoint needs it).
@@ -375,10 +407,10 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         }
         // Do NOT set Content-Type — fetch sets the multipart boundary automatically.
         const upstream = await deps.fetchImpl(
-          `${deps.audioGatewayUrl}/v1/audio/transcriptions`,
+          `${door.url}/v1/audio/transcriptions`,
           {
             method: 'POST',
-            headers: AUDIO_SOURCE_HEADER,
+            headers: door.headers,
             body: form,
           },
           { streamLifecycle: true },
@@ -393,9 +425,9 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         // Elysia still parses the multipart body by content-type.
         detail: {
           tags: ['AI Gateway'],
-          summary: 'OpenAI-compatible speech-to-text (proxied to audio-gateway)',
+          summary: 'OpenAI-compatible speech-to-text (proxied to the audio door)',
           description:
-            'Proxies multipart `/audio/transcriptions` to the audio-gateway service, which handles format synthesis (`verbose_json`/`srt`/`vtt`), language steering, and upstream bearer injection. Returns `{ text }` (json) or the requested rich format.',
+            'Proxies multipart `/audio/transcriptions` to the agent-workflows audio door (caller bearer injected server-side), which handles format synthesis (`verbose_json`/`srt`/`vtt`), language steering, and the upstream bearer. Returns `{ text }` (json) or the requested rich format.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -403,19 +435,13 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
     .post(
       '/v1/audio/speech',
       async ({ body, status }) => {
-        if (!deps.audioGatewayUrl) {
-          return status(503, {
-            error: {
-              message: 'audio TTS not configured (AUDIO_GATEWAY_URL unset)',
-              type: 'config_error',
-            },
-          })
-        }
+        const door = audioDoor(deps)
+        if (!door) return status(503, audioNotConfigured('TTS'))
         const upstream = await deps.fetchImpl(
-          `${deps.audioGatewayUrl}/v1/audio/speech`,
+          `${door.url}/v1/audio/speech`,
           {
             method: 'POST',
-            headers: { 'content-type': 'application/json', ...AUDIO_SOURCE_HEADER },
+            headers: { 'content-type': 'application/json', ...door.headers },
             body: JSON.stringify(body),
           },
           { streamLifecycle: true },
@@ -430,9 +456,9 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         body: SpeechBodySchema,
         detail: {
           tags: ['AI Gateway'],
-          summary: 'OpenAI-compatible text-to-speech (proxied to audio-gateway)',
+          summary: 'OpenAI-compatible text-to-speech (proxied to the audio door)',
           description:
-            'Proxies `/audio/speech` to the audio-gateway service (Gemini expressive pipeline or IU OpenAI passthrough). Body is the OpenAI speech shape (`model`, `input`, `voice`, `response_format`) plus the Argo-only `summarize` flag: set `summarize: true` to condense the input into a single ~30-word spoken confirmation before synthesis. Response is binary audio with an `x-audio-title` header.',
+            'Proxies `/audio/speech` to the agent-workflows audio door (caller bearer injected server-side; Gemini expressive pipeline or IU OpenAI passthrough). Body is the OpenAI speech shape (`model`, `input`, `voice`, `response_format`) plus the Argo-only `summarize` flag: set `summarize: true` to condense the input into a single ~30-word spoken confirmation before synthesis. Response is binary audio with an `x-audio-title` header.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -440,18 +466,12 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
     .post(
       '/v1/audio/podcast',
       async ({ body, status }) => {
-        if (!deps.audioGatewayUrl) {
-          return status(503, {
-            error: {
-              message: 'audio TTS not configured (AUDIO_GATEWAY_URL unset)',
-              type: 'config_error',
-            },
-          })
-        }
+        const door = audioDoor(deps)
+        if (!door) return status(503, audioNotConfigured('TTS'))
         const { script, title: requestTitle } = body as { script: string; title?: string }
         const hash = hashScript(script)
 
-        // Cache hit — return metadata without calling the gateway again.
+        // Cache hit — return metadata without calling the door again.
         if (await deps.audioStore.has(hash)) {
           const cached = await deps.audioStore.read(hash)
           return { hash, title: requestTitle ?? '', bytes: cached?.length ?? 0 }
@@ -460,12 +480,12 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         const startedAt = new Date().toISOString()
         const startMs = Date.now()
 
-        // Only send `input` — the audio-gateway owns model selection.
+        // Only send `input` — the audio door owns model selection.
         const upstream = await deps.fetchImpl(
-          `${deps.audioGatewayUrl}/v1/audio/speech`,
+          `${door.url}/v1/audio/speech`,
           {
             method: 'POST',
-            headers: { 'content-type': 'application/json', ...AUDIO_SOURCE_HEADER },
+            headers: { 'content-type': 'application/json', ...door.headers },
             body: JSON.stringify({ input: script }),
           },
           { streamLifecycle: true },
@@ -473,7 +493,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
 
         if (!upstream.ok) {
           const detail = await upstream.text().catch(() => '')
-          // The audio-gateway call was attempted and failed — record an
+          // The audio door call was attempted and failed — record an
           // error-outcome row so `outcome` has a real denominator. Fire-and-forget
           // with its own `.catch()`: a DB failure here must never replace the
           // 502 the client is about to receive.
@@ -482,10 +502,10 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
               model: 'audio-gateway/tts',
               usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
               subTool: 'podcast',
-              // Genuinely IU spend: the gateway fronts the IU unified endpoint
-              // (IU_GEMINI_BASE_URL / IU_OPENAI_BASE_URL) for both TTS and STT —
-              // see modelpick/docs/decisions/audio-stack.md. Explicit here (not
-              // relying on the default) so the attribution is self-documenting.
+              // Genuinely IU spend: the door fronts the IU unified endpoint for
+              // both TTS and STT — see modelpick/docs/decisions/audio-stack.md.
+              // Explicit here (not relying on the default) so the attribution
+              // is self-documenting.
               billing: 'iu',
               startedAt,
               durationMs: Date.now() - startMs,
@@ -496,7 +516,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
             )
           return status(502, {
             error: {
-              message: `audio gateway error: ${detail.slice(0, 200)}`,
+              message: `audio door error: ${detail.slice(0, 200)}`,
               type: 'upstream_error',
             },
           })
@@ -505,8 +525,8 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         const bytes = new Uint8Array(await upstream.arrayBuffer())
         await deps.audioStore.write(hash, bytes)
 
-        const gatewayTitle = upstream.headers.get('x-audio-title')
-        const resolvedTitle = gatewayTitle ?? requestTitle ?? ''
+        const doorTitle = upstream.headers.get('x-audio-title')
+        const resolvedTitle = doorTitle ?? requestTitle ?? ''
 
         deps
           .recordUsage({
@@ -529,7 +549,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           tags: ['AI Gateway'],
           summary: 'Synthesize and cache a podcast episode',
           description:
-            'Synthesizes the given `script` as a spoken podcast episode via the audio-gateway and caches the result content-addressed by sha256(script). On a cache hit the gateway is NOT called again. Returns `{ hash, title, bytes }` on 200. 503 when AUDIO_GATEWAY_URL is unset; 502 when the gateway returns non-2xx. The frontend builds the playback URL as `GET /ai/v1/audio/file/{hash}` — a public, range-served, immutably-cached endpoint that supports browser `<audio>` scrubbing without re-synthesis. Do NOT pass a `model` field — the audio-gateway owns model selection.',
+            'Synthesizes the given `script` as a spoken podcast episode via the audio door and caches the result content-addressed by sha256(script). On a cache hit the door is NOT called again. Returns `{ hash, title, bytes }` on 200. 503 when AUDIO_DOOR_URL / AUDIO_DOOR_TOKEN is unset or the URL is plain http to a non-loopback host; 502 when the door returns non-2xx. The frontend builds the playback URL as `GET /ai/v1/audio/file/{hash}` — a public, range-served, immutably-cached endpoint that supports browser `<audio>` scrubbing without re-synthesis. Do NOT pass a `model` field — the audio door owns model selection.',
           security: [{ BearerAuth: [] }],
         },
       },

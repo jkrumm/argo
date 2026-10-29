@@ -58,7 +58,7 @@ HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 # WEATHERORB_SELFHOSTED_URL=https://weatherorb.mini.jkrumm.com
 
 # ── Hermes Chat (docs/HERMES-CHAT-V2.md) ────────────────────────────────────
-# All optional. Local dev does NOT talk to the live Hermes Mac Mini / audio-proxy
+# All optional. Local dev does NOT talk to the live Hermes Mac Mini / audio door
 # / DeepSeek bridge — these are provisioned on prod in Group 0 and exercised via
 # mocked upstreams in tests. Uncomment + wire the op refs once Group 0 lands the
 # secrets in op://vps/argo/*.
@@ -89,10 +89,12 @@ HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
 DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
 #
-# Audio (STT + TTS) — forwarded to the audio-gateway service. Local dev points at
-# the gateway's own `bun run dev` on the Mac (:7714); in-cluster prod uses the
-# Docker service name (env.ts default / the VPS compose).
-AUDIO_GATEWAY_URL=http://localhost:7714
+# Audio (STT + TTS) — forwarded to the agent-workflows audio door. Local dev points
+# at a door running on this machine (loopback :7792). The door needs a caller bearer
+# (a `name=token` line in the door's token file); set AUDIO_DOOR_TOKEN to it to
+# exercise audio locally — empty keeps /ai/v1/audio/* at 503. Prod's URL + token come
+# from the VPS compose (op://vps/argo/AUDIO_DOOR_TOKEN).
+AUDIO_DOOR_URL=http://localhost:7792
 #
 # Valkey/Redis for durable/resumable Hermes chat streaming. Points at the shared
 # dev Valkey from ~/SourceRoot/vps/compose.dev.yml (exposed on :6379). Empty
