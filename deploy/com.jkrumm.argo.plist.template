@@ -36,9 +36,9 @@
     <!-- GET /health reports this; "healthy at sha" = status ok and commit == this value. -->
     <key>GIT_SHA</key>
     <string>__SHA__</string>
-    <!-- The mini copy runs on rehearsal data beside the live VPS copy: crons stay off until the cutover wave flips this one value. -->
+    <!-- Argo's scheduled jobs (Garmin / Hardcover sync, ...). Off only for a rehearsal copy that runs beside a live one. -->
     <key>CRONS_ENABLED</key>
-    <string>false</string>
+    <string>true</string>
     <key>OTEL_SERVICE_NAME</key>
     <string>argo-api</string>
     <key>OTEL_SERVICE_VERSION</key>
