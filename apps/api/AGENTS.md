@@ -10,7 +10,7 @@
 ### Local dev
 
 ```bash
-# 1. Start shared dev infra (Postgres + ClickStack + Valkey)
+# 1. Start shared dev infra (Postgres + ClickStack)
 cd ~/SourceRoot/vps && make up && cd -
 
 # 2. (Once) provision the argo role + schema

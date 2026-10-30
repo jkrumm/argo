@@ -98,7 +98,7 @@ That instruments every generated SDK call, not just bare-fetch.
 
 ### Streaming responses — body-tapping is opt-in via `streamLifecycle`
 
-A CLIENT span created for a response WITH a body only stays open past `fetch` resolving (TTFB) when the caller opts in with `streamLifecycle: true`. This is deliberately **opt-in, not opt-out**: most `tracedFetch` call sites (fire-and-forget pings, `.ok`-only health checks, `ensureHermesSession`'s 201 whose body is never read) never drain their body at all, so tapping by default silently reclassified every one of them — each held a span, a watchdog timer, and the connection open for up to `watchdogMs` for routine traffic that was never meant to be a stream. That was a real defect (fixed in A2): `notifications/initialized` fire-and-forget POSTs, the Garmin `pingHeartbeat` cron ping, `GET /hermes/health`, and `ensureHermesSession` (runs on every chat turn) were all accidentally reclassified as streams and force-closed `abandoned` after 10 minutes instead of ending at header time like every non-streaming call.
+A CLIENT span created for a response WITH a body only stays open past `fetch` resolving (TTFB) when the caller opts in with `streamLifecycle: true`. This is deliberately **opt-in, not opt-out**: most `tracedFetch` call sites (fire-and-forget pings, `.ok`-only health checks) never drain their body at all, so tapping by default silently reclassified every one of them — each held a span, a watchdog timer, and the connection open for up to `watchdogMs` for routine traffic that was never meant to be a stream. That was a real defect (fixed in A2): `notifications/initialized` fire-and-forget POSTs, and the Garmin `pingHeartbeat` cron ping were all accidentally reclassified as streams and force-closed `abandoned` after 10 minutes instead of ending at header time like every non-streaming call.
 
 With `streamLifecycle: true` (and a body present and `response.ok`), `tracedFetch` taps `response.body` and ends the span on whichever terminal event happens first:
 
@@ -116,7 +116,6 @@ A response with **no body**, a **non-2xx status**, or the caller simply not pass
 **Current opt-in call sites** — set `streamLifecycle: true` because they genuinely stream a body the caller consumes over time:
 
 - `apps/api/src/routes/ai.ts` — the `/ai/v1/chat/completions` passthrough.
-- `apps/api/src/routes/hermes.ts` — the Hermes chat-stream call. (`ensureHermesSession` in `hermes-upstream.ts` deliberately stays on the default — it never reads its 201 body.)
 
 Everything else stays on the default. Don't flip `streamLifecycle: true` on a call site unless its caller actually consumes the body over time (streams it to a client, or reads it to completion as part of the request) — flipping it on a fire-and-forget or `.ok`-only call reintroduces the exact defect this opt-in exists to prevent.
 
@@ -133,40 +132,36 @@ type TraceOptions = {
 
 const res = await tracedFetch(url, init, {
   streamLifecycle: true,
-  attributes: { 'argo.hermes.thread_id': threadId },
+  attributes: { 'argo.example.job_id': jobId },
 })
 ```
 
-**`onSpan` is the only way to reach the span mid-stream.** Once `tracedFetch` returns, its span is no longer `trace.getActiveSpan()` — the caller has moved on to consuming the returned `Response`. An id that only becomes known partway through a stream (Hermes' `run_id`, the only id it puts on the wire, arrives on the first SSE event) can still be attached via the handle `onSpan` hands you:
+**`onSpan` is the only way to reach the span mid-stream.** Once `tracedFetch` returns, its span is no longer `trace.getActiveSpan()` — the caller has moved on to consuming the returned `Response`. An id that only becomes known partway through a stream (a run id the upstream only emits on the first SSE event) can still be attached via the handle `onSpan` hands you:
 
 ```ts
-let hermesSpan: Span | undefined
+let streamSpan: Span | undefined
 const res = await tracedFetch(url, init, {
-  attributes: { 'argo.hermes.thread_id': threadId, 'argo.hermes.stream_id': streamId },
+  attributes: { 'argo.example.job_id': jobId },
   onSpan: (span) => {
-    hermesSpan = span
+    streamSpan = span
   },
 })
 // ...later, once the first event lands...
-hermesSpan?.setAttribute('argo.hermes.run_id', runId)
+streamSpan?.setAttribute('argo.example.run_id', runId)
 ```
 
 The handle stays valid until one of the four terminal paths above ends it — setting an attribute after that is a no-op on an ended span, not an error.
 
 **Attribute ownership** — don't reinvent these names:
 
-| Attribute                | Set by                          | Purpose                                             |
-| ------------------------ | ------------------------------- | --------------------------------------------------- |
-| `argo.hermes.thread_id`  | caller, via `attributes`        | ClickHouse join key                                 |
-| `argo.hermes.stream_id`  | caller, via `attributes`        | correlates POST → resume → stop                     |
-| `argo.hermes.session_id` | caller, via `attributes`        | Hermes-side correlation                             |
-| `argo.hermes.run_id`     | caller, via `onSpan` mid-stream | the only id on the Hermes wire                      |
-| `argo.stream.bytes`      | `tracedFetch` itself            | payload size actually read                          |
-| `argo.stream.outcome`    | `tracedFetch` itself            | `complete` \| `cancelled` \| `error` \| `abandoned` |
+| Attribute             | Set by               | Purpose                                             |
+| --------------------- | -------------------- | --------------------------------------------------- |
+| `argo.stream.bytes`   | `tracedFetch` itself | payload size actually read                          |
+| `argo.stream.outcome` | `tracedFetch` itself | `complete` \| `cancelled` \| `error` \| `abandoned` |
 
-**This is the CLIENT side only.** The matching SERVER-side gap (an Elysia route handler's span also closes at TTFB when it returns a streaming `Response`, since the body streams out after the handler function returns) is a separate fix in the route layer — see whichever route wraps a streaming response for its own stream-lifecycle span. Don't assume fixing `tracedFetch` alone makes a Hermes turn's full generation visible in a trace; both halves are needed.
+**This is the CLIENT side only.** The matching SERVER-side gap (an Elysia route handler's span also closes at TTFB when it returns a streaming `Response`, since the body streams out after the handler function returns) is a separate fix in the route layer — see whichever route wraps a streaming response for its own stream-lifecycle span. Don't assume fixing `tracedFetch` alone makes a whole streamed generation visible in a trace; both halves are needed.
 
-**The watchdog is idle, not total-duration — do not "simplify" it back to a single timer.** It re-arms on every chunk that flows through the tap (debounced: only when at least a quarter of `watchdogMs`, capped at 30s, has passed since the last (re)arm — cheap enough for SSE-rate traffic without re-arming on literally every byte). This lane exists to trace Hermes agent generations, and a Hermes run chaining tool calls can plausibly run past 10 minutes of wall clock while streaming perfectly healthily; a timer armed once at header time and never reset would force-close and mislabel that span `abandoned` mid-flight, corrupting exactly the telemetry this fix produces. The condition it detects is "no bytes for `watchdogMs`", never "alive for `watchdogMs`" — a long-but-healthy stream never trips it no matter how long it runs in total.
+**The watchdog is idle, not total-duration — do not "simplify" it back to a single timer.** It re-arms on every chunk that flows through the tap (debounced: only when at least a quarter of `watchdogMs`, capped at 30s, has passed since the last (re)arm — cheap enough for SSE-rate traffic without re-arming on literally every byte). This lane traces LLM generations, and a long reasoning run can plausibly exceed 10 minutes of wall clock while streaming perfectly healthily; a timer armed once at header time and never reset would force-close and mislabel that span `abandoned` mid-flight, corrupting exactly the telemetry this fix produces. The condition it detects is "no bytes for `watchdogMs`", never "alive for `watchdogMs`" — a long-but-healthy stream never trips it no matter how long it runs in total.
 
 **The watchdog deliberately does not cancel the underlying body reader — only the span.** When it fires, it has only proven silence for `watchdogMs`, not that the stream is dead; cancelling would sever a connection that might still resume. This is not a new leak: an undrained-forever body already held its connection open before this watchdog existed (a caller that never calls `.json()`/`.text()`/reads/cancels its response was already leaking that resource) — the watchdog closes the span-retention half of that failure mode, it does not (and is not trying to) reach in and fix connection cleanup too. Don't "fix" this by adding a `.cancel()` call at the watchdog site.
 

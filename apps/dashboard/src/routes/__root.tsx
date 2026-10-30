@@ -16,7 +16,6 @@ import { CrashFallback } from '../lib/error-boundary'
 import { TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
 import { useSidebarBlocks } from '../components/app-shell/use-sidebar-blocks'
-import { HermesWidget } from '../features/hermes-chat/hermes-widget'
 import { NAV } from '../lib/nav'
 
 export const Route = createRootRouteWithContext<BasaltRouterContext>()({
@@ -72,8 +71,7 @@ function RootLayout() {
    *
    * A `'more'` node is mounted a SECOND time inside the header's single kebab, so anything holding
    * live local state rides the bar instead: the timer widget (its own engine state, and it renders
-   * null when idle), the notification bell, and the Hermes widget (a local `input` value — two
-   * mounts would be two half-typed prompts).
+   * null when idle) and the notification bell.
    *
    * Theme is `'hidden'`: the three theme rows are already in the sidebar settings menu below, and
    * a second entry in the kebab would be the same control twice.
@@ -81,7 +79,6 @@ function RootLayout() {
   const globalActions: GlobalAction[] = [
     { key: 'timer', node: <TimerNavWidget />, mobile: 'bar' },
     { key: 'bell', node: <NotificationBell />, mobile: 'bar' },
-    { key: 'hermes-widget', node: <HermesWidget />, mobile: 'bar' },
     {
       key: 'sync',
       // `scope: 'global'` is icon-only at every viewport — the same shape the local

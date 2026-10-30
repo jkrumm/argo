@@ -6,7 +6,7 @@
  * NotificationSpec has no title field).
  *
  * Kinds are grouped by domain + intent (not one-off per call site) — e.g. every red "the reading
- * feature failed to do X" toast in hermes-chat shares `chat:error`; only the message/title differ.
+ * feature failed to do X" toast in reading shares `reading:error`; only the message/title differ.
  * Achievement toasts (walking-pad, strength-tracker) share `achievement:unlocked`.
  */
 import type { ReactNode } from 'react'
@@ -25,10 +25,6 @@ export const NOTIFICATIONS = defineNotifications({
   // ── Body composition (weight + skinfold logging) ─────────────────────────
   'body-comp:save-success': { intent: 'success', toMessage },
   'body-comp:save-error': { intent: 'error', toMessage },
-
-  // ── Hermes chat (attachments, voice playback, transcription) ─────────────
-  'chat:error': { intent: 'error', toMessage },
-  'chat:warning': { intent: 'warning', toMessage },
 
   // ── Dev tooling (theme lab, etc.) ─────────────────────────────────────────
   'dev:info': { intent: 'info', toMessage },

@@ -254,8 +254,7 @@ export async function tracedFetch(
 
         // fetch has already decoded the body — a byte-identical passthrough
         // keeps content-length valid, so encoding headers are NOT stripped
-        // here (contrast the Hermes route's tap in routes/hermes.ts, which
-        // REWRITES the body via filterToolProgress and must strip them).
+        // here (a tap that rewrote the body would have to strip them).
         return new Response(tapped, {
           status: response.status,
           statusText: response.statusText,

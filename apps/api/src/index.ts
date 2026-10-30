@@ -16,13 +16,9 @@ app.listen({
   // upstream (a long-reasoning completion that holds the socket open with no bytes)
   // isn't dropped mid-flight.
   idleTimeout: 255,
-  // Global backstop against Bun's 128 MB default request-body size. 50 MB is
-  // comfortably above the largest legitimate payload on this API — a Hermes
-  // chat attachment upload — and far below 128 MB, so an
-  // oversized body can no longer ride the default all the way to a handler.
+  // Global backstop against Bun's 128 MB default request-body size.
   // Bun rejects an over-limit request before any Elysia handler runs (bare 413,
-  // no JSON body) — this is a blunt backstop, not a shaped error response; the
-  // per-route attachment budget on /hermes/* returns a proper JSON error.
+  // no JSON body) — a blunt backstop, not a shaped error response.
   maxRequestBodySize: 50 * 1024 * 1024,
 })
 

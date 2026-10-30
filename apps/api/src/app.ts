@@ -39,7 +39,6 @@ import { readingRoutes } from './routes/reading.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
-import { hermesRoutes, hermesPublicHealthRoute } from './routes/hermes.js'
 import { aiRoutes } from './routes/ai.js'
 import { agentRoutes } from './routes/agents.js'
 import { wardenRoutes } from './routes/warden.js'
@@ -63,10 +62,7 @@ export function buildApp() {
           checkIfShouldTrace: (req) => {
             const u = new URL(req.url)
             return (
-              u.pathname !== '/' &&
-              u.pathname !== '/health' &&
-              u.pathname !== '/hermes/health/public' &&
-              !u.pathname.startsWith('/openapi')
+              u.pathname !== '/' && u.pathname !== '/health' && !u.pathname.startsWith('/openapi')
             )
           },
         }),
@@ -95,7 +91,7 @@ export function buildApp() {
               title: 'Argo API',
               version: '1.0.0',
               description:
-                'Personal stack API for Johannes Krumm. Powers the Argo dashboard (Garmin Health + Strength Tracker pages) and is consumed as an AI-agent endpoint by Hermes Agent and external tools. Start at `GET /` for discovery. All routes except `/`, `/health`, `/hermes/health/public`, and `/oauth/*` require `Authorization: Bearer <API_SECRET>`. Served behind Traefik path-strip on `argo.jkrumm.com/api`.',
+                'Personal stack API for Johannes Krumm. Powers the Argo dashboard (Garmin Health + Strength Tracker pages) and is consumed as an AI-agent endpoint by Hermes Agent and external tools. Start at `GET /` for discovery. All routes except `/`, `/health`, and `/oauth/*` require `Authorization: Bearer <API_SECRET>`. Served behind Traefik path-strip on `argo.jkrumm.com/api`.',
             },
             servers: [{ url: 'https://argo.jkrumm.com/api', description: 'Argo (VPS, Tailscale)' }],
             components: {
@@ -158,14 +154,9 @@ export function buildApp() {
                   'Go/no-go planning for night photography and for surf, for a given place and the next N nights or days. `/astro/window` scores each night deterministically — galactic-core altitude, astronomical darkness and moon are computed from an ephemeris, never from a model — and returns a verdict plus the named reasons a night is out. `/astro/sites` lists the candidate drive-to sites with their measured sky and terrain — zenith brightness, the brightness where the core actually sits, and the southern terrain horizon. `/astro/light-pollution` and `/astro/skyglow` add the measured half from the Lorenz light-pollution atlas: zenith brightness for a coordinate, and the direction-resolved skyglow rose plus the sky brightness where the galactic core actually sits. `/astro/tiles/lp/{year}/{z}/{x}/{y}.png` serves the same atlas as a terrarium-encoded raster tile for the dashboard map. `/marine/window` and `/marine/spots` are the surf half over the same engine, scoring the longest usable daylight session per day from swell, period and wind. Weather comes from Open-Meteo DWD-ICON (cloud by layer), Open-Meteo Marine and 7Timer (atmospheric transparency); attribution is required and returned in the payload. Ask this instead of a raw weather forecast whenever the question is "is tonight (or this week) worth going out for".',
               },
               {
-                name: 'Hermes Chat',
-                description:
-                  'Thread-first chat surface backed by the Hermes agent core over its named-event SSE API (`POST /api/sessions/{id}/chat/stream`). Argo owns the verbatim transcript (threads + messages in Postgres); Hermes owns compressed agent state per session id. Covers the streaming chat proxy and thread/message reads. Powers the Hermes Chat dashboard page.',
-              },
-              {
                 name: 'AI Gateway',
                 description:
-                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): the model configured by `DEEPSEEK_MODEL` on the IU unified endpoint for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
+                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features: the model configured by `DEEPSEEK_MODEL` on the IU unified endpoint for classification and the astro/marine verdict sentences.',
               },
               {
                 name: 'Reading',
@@ -208,7 +199,6 @@ export function buildApp() {
             public: [
               'GET /',
               'GET /health',
-              'GET /hermes/health/public',
               'GET /oauth/google/init',
               'GET /oauth/google/callback',
             ],
@@ -225,7 +215,6 @@ export function buildApp() {
             'Infrastructure',
             'External Data',
             'Astro & Marine',
-            'Hermes Chat',
             'AI Gateway',
             'Reading',
             'Agents',
@@ -258,7 +247,6 @@ export function buildApp() {
         },
       )
       .use(healthRoute)
-      .use(hermesPublicHealthRoute)
       .use(oauthRoutes)
       // Everything below this line is auth-gated by authGuard. This ordering
       // is load-bearing — moving a route above this .use() would expose it
@@ -299,7 +287,6 @@ export function buildApp() {
       .use(walkingPadRoutes)
       .use(usageRoutes)
       .use(readingRoutes)
-      .use(hermesRoutes)
       .use(aiRoutes)
       .use(agentRoutes)
       .use(wardenRoutes)

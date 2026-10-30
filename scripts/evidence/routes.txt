@@ -7,7 +7,6 @@
 /body-composition
 /calendar
 /garmin-health
-/hermes-chat
 /m365-explorer
 /reading
 /strength-tracker

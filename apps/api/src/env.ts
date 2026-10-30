@@ -56,30 +56,6 @@ export const Env = z.object({
   // like a public-API failure; it never silently falls back to the public API.
   WEATHERORB_SELFHOSTED_URL: z.string().default(''),
 
-  // ── Hermes Chat (see docs/HERMES-CHAT-V2.md) ──────────────────────────────
-  // All optional so the API boots in test/CI without live cross-machine
-  // upstreams (Hermes Mac Mini, IU AI endpoint). Real values are
-  // provisioned in Group 0 (op://vps/argo/*). Group 1 wires config only — no
-  // behavior; handlers land in Groups 2–3.
-
-  // Hermes agent core over Tailscale (port 8642). HERMES_BASE_URL keeps the
-  // `/v1` suffix historically used for the (now-retired) OpenAI-compatible
-  // path, e.g. `http://<tailnet-host>:8642/v1` — but it is really just the
-  // origin: the liveness check derives `/health` from it, and the named-event
-  // chat API (`lib/hermes-upstream.ts`'s `ensureHermesSession` /
-  // `openHermesChatStream`, hitting `/api/sessions*`) derives its origin the
-  // same way. `/api/*` is NOT under `/v1` — a leading slash on `new URL(path,
-  // HERMES_BASE_URL)` resets the path and drops the suffix, which is exactly
-  // what both call sites rely on.
-  HERMES_BASE_URL: z.string().default(''),
-  HERMES_API_KEY: z.string().default(''),
-  // OpenAI `model` field sent to Hermes. The agent maps/ignores it; kept
-  // configurable so a future multi-persona Hermes can be addressed.
-  HERMES_MODEL: z.string().default('hermes'),
-  // Long-term memory scope (Honcho conversation id). Default resolves to the
-  // Slack #hermes group key for Johannes — see .env.local.tpl for derivation.
-  HERMES_SESSION_KEY: z.string().default('agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE'),
-
   // General AI gateway (/ai/v1/*) — the model named by DEEPSEEK_MODEL, called
   // directly on the IU unified endpoint's OpenAI-compatible transport. The same
   // public endpoint serves local + prod. DEEPSEEK_BASE_URL must include the
@@ -95,15 +71,6 @@ export const Env = z.object({
   // modelpick/docs/decisions/model-configs.md. Enum is the set live-probed for
   // deepseek-v4.1-flash ("medium" is not accepted).
   DEEPSEEK_REASONING_EFFORT: z.enum(['low', 'high', 'xhigh', 'max']).default('high'),
-
-  // Valkey/Redis URL for durable/resumable Hermes chat streaming (resumable-stream
-  // pub/sub + sentinel key). Empty DISABLES durability — POST /hermes/chat then
-  // falls back to a plain non-resumable stream, and a dropped client connection
-  // loses the in-flight turn (the v1 behavior). Dev: redis://localhost:6379
-  // (vps/compose.dev.yml); prod: redis://redis:6379 (Valkey container named `redis`
-  // on valkey-net). Durability survives client disconnect/reconnect, NOT a server
-  // restart (chunks buffer in-process) — acceptable for personal chat + rolling deploys.
-  REDIS_URL: z.string().default(''),
 })
 
 export const env = Env.parse(process.env)

@@ -14,7 +14,7 @@ function isNotFoundError(error: unknown): boolean {
 }
 
 /** 404 means "nothing pushed yet" — a normal, expected state before the first loop tick reaches
- * Argo, not a query error. Mirrors `hermes.ts`'s `isNotFoundError` handling. */
+ * Argo, not a query error. */
 async function fetchSnapshot() {
   const result = await api.warden.snapshot.get({ query: {} })
   if (result.error && isNotFoundError(result.error)) return null

@@ -44,7 +44,6 @@
     ],
     "exempt": [
       "apps/dashboard/src/lib/series.ts"
-    ],
-    "aiMajorSkewReason": "Deliberate, per Hermes Chat v2 decision D3 (docs/HERMES-CHAT-V2.md): apps/api produces the UIMessageStream on ai@5 and apps/dashboard parses it on ai@7. v7's accept set is a strict superset of v5's emit set by type name, so the skew costs exactly one enum value — finishReason 'unknown', which v7's uiMessageChunkSchema dropped — and phase A1 neutralizes it with a producer-side TransformStream in apps/api rewriting 'unknown' to 'other'. Upgrading apps/api to ai@7 looks like the obvious fix and is the thing D3 was written to avoid; apps/api does not import basalt-ui, so nothing forces it."
+    ]
   }
 }

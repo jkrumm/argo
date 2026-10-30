@@ -220,8 +220,8 @@ const SIX_DIGIT_HEX = /^#[\da-fA-F]{6}$/
 /**
  * MapLibre parses its own colour strings with its own parser: it understands neither
  * `var(--vx-*)` nor `color-mix()`, so a registered token has to be RESOLVED to a literal before
- * it can reach the style. Same trick the hermes-chat vega-lite bridge uses (`readThemeColors`) —
- * read the custom property off `document.documentElement` with `getComputedStyle`.
+ * it can reach the style. Read the custom property off `document.documentElement` with
+ * `getComputedStyle`.
  *
  * The palette declares group values as plain 6-digit hex, so the stop's alpha is applied by
  * appending the eighth hex byte; MapLibre's style spec parses `#rrggbbaa`. If a palette value is

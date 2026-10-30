@@ -57,24 +57,6 @@ HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 # see clients/astro-upstreams.ts. Not a secret, no op:// ref needed.
 # WEATHERORB_SELFHOSTED_URL=https://weatherorb.mini.jkrumm.com
 
-# ── Hermes Chat (docs/HERMES-CHAT-V2.md) ────────────────────────────────────
-# All optional. Local dev does NOT talk to the live Hermes Mac Mini /
-# DeepSeek bridge — these are provisioned on prod in Group 0 and exercised via
-# mocked upstreams in tests. Uncomment + wire the op refs once Group 0 lands the
-# secrets in op://vps/argo/*.
-#
-# Hermes agent core — OpenAI-compatible API, bearer = API_SERVER_KEY, port 8642,
-# reached over Tailscale from the VPS.
-HERMES_BASE_URL=op://vps/argo/HERMES_BASE_URL
-HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
-#
-# HERMES_SESSION_KEY — long-term memory scope (Honcho conversation id). Form:
-#   agent:main:slack:group:<channel_id>:<slack_user_id>
-# Resolved default: channel C0ASRUD7K1U (#hermes group) + Johannes' Slack user id
-# U0AS54FURPE (resolved via Slack `auth.test` with op://common/slack/USER_TOKEN).
-# The env.ts default already carries this; override here only to change scope.
-# HERMES_SESSION_KEY=agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE
-#
 # General AI gateway (/ai/v1/*) — deepseek-v4.1-flash (env.ts default, effort
 # "high"), called DIRECTLY on the IU unified endpoint's OpenAI-compatible
 # transport. No LiteLLM bridge, no localhost: the same public HTTPS endpoint is
@@ -88,8 +70,3 @@ HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
 # to test a different model/effort locally.
 DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
-#
-# Valkey/Redis for durable/resumable Hermes chat streaming. Points at the shared
-# dev Valkey from ~/SourceRoot/vps/compose.dev.yml (exposed on :6379). Empty
-# disables durability (plain non-resumable stream). Prod sets redis://redis:6379.
-REDIS_URL=redis://localhost:6379

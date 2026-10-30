@@ -47,7 +47,6 @@ import {
   IconChartHistogram,
   IconCompass,
   IconHeartbeat,
-  IconMessageChatbot,
   IconMoonStars,
   IconRobot,
   IconRulerMeasure,
@@ -60,10 +59,9 @@ import {
 const ICON = 18
 
 /**
- * The four `mobile: 'tab'` destinations are the phone-first ones: Hermes Chat (the assistant, used
- * from the phone by voice), Calendar (a daily glance, and one of the two badge-carrying rows),
- * Garmin Health and Strength Tracker (logged at the
- * gym, on the phone). Everything else is either episodic (Astro Window, Reading) or a
+ * The three `mobile: 'tab'` destinations are the phone-first ones: Calendar (a daily glance, and
+ * one of the two badge-carrying rows), Garmin Health and Strength Tracker (logged at the gym, on
+ * the phone). Everything else is either episodic (Astro Window, Reading) or a
  * desk-and-a-big-screen surface (Usage Tracking, M365 Explorer, Body Composition, WalkingPad) and
  * lives one tap deeper under More — the same two taps they cost before this migration.
  */
@@ -76,16 +74,6 @@ export const NAV = defineNav({
         short: 'Today',
         icon: <IconSunHigh size={ICON} />,
         link: linkOptions({ to: '/' }),
-      },
-    ]),
-    navGroup({ id: 'assistant', label: 'Assistant', icon: <IconMessageChatbot size={ICON} /> }, [
-      {
-        id: 'hermes-chat',
-        label: 'Hermes Chat',
-        short: 'Hermes',
-        mobile: 'tab',
-        icon: <IconMessageChatbot size={ICON} />,
-        link: linkOptions({ to: '/hermes-chat' }),
       },
       {
         id: 'calendar',

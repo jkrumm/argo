@@ -41,18 +41,8 @@ if (typeof window !== 'undefined') {
       // Session replay is heavy and noisy in dev (HMR causes lots of DOM churn).
       // Keep it on in prod for incident investigation.
       disableReplay: import.meta.env.DEV,
-      // Skip Vite dev-server probes so they don't appear as spans/errors. The chat POST is ignored
-      // too: the fetch instrumentation otherwise overwrites the `traceparent` that `lib/telemetry.ts`
-      // `startChatTurn` sets (same-origin requests always propagate), which cut the API's
-      // `hermes.stream-lifecycle` span off from the dashboard's `chat.turn` span. Ignored URLs get
-      // no fetch span and no injection, so the API span becomes a direct child of `chat.turn`.
-      ignoreUrls: [
-        /\/@vite\//,
-        /\/__vite_ping/,
-        /\.hot-update\./,
-        /\/node_modules\/.vite\//,
-        /\/api\/hermes\/chat$/,
-      ],
+      // Skip Vite dev-server probes so they don't appear as spans/errors.
+      ignoreUrls: [/\/@vite\//, /\/__vite_ping/, /\.hot-update\./, /\/node_modules\/.vite\//],
       otelResourceAttributes: {
         'deployment.environment': import.meta.env.MODE,
         // Injected by Vite at build time — see vite.config.ts `define`.

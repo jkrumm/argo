@@ -6,16 +6,16 @@ import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { log } from '../telemetry.js'
 
 // General-purpose AI gateway — an OpenAI-compatible surface at /ai/v1/* backing
-// Argo's own AI features (NOT the Hermes agent; that lives under /hermes).
+// Argo's own AI features.
 //
 //   • POST /ai/v1/chat/completions   — the model named by DEEPSEEK_MODEL on the
-//                                       IU unified endpoint (thread titling, classification)
+//                                       IU unified endpoint (classification, verdict sentences)
 //   • GET  /ai/v1/models              — advertise the configured model(s)
 //
 // The chat/models handlers are thin proxies that inject the upstream bearer
 // server-side (never leaked to the client).
-// `aiComplete()` is the in-process seam thread titling imports without an HTTP hop.
-// All upstreams are reached via `tracedFetch` (OTel CLIENT spans). See docs/HERMES-CHAT-V2.md.
+// `aiComplete()` is the in-process seam astro/marine/reading-match import without an HTTP hop.
+// All upstreams are reached via `tracedFetch` (OTel CLIENT spans).
 
 /**
  * Minimal fetch shape (no `preconnect`) — matches `tracedFetch`, so the gateway
@@ -114,7 +114,7 @@ export const AI_DEFAULT_MAX_COMPLETION_TOKENS = 16000
 
 /**
  * In-process helper: a single non-streaming chat completion returning the
- * assistant text. Group 4's thread titling imports this directly (no HTTP hop).
+ * assistant text. astro, marine and reading-match import this directly (no HTTP hop).
  * Token usage is recorded fire-and-forget into argo.usage_record (source='argo')
  * when the upstream returns a usage object.
  *
@@ -263,7 +263,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           tags: ['AI Gateway'],
           summary: 'List available gateway models',
           description:
-            'OpenAI-compatible model listing for the general AI gateway. Advertises the configured model (`DEEPSEEK_MODEL`, served directly by the IU unified endpoint, EU/GDPR) used for titling/classification. This is the Argo-owned gateway — to chat with the Hermes agent use POST /hermes/chat instead.',
+            'OpenAI-compatible model listing for the general AI gateway. Advertises the configured model (`DEEPSEEK_MODEL`, served directly by the IU unified endpoint, EU/GDPR) used for classification and verdict sentences.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -300,7 +300,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           tags: ['AI Gateway'],
           summary: 'OpenAI-compatible chat completion (configured model, EU)',
           description:
-            'Proxies an OpenAI chat-completion request to the configured model (`DEEPSEEK_MODEL`) on the IU unified endpoint (OpenAI transport), with the endpoint API key kept server-side. Used for fast Argo-side tasks like thread titling and classification. `model` defaults to that configured model; routing always targets the EU-resident IU endpoint (GDPR). Supports non-streaming (default) and `stream: true` SSE. Response mirrors the upstream OpenAI shape.',
+            'Proxies an OpenAI chat-completion request to the configured model (`DEEPSEEK_MODEL`) on the IU unified endpoint (OpenAI transport), with the endpoint API key kept server-side. Used for fast Argo-side tasks like classification. `model` defaults to that configured model; routing always targets the EU-resident IU endpoint (GDPR). Supports non-streaming (default) and `stream: true` SSE. Response mirrors the upstream OpenAI shape.',
           security: [{ BearerAuth: [] }],
         },
       },

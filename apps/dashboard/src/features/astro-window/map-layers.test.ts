@@ -4,9 +4,8 @@ import type { MapLayerState, WeatherSelection } from './map-layers'
 // map-layers.ts imports `lib/api-base`, which reads `window.location.origin` at
 // module-evaluation time when VITE_API_URL is unset — there is no DOM under plain
 // `bun test`. Setting VITE_API_URL here, before the dynamic import below triggers
-// that evaluation, sidesteps it without faking `window` (same workaround
-// `features/hermes-chat/threads-store.test.ts` uses — `import.meta.env.*` reads
-// live off `process.env` under bun).
+// that evaluation, sidesteps it without faking `window` (`import.meta.env.*`
+// reads live off `process.env` under bun).
 process.env['VITE_API_URL'] = 'http://test.local/api'
 
 const {

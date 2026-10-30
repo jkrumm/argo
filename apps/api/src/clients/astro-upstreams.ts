@@ -26,7 +26,7 @@
  *
  * Caching is a plain module-scope `Map` with a 60-minute TTL, one entry per
  * upstream per (lat, lon, days) — deliberately not Valkey. Argo is a
- * single-instance deploy and `REDIS_URL` is unset in tests; `../routes/
+ * single-instance deploy with no Redis/Valkey dependency; `../routes/
  * walking-pad.ts`'s in-memory live-snapshot store is the house precedent for
  * this call. The TTL is what keeps real request volume in the dozens/day
  * against Open-Meteo's 10 000/day non-commercial free tier — forecasts only
