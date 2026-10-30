@@ -28,7 +28,6 @@ feed (Home) first.
 | 10   | [Reading](reading.md)                   | 4        | Five tiles of bare counts, then {n_books} identical cover cards, {n_backlog} of them the backlog                                                    | 22   |
 | 11   | [Strength Tracker](strength-tracker.md) | 3        | The analytics are well shaped. Filler subtitles, four per-lift cards of bare numbers, and no verdict at the top                                     | 22   |
 | 12   | [Astro Window](astro-window.md)         | 3        | The Forecast tab and the engine are good. The Tonight tab is a 20-row facts table with ten identical OUT cells                                      | 23   |
-| 13   | [Hermes Chat](hermes-chat.md)           | 3        | {n_untitled} identical "New chat" rows, German relative times in an English UI, and no grouping or counts                                           | 23   |
 
 The wave order in `PLAN.md` stays as planned and overrides rank: it groups pages by shared patterns. Wave 19's Garmin
 Health is where `Meter`, the strip and the chart facts header are first proven, and Wave 20 proves the

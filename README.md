@@ -10,15 +10,14 @@ Health/training core, plus a growing set of personal-agent surfaces, grouped in 
   fitness direction, training load — synced every 6 hours straight from the official Garmin
   Connect Personal API), Strength Tracker (set-level logging, e1RM, PR detection, ACWR, body weight), Body
   Composition, WalkingPad, Reading.
-- **Assistant** — Hermes Chat (a Slack-shaped feed over Hermes agent threads + Slack channels) and
-  Calendar.
+- **Assistant** — Calendar.
 - **Outdoors** — Astro Window (is tonight worth a Milky Way shoot).
 - **System** — Usage Tracking (Claude Code spend), Agents (the agent-gateway dev-agent overview), and
   Warden (the mini's control-plane board — funnel metrics, open items, dispatch budget).
 - **Other** — M365 Explorer (IU Teams).
 
-The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — an AI Gateway,
-Hermes Chat, and Slack read/write live behind the same bearer as the dashboard's own endpoints.
+The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — an AI Gateway and
+Slack read/write live behind the same bearer as the dashboard's own endpoints.
 
 ## Stack
 
@@ -39,14 +38,14 @@ Hermes Chat, and Slack read/write live behind the same bearer as the dashboard's
 - Bun
 - Docker
 - Secrets through the `secrets-run` shim from dotfiles (a drop-in `op`): on the MacBook the 1Password CLI (`op`) with the `tkrumm` account unlocked and biometric; on the Mac mini the age-encrypted headless cache — a direct `op read` there hangs on a biometric prompt no one can answer
-- `~/SourceRoot/vps` cloned — argo connects to the shared dev cluster defined there (Postgres 18 + ClickStack + Valkey)
+- `~/SourceRoot/vps` cloned — argo connects to the shared dev cluster defined there (Postgres 18 + ClickStack)
 
 ### Start
 
 ```bash
 # One-time, in the vps repo:
 cd ~/SourceRoot/vps
-make up                                       # Postgres :5432, ClickStack :4318, Valkey :6379
+make up                                       # Postgres :5432, ClickStack :4318
 make postgres-setup                           # provisions the argo role + schema (idempotent)
 cd -
 
@@ -93,5 +92,4 @@ apps/dashboard/   — Vite + React 19 frontend, themed by basalt-ui
 - `docs/STRENGTH-ANALYTICS.md` — Strength metric formulas (analytics reference)
 - `docs/ASTRO-WINDOW.md` — The astro + marine window planner: status, decisions, what is not verified
 - `docs/ASTRO-MAP-RESEARCH.md` / `docs/ASTRO-HORIZON-RESEARCH.md` — The map and terrain-horizon research/decision records the window planner is built on
-- `docs/HERMES-CHAT-V2.md` — Hermes Chat design reference (shipped; what is deferred is in its header)
 - `slack/README.md` — The two-Slack-app split (posting vs reading) and where each token lives

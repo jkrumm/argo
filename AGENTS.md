@@ -6,11 +6,8 @@ Personal dashboard + agent-backbone API for Johannes Krumm, deployed on the VPS 
 `https://argo.jkrumm.com`. Health/training core: **Garmin Health** (HRV, resting HR, sleep,
 stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
 ACWR, PR detection, body weight) — Argo pulls health data every 6 hours straight from the official Garmin Connect Personal API (a personal API key, `GARMIN_API_KEY`), strength
-data is logged manually. Alongside them: **Hermes Chat** (a Slack-shaped feed over Hermes threads
-
-- Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general
-  **AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs Argo's own thread-titling/classification —
-  not Hermes), **Slack** (read + post, split across two app identities — see "Slack" below),
+data is logged manually. Alongside them: a general
+  **AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs classification and the astro/marine verdict sentences), **Slack** (read + post, split across two app identities — see "Slack" below),
   **Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only; each record carries the Claude `account` — `iu`/`me`/`me2`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension; IU API rows also carry the IU key `iu_key` — `personal`/`athena-team`, each with its own $500 cap, `iuKey` filter and `iu_key` dimension on the records endpoints, `?iuKey` on `iu-budget`/`iu-reconcile`; the **payer** — `iu-sub`/`me-sub`/`me2-sub`/`iu-api`/`iu-team-api`/`me-api`/`unknown`, derived from billing + account + iu_key in the query layer — is the usage page's default split and filter); also Claude account quota samples (`POST /usage/quota-samples`, `GET /usage/quota`, `GET /usage/quota-latest`) and picker decisions (`POST /usage/account-picks`, `GET /usage/account-picks/summary`) from `usage-tracker`, IU's portal cost report (`POST /usage/iu-portal`, read by `GET /usage/{iu-budget,iu-reconcile}`) plus the `flow` and `movers` aggregates (apps/api/AGENTS.md §Usage page data), shown on the usage page (three tabs: **Overview** — one card per wallet (a Max subscription per account in the registry `features/usage-tracking/accounts.ts`, the IU API) with its limit meter, $ at API prices (list value or spend) and fresh tokens as two equal figures with cache-read under the tokens, a daily sparkline and a "mostly …" line, then weekly volume per subscription over the whole history beside the weekly-quota sawtooth, the weekday × hour rhythm, and Projects / Tools rows with an inline sparkline each that open a daily timeline; **Claude Max** — the subscriptions compared and summed (plan price, list value, value multiple, tokens, active days, quota peak), weekly quota with this week's pace, volume, rhythm and ranked projects / tools / models, scoped by an Account control, and a **Routing** section for tuning the account picker (facts strip, who served each lane, reason mix and spill rate per lane, the 5 h quota with the session ceiling and resets, per-account expired-capacity table; own range control, not filtered by Account; data from `GET /usage/account-picks`, `/usage/account-picks/summary`, `/usage/routing/windows`, `/usage/quota`); **IU API** — cap meter, share of spend with no project, portal-vs-tracked, figures, ranked lists and cost per 1 M; `$` / tokens measure; data from `GET /usage/split`, `/usage/timeseries` (`project[]` filter), `/usage/rhythm`, `/usage/quota`; spec `docs/design/usage-tracking.md`), **Reading**
   (Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
   and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
@@ -19,7 +16,7 @@ data is logged manually. Alongside them: **Hermes Chat** (a Slack-shaped feed ov
 
 The **marine** half of that feature exists **API-only**: `/marine/window` and `/marine/spots` run over the same engine (`marine-score.ts`, `marine-spots.ts`, `clients/marine-upstreams.ts`) and are tested, but the dashboard page was removed on 2026-08-18 — the surf face gets rebuilt deliberately, step by step, on top of the shipped endpoints.
 
-The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`. All routes require a bearer except `GET /hermes/health/public` (unauthenticated, `{ok, degraded}` only, for Uptime Kuma).
+The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`. All routes require a bearer except the health probe (see Verify & Monitor).
 
 ## Agents — the agent-workflows overview surface
 
@@ -82,7 +79,7 @@ bun run --cwd apps/api db:generate            # generate migration after schema 
 Validation and deploy entry points are `make check` / `make deploy` / `make verify` / `make logs` —
 see [Validate](#validate), [Deploy](#deploy) and [Verify & Monitor](#verify--monitor) below.
 
-**Dev infra prerequisite:** the local Postgres + ClickStack + Valkey come from `~/SourceRoot/vps/compose.dev.yml`. Start once with `cd ~/SourceRoot/vps && make up` (and `make postgres-setup` the first time to provision the `argo` role + schema). The `bun dev` command then connects to the shared cluster on `localhost:5432` and pipes OTel to ClickStack on `localhost:4318`.
+**Dev infra prerequisite:** the local Postgres + ClickStack come from `~/SourceRoot/vps/compose.dev.yml`. Start once with `cd ~/SourceRoot/vps && make up` (and `make postgres-setup` the first time to provision the `argo` role + schema). The `bun dev` command then connects to the shared cluster on `localhost:5432` and pipes OTel to ClickStack on `localhost:4318`.
 
 ## Validate
 
@@ -126,8 +123,7 @@ it equals `git rev-parse origin/master` (see `docs/DEPLOY-VERIFICATION.md`). The
 unauthenticated and does not touch the database.
 
 - Full health URL: `https://argo.jkrumm.com/api/health`
-- Uptime Kuma monitors (group `Argo`): `Argo / API - HTTP` (the `/api/health` probe), `Argo / Dashboard - HTTP`,
-  and `Argo / Hermes - HTTP` (`GET /hermes/health/public`).
+- Uptime Kuma monitors (group `Argo`): `Argo / API - HTTP` (the `/api/health` probe), `Argo / Dashboard - HTTP`.
 - OTel `service.name`: `argo-api` (via `OTEL_SERVICE_NAME`; the dashboard is `argo-dashboard`).
 - Tail recent production logs: `make logs`.
 - The dashboard image carries no SHA (its build only bakes `VITE_HYPERDX_API_KEY`), so only the API
@@ -183,7 +179,7 @@ op run --account tkrumm --env-file=apps/api/.env.local.tpl -- <command>   # forc
 ## Local Dev
 
 ```bash
-cd ~/SourceRoot/vps && make up && cd -   # Postgres 18 + ClickStack + Valkey (once per boot)
+cd ~/SourceRoot/vps && make up && cd -   # Postgres 18 + ClickStack (once per boot)
 bun db:sync                              # optional: refresh local data from VPS
 bun dev                                  # API :4040 + dashboard :7715 (https://argo.test via dotfiles Caddy)
 ```

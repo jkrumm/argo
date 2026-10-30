@@ -51,3 +51,5 @@ Ledger of every basalt export this migration adopted, rejected or found a gap in
 | W5b | ThreadWorkspace / ThreadDetailPanel / ThreadOutcomeCard | reject | features/hermes-chat | no renderer/composer seams, hook mounted before hydration, layout not overridable |
 | W7a | basalt-ui 1.29.2 | adopt | package.json, apps/dashboard/package.json | the five gaps this migration filed are closed: DevDockRouter accepts the real Router (cast deleted), query-dual-import retired (0 warnings), aria-label guard brace-aware, unwrap infers as a bare `.then(unwrap)` callback (17 lambdas deleted), README ./query drift; 1.29.1 itself regressed unwrap on Eden unions and 1.29.2 fixed it the same day |
 Guidance (W6): forms.md, tanstack-query.md, CHART_AUTHORS.md ×2 deleted; tanstack-router.md → 25 lines, CLAUDE.md → 109 lines; charts.md carries the argo chart delta.
+
+Note: the W5a/W5b `hermes-chat` rows describe a chat feature removed from Argo on 2026-10-30; its files no longer exist.

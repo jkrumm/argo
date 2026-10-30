@@ -105,7 +105,7 @@ Dated, in the order taken. Each reversal of the original brief is marked.
   ~2 min, inside the noise.
 - **D6 · 2026-08-15 · Upstream cache is in-memory, not Valkey.** Single-instance deploy; 60-minute
   TTL, 200-entry FIFO keyed on `(source, lat@2dp, lon@2dp, days)`; a failed fetch is never cached.
-  Move to Valkey if argo ever runs more than one instance.
+  Move to a shared cache if argo ever runs more than one instance.
 - **D7 · 2026-08-15 · New OpenAPI tag `Astro & Marine`** rather than overloading `External Data` —
   a decision surface, not a data feed.
 - **D8 · 2026-08-15 · Map: MapLibre GL JS 6.3.0 + OpenFreeMap tiles, lazy-loaded.** CARTO is ruled

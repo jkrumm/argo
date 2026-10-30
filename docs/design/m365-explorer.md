@@ -56,8 +56,8 @@ Format is binding; figures are placeholders.
 
 - `StatGroup variant="strip"` with `Meter` segments inside cells: planned strip + `Meter`.
 - `EventList` rows with a glyph slot and a trailing star control: planned `EventList` (§4, wave 37).
-- Filter toolbar with counted chips and a segmented control: maps to the `BasaltDataTable` toolbar recipe (§4, wave 36); new as a standalone for list pages (argo: Hermes, M365).
-- Master–detail shell (list pane + record pane with an empty state that carries real content, mobile push sheet): new; used by M365, Hermes thread list and Warden.
+- Filter toolbar with counted chips and a segmented control: maps to the `BasaltDataTable` toolbar recipe (§4, wave 36); new as a standalone for list pages (argo: M365).
+- Master–detail shell (list pane + record pane with an empty state that carries real content, mobile push sheet): new; used by M365 and Warden.
 - Record header: §4 record-page recipe.
 
 ## Pass criteria
