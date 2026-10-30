@@ -70,8 +70,8 @@ secrets-run run --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
 
 ## Deploying
 
-Production runs on a VPS. Push to `master` → RollHook → rolling Docker restart.
-Compose: `~/SourceRoot/vps/apps/argo/compose.yml`.
+Production runs natively on the Mac mini: `make deploy` builds `origin/master` into a release and switches the LaunchAgent to it;
+`make verify` proves it. See `AGENTS.md` §Deploy.
 
 Secrets are in 1Password under the `vps` vault (`op://vps/argo/*`, account `tkrumm`).
 

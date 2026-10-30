@@ -1,8 +1,8 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 
-// The commit this image was built from, injected as a build-arg by
-// .github/workflows/deploy.yml and baked into the image by apps/api/Dockerfile.
+// The commit this release was built from: `GIT_SHA` in the LaunchAgent plist
+// (deploy/com.jkrumm.argo.plist.template, rendered by scripts/deploy.sh).
 // Read once at module load: it cannot change while the process is alive, and a
 // per-request env lookup would only make that look otherwise.
 const COMMIT = process.env['GIT_SHA'] ?? 'unknown'

@@ -2,8 +2,8 @@
 
 ## What Argo Is
 
-Personal dashboard + agent-backbone API for Johannes Krumm, deployed on the VPS at
-`https://argo.jkrumm.com`. Health/training core: **Garmin Health** (HRV, resting HR, sleep,
+Personal dashboard + agent-backbone API for Johannes Krumm, running natively on the Mac mini at
+`https://argo.jkrumm.com` (tailnet only). Health/training core: **Garmin Health** (HRV, resting HR, sleep,
 stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
 ACWR, PR detection, body weight) — Argo pulls health data every 6 hours straight from the official Garmin Connect Personal API (a personal API key, `GARMIN_API_KEY`), strength
 data is logged manually. Alongside them: a general
@@ -35,8 +35,8 @@ strip, day-grouped narratives, a 30-minute stale banner; polls Argo every 60s
 ## Warden — the control-plane board
 
 `POST /warden/snapshot` ingests a JSON snapshot pushed by Warden (the mini's deterministic loop
-over its own SQLite ledger) after every loop tick, roughly every 10 minutes — Argo on the VPS
-cannot reach that ledger directly. `GET /warden/snapshot[?machine=]` reads the latest push back.
+over its own SQLite ledger) after every loop tick, roughly every 10 minutes — Argo
+holds only the pushed copy of that ledger. `GET /warden/snapshot[?machine=]` reads the latest push back.
 Same contract as Agents: raw jsonb, validated loosely, 7-day retention pruned on ingest, Argo
 derives nothing. The payload carries health/poller liveness, the six funnel metrics (each leaf a
 `{value, unavailable}` pair — `value: null` always pairs with a non-empty `unavailable` reason,
@@ -109,17 +109,20 @@ bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
 
 ## Deploy
 
-During the migration Argo has **two live deploy paths**; both must keep working until a later wave retires the first.
+Argo runs **natively on the Mac mini** (cutover 2026-10-30), the same model as agent-workflows: `make deploy` builds origin/master
+into an immutable release and switches a LaunchAgent to it. Production is `https://argo.jkrumm.com`: a DNS-only A record on the
+mini's tailnet IP, served by the mini's Caddy (an extra FQDN door, `~/.config/caddy-tailnet.hosts`, dotfiles `docs/remote-dev.md`),
+reachable from the MacBook, phone and tablet only. The database is the shared Postgres on the mini (`shared`, schema `argo`),
+the scheduled jobs run in the same process (`CRONS_ENABLED=true` in the plist). A push to `master` deploys nothing by itself:
+run `make deploy`.
 
-- **VPS (Docker, RollHook)** — the production copy at `https://argo.jkrumm.com`. Push to `master` → `.github/workflows/deploy.yml`
-  (GitHub OIDC → RollHook, images `argo-api` / `argo-dashboard`) → rolling restart, no manual step. Compose:
-  `~/SourceRoot/vps/apps/argo/compose.yml`. Rollback: `gh workflow disable deploy.yml`, then pin the previous image SHAs with
-  `make argo-up` in `~/SourceRoot/vps`. The `Dockerfile`s and the workflow stay untouched until that wave.
-- **Mini (native, no Docker)** — the same model as agent-workflows: `make deploy` builds origin/master into an immutable release
-  and switches a LaunchAgent to it. This copy runs on rehearsal data (the shared database) beside the VPS copy, with
-  `CRONS_ENABLED=false` in the plist; crons turn on at the cutover wave by editing that one value.
+The VPS copy is retired: its containers are stopped (kept for rollback), its `argo` schema and role are kept pending
+the owner's decision to drop them, and a verified final backup of that schema sits on the homelab (`~/argo-backups/`).
+Rollback to the VPS: point the `argo.jkrumm.com` A record back at the VPS tailnet IP and `docker start` the two stopped `argo-*`
+containers (RollHook deploys are gone: the workflow and the Dockerfiles were deleted); their images and the Traefik labels are intact, but the database on the VPS no longer receives what the mini wrote
+since 2026-10-30.
 
-Migrations apply automatically on API boot on both paths — **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
+Migrations apply automatically on API boot — **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
 
 ### Mini layout (`~/.argo`, `ARGO_ROOT` relocates it for tests)
 
@@ -128,14 +131,16 @@ repo/                 fetch-only clone (nothing runs from it)
 releases/<sha>/       git archive of one commit + bun install + built dashboard; `.complete` is written last
 current               symlink to the live release
 data/                 deployed-sha, previous-sha (written only after a release is healthy), deploy.lock, err-log-offset
-state/                the app's DATA_DIR (OAuth token files ...); outside every release, survives deploys
+state/                the app's DATA_DIR (the Google / M365 OAuth token file); outside every release, survives deploys
 ```
 
 The LaunchAgent `com.jkrumm.argo` (`deploy/com.jkrumm.argo.plist.template`) points at the release path, not at `current`; logs are
 `~/Library/Logs/argo.{out,err}.log`. Non-secret config lives in the plist (`PORT=7737`, `HOST`, `DATA_DIR`, `DASHBOARD_DIR`,
 `GIT_SHA`, `CRONS_ENABLED`, ...); secrets only through `.env.tpl` (op:// refs, resolved by `scripts/launch.sh`, which fails closed
 with exit 78 unless every ref is non-empty and assembles `DATABASE_URL` for role `argo` on database `shared` and
-`OTEL_EXPORTER_OTLP_HEADERS`). GOOGLE_*, GARMIN_HEARTBEAT_URL and DOCKER_* are not in `.env.tpl` yet (cutover wave).
+`OTEL_EXPORTER_OTLP_HEADERS`). `DOCKER_VPS_URL` is deliberately unset: the VPS socket-proxy only listens on the VPS's Docker network,
+so `/docker/vps/*` and the VPS half of `/summary` answer an error until a tailnet path exists; the homelab half reads `:2376`
+(tailnet grant `tag:devhost` -> `tag:homelab`).
 
 ```bash
 make deploy              # fetch origin/master, build the release, check the refs, switch, wait for /api/health at the new sha
@@ -153,9 +158,6 @@ previous) are pruned. Dashboard bundle: `VITE_API_URL` empty (same-origin `/api`
 `~/.local/bin/secrets-run` and `launchctl`). `make rollback` leaves `make verify` failing until the next deploy: the live sha is then,
 by intent, not origin/master. Logic test (no launchd): `zsh scripts/test/deploy-logic.sh` (not part of `make check`).
 
-The VPS dashboard image is the static nginx build of the basalt-ui 2.x app (cutover 2026-10-14, `docs/waves/PLAN.md` Wave 10;
-SSR is Wave 11).
-
 ## Verify & Monitor
 
 `make verify` is `scripts/verify.sh` against the **mini** copy (`http://127.0.0.1:7737`), exit 0 only if all hold: the LaunchAgent is
@@ -171,11 +173,11 @@ and the browser OTLP relay itself. Note that in dashboard mode only `/api/*` rea
 `/health` returns `{status, commit}`, `commit` being the `GIT_SHA` in the plist; it is unauthenticated and does not touch the
 database (see `docs/DEPLOY-VERIFICATION.md`).
 
-- VPS health URL (RollHook path): `https://argo.jkrumm.com/api/health`
-- Uptime Kuma monitors (group `Argo`): `Argo / API - HTTP` (the `/api/health` probe), `Argo / Dashboard - HTTP`.
+- Public health URL (tailnet clients only): `https://argo.jkrumm.com/api/health`.
+- Uptime Kuma: the homelab cannot use that URL (the Caddy source guard answers it 403), so the monitor `Argo - Door` (group `Local` /
+  `Mac mini door`) probes `GET /h/argo` on the Kuma door (dotfiles `kuma-door/registry.json`).
 - OTel `service.name`: `argo-api` (via `OTEL_SERVICE_NAME`; the dashboard is `argo-dashboard`).
-- Mini logs: `make logs`. VPS logs: `ssh vps 'docker logs --tail 200 <argo-api container>'`.
-- On the VPS the dashboard image carries no SHA (its build only bakes `VITE_HYPERDX_API_KEY`), so only the API can be verified there.
+- Logs: `make logs`.
 
 `make evidence LABEL=<l>` is the real-data before/after baseline for UI work: it builds the dashboard,
 serves `dist` on an ephemeral port with `/api` proxied to production (GETs only — any other method is
@@ -227,9 +229,14 @@ op run --account tkrumm --env-file=apps/api/.env.local.tpl -- <command>   # forc
 
 ```bash
 cd ~/SourceRoot/vps && make up && cd -   # Postgres 18 + ClickStack (once per boot)
-bun db:sync                              # optional: refresh local data from VPS
-bun dev                                  # API :4040 + dashboard :7715 (https://argo.test via dotfiles Caddy)
+bun db:sync                              # optional: copy the VPS argo schema (frozen at the 2026-10-30 cutover) into the local cluster
+bun dev                                  # API :4040 + dashboard :7715 (https://argo.test via dotfiles Caddy); crons off
 ```
+
+On the mini `shared.argo` is the live database: `bun dev` refuses to start there (set `ARGO_DEV_ON_LIVE=1` to override) and
+`bun db:sync` refuses without `FORCE=1`. Develop UI work against `make evidence` / `make design-shot` (GET-only proxy to
+production) or on a MacBook with its own local copy. The sync source is the frozen VPS copy: a fresher local copy needs a
+dump of the mini's schema, which is not built yet.
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.
 
