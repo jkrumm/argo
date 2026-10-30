@@ -18,7 +18,7 @@ set -euo pipefail
 # URL-encode the password
 ENCODED_PASSWORD=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ARGO_DB_PASSWORD")
 
-export DATABASE_URL="postgresql://argo:${ENCODED_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=argo"
+export DATABASE_URL="postgresql://argo:${ENCODED_PASSWORD}@localhost:5432/shared?schema=argo"
 
 # Free both ports so re-runs don't trip the dashboard's --strictPort or leave
 # a zombie API. Errors are tolerated (nothing was running on the port).

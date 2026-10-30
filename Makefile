@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check deploy verify logs evidence design-shot
+.PHONY: help check deploy verify logs evidence design-shot db-rehearse
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -33,3 +33,6 @@ evidence: ## Real-data baseline (bundle/screens/lighthouse): make evidence LABEL
 
 design-shot: ## Live-data screenshots + crops board: make design-shot [ROUTES="/agents /warden"] [LABEL=<label>] [SKIP_BUILD=1]
 	@DESIGN_SHOT_LABEL='$(LABEL)' DESIGN_SHOT_ROUTES='$(ROUTES)' DESIGN_SHOT_SKIP_BUILD='$(SKIP_BUILD)' bun scripts/design-shot/index.ts
+
+db-rehearse: ## Copy the VPS argo schema into the mini's shared database and prove row counts + checksums (replaces shared.argo)
+	@secrets-run run --env-file=apps/api/.env.local.tpl -- ./scripts/db-rehearse.sh

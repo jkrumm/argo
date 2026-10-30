@@ -8,7 +8,7 @@ set -euo pipefail
 : "${POSTGRES_DB:?must be set}"
 
 ENCODED_PASSWORD=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ARGO_DB_PASSWORD")
-export DATABASE_URL="postgresql://argo:${ENCODED_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=argo"
+export DATABASE_URL="postgresql://argo:${ENCODED_PASSWORD}@localhost:5432/shared?schema=argo"
 
 # Relocate the migration journal into argo's schema first, so drizzle-kit reads
 # the right journal (matches the API-boot path in runMigrations).
