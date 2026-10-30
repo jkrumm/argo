@@ -3,7 +3,7 @@ import { basename, extname, resolve, sep } from 'node:path'
 
 const API_PREFIX = '/api'
 const RELAY_PATHS: ReadonlySet<string> = new Set(['/v1/traces', '/v1/logs'])
-const RELAY_REQUEST_HEADERS = ['content-type', 'content-encoding', 'authorization'] as const
+const RELAY_REQUEST_HEADERS = ['content-type', 'content-encoding'] as const
 const DEFAULT_RELAY_TIMEOUT_MS = 10_000
 const RELAY_MAX_BODY_BYTES = 2 * 1024 * 1024
 const RELAY_LOG_INTERVAL_MS = 60_000
@@ -28,7 +28,12 @@ export interface DashboardOptions {
   dir: string
   /** OTLP base URL the browser SDK's `/v1/traces` + `/v1/logs` posts are relayed to. */
   otlpEndpoint: string
-  /** Upstream timeout for the relay; defaults to 10 s. */
+  /**
+   * The process's own OTLP exporter headers (`OTEL_EXPORTER_OTLP_HEADERS`: `k=v,k2=v2`, values
+   * percent-encoded). The relay sends these upstream and never forwards a client `authorization`.
+   */
+  otlpHeaders?: string
+  /** One deadline per relayed request, covering the client's body read and the upstream call; defaults to 10 s. */
   relayTimeoutMs?: number
 }
 
@@ -102,8 +107,34 @@ async function serveStatic(root: string, request: Request, urlPath: string): Pro
   return fileResponse(request.method, index, CACHE_REVALIDATE)
 }
 
-/** Buffers the request body, or returns null as soon as it exceeds `limit` bytes. */
-async function readBodyWithin(request: Request, limit: number): Promise<ArrayBuffer | null> {
+/** Parses the OTLP exporter header list (`k=v,k2=v2`, values percent-encoded); malformed pairs are skipped. */
+function parseOtlpHeaders(raw: string): Array<[string, string]> {
+  const pairs: Array<[string, string]> = []
+  for (const part of raw.split(',')) {
+    const separator = part.indexOf('=')
+    if (separator < 1) continue
+    const name = part.slice(0, separator).trim()
+    const rawValue = part.slice(separator + 1).trim()
+    let value = rawValue
+    try {
+      value = decodeURIComponent(rawValue)
+    } catch {
+      // not percent-encoded after all: use it as written
+    }
+    if (name !== '') pairs.push([name, value])
+  }
+  return pairs
+}
+
+/**
+ * Buffers the request body, or returns null as soon as it exceeds `limit` bytes. Rejects with the
+ * signal's reason when `signal` aborts first (a client that sends too slowly).
+ */
+async function readBodyWithin(
+  request: Request,
+  limit: number,
+  signal: AbortSignal,
+): Promise<ArrayBuffer | null> {
   const declared = Number(request.headers.get('content-length'))
   if (declared > limit) return null
   if (!request.body) return new ArrayBuffer(0)
@@ -111,15 +142,25 @@ async function readBodyWithin(request: Request, limit: number): Promise<ArrayBuf
   const chunks: Uint8Array[] = []
   let size = 0
   const reader = request.body.getReader()
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    size += value.byteLength
-    if (size > limit) {
-      await reader.cancel()
-      return null
+  const aborted = new Promise<never>((_, reject) => {
+    if (signal.aborted) reject(signal.reason)
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+  })
+  aborted.catch(() => {})
+  try {
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), aborted])
+      if (done) break
+      size += value.byteLength
+      if (size > limit) {
+        await reader.cancel()
+        return null
+      }
+      chunks.push(value)
     }
-    chunks.push(value)
+  } catch (error) {
+    reader.cancel().catch(() => {})
+    throw error
   }
 
   const body = new Uint8Array(size)
@@ -139,15 +180,28 @@ async function relayOtlp(
   request: Request,
   urlPath: string,
   reportFailure: ReportFailure,
+  upstreamHeaders: ReadonlyArray<[string, string]>,
   timeoutMs: number,
 ): Promise<Response> {
+  // One deadline for the whole request, started before the body read.
+  const signal = AbortSignal.timeout(timeoutMs)
+
+  // The client never chooses the upstream credential: only content headers are copied, then the server's own.
   const headers = new Headers()
   for (const name of RELAY_REQUEST_HEADERS) {
     const value = request.headers.get(name)
     if (value !== null) headers.set(name, value)
   }
+  for (const [name, value] of upstreamHeaders) headers.set(name, value)
 
-  const body = await readBodyWithin(request, RELAY_MAX_BODY_BYTES)
+  let body: ArrayBuffer | null
+  try {
+    body = await readBodyWithin(request, RELAY_MAX_BODY_BYTES, signal)
+  } catch (error) {
+    if (!signal.aborted) return new Response('Bad Request', { status: 400 })
+    reportFailure(urlPath, error)
+    return new Response('Request Timeout', { status: 408 })
+  }
   if (!body) return new Response('Payload Too Large', { status: 413 })
 
   // Plain fetch on purpose: tracing the telemetry relay would emit spans about shipping spans.
@@ -157,7 +211,7 @@ async function relayOtlp(
       headers,
       body,
       redirect: 'manual',
-      signal: AbortSignal.timeout(timeoutMs),
+      signal,
     })
     const responseHeaders = new Headers()
     const contentType = upstream.headers.get('content-type')
@@ -205,6 +259,7 @@ export function createDashboardHandler(
 ): (request: Request) => Promise<Response> {
   const root = resolve(options.dir)
   const reportFailure = createFailureReporter()
+  const upstreamHeaders = parseOtlpHeaders(options.otlpHeaders ?? '')
 
   return async (request) => {
     const url = new URL(request.url)
@@ -221,6 +276,7 @@ export function createDashboardHandler(
         request,
         pathname,
         reportFailure,
+        upstreamHeaders,
         options.relayTimeoutMs ?? DEFAULT_RELAY_TIMEOUT_MS,
       )
     }

@@ -28,6 +28,18 @@ describe('Env', () => {
       expect(parsed.CRONS_ENABLED).toBe(true)
     })
 
+    it('fails closed: HOST defaults to loopback when DASHBOARD_DIR is set', () => {
+      const parsed = Env.parse({ ...required, DASHBOARD_DIR: '/srv/dist' })
+      expect(parsed.HOST).toBe('127.0.0.1')
+    })
+
+    it('lets an explicit HOST win in either mode', () => {
+      expect(Env.parse({ ...required, DASHBOARD_DIR: '/srv/dist', HOST: '0.0.0.0' }).HOST).toBe(
+        '0.0.0.0',
+      )
+      expect(Env.parse({ ...required, HOST: '127.0.0.1' }).HOST).toBe('127.0.0.1')
+    })
+
     it('reads CRONS_ENABLED from the strings true / false', () => {
       expect(Env.parse({ ...required, CRONS_ENABLED: 'false' }).CRONS_ENABLED).toBe(false)
       expect(Env.parse({ ...required, CRONS_ENABLED: 'true' }).CRONS_ENABLED).toBe(true)

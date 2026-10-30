@@ -31,6 +31,7 @@ if (env.DASHBOARD_DIR) {
     fetch: createDashboardHandler(app, {
       dir: env.DASHBOARD_DIR,
       otlpEndpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
+      otlpHeaders: env.OTEL_EXPORTER_OTLP_HEADERS,
     }),
   })
 } else {

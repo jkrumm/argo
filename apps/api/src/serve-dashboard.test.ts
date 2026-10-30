@@ -15,6 +15,7 @@ const app = new Elysia()
   })
   .get('/protected', ({ status }) => status(401, 'Unauthorized'))
 
+const SERVER_KEY = 'server-ingestion-key'
 const INDEX_HTML = '<!doctype html><title>argo</title>'
 let sandbox: string
 let handle: (request: Request) => Promise<Response>
@@ -75,6 +76,7 @@ beforeAll(async () => {
   handle = createDashboardHandler(app, {
     dir: dist,
     otlpEndpoint: `http://127.0.0.1:${upstream.port}`,
+    otlpHeaders: `authorization=${SERVER_KEY}`,
   })
 })
 
@@ -284,14 +286,14 @@ describe('path traversal', () => {
 })
 
 describe('OTLP relay', () => {
-  it('forwards method, body and the three headers, and returns the upstream status', async () => {
+  it('forwards method, body and the content headers with the server key, and returns the upstream status', async () => {
     relayed.length = 0
     const res = await get('/v1/traces', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'content-encoding': 'identity',
-        authorization: 'public-ingestion-key',
+        authorization: 'client-chosen-key',
         cookie: 'must=not-leak',
       },
       body: '{"resourceSpans":[]}',
@@ -304,12 +306,47 @@ describe('OTLP relay', () => {
         headers: {
           'content-type': 'application/json',
           'content-encoding': 'identity',
-          authorization: 'public-ingestion-key',
+          authorization: SERVER_KEY,
           cookie: null,
         },
         body: '{"resourceSpans":[]}',
       },
     ])
+  })
+
+  it('never forwards a client authorization header, with or without a server key', async () => {
+    relayed.length = 0
+    await get('/v1/traces', {
+      method: 'POST',
+      headers: { authorization: 'client-chosen-key' },
+      body: '{}',
+    })
+    expect(relayed.map((r) => r.headers['authorization'])).toEqual([SERVER_KEY])
+
+    relayed.length = 0
+    const keyless = createDashboardHandler(app, {
+      dir: sandbox,
+      otlpEndpoint: `http://127.0.0.1:${upstream.port}`,
+    })
+    await keyless(
+      new Request('http://argo.test/v1/traces', {
+        method: 'POST',
+        headers: { authorization: 'client-chosen-key' },
+        body: '{}',
+      }),
+    )
+    expect(relayed.map((r) => r.headers['authorization'])).toEqual([null])
+  })
+
+  it('parses a multi-header OTEL_EXPORTER_OTLP_HEADERS value, decoding percent-escapes', async () => {
+    relayed.length = 0
+    const handler = createDashboardHandler(app, {
+      dir: sandbox,
+      otlpEndpoint: `http://127.0.0.1:${upstream.port}`,
+      otlpHeaders: 'authorization=a%20b=c,malformed, =x',
+    })
+    await handler(new Request('http://argo.test/v1/traces', { method: 'POST', body: '{}' }))
+    expect(relayed.map((r) => r.headers['authorization'])).toEqual(['a b=c'])
   })
 
   it('relays binary bodies byte for byte', async () => {
@@ -402,6 +439,77 @@ describe('OTLP relay', () => {
       expect(line).not.toContain('secret')
     } finally {
       warn.mockRestore()
+    }
+  })
+
+  it('cuts a slow body sender at the deadline with 408 and never calls the upstream', async () => {
+    relayed.length = 0
+    let cancelled = false
+    const stalled = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"resourceSpans":['))
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    const handler = createDashboardHandler(app, {
+      dir: sandbox,
+      otlpEndpoint: `http://127.0.0.1:${upstream.port}`,
+      otlpHeaders: `authorization=${SERVER_KEY}`,
+      relayTimeoutMs: 100,
+    })
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const started = Date.now()
+      const res = await handler(
+        new Request('http://argo.test/v1/traces', {
+          method: 'POST',
+          body: stalled,
+          duplex: 'half',
+        } as RequestInit),
+      )
+      expect(res.status).toBe(408)
+      expect(Date.now() - started).toBeLessThan(2000)
+      expect(relayed).toHaveLength(0)
+      expect(cancelled).toBe(true)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('shares one deadline: time spent reading the body is not granted again upstream', async () => {
+    const slowUpstream = Bun.serve({
+      port: 0,
+      fetch: () =>
+        new Promise<Response>((resolve) => setTimeout(() => resolve(new Response('{}')), 150)),
+    })
+    const handler = createDashboardHandler(app, {
+      dir: sandbox,
+      otlpEndpoint: `http://127.0.0.1:${slowUpstream.port}`,
+      relayTimeoutMs: 250,
+    })
+    const slowBody = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        await Bun.sleep(150)
+        controller.enqueue(new TextEncoder().encode('{}'))
+        controller.close()
+      },
+    })
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const res = await handler(
+        new Request('http://argo.test/v1/traces', {
+          method: 'POST',
+          body: slowBody,
+          duplex: 'half',
+        } as RequestInit),
+      )
+      expect(res.status).toBe(502)
+      expect(String(warn.mock.calls[0]?.[0])).toContain('TimeoutError')
+    } finally {
+      warn.mockRestore()
+      slowUpstream.stop(true)
     }
   })
 

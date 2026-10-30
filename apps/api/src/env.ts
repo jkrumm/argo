@@ -1,13 +1,14 @@
 import { z } from 'zod'
 
-export const Env = z.object({
+const EnvShape = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   // HTTP listen port. Defaults to 4000 (prod). Local dev overrides to 4040 via
   // apps/api/.env.local.tpl so a local run never collides with another :4000.
   PORT: z.coerce.number().int().default(4000),
-  // Listen address. 0.0.0.0 keeps the Docker deployment reachable; the native
-  // runtime sets 127.0.0.1 behind its reverse proxy.
-  HOST: z.string().default('0.0.0.0'),
+  // Listen address. Unset: 127.0.0.1 when DASHBOARD_DIR is set (the native runtime
+  // fails closed, see `Env` below), 0.0.0.0 otherwise so the Docker deployment
+  // stays reachable. An explicit value always wins.
+  HOST: z.string().optional(),
   // Built SPA directory. Set = this one process also does what nginx + Traefik
   // did (static files, `/api` prefix strip, OTLP relay — see serve-dashboard.ts).
   // Empty (the default) = API only, routes at the root.
@@ -20,6 +21,8 @@ export const Env = z.object({
   DATABASE_URL: z.string().min(1),
   API_SECRET: z.string().min(1),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default('http://127.0.0.1:4318'),
+  // The exporters read this themselves (`authorization=<ingestion key>`); the dashboard's OTLP relay reuses it.
+  OTEL_EXPORTER_OTLP_HEADERS: z.string().default(''),
   OTEL_SERVICE_NAME: z.string().default('argo-api'),
   OTEL_SERVICE_VERSION: z.string().default('0.0.0'),
   SLACK_BOT_TOKEN: z.string().default(''),
@@ -84,5 +87,10 @@ export const Env = z.object({
   // deepseek-v4.1-flash ("medium" is not accepted).
   DEEPSEEK_REASONING_EFFORT: z.enum(['low', 'high', 'xhigh', 'max']).default('high'),
 })
+
+export const Env = EnvShape.transform((parsed) => ({
+  ...parsed,
+  HOST: parsed.HOST ?? (parsed.DASHBOARD_DIR ? '127.0.0.1' : '0.0.0.0'),
+}))
 
 export const env = Env.parse(process.env)
