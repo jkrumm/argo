@@ -263,19 +263,39 @@ release_lock() {
 }
 
 # One deploy at a time. The caller sets `trap release_lock EXIT` right after: zsh runs an EXIT trap set inside a
-# function when that function returns, which would drop the lock at once. A lock whose holder is dead is taken over by
-# an atomic rename of a fresh symlink over it, then confirmed by reading it back. Anything at $LOCK that is not a
-# symlink (a directory from elsewhere) is never taken over.
+# function when that function returns, which would drop the lock at once. The lock is only ever created by an
+# exclusive `ln -s`. A lock whose holder is dead is removed under a guard directory (`mkdir` is atomic): inside the
+# guard the link is read again and removed only if it still names the dead pid seen before, so a deploy that already
+# took the lock over is never removed by a second one (compare-and-swap). Then everyone retries the exclusive `ln -s`;
+# exactly one wins, the others find a live holder and stop. Anything at $LOCK that is not a symlink (a directory from
+# elsewhere) is never taken over.
 take_lock() {
   mkdir -p "$DATA_DIR" "$RELEASES" "$STATE_DIR" "${PLIST:h}" "${ERR_LOG:h}"
-  local holder tmp="$LOCK.$$"
+  local holder tries=0 guard="$LOCK.reap"
   [[ -e "$LOCK" && ! -L "$LOCK" ]] && die "$LOCK exists and is not a lock symlink; remove it, then run again"
-  if ! ln -s "$$" "$LOCK" 2>/dev/null; then
+  while (( tries < 100 )); do
+    tries=$((tries + 1))
+    ln -s "$$" "$LOCK" 2>/dev/null && return 0
     holder=$(readlink "$LOCK" 2>/dev/null)
+    [[ -n "$holder" ]] || continue  # released between our `ln` and `readlink`: try again
     if [[ "$holder" == <-> ]] && kill -0 "$holder" 2>/dev/null; then die "another deploy is running (pid $holder)"; fi
-    ln -s "$$" "$tmp" 2>/dev/null && mv -f "$tmp" "$LOCK" || { rm -f -- "$tmp"; die "cannot take $LOCK"; }
-    [[ "$(readlink "$LOCK" 2>/dev/null)" == "$$" ]] || die "another deploy took $LOCK first"
-  fi
+    if mkdir "$guard" 2>/dev/null; then
+      [[ "$(readlink "$LOCK" 2>/dev/null)" == "$holder" ]] && rm -f -- "${LOCK:?}"
+      rmdir "$guard"
+    else
+      command sleep 0.05  # another deploy is taking over right now
+    fi
+  done
+  die "cannot take $LOCK (a stale $guard? remove it, then run again)"
+}
+
+# `make deploy` re-executes itself with the lock still held (`exec` keeps the pid). The child accepts it only when the
+# lock really names its own pid; the marker alone (a different pid, a stale env var) never skips take_lock.
+hold_lock() {
+  local inherited="${ARGO_DEPLOY_LOCK_HELD:-}"
+  unset ARGO_DEPLOY_LOCK_HELD
+  [[ -n "$inherited" && "$(readlink "${LOCK:?}" 2>/dev/null)" == "$$" ]] && return 0
+  take_lock
 }
 
 # An INT/TERM/HUP during the switch leaves the live process unverified: say so and stop. No automatic rollback from a
@@ -329,7 +349,7 @@ main() {
     return 0
   fi
 
-  take_lock
+  hold_lock
   trap release_lock EXIT
 
   # --- the release: exported, installed and built beside the live one
@@ -353,8 +373,9 @@ main() {
 
   # Continue with the release's own copy of this script, once.
   if [[ -z "${ARGO_DEPLOY_REEXEC:-}" && "$SELF" != "${release:A}/scripts/deploy.sh" ]]; then
-    trap - EXIT; release_lock
-    ARGO_DEPLOY_REEXEC=1 ARGO_DEPLOY_SHA="$sha" exec /bin/zsh "$release/scripts/deploy.sh"
+    # The lock stays held across the exec (same pid): releasing it here would open a gap for another deploy.
+    trap - EXIT
+    ARGO_DEPLOY_LOCK_HELD=1 ARGO_DEPLOY_REEXEC=1 ARGO_DEPLOY_SHA="$sha" exec /bin/zsh "$release/scripts/deploy.sh"
   fi
 
   unload_secs=$(unload_wait_secs "$(template_of "$release")")

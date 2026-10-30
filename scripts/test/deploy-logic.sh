@@ -93,6 +93,41 @@ got=$( (take_lock; trap release_lock EXIT; readlink "$LOCK") 2>/dev/null )
 check "lock held by a dead pid: taken over" test "$got" = "$$"
 check "lock released at exit" test ! -e "$LOCK" -a ! -L "$LOCK"
 
+# 1b. the takeover of a stale lock is a compare-and-swap: N separate processes (own pids; subshells would share $$) race
+# for a lock whose holder is dead, released together by a barrier file. Exactly one wins and holds it (a winner that
+# exited would make its lock stale again); the old rename-over takeover let several of them win.
+cat > "$TMP/taker.zsh" <<'EOS'
+source "$1"
+while [[ ! -e "$2" ]]; do :; done
+take_lock >/dev/null 2>&1 && { print WON; command sleep 2; }
+EOS
+count_winners() {  # $1 takers; the lock in $LOCK is stale
+  local n=$1 i; local -a pids=()
+  for i in {1..$n}; do zsh "$TMP/taker.zsh" "$SCRIPT_DIR/deploy.sh" "$TMP/go$world" > "$TMP/won$world.$i" 2>/dev/null & pids+=($!); done
+  command sleep 0.5; : > "$TMP/go$world"; wait $pids
+  cat "$TMP"/won$world.* | grep -c WON
+}
+for round in 1 2 3; do
+  fresh; command true & dead=$!; wait $dead; ln -s "$dead" "$LOCK"
+  check "stale lock, 20 concurrent takers (round $round): exactly one wins" test "$(count_winners 20)" = 1
+done
+
+# 1c. the lock survives the re-exec: the child (same pid) accepts a lock that names it, but never on the env marker alone
+cat > "$TMP/child.zsh" <<'EOS'
+source "$1"
+hold_lock || exit 1
+print "$(readlink "$LOCK") $$ ${ARGO_DEPLOY_LOCK_HELD:-unset}"
+EOS
+fresh
+out=$(zsh -c 'source "$1"; take_lock; ARGO_DEPLOY_LOCK_HELD=1 exec zsh "$2" "$1"' _ "$SCRIPT_DIR/deploy.sh" "$TMP/child.zsh" 2>/dev/null); rc=$?
+check "re-exec: the child inherits the lock it holds" test $rc -eq 0 -a "${out%% *}" = "${${out#* }%% *}" -a "${out##* }" = unset
+fresh; command sleep 30 & holder=$!; ln -s "$holder" "$LOCK"
+ARGO_DEPLOY_LOCK_HELD=1 zsh "$TMP/child.zsh" "$SCRIPT_DIR/deploy.sh" >/dev/null 2>&1; rc=$?
+check "re-exec: another pid with the env marker is refused" test $rc -eq 1 -a "$(readlink "$LOCK")" = "$holder"
+kill $holder 2>/dev/null
+fresh; ARGO_DEPLOY_LOCK_HELD=1 zsh "$TMP/child.zsh" "$SCRIPT_DIR/deploy.sh" >/dev/null 2>&1
+check "re-exec: the marker alone does not skip taking a free lock" test -L "$LOCK"
+
 # 2. rollback reads the markers only after it holds the lock (the lock stub plays a deploy finishing meanwhile)
 fresh; take_lock() { print $C > "$SHA_FILE"; }; (rollback_main) >/dev/null 2>&1
 check "rollback: markers read after the lock" test "$(read_sha "$SHA_FILE")/$(read_sha "$PREV_FILE")" = "$A/$C"
