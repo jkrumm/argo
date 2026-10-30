@@ -76,7 +76,7 @@ bun run --cwd apps/api start                  # API on :4040 (needs secrets-run/
 bun run --cwd apps/api db:generate            # generate migration after schema changes
 ```
 
-Validation and deploy entry points are `make check` / `make deploy` / `make verify` / `make logs` —
+Validation and deploy entry points are `make check` / `make deploy` / `make verify` / `make rollback` / `make logs` —
 see [Validate](#validate), [Deploy](#deploy) and [Verify & Monitor](#verify--monitor) below.
 
 **Dev infra prerequisite:** the local Postgres + ClickStack come from `~/SourceRoot/vps/compose.dev.yml`. Start once with `cd ~/SourceRoot/vps && make up` (and `make postgres-setup` the first time to provision the `argo` role + schema). The `bun dev` command then connects to the shared cluster on `localhost:5432` and pipes OTel to ClickStack on `localhost:4318`.
@@ -109,28 +109,69 @@ bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
 
 ## Deploy
 
-API and dashboard run on the VPS via Docker. Push to `master` → RollHook → rolling restart — there
-is **no manual deploy step**, so `make deploy` only confirms the CI path and exits 0. Compose:
-`~/SourceRoot/vps/apps/argo/compose.yml`; the workflow is `.github/workflows/deploy.yml` (GitHub
-OIDC → RollHook, images `argo-api` / `argo-dashboard`). Migrations apply automatically on API boot —
-**there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
+During the migration Argo has **two live deploy paths**; both must keep working until a later wave retires the first.
 
-The dashboard image is the static nginx build of the basalt-ui 2.x app (cutover 2026-10-14, `docs/waves/PLAN.md` Wave 10;
-SSR is Wave 11). Rollback: `gh workflow disable deploy.yml`, then pin the previous image SHAs with `make argo-up` in `~/SourceRoot/vps`.
+- **VPS (Docker, RollHook)** — the production copy at `https://argo.jkrumm.com`. Push to `master` → `.github/workflows/deploy.yml`
+  (GitHub OIDC → RollHook, images `argo-api` / `argo-dashboard`) → rolling restart, no manual step. Compose:
+  `~/SourceRoot/vps/apps/argo/compose.yml`. Rollback: `gh workflow disable deploy.yml`, then pin the previous image SHAs with
+  `make argo-up` in `~/SourceRoot/vps`. The `Dockerfile`s and the workflow stay untouched until that wave.
+- **Mini (native, no Docker)** — the same model as agent-workflows: `make deploy` builds origin/master into an immutable release
+  and switches a LaunchAgent to it. This copy runs on rehearsal data (the shared database) beside the VPS copy, with
+  `CRONS_ENABLED=false` in the plist; crons turn on at the cutover wave by editing that one value.
+
+Migrations apply automatically on API boot on both paths — **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
+
+### Mini layout (`~/.argo`, `ARGO_ROOT` relocates it for tests)
+
+```
+repo/                 fetch-only clone (nothing runs from it)
+releases/<sha>/       git archive of one commit + bun install + built dashboard; `.complete` is written last
+current               symlink to the live release
+data/                 deployed-sha, previous-sha (written only after a release is healthy), deploy.lock, err-log-offset
+state/                the app's DATA_DIR (OAuth token files ...); outside every release, survives deploys
+```
+
+The LaunchAgent `com.jkrumm.argo` (`deploy/com.jkrumm.argo.plist.template`) points at the release path, not at `current`; logs are
+`~/Library/Logs/argo.{out,err}.log`. Non-secret config lives in the plist (`PORT=7737`, `HOST`, `DATA_DIR`, `DASHBOARD_DIR`,
+`GIT_SHA`, `CRONS_ENABLED`, ...); secrets only through `.env.tpl` (op:// refs, resolved by `scripts/launch.sh`, which fails closed
+with exit 78 unless every ref is non-empty and assembles `DATABASE_URL` for role `argo` on database `shared` and
+`OTEL_EXPORTER_OTLP_HEADERS`). GOOGLE_*, GARMIN_HEARTBEAT_URL and DOCKER_* are not in `.env.tpl` yet (cutover wave).
+
+```bash
+make deploy              # fetch origin/master, build the release, check the refs, switch, wait for /api/health at the new sha
+DRY_RUN=1 make deploy    # print the plan and the rendered plist, touch nothing
+make verify              # see Verify & Monitor
+make rollback            # previous-sha goes live (exit 1 if it cannot); the markers swap, so a second rollback goes forward
+make logs                # last 200 lines of argo.out.log / argo.err.log
+```
+
+`make deploy` deploys what is on **origin/master** (push first), re-executes the release's own `scripts/deploy.sh`, refuses before
+anything is stopped if a `.env.tpl` ref does not resolve, and rolls back to the previous release when the new one is not healthy
+within 120 s (a first deploy is left booted out instead of crash-looping). Releases beyond the newest three (plus live and
+previous) are pruned. Dashboard bundle: `VITE_API_URL` empty (same-origin `/api`), `VITE_HYPERDX_ENDPOINT` empty (same-origin
+`/v1/traces` + `/v1/logs`), the public ingestion key read through `secrets-run`. Deploys run on the Mac mini only (they need
+`~/.local/bin/secrets-run` and `launchctl`). `make rollback` leaves `make verify` failing until the next deploy: the live sha is then,
+by intent, not origin/master. Logic test (no launchd): `zsh scripts/test/deploy-logic.sh` (not part of `make check`).
+
+The VPS dashboard image is the static nginx build of the basalt-ui 2.x app (cutover 2026-10-14, `docs/waves/PLAN.md` Wave 10;
+SSR is Wave 11).
 
 ## Verify & Monitor
 
-`make verify` probes the production health endpoint, which returns `{status, commit}`. `commit` is
-the `GIT_SHA` baked into the api image by the deploy workflow, so a landed deploy is confirmed once
-it equals `git rev-parse origin/master` (see `docs/DEPLOY-VERIFICATION.md`). The endpoint is
-unauthenticated and does not touch the database.
+`make verify` is `scripts/verify.sh` against the **mini** copy (`http://127.0.0.1:7737`), exit 0 only if all hold: the LaunchAgent is
+loaded; `GET /api/health` is ok and its `commit` equals `deployed-sha` equals `git ls-remote origin refs/heads/master` of the clone (it
+fails, naming both, when origin/master moved ahead); `GET /` is the SPA and an `/assets/*` file it names is 200 with an immutable
+`Cache-Control`; unauthenticated `GET /api/usage/summary` is 401; with the bearer,
+`/api/usage/summary` (reads the `usage` schema), `/api/exercises` (reads the `argo` schema) and `/api/openapi/json` answer 200 JSON;
+the stderr log has no `Unhandled`, `ECONNREFUSED … 5432` or `password authentication failed` line since the process started.
+`/health` returns `{status, commit}`, `commit` being the `GIT_SHA` in the plist; it is unauthenticated and does not touch the
+database (see `docs/DEPLOY-VERIFICATION.md`).
 
-- Full health URL: `https://argo.jkrumm.com/api/health`
+- VPS health URL (RollHook path): `https://argo.jkrumm.com/api/health`
 - Uptime Kuma monitors (group `Argo`): `Argo / API - HTTP` (the `/api/health` probe), `Argo / Dashboard - HTTP`.
 - OTel `service.name`: `argo-api` (via `OTEL_SERVICE_NAME`; the dashboard is `argo-dashboard`).
-- Tail recent production logs: `make logs`.
-- The dashboard image carries no SHA (its build only bakes `VITE_HYPERDX_API_KEY`), so only the API
-  can be verified this way.
+- Mini logs: `make logs`. VPS logs: `ssh vps 'docker logs --tail 200 <argo-api container>'`.
+- On the VPS the dashboard image carries no SHA (its build only bakes `VITE_HYPERDX_API_KEY`), so only the API can be verified there.
 
 `make evidence LABEL=<l>` is the real-data before/after baseline for UI work: it builds the dashboard,
 serves `dist` on an ephemeral port with `/api` proxied to production (GETs only — any other method is
@@ -161,8 +202,7 @@ production cannot show) and forwards every other read to production, so its shot
 - **Prod OAuth tokens are per-grant runtime state**, not env or 1Password: local
   `apps/api/data/oauth-tokens.json`, prod `/var/lib/argo/data/oauth-tokens.json` (survives
   redeploys). Google features only work on prod or `bun dev:prod-api`.
-- **`make logs` assumes the container is named `argo-api`**, taken from the deploy image name; if
-  the VPS compose service differs, adjust the target.
+- **`make verify` fails after `make rollback`** until the next deploy, by design (the live sha is not origin/master).
 
 ## Secrets
 

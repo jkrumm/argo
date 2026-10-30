@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check deploy verify logs evidence design-shot db-rehearse
+.PHONY: help check deploy verify rollback logs evidence design-shot db-rehearse
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -18,14 +18,19 @@ check: ## Run exactly the local validation CI runs (drift, lint, format, typeche
 	bun --cwd apps/dashboard test
 	DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder bun --cwd apps/api test src/env.test.ts src/lib/
 
-deploy: ## Report the deploy path (production deploys via CI on push to master)
-	@echo "deployed by CI on push"
+deploy: ## Deploy origin/master to the mini: release, LaunchAgent, health wait, rollback on failure (DRY_RUN=1 = plan only)
+	@zsh scripts/deploy.sh
 
-verify: ## Probe the production health endpoint (exit 0 = live and healthy)
-	curl -fsS https://argo.jkrumm.com/api/health
+verify: ## Prove the deployed process: launchd, sha = origin/master, SPA + assets, bearer guard, both DB schemas, clean stderr
+	@zsh scripts/verify.sh
 
-logs: ## Tail the last 200 lines of production API logs, then exit (no follow)
-	ssh vps 'docker logs --tail 200 $$(docker ps -q --filter "label=com.docker.compose.service=argo-api" | head -n1)'
+rollback: ## Put the previous release live again (exit non-zero if it cannot); a second rollback goes forward
+	@zsh scripts/deploy.sh rollback
+
+logs: ## Last 200 lines of the mini's argo.out.log / argo.err.log, then exit (no follow)
+	@for f in "$$HOME/Library/Logs/argo.out.log" "$$HOME/Library/Logs/argo.err.log"; do \
+		if [ -f "$$f" ]; then echo "==> $$f <=="; tail -n 200 "$$f"; else echo "==> $$f: not found"; fi; \
+	done
 
 evidence: ## Real-data baseline (bundle/screens/lighthouse): make evidence LABEL=<label>
 	@test -n "$(LABEL)" || { echo "usage: make evidence LABEL=<label>"; exit 2; }

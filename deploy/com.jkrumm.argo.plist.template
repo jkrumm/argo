@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.jkrumm.argo</string>
+
+  <!-- Never a Homebrew binary directly (macOS BTM disallows it): the zsh wrapper is the indirection. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>__RELEASE_DIR__/scripts/launch.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__RELEASE_DIR__</string>
+
+  <!-- Non-secret config lives here; secrets only via .env.tpl (resolved by scripts/launch.sh). -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>__HOME__</string>
+    <key>NODE_ENV</key>
+    <string>production</string>
+    <key>PORT</key>
+    <string>7737</string>
+    <key>HOST</key>
+    <string>127.0.0.1</string>
+    <!-- Runtime state (OAuth token files ...): outside every release, survives deploys. -->
+    <key>DATA_DIR</key>
+    <string>__ROOT__/state</string>
+    <key>DASHBOARD_DIR</key>
+    <string>__RELEASE_DIR__/apps/dashboard/dist</string>
+    <!-- GET /health reports this; "healthy at sha" = status ok and commit == this value. -->
+    <key>GIT_SHA</key>
+    <string>__SHA__</string>
+    <!-- The mini copy runs on rehearsal data beside the live VPS copy: crons stay off until the cutover wave flips this one value. -->
+    <key>CRONS_ENABLED</key>
+    <string>false</string>
+    <key>UPTIME_KUMA_URL</key>
+    <string>https://uptime.jkrumm.com</string>
+    <key>UPTIME_KUMA_USERNAME</key>
+    <string>jkrumm</string>
+    <key>OTEL_SERVICE_NAME</key>
+    <string>argo-api</string>
+    <key>OTEL_SERVICE_VERSION</key>
+    <string>__SHA__</string>
+    <key>JIRA_BOARD_ID</key>
+    <string>272</string>
+    <key>GITLAB_BASE_URL</key>
+    <string>https://gitlab.com</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <!-- A fail-closed launch (exit 78) retries at this pace, not in a tight loop. -->
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <!-- SIGTERM shutdown (Uptime Kuma client stop, then exit) is fast; this is the SIGKILL backstop. -->
+  <key>ExitTimeOut</key>
+  <integer>30</integer>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/argo.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/argo.err.log</string>
+</dict>
+</plist>
