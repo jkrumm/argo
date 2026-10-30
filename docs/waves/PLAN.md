@@ -1,61 +1,90 @@
-# Hermes leaves Argo
+# Argo on the mini, usage v2
 
-**Goal:** Argo has no Hermes chat, no Valkey dependency and no inbound path from the VPS to Hermes;
-conversation with Hermes lives in the iris app. Owner decision 2026-10-30 (`dotfiles/docs/factory/feedback/2026-10-30-owner-voice-note-replan.md`
-item 3): Argo is for analysis, Hermes is reached through iris. Argo moves to the mini later, so less to move.
-**Gate:** `make check` in argo green; `/review` on the diff; after the push, the deploy is live
-(`make verify`: health `commit` equals `origin/master`) and the dashboard loads every remaining page.
+**Goal:** Argo runs natively on the mini against the shared Postgres, usage lands in the `usage` schema with sessions
+as an entity and no hand-kept prices, Kuma pulls the mini's health through one door, and the VPS no longer runs Argo.
+Decisions: `software-factory/docs/decisions.md` (SF8, A1–A4, U1–U5); findings and order:
+`software-factory/docs/program.md` §A1; data model boundary: `software-factory/docs/design.md` §9, §11; prices:
+`software-factory/docs/research/2026-10-30-price-catalog.md`.
+**Gate:** per wave, `make check` in every repo it touched and `/review` on the non-doc changes; from the wave that
+deploys, `make verify` on the mini. Nothing leaves the VPS until its replacement is verified live. Own-repo pushes
+and deploys are routine.
 
-## Wave 1 — Remove the Hermes chat            <!-- status: done -->
-Workers: Sonnet for the removal, Haiku for the doc sweep. Orchestrated: do NOT spawn a next wave.
+## Wave 1 — The shared database and the usage schema            <!-- status: active -->
+Workers: Sonnet. Orchestrated: do NOT spawn Wave 2.
 
-- [x] **Back up first.** Dump `argo.hermes_thread` and `argo.hermes_message` from the VPS Postgres to
-  `homelab:/mnt/hdd/backups/argo-hermes-final/` (gzipped SQL plus `SHA256SUMS`, verified on both ends) before
-  any migration drops them. No dump, no drop.
-- [x] **API:** delete `routes/hermes.ts` and its libs (`hermes-{chunks,events,streams,trace,upstream}.ts`,
-  `resumable.ts`, `finish-reason-transform.ts` if nothing else imports it), the DeepSeek thread titling, the
-  `REDIS_URL`/ioredis dependency, `HERMES_BASE_URL`/`HERMES_API_KEY` config, and the public
-  `/hermes/health/public` route; a Drizzle migration drops the two tables. Keep `/ai` and `lib/ai-sentence.ts`
-  (astro/marine verdicts) unless nothing calls them after the removal; say which in Left behind.
-- [x] **Dashboard:** delete `features/hermes-chat/`, `HermesWidget` and `HermesVoiceButton` from `routes/__root.tsx`,
-  the nav entry and the route; no dead imports, `make check` green.
-- [x] **Wiring outside argo:**
-  - `vps/apps/argo/compose.yml`: drop argo-api's `valkey-net` and `REDIS_URL`, and the Hermes env lines in
-    `vps/apps/argo/.env.tpl`. Remove the `redis` container itself only if no other service on the VPS uses it
-    (grep the vps repo and say what you found).
-  - `homelab/uptime-kuma/monitors.yaml`: drop the "Argo / Hermes" HTTP monitor, `make uk-sync`.
-  - `dotfiles-private/tailscale-acl.jsonc`: drop the `tag:vps → tag:mac tcp:8642` grant once nothing on the
-    VPS calls Hermes. Hermes' API on :8642 then binds loopback only (hermes-agent config); prove iris still
-    reaches Hermes (a memo routed to Hermes, or iris's own Hermes health probe) after the change. If the ACL
-    push needs the owner, write it into Left behind instead of blocking.
-- [x] **Docs:** AGENTS.md, README, `docs/HERMES-CHAT-PRD.md` (delete), and any page naming the chat; hermes-agent's
-  docs that call Argo its chat surface (`docs/gateway-http-api.md`).
-- [x] **Ship:** push to master (RollHook deploys), `make verify`, load each remaining dashboard page once.
+- [ ] **Database `shared`** on the mini's main Postgres 18, created idempotently by a target (`make db-shared` here or
+  in dotfiles, your call; software-factory's F1 will call the same one, so name it in Left behind). A role per writer
+  (`usage`, `argo`, later `factory`), each owning its schema, each with its own connection limit. Passwords in 1Password,
+  seeded through `dotfiles-private/headless.refs`. `agent_workflows` stays separate; add a read-only role there for
+  Argo (A5).
+- [ ] **Backups:** a nightly `pg_dump` of `shared` to the homelab, a Kuma push on success, and a restore drill proved
+  once. Reuse whatever pattern the mini's backups already follow.
+- [ ] **Schema v2 in `usage`,** migrations owned by usage-tracker: sessions as an entity with their lane (interactive,
+  wave mother, lead or worker, fan worker, subagent type, Hermes, iris, agw workflow, step and route), account,
+  subscription or API key, machine, model, effort, repo, `issue_id`, `run_id` (U2); records keyed `(source, source_id)`
+  with machine as an attribute (U4); all five token kinds, `cache_write_1h` included. Repo is the directory name under
+  `~/SourceRoot`, the same slug as `factory.projects`; normalise from today's 6,376 raw values. Window share per
+  session is the headline (U5): store what it needs.
+- [ ] **`prices`, effective-dated (U3):** a daily sync from LiteLLM's `model_prices_and_context_window.json`, OpenRouter
+  as fallback for a model LiteLLM lacks. No catalog publishes history: snapshot, stamp `valid_from`, write a row only on
+  change, and seed history from the file's git log. Precedence: provider-reported cost, then `prices`, then a manual
+  override table. Checks the research left open: whether LiteLLM carries Haiku 5.5's 100k-token tier and DeepSeek's
+  off-peak rates; compare the Claude 5 family against Anthropic's published table once.
+- [ ] Verify: the schema migrates from empty twice, the sync runs twice with one row per change, a known model prices
+  correctly for all five token kinds.
 
-**Left behind:** Wave 1 shipped; no further wave in this plan.
-- **Live:** argo `a9290f53` (`make verify` health commit = `origin/master`); migration 0029 applied (both tables gone);
-  argo-api recreated from the new `vps` compose (no `REDIS_URL`, `HERMES_*` or `valkey-net`); all 14 dashboard routes load
-  with zero console errors or failed requests; `/hermes-chat` is the not-found page. The `verifier` could not authenticate
-  (token not in the secrets cache), so the walk was done from the orchestrating session with a token read from the VPS env.
-- **Backup:** `homelab:/mnt/hdd/backups/argo-hermes-final/argo-hermes-tables-20261030T085810Z.sql.gz` + `SHA256SUMS`
-  (8 threads, 52 messages; checksum verified on the homelab end).
-- **Valkey container stays:** `fpp` still uses `redis:6379`. Only argo's network attachment and env went.
-- **Wiring:** `vps` compose/env (rebased over the audio-gateway removal), `homelab` monitor deleted and `make uk-sync` run
-  with `--delete-orphans` (the orphaned `Hermes - HTTP` id 229 is gone), `dotfiles-private` ACL grant `tag:vps → tag:mac :8642`
-  removed and applied. Proof: the VPS now times out on the mini's `:8642`; iris `/health` is `ok` with nothing `degraded`
-  and Hermes answers `/health` 200 on the mini. A real memo through iris was not sent.
-- **/ai kept:** `aiComplete` and `lib/ai-sentence.ts` still serve astro, marine and reading-match. The HTTP routes
-  `/ai/v1/chat/completions` and `/ai/v1/models` have **no caller** in the repo; deleting them is the owner's call.
-- **Not done — Hermes API loopback bind.** `API_SERVER_HOST` is still the mini's tailnet IP (`op://hermes/gateway/host`),
-  which iris also reads as `HERMES_HOST`. Moving to `127.0.0.1` needs `hermes-agent/.env.tpl` and `iris/.env.local.tpl` changed
-  together, then the gateway (launchd `ai.hermes.gateway`) and iris restarted (`make launchd-restart`), and
-  `hermes-agent/scripts/verify.sh` plus the `hermes-validate` skill probing `$host:8642` adjusted. It is a restart of the live
-  gateway, so it was left rather than done mid-wave. The VPS path is already closed by the ACL. hermes-agent docs now say
-  iris is the consumer and name the loopback switch as pending.
-- **Follow-ups seen, not touched:** `apps/dashboard/src/lib/telemetry.ts` still has `startChatTurn` (chat-turn tracing, no
-  caller; its test and basalt's `Telemetry` type keep it alive); `maxRequestBodySize` stays 50 MB (sized for chat
-  attachments, no other route checked); the dashboard worker moved Calendar into the Overview nav group so the removed
-  Assistant group left no orphan; `fallow audit` flags unused `@elysiajs/bearer` and `@hey-api/client-fetch` and complexity
-  in files this wave only touched for comments, all pre-existing.
-- **Gate:** `make check` green (1750 dashboard + 543 api tests); `/review` found no code defects (its one blocker was the
-  missing dump, which exists); stale comments it listed are fixed.
+**Left behind:**
+
+## Wave 2 — usage-tracker writes `usage` directly            <!-- status: pending -->
+Workers: Sonnet. Orchestrated.
+
+- [ ] usage-tracker inserts into the `usage` schema (U1); its SQLite staging and 15-minute sync to Argo go, the pricing
+  in `src/pricing.ts` goes. Argo's copy (`lib/ai-usage.ts`) stays until Wave 3.
+- [ ] Backfill history once from `argo.usage_record` on the VPS: the $3,081 of duplicates from the old key disappear by
+  the new key; prove totals per source and month against the old table and explain every difference. The VPS table is
+  not touched.
+- [ ] `agw`'s usage outbox targets the same table (agent-workflows); run dedup across both writers.
+- [ ] Company API spend reconciled to portal actuals per key and day; 1,631 unpriced IU rows priced or explained.
+
+**Left behind:**
+
+## Wave 3 — Argo reads the shared database            <!-- status: pending -->
+Workers: Sonnet. Orchestrated.
+
+- [ ] Argo's usage pages read `usage`; `lib/ai-usage.ts` pricing and the ingest endpoint go.
+- [ ] Argo's own schema moves to `shared` on the mini: a dump from the VPS, restored, row counts and checksums proved.
+  While Argo still runs on the VPS, it keeps the VPS database; this step is a rehearsal the cutover repeats.
+- [ ] Delete what has no caller: `/ai/v1/*` HTTP routes (`aiComplete` stays), `startChatTurn`, the 50 MB body limit if no
+  route needs it, the unused `@elysiajs/bearer` and `@hey-api/client-fetch`.
+
+**Left behind:**
+
+## Wave 4 — Argo native on the mini            <!-- status: pending -->
+Workers: Sonnet. Orchestrated.
+
+- [ ] Native like agw (A1): release directories, launchd, rollback, `make deploy|verify`, no Docker, no RollHook. OTel to
+  ClickStack's authed tier. The OAuth token files move with `DATA_DIR`.
+- [ ] Bridges flip to loopback: agw overview push and usage outbox, Hermes narratives. VPS callers (email-gateway usage
+  posts) get a port-scoped VPS → mini grant, the same pattern as weatherorb's.
+- [ ] The dashboard reachable as today, every page loads, on the rehearsal data.
+
+**Left behind:**
+
+## Wave 5 — The Kuma door            <!-- status: pending -->
+Workers: Sonnet. Orchestrated.
+
+- [ ] One tailnet port on the mini, granted to the homelab only (A3). A registry in dotfiles maps a name to a local
+  health URL; `GET /h/<name>` returns the status and a capped body, GET only. Kuma's monitors are generated from the
+  same registry. Push stays for jobs.
+
+**Left behind:**
+
+## Wave 6 — Cutover            <!-- status: pending -->
+Workers: Sonnet. Orchestrated.
+
+- [ ] Final dump, restore, DNS or tunnel switched, `make verify`, every page once.
+- [ ] VPS Argo stopped; its database kept, stopped, with a verified final backup on the homelab. Dropping it is a
+  business decision and goes to the owner through `ask-human.sh`.
+- [ ] ADR-009's VPS role retired; `docs/`, `vps/AGENTS.md`, `docs/architecture.md` in dotfiles say what runs.
+
+**Left behind:**
