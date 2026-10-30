@@ -64,18 +64,57 @@ Workers: Sonnet. Orchestrated.
 - **Wave 3 inputs.** `argo` can SELECT every `usage` table and view including `records_unique` (checked). Wave 1's trap still stands: `argo` has no CREATE on database `shared`. The cursor is saved after a collector's whole batch, so a run killed at jobrun's 600 s deadline restarts that scan next tick (the first PG run during the backfill was killed once; since then runs finish well inside the deadline). Open collector work, not blocking: the Haiku 5.5 TTL split in the OpenCode collector, a per-batch cursor.
 - **Gate.** `make check` green in usage-tracker (356 tests, Postgres suites running) and agent-workflows (2974 pass). `agw review` found 4 blocking in usage-tracker (NUL strip over serialized JSON, an error-path state write aborting the run, a backfill default that overwrote live rows, a non-per-store duplicate pairing) and 2 in agent-workflows (a timed-out write that could still commit, a partial cost posted as final); all fixed with tests, 0009 applied live (flagged set unchanged, 13 originals re-pointed), agw redeployed, no second review pass. `fallow` still reports CRAP/complexity on the one-off backfill scripts (advisory, not part of `make check`). Flaky once each, green on rerun: agw `check-real` credential test under `agw check`, `opencode-host` steer/abort, usage-tracker `git-history` baseline.
 
-## Wave 3 — Argo reads the shared database            <!-- status: active -->
+## Wave 3 — Argo reads the shared database            <!-- status: done -->
 Workers: Sonnet. Orchestrated.
 
-- [ ] Argo's usage pages read `usage`; `lib/ai-usage.ts` pricing and the ingest endpoint go.
-- [ ] Argo's own schema moves to `shared` on the mini: a dump from the VPS, restored, row counts and checksums proved.
+- [x] Argo's usage pages read `usage`; `lib/ai-usage.ts` pricing and the ingest endpoint go.
+- [x] Argo's own schema moves to `shared` on the mini: a dump from the VPS, restored, row counts and checksums proved.
   While Argo still runs on the VPS, it keeps the VPS database; this step is a rehearsal the cutover repeats.
-- [ ] Delete what has no caller: `/ai/v1/*` HTTP routes (`aiComplete` stays), `startChatTurn`, the 50 MB body limit if no
+- [x] Delete what has no caller: `/ai/v1/*` HTTP routes (`aiComplete` stays), `startChatTurn`, the 50 MB body limit if no
   route needs it, the unused `@elysiajs/bearer` and `@hey-api/client-fetch`.
 
 **Left behind:**
+- **Pushing this deploys code the VPS cannot run.** Master auto-deploys to the VPS (RollHook), whose database has no
+  `usage` schema: every `/usage/*` GET there now answers 500 (they were already frozen since 2026-10-30 12:25Z), and
+  `POST /usage/*` is 404 for the one remaining VPS caller (email-gateway, about 105 rows so far, fire-and-forget).
+  Nothing else on the VPS is touched (no migration in this wave, legacy tables kept). Wave 4 brings the dashboard back
+  with Argo itself on the mini; Wave 4 must bridge email-gateway's posts or accept their loss.
+- **Where the code is.** argo `744c0383` (AI routes, telemetry, deps), `42016223` (`make db-rehearse`), `f41f59fb` (usage
+  reads); vps `1c0b7db` (`argo` gets CREATE on database `shared`; the migrator's `CREATE SCHEMA IF NOT EXISTS` needs it,
+  asserted by `make db-shared`).
+- **Usage read model.** `apps/api/src/lib/usage-source.ts` (`USAGE_ROWS`) projects `usage.records_unique` onto the old
+  column names, so all queries and the dashboard are unchanged: `project` = repo without the `iu/` prefix, else a bare
+  `project_raw`; `sub_tool` = workflow(:step) / subagent type / raw / lane (so `wave` reads `wave_mother` now);
+  `billing` `api_key` -> `iu` (with key) or `openrouter` (without); `cache_write_tokens` = 5m + 1h. Pinned by
+  `src/db/usage-source.test.ts`. Quota percentages are integers in `usage.quota_samples` (were doubles). Real data through
+  the app as role `argo`: summary 873,534 rows, headline 1.3 s (seq scan of 30 days over 840k rows; an index or a cache
+  belongs to usage-tracker/Wave A2 if it hurts), the rest under 500 ms.
+- **Legacy tables stay.** `usageRecord`, `quotaSample`, `accountPick`, `iuPortalCost/Total` are still declared in
+  `db/schema.ts` (no reader, no writer) so `db:generate` never emits a DROP against the VPS; Wave 6 drops them with the
+  cutover. The rehearsal leaves them out of the copy.
+- **Rehearsal.** `make db-rehearse` (`bun db:sync` is the same): one REPEATABLE READ snapshot on the VPS gives dump and
+  per-table row count + md5; the restore into `shared.argo` runs as role `argo` in one transaction that recomputes the
+  checksums and COMMITs only on a match. Proved twice (22 tables, 3,056 rows, identical; 315 MB dump, about 35 s), plus the
+  failure path (rolled back, schema untouched, no dump left in the VPS container). Argo's own `runMigrations()` as role `argo`
+  on the copy is a no-op (journal 30). **Wave 4:** the copy carries the mark `argo rehearsal copy`; once Argo runs live from
+  `shared`, replace the mark (`COMMENT ON SCHEMA argo IS 'live'`) or the next rehearsal would wipe it (the script refuses
+  without the mark unless `FORCE=1`, which Wave 6's cutover sets after stopping Argo on the mini). `bun dev`, `db:migrate` and
+  `test:api` now use database `shared`.
+- **Deleted.** `/ai/v1/*` routes (`aiComplete` moved to `lib/ai-complete.ts`, its usage is a log line `argo ai usage`, not a
+  `usage` row: Argo only reads that schema, so its few verdict-sentence calls show up as portal-minus-tracked on the
+  personal key), `startChatTurn`, `@elysiajs/bearer`, `@hey-api/client-fetch`, all four ingest POSTs and their tests. The
+  50 MB body limit was not removed but lowered to 8 MB: removing it would raise the cap to Bun's 128 MB default, and the
+  largest legitimate body is a 1 MB snapshot.
+- **Tests.** `bun test:api` creates a scratch database `argo_test_<hex>` as admin, applies usage-tracker's
+  `migrations/pg` (`USAGE_MIGRATIONS_DIR` overrides the path) and drops it again: 942 pass. Ingest-behaviour tests were
+  deleted with the endpoints.
+- **Gate.** `make check` green; `bun test:api` 942 pass, 0 fail; `agw review` on the uncommitted diff: one blocking (a
+  plaintext dump left in the VPS container when the rehearsal fails midway) fixed with a cleanup trap and `umask 077`, one
+  improvement fixed (restore committed before the checksum compare, now atomic); not acted on: a boot check for the `usage`
+  schema (would fail the VPS boot), the `maxTs` text form (unchanged from the old driver behaviour), restoring fractional
+  quota percentages (the column is integer). No second review pass.
 
-## Wave 4 — Argo native on the mini            <!-- status: pending -->
+## Wave 4 — Argo native on the mini            <!-- status: active -->
 Workers: Sonnet. Orchestrated.
 
 - [ ] Native like agw (A1): release directories, launchd, rollback, `make deploy|verify`, no Docker, no RollHook. OTel to
