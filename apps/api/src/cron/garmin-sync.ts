@@ -5,7 +5,6 @@ import { db } from '../db/index.js'
 import { dailyMetrics, garminActivities, syncControl } from '../db/schema.js'
 import { garmin, type ActivityRecord, type DailyMetric } from '../clients/garmin.js'
 import { env } from '../env.js'
-import { tracedFetch } from '../lib/traced-fetch.js'
 import { tracer } from '../telemetry.js'
 
 const BACKFILL_DAYS = env.GARMIN_BACKFILL_DAYS
@@ -32,7 +31,8 @@ async function pingHeartbeat(status: 'up' | 'down', msg: string): Promise<void> 
   if (!HEARTBEAT_URL) return
   try {
     const url = `${HEARTBEAT_URL}?status=${status}&msg=${encodeURIComponent(msg)}`
-    await tracedFetch(url, { signal: AbortSignal.timeout(10_000) })
+    // Plain fetch on purpose: the push URL carries the secret token, and tracedFetch records the full URL on its span.
+    await fetch(url, { signal: AbortSignal.timeout(10_000) })
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[garmin-sync] heartbeat ping failed:', e)

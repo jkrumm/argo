@@ -36,7 +36,6 @@ TARGET_HOST=127.0.0.1
 LEGACY=(usage_record quota_sample account_pick iu_portal_cost iu_portal_total)
 MARK='argo rehearsal copy'
 RESTORED_MARK="${MARK}"
-[ "${LIVE:-}" = "1" ] && RESTORED_MARK='argo live (restored at cutover from the VPS copy)'
 WORK="$(mktemp -d)"
 # The dump holds the whole schema in plaintext: whatever way the run ends, it must not stay in the VPS container.
 cleanup() {
@@ -56,6 +55,11 @@ if [ "${tables_on_target}" != "0" ] && [[ "${comment}" != "${MARK}"* ]] && [ "${
   echo "ERROR: ${TARGET_DB}.argo holds ${tables_on_target} tables and is not marked '${MARK}': it may be live." >&2
   echo "       Stop Argo on the mini and rerun with FORCE=1 to replace it." >&2
   exit 1
+fi
+
+# A schema already marked live stays live through a forced restore; only a first LIVE=1 run (the cutover) promotes it.
+if [ "${LIVE:-}" = "1" ] || [[ "${comment}" == "argo live"* ]]; then
+  RESTORED_MARK='argo live (restored at cutover from the VPS copy)'
 fi
 
 # --- 1. Dump + checksums from one VPS snapshot --------------------------------

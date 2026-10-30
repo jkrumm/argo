@@ -118,7 +118,8 @@ run `make deploy`.
 
 The VPS copy is retired: its containers are stopped (kept for rollback), its `argo` schema and role are kept pending
 the owner's decision to drop them, and a verified final backup of that schema sits on the homelab (`~/argo-backups/`).
-Rollback to the VPS: point the `argo.jkrumm.com` A record back at the VPS tailnet IP and `docker start` the two stopped `argo-*`
+Rollback to the VPS: `launchctl bootout gui/$(id -u)/com.jkrumm.argo` on the mini first (two live copies would both run crons on
+divergent databases), point the `argo.jkrumm.com` A record back at the VPS tailnet IP and `docker start` the two stopped `argo-*`
 containers (RollHook deploys are gone: the workflow and the Dockerfiles were deleted); their images and the Traefik labels are intact, but the database on the VPS no longer receives what the mini wrote
 since 2026-10-30.
 
@@ -156,7 +157,8 @@ within 120 s (a first deploy is left booted out instead of crash-looping). Relea
 previous) are pruned. Dashboard bundle: `VITE_API_URL` empty (same-origin `/api`), `VITE_HYPERDX_ENDPOINT` empty (same-origin
 `/v1/traces` + `/v1/logs`), the public ingestion key read through `secrets-run`. Deploys run on the Mac mini only (they need
 `~/.local/bin/secrets-run` and `launchctl`). `make rollback` leaves `make verify` failing until the next deploy: the live sha is then,
-by intent, not origin/master. Logic test (no launchd): `zsh scripts/test/deploy-logic.sh` (not part of `make check`).
+by intent, not origin/master. Never roll back to a release older than `5b0c8596e9c1` (the cutover): the plist is rendered from
+the release's own template, so an older one would restart with `CRONS_ENABLED=false`. Logic test (no launchd): `zsh scripts/test/deploy-logic.sh` (not part of `make check`).
 
 ## Verify & Monitor
 
@@ -236,7 +238,8 @@ bun dev                                  # API :4040 + dashboard :7715 (https://
 On the mini `shared.argo` is the live database: `bun dev` refuses to start there (set `ARGO_DEV_ON_LIVE=1` to override) and
 `bun db:sync` refuses without `FORCE=1`. Develop UI work against `make evidence` / `make design-shot` (GET-only proxy to
 production) or on a MacBook with its own local copy. The sync source is the frozen VPS copy: a fresher local copy needs a
-dump of the mini's schema, which is not built yet.
+dump of the mini's schema, which is not built yet. `bun db:migrate` refuses the live database the same way (`scripts/live-guard.sh`,
+fail-closed: an unreadable mark also refuses).
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.
 
