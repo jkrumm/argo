@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check deploy verify rollback logs evidence design-shot db-rehearse
+.PHONY: help check deploy verify rollback logs evidence design-shot db-rehearse verify-pages
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -41,3 +41,6 @@ design-shot: ## Live-data screenshots + crops board: make design-shot [ROUTES="/
 
 db-rehearse: ## Copy the VPS argo schema into the mini's shared database and prove row counts + checksums (replaces shared.argo)
 	@secrets-run run --env-file=apps/api/.env.local.tpl -- ./scripts/db-rehearse.sh
+
+verify-pages: ## Load every dashboard route in Chrome against the running Argo (BASE=<origin>, default the mini loopback); exit 1 on page errors / 5xx
+	@bun run verify:pages

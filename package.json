@@ -18,6 +18,7 @@
     "lint": "oxlint . && ./node_modules/.bin/basalt-ui check-theme",
     "lint:fix": "oxlint --fix .",
     "typecheck:scripts": "tsc -p scripts/tsconfig.json",
+    "verify:pages": "bun scripts/verify-pages.ts",
     "check:theme": "./node_modules/.bin/basalt-ui check-theme",
     "check:design": "npx -y @google/design.md@0.2.0 lint DESIGN.md",
     "format": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --write",

@@ -79,9 +79,9 @@ authed_get() {  # $1 path -> body in $body; prints the status
   print -r -- "header = \"authorization: Bearer $secret\"" | curl -sS --max-time 30 -K - -o "$body" -w '%{http_code}' "$BASE$1"
 }
 check_json() {  # $1 path, $2 what it proves
-  local status
-  status=$(authed_get "$1") || fail "no answer from $1"
-  [[ "$status" == "200" ]] || fail "authenticated GET $1 answered $status, not 200: $(head -c 300 "$body")"
+  local http_code
+  http_code=$(authed_get "$1") || fail "no answer from $1"
+  [[ "$http_code" == "200" ]] || fail "authenticated GET $1 answered $http_code, not 200: $(head -c 300 "$body")"
   jq -e . "$body" >/dev/null 2>&1 || fail "GET $1 is not JSON: $(head -c 300 "$body")"
   ok "GET $1 is 200 JSON ($2)"
 }

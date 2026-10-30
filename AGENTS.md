@@ -164,6 +164,10 @@ fails, naming both, when origin/master moved ahead); `GET /` is the SPA and an `
 `Cache-Control`; unauthenticated `GET /api/usage/summary` is 401; with the bearer,
 `/api/usage/summary` (reads the `usage` schema), `/api/exercises` (reads the `argo` schema) and `/api/openapi/json` answer 200 JSON;
 the stderr log has no `Unhandled`, `ECONNREFUSED … 5432` or `password authentication failed` line since the process started.
+`make verify-pages [BASE=<origin>]` loads every route of `scripts/evidence/routes.txt` in a real Chrome (bearer from `secrets-run`,
+reads only) and fails on an uncaught page error, a 5xx other than 503 or an empty page; 503s (Google / M365 without tokens) are listed as notes.
+The mini door is `https://argo-live.mini.jkrumm.com` (dotfiles Caddy registry, tailnet clients only); the process serves the SPA, `/api/*`
+and the browser OTLP relay itself. Note that in dashboard mode only `/api/*` reaches the API, so probe `/api/health`, not `/health`.
 `/health` returns `{status, commit}`, `commit` being the `GIT_SHA` in the plist; it is unauthenticated and does not touch the
 database (see `docs/DEPLOY-VERIFICATION.md`).
 
