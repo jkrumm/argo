@@ -33,6 +33,13 @@ describe('Env', () => {
       expect(parsed.HOST).toBe('127.0.0.1')
     })
 
+    it('treats an empty or blank HOST as unset, so dashboard mode still fails closed', () => {
+      for (const HOST of ['', '   ']) {
+        expect(Env.parse({ ...required, DASHBOARD_DIR: '/srv/dist', HOST }).HOST).toBe('127.0.0.1')
+        expect(Env.parse({ ...required, HOST }).HOST).toBe('0.0.0.0')
+      }
+    })
+
     it('lets an explicit HOST win in either mode', () => {
       expect(Env.parse({ ...required, DASHBOARD_DIR: '/srv/dist', HOST: '0.0.0.0' }).HOST).toBe(
         '0.0.0.0',

@@ -7,7 +7,7 @@ const EnvShape = z.object({
   PORT: z.coerce.number().int().default(4000),
   // Listen address. Unset: 127.0.0.1 when DASHBOARD_DIR is set (the native runtime
   // fails closed, see `Env` below), 0.0.0.0 otherwise so the Docker deployment
-  // stays reachable. An explicit value always wins.
+  // stays reachable. An explicit non-empty value wins; an empty one counts as unset.
   HOST: z.string().optional(),
   // Built SPA directory. Set = this one process also does what nginx + Traefik
   // did (static files, `/api` prefix strip, OTLP relay — see serve-dashboard.ts).
@@ -90,7 +90,7 @@ const EnvShape = z.object({
 
 export const Env = EnvShape.transform((parsed) => ({
   ...parsed,
-  HOST: parsed.HOST ?? (parsed.DASHBOARD_DIR ? '127.0.0.1' : '0.0.0.0'),
+  HOST: parsed.HOST?.trim() || (parsed.DASHBOARD_DIR ? '127.0.0.1' : '0.0.0.0'),
 }))
 
 export const env = Env.parse(process.env)
