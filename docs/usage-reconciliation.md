@@ -2,10 +2,11 @@
 
 > Historical (2026-10-24, against the retired `argo.usage_record`). Current reconciliation: `usage-tracker/docs/reconciliation/`.
 
-> **Known gap (2026-10-30), for track U.** email-gateway's model spend is not in the `usage` schema. Argo has no ingest route any
-> more, so the gateway's fire-and-forget posts had nothing to land on; they and the code behind them were removed from
-> email-gateway and image-gateway (the image-gateway family is already counted by the collector, Wave 2). Fix when it matters:
-> route email-gateway's LLM calls through agw, or have it write `usage.records` through agw's outbox.
+> **Known gap (2026-10-30), closed.** email-gateway's model spend was not in the `usage` schema: Argo has no ingest route any
+> more, so the gateway's fire-and-forget posts had nothing to land on, and they and the code behind them were removed from
+> email-gateway and image-gateway (the image-gateway family is already counted by the collector, Wave 2). usage-tracker's
+> `email-gateway` collector now reads the gateway's `llm.*` spans from the VPS ClickStack over `ssh vps` into `usage.records`
+> (`billing='api_key'`, key `personal`); see `usage-tracker/docs/collectors.md` §email-gateway.
 
 Run 2026-10-24 against Argo prod as deployed before the payer PR. Method: usage-tracker's local
 SQLite (`~/.local/share/usage-tracker/usage.db`, the mini) against `argo.usage_record` (read-only SQL),
