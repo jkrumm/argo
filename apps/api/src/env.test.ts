@@ -17,4 +17,31 @@ describe('Env', () => {
   it('throws when required fields are missing', () => {
     expect(() => Env.parse({})).toThrow()
   })
+
+  describe('native runtime settings', () => {
+    const required = { DATABASE_URL: 'postgres://x@localhost/x', API_SECRET: 'x' }
+
+    it('defaults to the Docker-compatible values', () => {
+      const parsed = Env.parse(required)
+      expect(parsed.HOST).toBe('0.0.0.0')
+      expect(parsed.DASHBOARD_DIR).toBe('')
+      expect(parsed.CRONS_ENABLED).toBe(true)
+    })
+
+    it('reads CRONS_ENABLED from the strings true / false', () => {
+      expect(Env.parse({ ...required, CRONS_ENABLED: 'false' }).CRONS_ENABLED).toBe(false)
+      expect(Env.parse({ ...required, CRONS_ENABLED: 'true' }).CRONS_ENABLED).toBe(true)
+    })
+
+    it('rejects any other CRONS_ENABLED value', () => {
+      expect(() => Env.parse({ ...required, CRONS_ENABLED: '0' })).toThrow()
+      expect(() => Env.parse({ ...required, CRONS_ENABLED: '' })).toThrow()
+    })
+
+    it('takes HOST and DASHBOARD_DIR verbatim', () => {
+      const parsed = Env.parse({ ...required, HOST: '127.0.0.1', DASHBOARD_DIR: '/srv/dist' })
+      expect(parsed.HOST).toBe('127.0.0.1')
+      expect(parsed.DASHBOARD_DIR).toBe('/srv/dist')
+    })
+  })
 })

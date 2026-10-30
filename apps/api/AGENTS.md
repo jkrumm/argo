@@ -208,6 +208,7 @@ Tests live alongside source files as `*.test.ts`:
 
 - `src/lib/formulas.test.ts` — unit tests for pure formula functions (no DB)
 - `src/env.test.ts` — env schema validation
+- `src/serve-dashboard.test.ts`, `src/otlp-headers.test.ts` — native runtime serving + OTLP auth (no DB)
 - `src/routes/workouts.summary.test.ts` — integration: strength summary endpoint
 - `src/routes/daily-metrics.summary.test.ts` — integration: health summary endpoint
 - `src/routes/weight-log.summary.test.ts` — integration: weight summary endpoint
@@ -229,6 +230,19 @@ OTEL_SERVICE_VERSION=                              # optional; falls back to pac
 ```
 
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.
+
+## Native runtime (mini)
+
+One Bun process on `127.0.0.1:7737` behind a path-agnostic reverse proxy (tailscale serve / Caddy). Env: `HOST` (listen address, default `0.0.0.0`), `DASHBOARD_DIR` (built SPA directory; empty = feature off, API at the root as on Docker), `CRONS_ENABLED` (`true`/`false` strings only, default `true`; `false` skips `registerCronJobs()`, `uptimeKumaClient.start()` stays on). Crons are off on the mini until the cutover wave. Outgoing OTLP auth needs no code: the exporters read `OTEL_EXPORTER_OTLP_HEADERS` themselves (`authorization=<ingestion key>`; pinned by `src/otlp-headers.test.ts`); unset on Docker.
+
+With `DASHBOARD_DIR` set, `index.ts` serves through `Bun.serve` with `createDashboardHandler` (`src/serve-dashboard.ts`) instead of `app.listen`; same `idleTimeout` 255 and 8 MB body cap. `app` / `App` stay unchanged. The handler does what nginx + Traefik did:
+
+- `/api` and `/api/*` go to `app.handle` with the prefix stripped (`/api/health` is `/health`; routing, auth and tracing see the stripped path). The API's own 404s stay 404s, never the SPA. Paths outside `/api` are not API routes (root `/health` is the SPA fallback).
+- `POST /v1/traces` and `POST /v1/logs` are relayed to `${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/…` (method, body, `content-type`, `content-encoding`, `authorization` — the browser sends the public ingestion key itself); upstream status returned (null-body statuses 204/205/304 passed through bodiless), 502 on network failure or the 10 s timeout, no retry; body capped at 2 MB (413, checked on `content-length` and while reading); a failure logs one stderr line per path per minute (error class only). Other methods and `/v1/*` GETs are 404.
+- GET/HEAD for a file under `DASHBOARD_DIR`: `/assets/*` is `public, max-age=31536000, immutable`; `index.html`, `sw.js`, `registerSW.js`, `site.webmanifest`, `workbox-*.js` are `no-cache`; the rest `public, max-age=3600`. Any other extension-less GET/HEAD falls back to `index.html` (`no-cache`); a missing file with an extension, and any non-GET/HEAD, is 404.
+- Traversal (`..`, encoded `%2e%2e`/`%2f`, absolute paths, NUL, bad escapes) is resolved against the directory and answered 404 when it leaves it. Files are served only when their `realpath` stays inside the real directory, so a symlink pointing out of it is 404.
+
+Tests: `src/serve-dashboard.test.ts` (runs the real `app`, no database), `src/otlp-headers.test.ts`, `src/env.test.ts`.
 
 ## Usage quota + picker decisions
 

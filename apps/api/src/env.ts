@@ -5,6 +5,18 @@ export const Env = z.object({
   // HTTP listen port. Defaults to 4000 (prod). Local dev overrides to 4040 via
   // apps/api/.env.local.tpl so a local run never collides with another :4000.
   PORT: z.coerce.number().int().default(4000),
+  // Listen address. 0.0.0.0 keeps the Docker deployment reachable; the native
+  // runtime sets 127.0.0.1 behind its reverse proxy.
+  HOST: z.string().default('0.0.0.0'),
+  // Built SPA directory. Set = this one process also does what nginx + Traefik
+  // did (static files, `/api` prefix strip, OTLP relay — see serve-dashboard.ts).
+  // Empty (the default) = API only, routes at the root.
+  DASHBOARD_DIR: z.string().default(''),
+  // 'true' / 'false' only: z.coerce.boolean() would turn 'false' into true.
+  CRONS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   DATABASE_URL: z.string().min(1),
   API_SECRET: z.string().min(1),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default('http://127.0.0.1:4318'),
