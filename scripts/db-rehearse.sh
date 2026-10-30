@@ -19,7 +19,9 @@
 #
 # DESTRUCTIVE to `shared.argo`: the restore drops and recreates its tables. A schema comment marks it as a
 # rehearsal copy; once the mini serves live traffic the comment is replaced, and this script then refuses
-# unless FORCE=1 (the cutover sets it deliberately, after stopping Argo on the mini).
+# unless FORCE=1 (the cutover sets it deliberately, after stopping Argo on the mini). The cutover restore runs
+# with FORCE=1 LIVE=1: LIVE=1 marks the restored schema 'argo live ...' instead of 'argo rehearsal copy ...', so
+# any later run is refused without FORCE=1.
 set -euo pipefail
 
 : "${ARGO_DB_PASSWORD:?must be set (secrets-run --env-file=apps/api/.env.local.tpl)}"
@@ -33,6 +35,8 @@ TARGET_DB=shared
 TARGET_HOST=127.0.0.1
 LEGACY=(usage_record quota_sample account_pick iu_portal_cost iu_portal_total)
 MARK='argo rehearsal copy'
+RESTORED_MARK="${MARK}"
+[ "${LIVE:-}" = "1" ] && RESTORED_MARK='argo live (restored at cutover from the VPS copy)'
 WORK="$(mktemp -d)"
 # The dump holds the whole schema in plaintext: whatever way the run ends, it must not stay in the VPS container.
 cleanup() {
@@ -83,7 +87,7 @@ grep -v -E '^(DROP|CREATE|COMMENT ON|ALTER) SCHEMA' "${WORK}/dump.sql" > "${WORK
   echo '\set ON_ERROR_STOP on'
   echo 'BEGIN;'
   echo "\\i ${WORK}/restore.sql"
-  echo "COMMENT ON SCHEMA argo IS '${MARK} $(date -u +%Y-%m-%dT%H:%MZ)';"
+  echo "COMMENT ON SCHEMA argo IS '${RESTORED_MARK} $(date -u +%Y-%m-%dT%H:%MZ)';"
   echo "\\o ${WORK}/target.sums"
   echo "${CHECKSUMS_SQL}"
   echo '\o'

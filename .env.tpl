@@ -2,7 +2,9 @@
 # secrets-run (fail-closed: exit 78 unless every ref resolves to a non-empty value). Non-secret config
 # (PORT, DATA_DIR, GIT_SHA, CRONS_ENABLED, ...) lives in deploy/com.jkrumm.argo.plist.template.
 #
-# NOT here yet (added at the cutover wave): GOOGLE_*, GARMIN_HEARTBEAT_URL, DOCKER_*.
+# DOCKER_VPS_URL stays unset on purpose: the VPS socket-proxy only listens on the VPS's Docker network, so
+# /docker/vps/* and the VPS half of /summary answer with an error object. The homelab half reads
+# http://<HOMELAB_TAILSCALE_IP>:2376 (the API derives it; tailnet grant tag:devhost -> tag:homelab tcp:2376).
 #
 # Assembled by launch.sh after resolution: DATABASE_URL (from ARGO_DB_PASSWORD) and
 # OTEL_EXPORTER_OTLP_HEADERS (from OTEL_EXPORTER_OTLP_AUTHORIZATION).
@@ -26,3 +28,8 @@ GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
 HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
+GOOGLE_CLIENT_ID=op://common/google-oauth/CLIENT_ID
+GOOGLE_CLIENT_SECRET=op://common/google-oauth/CLIENT_SECRET
+GOOGLE_ALLOWED_EMAIL=op://vps/argo/GOOGLE_ALLOWED_EMAIL
+GARMIN_HEARTBEAT_URL=op://common/garmin-collector/PUSH_URL
+HOMELAB_TAILSCALE_IP=op://common/config/HOMELAB_TAILSCALE_IP
