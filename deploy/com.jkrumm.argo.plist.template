@@ -39,10 +39,6 @@
     <!-- The mini copy runs on rehearsal data beside the live VPS copy: crons stay off until the cutover wave flips this one value. -->
     <key>CRONS_ENABLED</key>
     <string>false</string>
-    <key>UPTIME_KUMA_URL</key>
-    <string>https://uptime.jkrumm.com</string>
-    <key>UPTIME_KUMA_USERNAME</key>
-    <string>jkrumm</string>
     <key>OTEL_SERVICE_NAME</key>
     <string>argo-api</string>
     <key>OTEL_SERVICE_VERSION</key>

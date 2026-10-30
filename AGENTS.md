@@ -145,7 +145,7 @@ make rollback            # previous-sha goes live (exit 1 if it cannot); the mar
 make logs                # last 200 lines of argo.out.log / argo.err.log
 ```
 
-`make deploy` deploys what is on **origin/master** (push first), re-executes the release's own `scripts/deploy.sh`, refuses before
+`make deploy` deploys what is on **origin/master** (push first), re-executes the release's own `scripts/deploy.sh` (the deploy lock stays held across the re-exec, `ARGO_DEPLOY_LOCK_HELD`), refuses before
 anything is stopped if a `.env.tpl` ref does not resolve, and rolls back to the previous release when the new one is not healthy
 within 120 s (a first deploy is left booted out instead of crash-looping). Releases beyond the newest three (plus live and
 previous) are pruned. Dashboard bundle: `VITE_API_URL` empty (same-origin `/api`), `VITE_HYPERDX_ENDPOINT` empty (same-origin
@@ -166,7 +166,7 @@ fails, naming both, when origin/master moved ahead); `GET /` is the SPA and an `
 the stderr log has no `Unhandled`, `ECONNREFUSED … 5432` or `password authentication failed` line since the process started.
 `make verify-pages [BASE=<origin>]` loads every route of `scripts/evidence/routes.txt` in a real Chrome (bearer from `secrets-run`,
 reads only) and fails on an uncaught page error, a 5xx other than 503 or an empty page; 503s (Google / M365 without tokens) are listed as notes.
-The mini door is `https://argo-live.mini.jkrumm.com` (dotfiles Caddy registry, tailnet clients only); the process serves the SPA, `/api/*`
+The mini door is `https://<mini-door-host>` (dotfiles Caddy registry, tailnet clients only); the process serves the SPA, `/api/*`
 and the browser OTLP relay itself. Note that in dashboard mode only `/api/*` reaches the API, so probe `/api/health`, not `/health`.
 `/health` returns `{status, commit}`, `commit` being the `GIT_SHA` in the plist; it is unauthenticated and does not touch the
 database (see `docs/DEPLOY-VERIFICATION.md`).
