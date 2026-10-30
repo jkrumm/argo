@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
-import { db, runMigrations } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
+import { runMigrations } from '../db/index.js'
+import { deleteAllUsageRecords, seedUsageRecords } from '../test/usage-seed.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -10,7 +10,7 @@ beforeAll(async () => {
 
 describe('GET /usage/timeseries', () => {
   afterEach(async () => {
-    await db.delete(usageRecord)
+    await deleteAllUsageRecords()
   })
 
   it('returns zero-filled buckets for empty window metric=cost groupBy=none', async () => {
@@ -31,7 +31,7 @@ describe('GET /usage/timeseries', () => {
   it('aggregates cost per day across 3 rows on 2 days', async () => {
     const t1 = new Date().toISOString()
     const t2 = new Date(Date.now() - 86_400_000).toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -40,7 +40,7 @@ describe('GET /usage/timeseries', () => {
       cost_usd: 1,
       ingested_at: t1,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-2',
       grain: 'event',
@@ -49,7 +49,7 @@ describe('GET /usage/timeseries', () => {
       cost_usd: 2,
       ingested_at: t1,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-3',
       grain: 'event',
@@ -77,7 +77,7 @@ describe('GET /usage/timeseries', () => {
 
   it('groupBy=source returns both sources sorted by descending total', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'alpha',
       source_id: 'id-1',
       grain: 'event',
@@ -86,7 +86,7 @@ describe('GET /usage/timeseries', () => {
       cost_usd: 5,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'beta',
       source_id: 'id-2',
       grain: 'event',
@@ -112,7 +112,7 @@ describe('GET /usage/timeseries', () => {
 
   it('filters by sources array', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'foo',
       source_id: 'id-1',
       grain: 'event',
@@ -121,7 +121,7 @@ describe('GET /usage/timeseries', () => {
       cost_usd: 1,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'bar',
       source_id: 'id-2',
       grain: 'event',
@@ -147,7 +147,7 @@ describe('GET /usage/timeseries', () => {
 
   it('metric=tokens sums the counted token columns, excluding cache_read', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -179,7 +179,7 @@ describe('GET /usage/timeseries', () => {
 
   it('metric=cache_ratio returns weighted ratio per bucket', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -209,7 +209,7 @@ describe('GET /usage/timeseries', () => {
 
   it('reports error_rate as errors over calls per day, null on a day with no calls', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values([
+    await seedUsageRecords([
       { source: 'test', source_id: 'ok-1', grain: 'event', ts, billing: 'max', ingested_at: ts },
       { source: 'test', source_id: 'ok-2', grain: 'event', ts, billing: 'max', ingested_at: ts },
       { source: 'test', source_id: 'ok-3', grain: 'event', ts, billing: 'max', ingested_at: ts },

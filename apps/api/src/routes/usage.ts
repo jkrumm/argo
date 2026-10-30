@@ -1,8 +1,7 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { count, max, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
 import {
   RangeEnum,
   GrainEnum,
@@ -10,7 +9,6 @@ import {
   TimeseriesGroupByEnum,
   BreakdownMetricEnum,
   BreakdownDimensionEnum,
-  ACCOUNT_PATTERN,
   PAYER_EXPR,
   USAGE_DATA_FLOOR_ISO,
   resolveRange,
@@ -30,57 +28,7 @@ import { usageQuotaRoutes } from './usage-quota.js'
 import { usagePortalRoutes } from './usage-portal.js'
 import { usageAnalyticsRoutes } from './usage-analytics.js'
 import { usageSplitRoutes } from './usage-split.js'
-import { DEFAULT_IU_KEY, parseIuKey } from '../lib/iu-keys.js'
-import { classifyWorkspace, normalizeProject } from '../lib/project-normalize.js'
-
-const UsageRecordInputSchema = z.object({
-  source: z.string(),
-  source_id: z.string(),
-  grain: z.string(),
-  ts: z.string().describe('ISO 8601 timestamp'),
-  model: z.string().nullable(),
-  model_norm: z.string().nullable(),
-  project: z.string().nullable(),
-  workspace: z.string().nullable().optional(),
-  sub_tool: z.string().nullable(),
-  machine: z.string().nullable(),
-  billing: z.string(),
-  // Any string: it is normalised in the handler (see `normalizeAccount`), never rejected, so one odd value cannot 422 a batch.
-  account: z.string().nullable().optional(),
-  // Any string: resolved in the handler (see `resolveIuKey`), never rejected, so an unregistered key cannot 422 a batch.
-  iu_key: z.string().nullable().optional(),
-  outcome: z.string().default('ok'),
-  input_tokens: z.number().int().default(0),
-  output_tokens: z.number().int().default(0),
-  cache_read_tokens: z.number().int().default(0),
-  cache_write_tokens: z.number().int().default(0),
-  reasoning_tokens: z.number().int().default(0),
-  duration_ms: z.number().int().nullable(),
-  cost_usd: z.number().nullable(),
-  cost_source: z.string().default('none'),
-  raw: z.unknown().nullable(),
-  ingested_at: z.string().describe('Source-local ingest time, ISO 8601'),
-})
-
-/**
- * Trimmed account id, or null when it is absent, empty or not a valid id. Null never overwrites a
- * stored account (the upsert COALESCEs), so a blank or odd value from a collector is dropped, not stored.
- */
-function normalizeAccount(raw: string | null | undefined): string | null {
-  const id = raw?.trim()
-  return id !== undefined && ACCOUNT_PATTERN.test(id) ? id : null
-}
-
-/**
- * The IU API key a record is stored under. Only `billing='iu'` rows have one: absent, null or blank
- * means the personal key (the only one before the dimension), a registered id is kept, and an
- * unregistered id is stored as null ("unknown key"): never invented into a key, never filed as personal.
- */
-function resolveIuKey(r: { billing: string; iu_key?: string | null | undefined }): string | null {
-  if (r.billing !== 'iu') return null
-  if (r.iu_key == null || r.iu_key.trim() === '') return DEFAULT_IU_KEY
-  return parseIuKey(r.iu_key)
-}
+import { USAGE_ROWS } from '../lib/usage-source.js'
 
 function groupColumnSql(groupBy: string) {
   switch (groupBy) {
@@ -169,110 +117,25 @@ function metricExprBreakdown(metric: string) {
 }
 
 export const usageRoutes = new Elysia({ prefix: '/usage' })
-  .post(
-    '/records',
-    async ({ body }) => {
-      // Prefer the collector-declared workspace; fall back to path-based
-      // classification for sources that emit a cwd per record (claude-code,
-      // litellm). classifyWorkspace must run on the *original* cwd before
-      // normalizeProject collapses it to a bare repo name.
-      const dropped = body.records.filter(
-        (r) => r.account != null && normalizeAccount(r.account) === null,
-      ).length
-      if (dropped > 0) {
-        console.warn(`usage ingest: ${dropped} record(s) with an invalid account stored as null`)
-      }
-      const unknownKeys = body.records.filter(
-        (r) =>
-          r.billing === 'iu' &&
-          r.iu_key != null &&
-          r.iu_key.trim() !== '' &&
-          resolveIuKey(r) === null,
-      ).length
-      if (unknownKeys > 0) {
-        console.warn(
-          `usage ingest: ${unknownKeys} iu record(s) with an unregistered iu_key stored as null`,
-        )
-      }
-      const records = body.records.map((r) => ({
-        ...r,
-        account: normalizeAccount(r.account),
-        iu_key: resolveIuKey(r),
-        workspace: r.workspace ?? classifyWorkspace(r.project),
-        project: normalizeProject(r.project),
-      }))
-      const now = new Date().toISOString()
-
-      await db
-        .insert(usageRecord)
-        .values(records)
-        .onConflictDoUpdate({
-          target: [usageRecord.source, usageRecord.source_id, usageRecord.machine],
-          set: {
-            grain: sql`excluded.grain`,
-            ts: sql`excluded.ts`,
-            model: sql`excluded.model`,
-            model_norm: sql`excluded.model_norm`,
-            project: sql`excluded.project`,
-            workspace: sql`excluded.workspace`,
-            sub_tool: sql`excluded.sub_tool`,
-            billing: sql`excluded.billing`,
-            // Null/absent means unknown, never clears a stored value.
-            account: sql`COALESCE(excluded.account, ${usageRecord.account})`,
-            // The producer always sends the key, so a re-post overwrites it (null = unknown key).
-            iu_key: sql`excluded.iu_key`,
-            outcome: sql`excluded.outcome`,
-            input_tokens: sql`excluded.input_tokens`,
-            output_tokens: sql`excluded.output_tokens`,
-            cache_read_tokens: sql`excluded.cache_read_tokens`,
-            cache_write_tokens: sql`excluded.cache_write_tokens`,
-            reasoning_tokens: sql`excluded.reasoning_tokens`,
-            duration_ms: sql`excluded.duration_ms`,
-            cost_usd: sql`excluded.cost_usd`,
-            cost_source: sql`excluded.cost_source`,
-            raw: sql`excluded.raw`,
-            ingested_at: sql`excluded.ingested_at`,
-            updated_at: now,
-          },
-        })
-
-      return { upserted: records.length }
-    },
-    {
-      body: z.object({
-        records: z.array(UsageRecordInputSchema).min(1).max(1000),
-      }),
-      response: {
-        200: z.object({ upserted: z.number() }),
-      },
-      detail: {
-        tags: ['Usage Tracking'],
-        summary: 'Batch upsert usage records',
-        description:
-          'Idempotent batch insert-or-update for usage records. Keyed on (source, source_id, machine) so the same logical event from different machines stays distinct. A matching triple overwrites all mutable columns (tokens, cost, duration, raw, …). Called by the usage-tracker LaunchAgent every 15 min to sync local SQLite rows into Argo. Accepts 1–1000 records per call (client batches at 500). `account` (the Claude account id, null off Max billing) is trimmed and must match `^[a-z][a-z0-9-]{0,15}$`; an empty or non-matching value is stored as null (logged once per batch) instead of rejecting the batch, and a null or absent value never clears a stored account. `iu_key` (optional, the IU API key: `personal` | `athena-team`) is stored for billing=iu rows only (NULL for every other billing): absent, null or empty reads `personal`, a registered id is kept, an unregistered id is stored as NULL (an iu row with NULL iu_key means unknown key; logged once per batch, never rejecting the batch). It is not the Claude `account` dimension. A re-post overwrites the stored iu_key.',
-        security: [{ BearerAuth: [] }],
-      },
-    },
-  )
   .get(
     '/summary',
     async () => {
-      const [totalRow, bySourceRows, maxTsRow] = await Promise.all([
-        db.select({ count: count() }).from(usageRecord),
-        db
-          .select({ source: usageRecord.source, count: count() })
-          .from(usageRecord)
-          .groupBy(usageRecord.source),
-        db.select({ maxTs: max(usageRecord.ts) }).from(usageRecord),
+      const [bySourceRows, totalRows] = await Promise.all([
+        db.execute(sql`
+          SELECT source, COUNT(*)::int AS count FROM ${USAGE_ROWS} GROUP BY source
+        `),
+        db.execute(sql`
+          SELECT COUNT(*)::int AS count, MAX(ts)::text AS max_ts FROM ${USAGE_ROWS}
+        `),
       ])
+      const totalRow = (totalRows as unknown as Array<{ count: number; max_ts: string | null }>)[0]
 
       return {
-        total: Number(totalRow[0]?.count ?? 0),
-        bySource: bySourceRows.map((r) => ({
-          source: r.source,
-          count: Number(r.count),
-        })),
-        maxTs: maxTsRow[0]?.maxTs ?? null,
+        total: Number(totalRow?.count ?? 0),
+        bySource: (bySourceRows as unknown as Array<{ source: string; count: number }>).map(
+          (r) => ({ source: r.source, count: Number(r.count) }),
+        ),
+        maxTs: totalRow?.max_ts ?? null,
       }
     },
     {
@@ -287,7 +150,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage record summary',
         description:
-          'High-level stats: total row count, breakdown per source, and the newest timestamp in the table.',
+          'High-level stats read from the `usage` schema: total row count of `usage.records_unique`, breakdown per source, and the newest timestamp.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -344,7 +207,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             / NULLIF(COUNT(*) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0) AS error_rate_prior_30d,
           percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)
             FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${d60} AND ts < ${f30}) AS p95_ms_prior_30d
-        FROM argo.usage_record
+        FROM ${USAGE_ROWS}
         WHERE true ${accountFilterSql}
       `)
 
@@ -460,7 +323,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             SELECT
               ${utcBucket(grain, sql`ts`)}::${bucketType} AS bucket,
               ${mExpr} AS value
-            FROM argo.usage_record
+            FROM ${USAGE_ROWS}
             WHERE ts >= ${fromIso} AND ts <= ${toIso}
               ${filterSql}
             GROUP BY 1
@@ -502,7 +365,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             ${utcBucket(grain, sql`ts`)}::${bucketType} AS bucket,
             COALESCE(${col}, '(unset)') AS group_key,
             ${mExpr} AS value
-          FROM argo.usage_record
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${fromIso} AND ts <= ${toIso}
             ${filterSql}
           GROUP BY 1, 2
@@ -641,7 +504,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const [totalResult, rowsResult] = await Promise.all([
         db.execute(sql`
           SELECT ${mExpr} AS total
-          FROM argo.usage_record
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${fromIso} AND ts <= ${toIso}
             ${filterSql}
         `),
@@ -649,7 +512,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           SELECT
             COALESCE(${col}, '(unset)') AS key,
             ${mExpr} AS value
-          FROM argo.usage_record
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${fromIso} AND ts <= ${toIso}
             ${filterSql}
           GROUP BY COALESCE(${col}, '(unset)')

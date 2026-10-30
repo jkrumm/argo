@@ -258,15 +258,7 @@ export const walkingPadSessions = argoSchema.table(
   (t) => [index('idx_walking_pad_sessions_started_at').on(t.started_at)],
 )
 
-// ── Usage tracking (ingested from local usage-tracker SQLite) ────────────────
-//
-// The `usage-tracker` app (~/SourceRoot/usage-tracker) collects per-usage AI
-// token/cost records from multiple collectors (Claude Code, LiteLLM bridge,
-// Hermes, Feuer, OpenCode) into a local SQLite `usage_record` table. An
-// associated LaunchAgent pushes new rows to this table every 15 minutes.
-// The upsert is keyed on (source, source_id) which matches the local SQLite
-// UNIQUE constraint.
-
+// Legacy: no code reads or writes it, superseded by `usage.records`, dropped at cutover.
 export const usageRecord = argoSchema.table(
   'usage_record',
   {
@@ -316,14 +308,7 @@ export const usageRecord = argoSchema.table(
   ],
 )
 
-// ── Claude account quota history + picker decisions ──────────────────────────
-//
-// usage-tracker (src/sync.ts) POSTs a quota sample per account/machine and every picker decision
-// (dotfiles docs/claude-accounts.md §The picker). Both are append-only and idempotent on their
-// natural key; ~200 rows/day, kept forever. Indexes: quota_sample's unique key leads with `account`
-// (per-account reads) and `sampled_at` is indexed alone for the all-accounts window read; account_pick's
-// unique key leads with `ts`, so it also serves the window read and needs no second index.
-
+// Legacy: no code reads or writes it, superseded by `usage.quota_samples`, dropped at cutover.
 export const quotaSample = argoSchema.table(
   'quota_sample',
   {
@@ -348,6 +333,7 @@ export const quotaSample = argoSchema.table(
   ],
 )
 
+// Legacy: no code reads or writes it, superseded by `usage.account_picks`, dropped at cutover.
 export const accountPick = argoSchema.table(
   'account_pick',
   {
@@ -367,13 +353,7 @@ export const accountPick = argoSchema.table(
   (t) => [uniqueIndex('uq_account_pick_ts_lane_machine').on(t.ts, t.lane, t.machine)],
 )
 
-// ── IU portal cost (the truth for the IU API cap) ────────────────────────────
-//
-// usage-tracker scrapes IU's self-service cost portal every 4 h and POSTs it (src/sync-portal.ts).
-// The portal re-posts a day's value as it settles, so rows are overwritten on their natural key.
-// `row` is the portal's heatmap row: two model ids can share a label. The cap (500) and window (30)
-// are constants in lib/iu-budget.ts, the portal tables do not carry them.
-
+// Legacy: no code reads or writes it, superseded by `usage.iu_portal_cost`, dropped at cutover.
 export const iuPortalCost = argoSchema.table(
   'iu_portal_cost',
   {
@@ -388,6 +368,7 @@ export const iuPortalCost = argoSchema.table(
   (t) => [primaryKey({ columns: [t.iu_key, t.day, t.label, t.row] })],
 )
 
+// Legacy: no code reads or writes it, superseded by `usage.iu_portal_total`, dropped at cutover.
 export const iuPortalTotal = argoSchema.table(
   'iu_portal_total',
   {

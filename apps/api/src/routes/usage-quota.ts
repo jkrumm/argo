@@ -1,8 +1,7 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, desc, inArray, lte, sql, type SQL } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { accountPick, quotaSample } from '../db/schema.js'
 import { ACCOUNT_PATTERN, toArray } from '../lib/usage-query.js'
 import { laneSpills, snapshotOf, windowSummary, type QuotaWindow } from '../lib/routing.js'
 
@@ -23,76 +22,6 @@ const HOURLY_PICKS_MAX_HOURS = 72
 // date_bin needs an origin; any fixed instant works, the buckets align to it.
 const BIN_ORIGIN = sql`timestamptz '2001-01-01 00:00:00+00'`
 
-// Rows are validated one by one in the handler: the body schema only fixes the envelope, so one
-// malformed sample or pick is dropped and counted instead of 422-ing the whole batch.
-const BatchBodyItems = z.array(z.unknown()).min(1).max(1000)
-
-const IngestResponse = z.object({
-  received: z.number().int(),
-  inserted: z.number().int(),
-  rejected: z.number().int(),
-})
-
-const trimmed = z.string().transform((s) => s.trim())
-const nonEmpty = trimmed.pipe(z.string().min(1))
-
-/** An ISO 8601 instant with an explicit zone; a zone-less value would read in the server's timezone. */
-const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/
-
-/**
- * The canonical `toISOString()` form of the instant, or null when the value is not a zoned ISO
- * string or does not survive the round trip. Equal instants in different spellings (`+02:00`, `Z`,
- * with or without milliseconds) land on one string, so the unique keys dedupe them.
- */
-function canonicalIso(value: string): string | null {
-  if (!ISO_WITH_ZONE.test(value)) return null
-  const ms = Date.parse(value)
-  if (!Number.isFinite(ms)) return null
-  try {
-    const iso = new Date(ms).toISOString()
-    return Date.parse(iso) === ms ? iso : null
-  } catch {
-    return null
-  }
-}
-
-const isoTime = nonEmpty.transform(canonicalIso).pipe(z.string())
-const pct = z.number().finite().nullable()
-const optionalIso = isoTime.nullable()
-
-const QuotaSampleRow = z.object({
-  account: nonEmpty.pipe(z.string().regex(ACCOUNT_PATTERN)),
-  sampledAt: isoTime,
-  machine: nonEmpty,
-  fiveHourPct: pct,
-  sevenDayPct: pct,
-  fiveHourResetsAt: optionalIso,
-  sevenDayResetsAt: optionalIso,
-  authOk: z.boolean(),
-  exhaustedUntil: optionalIso,
-  source: trimmed.nullable(),
-})
-
-const AccountPickRow = z.object({
-  ts: isoTime,
-  lane: nonEmpty,
-  picked: nonEmpty,
-  reason: nonEmpty,
-  stale: z.boolean(),
-  snapshot: z.record(z.string(), z.unknown()),
-  machine: nonEmpty,
-})
-
-/** Valid rows of an untrusted batch plus how many were dropped. */
-function validRows<S extends z.ZodType>(schema: S, items: readonly unknown[]) {
-  const rows: Array<z.output<S>> = []
-  for (const item of items) {
-    const parsed = schema.safeParse(item)
-    if (parsed.success) rows.push(parsed.data)
-  }
-  return { rows, rejected: items.length - rows.length }
-}
-
 function epochToIso(epoch: unknown): string {
   return new Date(Number(epoch) * 1000).toISOString()
 }
@@ -108,77 +37,6 @@ const QuotaPoint = z.object({
 
 // No prefix of its own: mounted inside `usageRoutes`, which supplies `/usage`.
 export const usageQuotaRoutes = new Elysia()
-  .post(
-    '/quota-samples',
-    async ({ body }) => {
-      const { rows, rejected } = validRows(QuotaSampleRow, body.samples)
-      if (rejected > 0) {
-        console.warn(`quota ingest: ${rejected} invalid sample(s) dropped`)
-      }
-      if (rows.length === 0) return { received: body.samples.length, inserted: 0, rejected }
-
-      const inserted = await db
-        .insert(quotaSample)
-        .values(
-          rows.map((r) => ({
-            account: r.account,
-            sampled_at: r.sampledAt,
-            machine: r.machine,
-            five_hour_pct: r.fiveHourPct,
-            seven_day_pct: r.sevenDayPct,
-            five_hour_resets_at: r.fiveHourResetsAt,
-            seven_day_resets_at: r.sevenDayResetsAt,
-            auth_ok: r.authOk,
-            exhausted_until: r.exhaustedUntil,
-            source: r.source === '' ? null : r.source,
-          })),
-        )
-        .onConflictDoNothing()
-        .returning({ id: quotaSample.id })
-
-      return { received: body.samples.length, inserted: inserted.length, rejected }
-    },
-    {
-      body: z.object({ samples: BatchBodyItems }),
-      response: { 200: IngestResponse },
-      detail: {
-        tags: ['Usage Tracking'],
-        summary: 'Batch insert Claude account quota samples',
-        description:
-          'Idempotent, append-only insert of quota samples keyed on (account, sampledAt, machine); a repeat is skipped (ON CONFLICT DO NOTHING). Each sample: {account, sampledAt ISO, machine, fiveHourPct|null, sevenDayPct|null, fiveHourResetsAt|null, sevenDayResetsAt|null, authOk, exhaustedUntil|null, source|null}. Strings are trimmed; `account` must match `^[a-z][a-z0-9-]{0,15}$`. A sample that fails validation is dropped and counted in `rejected`, never failing the batch. Accepts 1–1000 per call. Same auth as POST /usage/records.',
-        security: [{ BearerAuth: [] }],
-      },
-    },
-  )
-  .post(
-    '/account-picks',
-    async ({ body }) => {
-      const { rows, rejected } = validRows(AccountPickRow, body.picks)
-      if (rejected > 0) {
-        console.warn(`account-pick ingest: ${rejected} invalid pick(s) dropped`)
-      }
-      if (rows.length === 0) return { received: body.picks.length, inserted: 0, rejected }
-
-      const inserted = await db
-        .insert(accountPick)
-        .values(rows)
-        .onConflictDoNothing()
-        .returning({ id: accountPick.id })
-
-      return { received: body.picks.length, inserted: inserted.length, rejected }
-    },
-    {
-      body: z.object({ picks: BatchBodyItems }),
-      response: { 200: IngestResponse },
-      detail: {
-        tags: ['Usage Tracking'],
-        summary: 'Batch insert Claude account picker decisions',
-        description:
-          'Idempotent, append-only insert of picker decisions keyed on (ts, lane, machine); a repeat is skipped. Each pick: {ts ISO, lane, picked, reason, stale, snapshot object, machine}. `picked` is opaque: an account id, or `spill` when no Max account had headroom. Strings are trimmed; a pick that fails validation is dropped and counted in `rejected`, never failing the batch. Accepts 1–1000 per call. Same auth as POST /usage/records.',
-        security: [{ BearerAuth: [] }],
-      },
-    },
-  )
   .get(
     '/quota',
     async ({ query }) => {
@@ -206,7 +64,7 @@ export const usageQuotaRoutes = new Elysia()
             SELECT DISTINCT ON (account, bucket) account, bucket, five_hour_pct, seven_day_pct
             FROM (
               SELECT account, ${bin(sql`sampled_at`)} AS bucket, sampled_at, five_hour_pct, seven_day_pct
-              FROM argo.quota_sample
+              FROM usage.quota_samples
               WHERE sampled_at >= ${fromIso}::timestamptz AND sampled_at <= now() ${accountSql}
             ) s
             ORDER BY account, bucket, sampled_at DESC
@@ -219,14 +77,14 @@ export const usageQuotaRoutes = new Elysia()
             SELECT account, 'five_hour' AS win,
                    ${bin(sql`five_hour_resets_at`)} AS at,
                    five_hour_resets_at AS raw
-            FROM argo.quota_sample
+            FROM usage.quota_samples
             WHERE sampled_at >= ${fromIso}::timestamptz AND sampled_at <= now() ${accountSql}
               AND five_hour_resets_at IS NOT NULL
             UNION ALL
             SELECT account, 'seven_day' AS win,
                    ${bin(sql`seven_day_resets_at`)} AS at,
                    seven_day_resets_at AS raw
-            FROM argo.quota_sample
+            FROM usage.quota_samples
             WHERE sampled_at >= ${fromIso}::timestamptz AND sampled_at <= now() ${accountSql}
               AND seven_day_resets_at IS NOT NULL
           ) r
@@ -287,7 +145,7 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Claude account quota history',
         description:
-          'Per-account 5-hour and weekly quota utilisation (percent) over the last ?hours=1..8760 (default 168), bucketed taking the last sample in each bucket (15 minutes up to 72 h, 1 hour up to 30 d, 1 day beyond; `bucketMinutes` says which) (several machines sampling one account collapse to the latest). A null percent is a sample without a reading (auth failed), not zero. Buckets without any sample are absent, not zero-filled. `resets` lists window resets that fell inside the range (distinct reset instants reported by the samples, binned to the same bucket width), per account and window. Filter with account[]. Samples stamped in the future are ignored. Series are ordered by account, points by time.',
+          'Per-account 5-hour and weekly quota utilisation (percent, read from `usage.quota_samples`) over the last ?hours=1..8760 (default 168), bucketed taking the last sample in each bucket (15 minutes up to 72 h, 1 hour up to 30 d, 1 day beyond; `bucketMinutes` says which) (several machines sampling one account collapse to the latest). A null percent is a sample without a reading (auth failed), not zero. Buckets without any sample are absent, not zero-filled. `resets` lists window resets that fell inside the range (distinct reset instants reported by the samples, binned to the same bucket width), per account and window. Filter with account[]. Samples stamped in the future are ignored. Series are ordered by account, points by time.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -296,32 +154,42 @@ export const usageQuotaRoutes = new Elysia()
     '/quota-latest',
     async ({ query }) => {
       const accounts = toArray(query.account)
-      const rows = await db
-        .selectDistinctOn([quotaSample.account], {
-          account: quotaSample.account,
-          sampledAt: quotaSample.sampled_at,
-          fiveHourPct: quotaSample.five_hour_pct,
-          sevenDayPct: quotaSample.seven_day_pct,
-          sevenDayResetsAt: quotaSample.seven_day_resets_at,
-          authOk: quotaSample.auth_ok,
-        })
-        .from(quotaSample)
-        .where(
-          and(
-            lte(quotaSample.sampled_at, sql`now()`),
-            accounts && accounts.length > 0 ? inArray(quotaSample.account, accounts) : undefined,
-          ),
-        )
-        .orderBy(quotaSample.account, desc(quotaSample.sampled_at), desc(quotaSample.id))
+      const accountSql =
+        accounts && accounts.length > 0
+          ? sql`AND account IN (${sql.join(
+              accounts.map((a) => sql`${a}`),
+              sql`, `,
+            )})`
+          : sql``
+      // The newest sample per account; the key has no row id, so machine breaks a same-instant tie.
+      const rows = (await db.execute(sql`
+        SELECT DISTINCT ON (account)
+               account,
+               sampled_at AS "sampledAt",
+               five_hour_pct AS "fiveHourPct",
+               seven_day_pct AS "sevenDayPct",
+               seven_day_resets_at AS "sevenDayResetsAt",
+               auth_ok AS "authOk"
+        FROM usage.quota_samples
+        WHERE sampled_at <= now() ${accountSql}
+        ORDER BY account, sampled_at DESC, machine DESC
+      `)) as unknown as Array<{
+        account: string
+        sampledAt: string
+        fiveHourPct: number | null
+        sevenDayPct: number | null
+        sevenDayResetsAt: string | null
+        authOk: boolean | null
+      }>
 
       return {
         accounts: rows.map((r) => ({
           account: r.account,
           sampledAt: stringToIso(r.sampledAt),
-          fiveHourPct: r.fiveHourPct,
-          sevenDayPct: r.sevenDayPct,
+          fiveHourPct: r.fiveHourPct === null ? null : Number(r.fiveHourPct),
+          sevenDayPct: r.sevenDayPct === null ? null : Number(r.sevenDayPct),
           sevenDayResetsAt: r.sevenDayResetsAt === null ? null : stringToIso(r.sevenDayResetsAt),
-          authOk: r.authOk,
+          authOk: r.authOk ?? false,
         })),
       }
     },
@@ -352,7 +220,7 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Latest Claude account quota sample',
         description:
-          'The newest quota sample per account, unbucketed: sampledAt, the 5-hour and weekly percent, the weekly reset instant and whether auth worked (a failed auth carries null percentages, not zero). Several machines sampling one account collapse to the latest. Samples stamped in the future are ignored. Filter with account[]. No samples (or no match) is `{ accounts: [] }`. Ordered by account. The usage page reads it for the weekly meter and its pace tick.',
+          'The newest quota sample per account, unbucketed (read from `usage.quota_samples`): sampledAt, the 5-hour and weekly percent, the weekly reset instant and whether auth worked (a failed auth carries null percentages, not zero). Several machines sampling one account collapse to the latest. Samples stamped in the future are ignored. Filter with account[]. No samples (or no match) is `{ accounts: [] }`. Ordered by account. The usage page reads it for the weekly meter and its pace tick.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -368,7 +236,7 @@ export const usageQuotaRoutes = new Elysia()
       const [countRows, seriesRows] = await Promise.all([
         db.execute(sql`
           SELECT lane, picked, reason, count(*)::int AS n, count(*) FILTER (WHERE stale)::int AS stale_n
-          FROM argo.account_pick
+          FROM usage.account_picks
           WHERE ts >= ${fromIso}::timestamptz AND ts <= now()
           GROUP BY lane, picked, reason
           ORDER BY lane, picked, reason
@@ -377,7 +245,7 @@ export const usageQuotaRoutes = new Elysia()
           SELECT extract(epoch FROM date_bin(${width}::interval, ts, ${BIN_ORIGIN}))::bigint AS epoch,
                  ${query.groupBy === 'reason' ? sql.raw('reason') : sql.raw('picked')} AS picked,
                  count(*)::int AS n
-          FROM argo.account_pick
+          FROM usage.account_picks
           WHERE ts >= ${fromIso}::timestamptz AND ts <= now()
           GROUP BY 1, 2
           ORDER BY 1, 2
@@ -462,7 +330,7 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Claude account picker summary',
         description:
-          'Picker decisions over the last ?hours=1..8760 (default 168). `counts` is the lane × picked × reason breakdown (staleCount = decisions made on a sample older than 10 minutes). `series` counts picks per bucket (hourly up to 72 h, daily beyond; buckets with no pick are absent) keyed by ?groupBy=picked (default: the account id or `spill`) or reason (home | pace | session | spill | no-eligible-account | …); `pickedKeys` is every key seen, sorted. `lanes` is per lane: total picks, spills (picked or reason = `spill`) and spillRate = spills / total. `picked` is opaque: an account id or `spill`.',
+          'Picker decisions (from `usage.account_picks`) over the last ?hours=1..8760 (default 168). `counts` is the lane × picked × reason breakdown (staleCount = decisions made on a sample older than 10 minutes). `series` counts picks per bucket (hourly up to 72 h, daily beyond; buckets with no pick are absent) keyed by ?groupBy=picked (default: the account id or `spill`) or reason (home | pace | session | spill | no-eligible-account | …); `pickedKeys` is every key seen, sorted. `lanes` is per lane: total picks, spills (picked or reason = `spill`) and spillRate = spills / total. `picked` is opaque: an account id or `spill`.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -473,7 +341,7 @@ export const usageQuotaRoutes = new Elysia()
       const fromIso = new Date(Date.now() - query.hours * 3_600_000).toISOString()
       const rows = await db.execute(sql`
         SELECT ts, lane, picked, reason, stale, snapshot
-        FROM argo.account_pick
+        FROM usage.account_picks
         WHERE ts >= ${fromIso}::timestamptz AND ts <= now()
         ORDER BY ts
       `)
@@ -520,7 +388,7 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Claude account picker decisions',
         description:
-          'Every picker decision over the last ?hours=1..504 (21 days, default 168), oldest first: lane, picked (an account id or `spill`), reason, stale (made on a sample older than 10 minutes) and the snapshot the picker saw, per account `{s, w}` = 5-hour and weekly percent used (null when unknown). For aggregates use /usage/account-picks/summary.',
+          'Every picker decision (from `usage.account_picks`) over the last ?hours=1..504 (21 days, default 168), oldest first: lane, picked (an account id or `spill`), reason, stale (made on a sample older than 10 minutes) and the snapshot the picker saw, per account `{s, w}` = 5-hour and weekly percent used (null when unknown). For aggregates use /usage/account-picks/summary.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -534,7 +402,7 @@ export const usageQuotaRoutes = new Elysia()
           SELECT account, 'five_hour' AS win, date_trunc('minute', five_hour_resets_at) AS reset_at,
                  (array_agg(five_hour_pct ORDER BY sampled_at DESC) FILTER (WHERE five_hour_pct IS NOT NULL))[1] AS pct,
                  max(sampled_at) FILTER (WHERE five_hour_pct IS NOT NULL) AS last_sample
-          FROM argo.quota_sample
+          FROM usage.quota_samples
           WHERE five_hour_resets_at >= ${fromIso}::timestamptz AND five_hour_resets_at <= now()
             AND sampled_at < five_hour_resets_at
             AND sampled_at >= ${fromIso}::timestamptz - interval '5 hours'
@@ -543,7 +411,7 @@ export const usageQuotaRoutes = new Elysia()
           SELECT account, 'seven_day', date_trunc('minute', seven_day_resets_at),
                  (array_agg(seven_day_pct ORDER BY sampled_at DESC) FILTER (WHERE seven_day_pct IS NOT NULL))[1],
                  max(sampled_at) FILTER (WHERE seven_day_pct IS NOT NULL)
-          FROM argo.quota_sample
+          FROM usage.quota_samples
           WHERE seven_day_resets_at >= ${fromIso}::timestamptz AND seven_day_resets_at <= now()
             AND sampled_at < seven_day_resets_at
             AND sampled_at >= ${fromIso}::timestamptz - interval '7 days'
@@ -555,7 +423,7 @@ export const usageQuotaRoutes = new Elysia()
         )
         SELECT n.account, n.win, n.reset_at, n.pct, n.last_sample,
                CASE WHEN n.win = 'five_hour' THEN (
-                 SELECT min(p.ts) FROM argo.account_pick p
+                 SELECT min(p.ts) FROM usage.account_picks p
                  WHERE p.picked = n.account AND p.ts >= n.reset_at
                    AND p.ts < COALESCE(n.next_reset, now())
                ) END AS first_pick
@@ -619,7 +487,7 @@ export const usageQuotaRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Claude quota windows: unused capacity and pick-back time',
         description:
-          'One row per account and quota window (five_hour | seven_day) that reset in the last ?hours=1..2160 (default 504 = 21 d): pctAtReset is the percent used in the last sample before the reset (lastSampleAt says how old it was), unusedPct = 100 − pctAtReset (capacity that expired unused). For five_hour windows, firstPickAt / minutesToFirstPick is the first picker decision for that account at or after the reset and before the account’s next 5 h reset (null: not picked in that span), so one pick never counts for two windows. `summary` aggregates per account and window: resets, median/mean unused percent, median minutes to the first pick, and five-hour resets never picked after. A window only appears once a sample reported its reset instant.',
+          'One row per account and quota window (from `usage.quota_samples` and `usage.account_picks`) (five_hour | seven_day) that reset in the last ?hours=1..2160 (default 504 = 21 d): pctAtReset is the percent used in the last sample before the reset (lastSampleAt says how old it was), unusedPct = 100 − pctAtReset (capacity that expired unused). For five_hour windows, firstPickAt / minutesToFirstPick is the first picker decision for that account at or after the reset and before the account’s next 5 h reset (null: not picked in that span), so one pick never counts for two windows. `summary` aggregates per account and window: resets, median/mean unused percent, median minutes to the first pick, and five-hour resets never picked after. A window only appears once a sample reported its reset instant.',
         security: [{ BearerAuth: [] }],
       },
     },

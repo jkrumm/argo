@@ -1,5 +1,7 @@
 # Usage Tracking — spec (v6)
 
+> **Data path since 2026-10-30.** The ingest endpoints, the `argo.usage_record` / `quota_sample` / `account_pick` / `iu_portal_*` tables and the pushes described below are gone: `usage-tracker` and `agw` write schema `usage` in the shared database directly and Argo reads `usage.records_unique` through `apps/api/src/lib/usage-source.ts`. The page design and the response contracts below still hold; the table names and the sync sections are history.
+
 Route `/usage-tracking` · `apps/dashboard/src/routes/usage-tracking.tsx`, `apps/dashboard/src/features/usage-tracking/` · API `/usage/*`.
 Replaces the Wave 21–51 concept (history: git log of this file). Plan: `docs/waves/PLAN.md` (Waves 2–3 build this).
 

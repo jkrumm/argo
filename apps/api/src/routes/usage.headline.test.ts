@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach, setSystemTime } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
-import { db, runMigrations } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
+import { runMigrations } from '../db/index.js'
+import { deleteAllUsageRecords, seedUsageRecords } from '../test/usage-seed.js'
 import { USAGE_DATA_FLOOR_ISO } from '../lib/usage-query.js'
 
 beforeAll(async () => {
@@ -12,7 +12,7 @@ beforeAll(async () => {
 describe('GET /usage/headline', () => {
   afterEach(async () => {
     setSystemTime()
-    await db.delete(usageRecord)
+    await deleteAllUsageRecords()
   })
 
   it('returns zeros and nulls when table is empty', async () => {
@@ -47,7 +47,7 @@ describe('GET /usage/headline', () => {
 
   it('populates fields from one ok row', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -71,8 +71,6 @@ describe('GET /usage/headline', () => {
       p95Ms30d: number | null
       recordsTotal: number
     }
-    // cost_usd is a single-precision `real` column, so 1.23 round-trips as
-    // 1.2300000190734863 — compare to cent precision, not float-bit-exact.
     expect(body.costUsd30d).toBeCloseTo(1.23, 2)
     expect(body.costMaxBilling30d).toBeCloseTo(1.23, 2)
     expect(body.tokens30d).toBe(1500)
@@ -83,7 +81,7 @@ describe('GET /usage/headline', () => {
 
   it('computes error rate at 0.5', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -93,7 +91,7 @@ describe('GET /usage/headline', () => {
       cost_usd: 0.1,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-2',
       grain: 'event',
@@ -113,7 +111,7 @@ describe('GET /usage/headline', () => {
 
   it('computes p95 from two durations', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -122,7 +120,7 @@ describe('GET /usage/headline', () => {
       duration_ms: 100,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-2',
       grain: 'event',
@@ -142,7 +140,7 @@ describe('GET /usage/headline', () => {
 
   it('computes cache hit ratio', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -165,7 +163,7 @@ describe('GET /usage/headline', () => {
     const now = Date.now()
     const current = new Date(now - 5 * 86_400_000).toISOString()
     const prior = new Date(now - 40 * 86_400_000).toISOString()
-    await db.insert(usageRecord).values([
+    await seedUsageRecords([
       {
         source: 'test',
         source_id: 'cur',
@@ -223,7 +221,7 @@ describe('GET /usage/headline', () => {
     const now = new Date(Date.parse(USAGE_DATA_FLOOR_ISO) + 40 * 86_400_000)
     setSystemTime(now)
     const ts = new Date(now.getTime() - 86_400_000).toISOString()
-    await db.insert(usageRecord).values([
+    await seedUsageRecords([
       { source: 'test', source_id: 'a', grain: 'event', ts, billing: 'max', ingested_at: ts },
       {
         source: 'test',

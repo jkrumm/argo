@@ -2,26 +2,27 @@
 
 ## Database
 
-- **Postgres 18** — production on the VPS, local dev uses the shared cluster from `~/SourceRoot/vps/compose.dev.yml` on `:5432`.
-- Schema: `argo` (all tables qualified as `argo.<table>`). Created via `cd ~/SourceRoot/vps && make postgres-setup` (idempotent).
-- Role: `argo`. Password at `op://vps/argo/DB_PASSWORD` (tkrumm account).
-- Database name: `op://vps/config/POSTGRES_DB`.
+- **Postgres 18** — production on the VPS (database `op://vps/config/POSTGRES_DB`, schema `argo`). Local dev and tests use the mini's database `shared` on `:5432` (`~/SourceRoot/vps/compose.dev.yml`), where `argo` sits next to the `usage` schema it reads (`usage-tracker` owns it; role `argo` has SELECT only) and `agent_workflows` stays a separate database (read-only role `argo_agw_ro`).
+- Schema: `argo` (all tables qualified as `argo.<table>`), owned by role `argo` (limit 20, shared with the main database). Role and database come from `cd ~/SourceRoot/vps && make db-shared` (idempotent); `argo` holds CREATE on `shared` because drizzle's migrator runs `CREATE SCHEMA IF NOT EXISTS`.
+- Role password: `op://vps/argo/DB_PASSWORD` (tkrumm account).
 
 ### Local dev
 
 ```bash
-# 1. Start shared dev infra (Postgres + ClickStack)
-cd ~/SourceRoot/vps && make up && cd -
+# 1. Start shared dev infra (Postgres + ClickStack), once: make db-shared
+cd ~/SourceRoot/vps && make up && make db-shared && cd -
 
-# 2. (Once) provision the argo role + schema
-cd ~/SourceRoot/vps && make postgres-setup && cd -
+# 2. (Optional) Replace shared.argo with a fresh, checksum-verified copy of prod (the cutover rehearsal)
+bun db:sync          # = make db-rehearse; scripts/db-rehearse.sh documents the guard and what is excluded
 
-# 3. (Optional) Pull a fresh dump of prod data into local
-bun db:sync
-
-# 4. Start API + dashboard concurrently (runs migrations on API boot)
+# 3. Start API + dashboard concurrently (runs migrations on API boot)
 bun dev
 ```
+
+`make db-rehearse` copies the VPS `argo` schema into `shared` from one REPEATABLE READ snapshot (dump plus per-table
+row count and md5 taken together), restores it as role `argo` in one transaction and fails unless every table matches.
+The five legacy usage tables are left out (usage lives in `usage`). It marks the schema `argo rehearsal copy` and
+refuses to replace a schema without that mark unless `FORCE=1`: once Argo serves from `shared` it is live data.
 
 ### Migrations
 
@@ -183,9 +184,12 @@ describe('GET /my-resource', () => {
 ## Tests
 
 ```bash
-# Run all tests (from repo root). Wraps op + assembles DATABASE_URL from the
-# op-resolved components (the .tpl only holds op:// refs — DATABASE_URL itself
-# is built at runtime by scripts/test.sh, same as dev.sh / db-migrate.sh).
+# Run all tests (from repo root). secrets-run injects the admin Postgres credentials
+# (apps/api/.env.test.tpl); scripts/test.sh creates a scratch database argo_test_<12 hex> on
+# localhost:5432, creates schemas `argo` and `usage`, applies usage-tracker's plain-SQL migrations
+# (~/SourceRoot/usage-tracker/migrations/pg, or $USAGE_MIGRATIONS_DIR), points DATABASE_URL at it,
+# runs `bun test --cwd apps/api` and drops the database in a trap. The argo tables come from the
+# tests' own runMigrations(). Missing migrations dir or secrets: it fails with a message.
 bun test:api
 
 # Pass through filters/flags to `bun test`, e.g. a single file:
@@ -195,11 +199,10 @@ bun test:api src/routes/workouts.summary.test.ts
 DATABASE_URL=postgres://x@localhost/x API_SECRET=x bun test --cwd apps/api src/lib
 ```
 
-> NOTE: a bare `op run --env-file=apps/api/.env.local.tpl -- bun test` will fail
-> integration tests with `DATABASE_URL ... undefined` — the template never sets
-> `DATABASE_URL` (op can't interpolate an `op://` ref inside a larger string).
-> Use `bun test:api`. Integration tests also need the dev Postgres up
-> (`cd ~/SourceRoot/vps && make up && make postgres-setup`).
+> The app role `argo` can only SELECT on schema `usage`, which is why the integration tests run as
+> admin in a scratch database instead of the shared one. A bare `bun test` fails integration tests
+> with `DATABASE_URL ... undefined`; use `bun test:api`. The Postgres on the mini must be up
+> (`cd ~/SourceRoot/vps && make up`).
 
 Tests live alongside source files as `*.test.ts`:
 
@@ -209,7 +212,7 @@ Tests live alongside source files as `*.test.ts`:
 - `src/routes/daily-metrics.summary.test.ts` — integration: health summary endpoint
 - `src/routes/weight-log.summary.test.ts` — integration: weight summary endpoint
 
-Integration tests seed fixtures in `beforeEach`/`afterEach` and require a live Postgres.
+Integration tests seed fixtures in `beforeEach`/`afterEach` and require a live Postgres. The usage tests seed schema `usage` through `src/test/usage-seed.ts` (`seedUsageRecords` takes the records in the read model's column names and writes `usage.records`; `seedQuotaSamples`, `seedAccountPicks`, `seedIuPortal` and the `delete*` cleanups cover the other tables); `src/db/usage-source.test.ts` pins the `USAGE_ROWS` projection itself.
 
 ## Observability
 
@@ -229,15 +232,17 @@ All env vars are validated at startup via Zod in `src/env.ts`. Missing required 
 
 ## Usage quota + picker decisions
 
-**Payer** (`src/lib/usage-query.ts` `PAYER_SQL`, no column, works on all history): `billing=max ∧ account=iu` → `iu-sub`, `max ∧ me` → `me-sub`, `max ∧ me2` → `me2-sub` (third Max subscription, onboarded 2026-10-27), `billing=iu ∧ iu_key=personal` → `iu-api`, `iu ∧ iu_key=athena-team` → `iu-team-api` (the Athena team key; an iu row with NULL `iu_key` — unknown key — is `unknown`), `billing=openrouter` → `me-api` (the personal pay-per-token API), everything else — including Max rows whose account is not (yet) known — `unknown`. Available as `payer[]` filter on `/usage/{headline,timeseries,breakdown}`, as `groupBy=payer` / `dimension=payer`, and as `costIuSub30d`/`costMeSub30d`/`costIuApi30d`/`costMeApi30d` on the headline. `billing` and `account` filters/dimensions are unchanged. `API_PAYERS` (`iu-api`, `iu-team-api`, `me-api`) is the default set wherever "API spend" is meant (`/usage/movers`). A new payer or billing value needs the CASE, `PAYERS` and the dashboard's `USAGE_PAYERS` registry updated together. Timeseries buckets are UTC days (pinned in SQL; prod Postgres is `Etc/UTC`). Migration `0024` is reversible from the off-repo pg_dump of its archive table, which `0025` dropped (restore steps in `docs/usage-reconciliation.md`). Tests: `src/routes/usage.payer.test.ts`, `src/db/migration-0024.test.ts` (route tests need a Postgres: `DATABASE_URL=… API_SECRET=… bun test src/routes/usage`).
+Every usage query reads `FROM ${USAGE_ROWS}` (`src/lib/usage-source.ts`): `usage.records_unique` projected onto the column names below (`model_norm`, `project`, `sub_tool`, `billing`, `iu_key`, …); Argo never writes the `usage` schema. The legacy `argo.usage_record`/`quota_sample`/`account_pick`/`iu_portal_*` tables stay defined in `src/db/schema.ts` only until they are dropped at cutover.
 
-`usage-tracker` POSTs Claude account quota samples (`/usage/quota-samples`, key `(account, sampledAt, machine)`) and picker decisions (`/usage/account-picks`, key `(ts, lane, machine)`); picker spec: `dotfiles/docs/claude-accounts.md` §The picker. Both are append-only (`ON CONFLICT DO NOTHING`, nothing pruned, ~200 rows/day) and validate **per row** (timestamps need an explicit zone and are stored as `toISOString()`, so `+02:00` and `Z` spellings of one instant dedupe): an invalid row is dropped and counted in `rejected`, never a 422 for the batch (the body schema only fixes the envelope). `picked` is opaque: an account id or `spill`. Reads: `GET /usage/quota` (buckets widen with the window: 15 min ≤72 h, 1 h ≤30 d, 1 d beyond; last sample wins; resets as markers; future-stamped rows ignored), `GET /usage/quota-latest[?account[]]` (the newest unbucketed sample per account, `{accounts:[{account,sampledAt,fiveHourPct,sevenDayPct,sevenDayResetsAt,authOk}]}`, future-stamped rows ignored, empty = `{accounts:[]}`; the usage page's weekly meters and pace tick read it because `/quota` carries no reset instant or `authOk`) and `GET /usage/account-picks/summary` (`groupBy=picked|reason` for the series, `lanes` = per-lane spill rate). Routing views (`src/lib/routing.ts`, pure): `GET /usage/account-picks?hours≤504` lists every decision with its parsed `{s,w}` snapshot; `GET /usage/routing/windows?hours` gives per account and window (5 h / 7 d) the percent used in the last sample before each reset (unused = 100 − that) and, for 5 h, the minutes until the account was picked again, plus a per-account summary. The routes live in `src/routes/usage-quota.ts`, mounted inside `usageRoutes` (no prefix of their own, so the `/usage` auth guard and Eden path are shared). Tests: `src/routes/usage.quota.test.ts`.
+**Payer** (`src/lib/usage-query.ts` `PAYER_SQL`, no column, works on all history): `billing=max ∧ account=iu` → `iu-sub`, `max ∧ me` → `me-sub`, `max ∧ me2` → `me2-sub` (third Max subscription, onboarded 2026-10-27), `billing=iu ∧ iu_key=personal` → `iu-api`, `iu ∧ iu_key=athena-team` → `iu-team-api` (the Athena team key; an iu row with NULL `iu_key` — unknown key — is `unknown`), `billing=openrouter` → `me-api` (the personal pay-per-token API), everything else — including Max rows whose account is not (yet) known — `unknown`. Available as `payer[]` filter on `/usage/{headline,timeseries,breakdown}`, as `groupBy=payer` / `dimension=payer`, and as `costIuSub30d`/`costMeSub30d`/`costIuApi30d`/`costMeApi30d` on the headline. `billing` and `account` filters/dimensions are unchanged. `API_PAYERS` (`iu-api`, `iu-team-api`, `me-api`) is the default set wherever "API spend" is meant (`/usage/movers`). A new payer or billing value needs the CASE, `PAYERS` and the dashboard's `USAGE_PAYERS` registry updated together. Timeseries buckets are UTC days (pinned in SQL; prod Postgres is `Etc/UTC`). Migration `0024` is reversible from the off-repo pg_dump of its archive table, which `0025` dropped (restore steps in `docs/usage-reconciliation.md`). Tests: `src/routes/usage.payer.test.ts`, `src/db/migration-0024.test.ts` (route tests need the scratch Postgres: `bun test:api src/routes/usage`).
+
+Claude account quota samples (`usage.quota_samples`, key `(account, sampled_at, machine)`) and picker decisions (`usage.account_picks`, key `(ts, lane, machine)`) are written by `usage-tracker` straight into the `usage` schema; Argo only reads them (no ingest endpoints). Picker spec: `dotfiles/docs/claude-accounts.md` §The picker. `picked` is opaque: an account id or `spill`. Reads: `GET /usage/quota` (buckets widen with the window: 15 min ≤72 h, 1 h ≤30 d, 1 d beyond; last sample wins; resets as markers; future-stamped rows ignored), `GET /usage/quota-latest[?account[]]` (the newest unbucketed sample per account, `{accounts:[{account,sampledAt,fiveHourPct,sevenDayPct,sevenDayResetsAt,authOk}]}`, future-stamped rows ignored, empty = `{accounts:[]}`; the usage page's weekly meters and pace tick read it because `/quota` carries no reset instant or `authOk`) and `GET /usage/account-picks/summary` (`groupBy=picked|reason` for the series, `lanes` = per-lane spill rate). Routing views (`src/lib/routing.ts`, pure): `GET /usage/account-picks?hours≤504` lists every decision with its parsed `{s,w}` snapshot; `GET /usage/routing/windows?hours` gives per account and window (5 h / 7 d) the percent used in the last sample before each reset (unused = 100 − that) and, for 5 h, the minutes until the account was picked again, plus a per-account summary. The routes live in `src/routes/usage-quota.ts`, mounted inside `usageRoutes` (no prefix of their own, so the `/usage` auth guard and Eden path are shared). Tests: `src/routes/usage.quota.test.ts`.
 
 ## Usage page data: IU portal, flow, movers
 
-**IU keys.** IU spend is split per API key, each with its own rolling 30-day $500 cap. The registry is `src/lib/iu-keys.ts` (`IU_KEYS` = `personal`, `athena-team`; labels, per-key `IU_KEY_LIMIT_USD`, `DEFAULT_IU_KEY`, `IuKeyEnum`, `parseIuKey`); adding a key is one entry there (plus the payer CASE and the dashboard registry). `usage_record.iu_key` (migration `0028`, indexed) is set for `billing='iu'` rows only; it is not the Claude Max `account` dimension. Ingest (`POST /usage/records`, optional `iu_key`): non-iu → NULL; iu with the key absent/null/blank → `personal`; a registered id → that id; an unregistered id → NULL (never invented, never filed as personal; counted and `console.warn`ed once per batch, the batch is not rejected). A stored NULL on an iu row therefore means "unknown key"; the upsert overwrites `iu_key` on conflict. Argo's own IU calls (`lib/ai-usage.ts`) are stamped `personal`. `iuKey[]` (scalar or array, `IuKeyEnum`) filters `/usage/{headline,timeseries,breakdown,rhythm,split,flow,movers}` via `buildFilterSql`; `iu_key` is a `groupBy` / `dimension` value (NULL reads `(unset)`). Source `athena-teamchat` (billing iu, key athena-team) reports cost with `cost_source='reported'` and usually no model: `cost_usd` is stored as-is, and a null `model_norm` reads `(unknown model)` in `flow`, `split?by=model_norm` (never folded into `(other)`) and `iu-reconcile` (where it stays one-sided against the portal's model labels). Portal total exceeding tracked for `athena-team` is a known fact (build-phase spend predates the rows), not a bug.
+**IU keys.** IU spend is split per API key, each with its own rolling 30-day $500 cap. The registry is `src/lib/iu-keys.ts` (`IU_KEYS` = `personal`, `athena-team`; labels, per-key `IU_KEY_LIMIT_USD`, `DEFAULT_IU_KEY`, `IuKeyEnum`, `parseIuKey`); adding a key is one entry there (plus the payer CASE and the dashboard registry). `iu_key` is the projected `usage.records.api_key` of IU API rows only (NULL for every other billing); it is not the Claude Max `account` dimension. A NULL `iu_key` on an iu row means "unknown key". Argo's own `aiComplete` calls are logged (`lib/ai-usage.ts`), not written to `usage`: Argo only reads that schema. `iuKey[]` (scalar or array, `IuKeyEnum`) filters `/usage/{headline,timeseries,breakdown,rhythm,split,flow,movers}` via `buildFilterSql`; `iu_key` is a `groupBy` / `dimension` value (NULL reads `(unset)`). Source `athena-teamchat` (billing iu, key athena-team) reports cost with `cost_source='reported'` and usually no model: `cost_usd` is stored as-is, and a null `model_norm` reads `(unknown model)` in `flow`, `split?by=model_norm` (never folded into `(other)`) and `iu-reconcile` (where it stays one-sided against the portal's model labels). Portal total exceeding tracked for `athena-team` is a known fact (build-phase spend predates the rows), not a bug.
 
-`usage-tracker` POSTs IU's self-service cost report to `POST /usage/iu-portal` (`{costs:[{iuKey?,day,label,row,model,costUsd,fetchedAt}] ≤1000, totals:[{iuKey?,month,totalUsd,fetchedAt}] ≤24}`), upserted on `(iu_key,day,label,row)` / `(iu_key,month)` into `argo.iu_portal_cost` / `iu_portal_total` (migrations `0026`, `0028` for the key); `iuKey` absent reads `personal`, so one key's cell never overwrites another's; a replay is a no-op, an invalid row — including a present but unregistered `iuKey` — is dropped and counted in `rejected`. The cap (`IU_CAP_USD` 500, per key `IU_KEY_LIMIT_USD`) and window (`IU_WINDOW_DAYS` 30) are constants in `src/lib/iu-budget.ts` / `iu-keys.ts`, which also holds the pure arithmetic ported from usage-tracker `budget.ts` (tests pin the 2026-10-26 fetch: rolling30 $588.14, can-spend −$65.59, same as `make budget`). Reads, all anchored on the newest _portal_ day **of the requested key**, not the server clock; `iu-budget` and `iu-reconcile` take `?iuKey=personal|athena-team` (default `personal`, no `all`: caps are independent, the page fetches each key) and echo `iuKey`:
+IU's self-service cost report is written by `usage-tracker` into `usage.iu_portal_cost` (key `(iu_key,day,label,row)`) and `usage.iu_portal_total`; `iuKey` absent reads `personal`. The cap (`IU_CAP_USD` 500, per key `IU_KEY_LIMIT_USD`) and window (`IU_WINDOW_DAYS` 30) are constants in `src/lib/iu-budget.ts` / `iu-keys.ts`, which also holds the pure arithmetic ported from usage-tracker `budget.ts` (tests pin the 2026-10-26 fetch: rolling30 $588.14, can-spend −$65.59, same as `make budget`). Reads, all anchored on the newest _portal_ day **of the requested key**, not the server clock; `iu-budget` and `iu-reconcile` take `?iuKey=personal|athena-team` (default `personal`, no `all`: caps are independent, the page fetches each key) and echo `iuKey`:
 
 - `GET /usage/iu-budget` — rolling30, canSpendToday, 7-day burn and projection, 31 daily points, next-7 drop-off, top models, `fetchedAt` (null = no portal data; the page owns the fresh/stale/dead words).
 - `GET /usage/iu-reconcile?days=30&iuKey` — portal vs `billing='iu' AND iu_key=<key>` tracked per UTC day (flag rule: |delta| > max($1, 20 % of portal); newest day `partial`), per model (portal label ↔ `model_norm` joined on alphanumerics, one-sided models keep their own label), `unpricedRows`.

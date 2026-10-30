@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
-import { db, runMigrations } from '../db/index.js'
-import { iuPortalCost, iuPortalTotal, usageRecord } from '../db/schema.js'
+import { runMigrations } from '../db/index.js'
+import {
+  deleteAllUsageRecords,
+  deleteIuPortal,
+  seedIuPortal,
+  seedUsageRecords,
+} from '../test/usage-seed.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -11,103 +16,24 @@ beforeAll(async () => {
 const app = new Elysia().use(usageRoutes)
 const FETCHED = '2026-10-26T12:00:00.000Z'
 
-const post = (body: unknown) =>
-  app.handle(
-    new Request('http://localhost/usage/iu-portal', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
-  )
 const get = async <T>(path: string) =>
   (await (await app.handle(new Request(`http://localhost/usage${path}`))).json()) as T
 
-const cost = (over: Record<string, unknown> = {}) => ({
-  day: '2026-10-26',
-  label: 'GPT 5.6 Terra',
-  row: 0,
+const cost = (over: { day?: string; label?: string; row?: number; costUsd?: number } = {}) => ({
+  day: over.day ?? '2026-10-26',
+  label: over.label ?? 'GPT 5.6 Terra',
+  row: over.row ?? 0,
   model: 'gpt-5.6-terra',
-  costUsd: 10,
-  fetchedAt: FETCHED,
-  ...over,
+  cost_usd: over.costUsd ?? 10,
+  fetched_at: FETCHED,
 })
 
-beforeEach(async () => {
-  await db.delete(iuPortalCost)
-  await db.delete(iuPortalTotal)
-  await db.delete(usageRecord)
-})
-afterAll(async () => {
-  await db.delete(iuPortalCost)
-  await db.delete(iuPortalTotal)
-  await db.delete(usageRecord)
-})
-
-describe('POST /usage/iu-portal', () => {
-  it('upserts costs and totals', async () => {
-    const res = await post({
-      costs: [cost(), cost({ label: 'Haiku', row: 1, model: null, costUsd: 2 })],
-      totals: [{ month: '2026-10', totalUsd: 12, fetchedAt: FETCHED }],
-    })
-    expect(await res.json()).toEqual({ costs: 2, totals: 1, rejected: 0 })
-    expect((await db.select().from(iuPortalCost)).length).toBe(2)
-  })
-
-  it('treats a replay as a no-op', async () => {
-    const body = { costs: [cost()], totals: [] }
-    await post(body)
-    await post(body)
-    expect((await db.select().from(iuPortalCost)).length).toBe(1)
-  })
-
-  it('overwrites a settled day on re-post', async () => {
-    await post({ costs: [cost({ costUsd: 5 })], totals: [] })
-    await post({ costs: [cost({ costUsd: 9, fetchedAt: '2026-10-26T16:00:00.000Z' })], totals: [] })
-    const [row] = await db.select().from(iuPortalCost)
-    expect(row?.cost_usd).toBe(9)
-    expect(new Date(row!.fetched_at).toISOString()).toBe('2026-10-26T16:00:00.000Z')
-  })
-
-  it('ignores an older report that arrives after a newer one', async () => {
-    await post({
-      costs: [cost({ costUsd: 9, fetchedAt: '2026-10-26T16:00:00.000Z' })],
-      totals: [{ month: '2026-10', totalUsd: 9, fetchedAt: '2026-10-26T16:00:00.000Z' }],
-    })
-    await post({
-      costs: [cost({ costUsd: 5, fetchedAt: '2026-10-26T12:00:00.000Z' })],
-      totals: [{ month: '2026-10', totalUsd: 5, fetchedAt: '2026-10-26T12:00:00.000Z' }],
-    })
-    expect((await db.select().from(iuPortalCost))[0]?.cost_usd).toBe(9)
-    expect((await db.select().from(iuPortalTotal))[0]?.total_usd).toBe(9)
-  })
-
-  it('drops invalid rows without failing the batch', async () => {
-    const res = await post({
-      costs: [
-        cost(),
-        cost({ day: '2026-13-40', label: 'bad-day' }),
-        cost({ label: 'neg', costUsd: -1 }),
-        cost({ label: '', row: 2 }),
-        cost({ label: 'no-time', fetchedAt: 'yesterday' }),
-      ],
-      totals: [{ month: 'oct', totalUsd: 1, fetchedAt: FETCHED }],
-    })
-    expect(await res.json()).toEqual({ costs: 1, totals: 0, rejected: 5 })
-  })
-
-  it('accepts an empty batch', async () => {
-    expect(await (await post({ costs: [], totals: [] })).json()).toEqual({
-      costs: 0,
-      totals: 0,
-      rejected: 0,
-    })
-  })
-
-  it('rejects more than 1000 cost rows', async () => {
-    const res = await post({ costs: Array.from({ length: 1001 }, () => cost()), totals: [] })
-    expect(res.status).toBe(422)
-  })
-})
+const clear = async () => {
+  await deleteIuPortal()
+  await deleteAllUsageRecords()
+}
+beforeEach(clear)
+afterAll(clear)
 
 describe('GET /usage/iu-budget', () => {
   it('returns the empty shape without portal data', async () => {
@@ -122,7 +48,7 @@ describe('GET /usage/iu-budget', () => {
   })
 
   it('anchors the rolling window on the newest portal day', async () => {
-    await post({
+    await seedIuPortal({
       costs: [
         cost({ day: '2026-10-26', costUsd: 22.55 }),
         cost({ day: '2026-10-25', costUsd: 26.87, label: 'B', row: 1 }),
@@ -156,16 +82,14 @@ const track = (
   model: string | null = 'gpt-5.6-terra',
   iuKey: string | null = 'personal',
 ) =>
-  db.insert(usageRecord).values({
+  seedUsageRecords({
     source: 't',
     source_id: id,
-    grain: 'event',
     ts,
     billing: 'iu',
     iu_key: iuKey,
     model_norm: model,
     cost_usd: usd,
-    ingested_at: ts,
   })
 
 describe('GET /usage/iu-reconcile', () => {
@@ -176,14 +100,17 @@ describe('GET /usage/iu-reconcile', () => {
   })
 
   it('does not flag days before the first portal report', async () => {
-    await post({ costs: [cost({ day: '2026-10-25' }), cost({ day: '2026-10-26' })], totals: [] })
+    await seedIuPortal({
+      costs: [cost({ day: '2026-10-25' }), cost({ day: '2026-10-26' })],
+      totals: [],
+    })
     await track('early', '2026-10-20T10:00:00Z', 50)
     const r = await get<{ days: Array<{ day: string }> }>('/iu-reconcile?days=30')
     expect(r.days.map((d) => d.day)).toEqual(['2026-10-25', '2026-10-26'])
   })
 
   it('compares portal and tracked per UTC day and flags the gap', async () => {
-    await post({
+    await seedIuPortal({
       costs: [
         cost({ day: '2026-10-22', costUsd: 71.44 }),
         cost({ day: '2026-10-26', costUsd: 10 }),

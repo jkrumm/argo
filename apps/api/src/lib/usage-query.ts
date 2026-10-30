@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 /**
  * Earliest timestamp the usage endpoints will surface. Rows before this
- * instant exist in argo.usage_record but never reach a chart — they predate
+ * instant exist in `usage.records` but never reach a chart — they predate
  * the project-normalize + workspace-classification cleanup that landed on
  * 2026-05-28 (collectors at usage-tracker 3bcc107 ~10:21 UTC, argo ingest at
  * 48ba358 ~10:22 UTC) and carry stale labels we don't want to backfill.

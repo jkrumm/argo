@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
-import { db, runMigrations } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
+import { runMigrations } from '../db/index.js'
+import { deleteAllUsageRecords, seedUsageRecords, type SeedRecord } from '../test/usage-seed.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -16,7 +16,7 @@ let seq = 0
 const DAY = 86_400_000
 const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString()
 
-function row(over: Partial<typeof usageRecord.$inferInsert>) {
+function row(over: Partial<SeedRecord>) {
   seq += 1
   const ts = over.ts ?? ago(1)
   return {
@@ -28,14 +28,14 @@ function row(over: Partial<typeof usageRecord.$inferInsert>) {
     iu_key: 'personal',
     ingested_at: ts,
     ...over,
-  } satisfies typeof usageRecord.$inferInsert
+  } satisfies SeedRecord
 }
 
 beforeEach(async () => {
-  await db.delete(usageRecord)
+  await deleteAllUsageRecords()
 })
 afterAll(async () => {
-  await db.delete(usageRecord)
+  await deleteAllUsageRecords()
 })
 
 interface Flow {
@@ -56,7 +56,7 @@ interface Flow {
 
 describe('GET /usage/flow', () => {
   const seed = () =>
-    db.insert(usageRecord).values([
+    seedUsageRecords([
       row({
         sub_tool: 'review_ocr',
         model_norm: 'deepseek-v4.1-flash',
@@ -103,7 +103,8 @@ describe('GET /usage/flow', () => {
       reasoning: 7,
       calls: 2,
     })
-    expect(f.rows.map((r) => r.subTool)).toEqual(['review_ocr', 'review:adversary', '(unset)'])
+    // A record always has a lane, so a row without a tool reads as interactive.
+    expect(f.rows.map((r) => r.subTool)).toEqual(['review_ocr', 'review:adversary', 'interactive'])
     expect(f.rows[2]?.model).toBe('(unknown model)')
   })
 
@@ -129,7 +130,7 @@ describe('GET /usage/flow', () => {
 
 describe('GET /usage/movers', () => {
   const seed = () =>
-    db.insert(usageRecord).values([
+    seedUsageRecords([
       row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
       row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
       row({ sub_tool: 'research', model_norm: 'm-b', cost_usd: 1, ts: ago(2) }),
@@ -156,14 +157,12 @@ describe('GET /usage/movers', () => {
   })
 
   it('counts the team key as API spend by default and narrows by iuKey', async () => {
-    await db
-      .insert(usageRecord)
-      .values([
-        row({ sub_tool: 'chat-turn:chat', iu_key: 'athena-team', cost_usd: 40, ts: ago(2) }),
-        row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
-        row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
-        row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 5, ts: ago(10) }),
-      ])
+    await seedUsageRecords([
+      row({ sub_tool: 'chat-turn:chat', iu_key: 'athena-team', cost_usd: 40, ts: ago(2) }),
+      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
+      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
+      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 5, ts: ago(10) }),
+    ])
     const all = await get<{ rows: Array<{ subTool: string; model: string }> }>('/movers')
     expect(all.rows.map((r) => r.subTool)).toEqual(['chat-turn:chat', 'review_ocr'])
     expect(all.rows[0]?.model).toBe('(unknown model)')
@@ -179,7 +178,7 @@ describe('GET /usage/movers', () => {
 
 describe('GET /usage/timeseries token metrics and top fold', () => {
   const seed = () =>
-    db.insert(usageRecord).values([
+    seedUsageRecords([
       row({
         model_norm: 'a',
         cost_usd: 9,

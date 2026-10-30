@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
-import { eq, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { usageRoutes } from './usage.js'
 import { utcBucket } from '../lib/usage-query.js'
 import { db, runMigrations } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
+import { deleteUsageBySource, seedUsageRecords, type SeedRecord } from '../test/usage-seed.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -13,44 +13,27 @@ beforeAll(async () => {
 const app = new Elysia().use(usageRoutes)
 const SOURCE = 'payer-test'
 
+// An iu row without an explicit key is the personal key; pass null for a row of unknown key.
 function payload(
   sourceId: string,
-  billing: string,
+  billing: NonNullable<SeedRecord['billing']>,
   account: string | null,
   costUsd: number,
   iuKey?: string | null,
-) {
-  const ts = new Date().toISOString()
+): SeedRecord {
   return {
     source: SOURCE,
     source_id: sourceId,
-    grain: 'event',
-    ts,
-    model: null,
-    model_norm: null,
-    project: null,
-    sub_tool: null,
+    ts: new Date().toISOString(),
     machine: 'm1',
     billing,
     account,
-    ...(iuKey === undefined ? {} : { iu_key: iuKey }),
-    duration_ms: null,
+    iu_key: billing === 'iu' ? (iuKey === undefined ? 'personal' : iuKey) : null,
     cost_usd: costUsd,
-    raw: null,
-    ingested_at: ts,
   }
 }
 
-async function ingest(records: ReturnType<typeof payload>[]) {
-  const res = await app.handle(
-    new Request('http://localhost/usage/records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ records }),
-    }),
-  )
-  expect(res.status).toBe(200)
-}
+const ingest = (records: SeedRecord[]) => seedUsageRecords(records)
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await app.handle(new Request(`http://localhost${path}`))
@@ -62,7 +45,7 @@ type Rows = { total: number; rows: Array<{ key: string; value: number }> }
 
 describe('usage payer', () => {
   afterEach(async () => {
-    await db.delete(usageRecord).where(eq(usageRecord.source, SOURCE))
+    await deleteUsageBySource(SOURCE)
   })
 
   it('derives the payer from billing and account, on breakdown and timeseries', async () => {

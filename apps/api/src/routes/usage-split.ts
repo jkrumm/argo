@@ -2,6 +2,7 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { USAGE_ROWS } from '../lib/usage-source.js'
 import {
   PAYER_EXPR,
   RangeEnum,
@@ -97,7 +98,7 @@ export const usageSplitRoutes = new Elysia()
             (COUNT(*) FILTER (WHERE ${cur}))::int AS calls,
             COALESCE(SUM(cost_usd) FILTER (WHERE ts < ${current.fromIso}), 0)::float AS prior_cost,
             COALESCE(SUM(${FRESH_SQL}) FILTER (WHERE ts < ${current.fromIso}), 0)::float AS prior_fresh
-          FROM argo.usage_record
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${from} AND ts <= ${current.toIso}
             ${filterSql}
           GROUP BY 1, 2
@@ -173,7 +174,7 @@ export const usageSplitRoutes = new Elysia()
             (extract(isodow FROM ${local})::int - 1) AS dow,
             extract(hour FROM ${local})::int AS hour,
             ${RHYTHM_METRIC[query.metric]}::float AS value
-          FROM argo.usage_record
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${fromIso} AND ts <= ${toIso}
             ${filterSql}
           GROUP BY 1, 2

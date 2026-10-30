@@ -2,6 +2,7 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { USAGE_ROWS } from '../lib/usage-source.js'
 import {
   API_PAYERS,
   PayerEnum,
@@ -120,7 +121,7 @@ export const usageAnalyticsRoutes = new Elysia()
             COALESCE(SUM(cache_write_tokens::bigint), 0)::float AS cache_write,
             COALESCE(SUM(reasoning_tokens::bigint), 0)::float AS reasoning,
             COUNT(*)::int AS calls
-          FROM argo.usage_record
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${fromIso} AND ts <= ${toIso}
             ${filterSql}
           GROUP BY source, 2, 3
@@ -188,7 +189,7 @@ export const usageAnalyticsRoutes = new Elysia()
             COALESCE(model_norm, ${UNKNOWN_MODEL}) AS model,
             COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${current.from} AND ts <= ${current.to}), 0)::float AS cost,
             COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${prior.from} AND ts < ${prior.to}), 0)::float AS prior_cost
-          FROM argo.usage_record
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${prior.from} AND ts <= ${current.to}
             ${filterSql}
           GROUP BY 1, 2

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
-import { db, runMigrations } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
+import { runMigrations } from '../db/index.js'
+import { deleteAllUsageRecords, seedUsageRecords, type SeedRecord } from '../test/usage-seed.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -16,7 +16,7 @@ let seq = 0
 const DAY = 86_400_000
 const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString()
 
-function row(over: Partial<typeof usageRecord.$inferInsert>) {
+function row(over: Partial<SeedRecord>) {
   seq += 1
   const ts = over.ts ?? ago(1)
   return {
@@ -29,14 +29,14 @@ function row(over: Partial<typeof usageRecord.$inferInsert>) {
     iu_key: over.billing === 'iu' ? 'personal' : null,
     ingested_at: ts,
     ...over,
-  } satisfies typeof usageRecord.$inferInsert
+  } satisfies SeedRecord
 }
 
 beforeEach(async () => {
-  await db.delete(usageRecord)
+  await deleteAllUsageRecords()
 })
 afterAll(async () => {
-  await db.delete(usageRecord)
+  await deleteAllUsageRecords()
 })
 
 interface Split {
@@ -54,7 +54,7 @@ interface Split {
 
 describe('GET /usage/split', () => {
   const seed = () =>
-    db.insert(usageRecord).values([
+    seedUsageRecords([
       row({
         project: 'argo',
         cost_usd: 10,
@@ -101,7 +101,7 @@ describe('GET /usage/split', () => {
 describe('GET /usage/rhythm', () => {
   it('returns 168 dense cells bucketed in the requested zone', async () => {
     // Monday 2026-10-19 23:30 UTC is Tuesday 01:30 in Berlin (CEST, +2).
-    await db.insert(usageRecord).values([row({ ts: '2026-10-19T23:30:00Z', cost_usd: 3 })])
+    await seedUsageRecords([row({ ts: '2026-10-19T23:30:00Z', cost_usd: 3 })])
     const body = await get<{
       tz: string
       cells: Array<{ dow: number; hour: number; value: number }>
@@ -119,7 +119,7 @@ describe('GET /usage/rhythm', () => {
 
 describe('GET /usage/timeseries grain=hour', () => {
   it('buckets by UTC hour as instants', async () => {
-    await db.insert(usageRecord).values([row({ ts: ago(0.5), cost_usd: 2 })])
+    await seedUsageRecords([row({ ts: ago(0.5), cost_usd: 2 })])
     const body = await get<{ buckets: Array<{ bucket: string; groups: Record<string, number> }> }>(
       '/timeseries?range=7d&grain=hour&metric=cost&groupBy=payer',
     )
@@ -132,13 +132,11 @@ describe('GET /usage/timeseries grain=hour', () => {
 
 describe('me2 payer and the project filter', () => {
   it('derives me2-sub and filters a timeseries to one project', async () => {
-    await db
-      .insert(usageRecord)
-      .values([
-        row({ project: 'argo', account: 'me2', cost_usd: 3 }),
-        row({ project: 'brain', account: 'me2', cost_usd: 1 }),
-        row({ project: 'argo', account: 'iu', cost_usd: 2 }),
-      ])
+    await seedUsageRecords([
+      row({ project: 'argo', account: 'me2', cost_usd: 3 }),
+      row({ project: 'brain', account: 'me2', cost_usd: 1 }),
+      row({ project: 'argo', account: 'iu', cost_usd: 2 }),
+    ])
     const split = await get<Split>('/split?by=project&range=7d&payer=me2-sub')
     expect(split.totals).toMatchObject([{ payer: 'me2-sub', cost: 4 }])
     const ts = await get<{ buckets: Array<{ groups: Record<string, number> }> }>(
@@ -151,7 +149,7 @@ describe('me2 payer and the project filter', () => {
 
 describe('project filter', () => {
   it('matches nothing when every value normalizes away', async () => {
-    await db.insert(usageRecord).values([row({ project: 'argo', cost_usd: 3 })])
+    await seedUsageRecords([row({ project: 'argo', cost_usd: 3 })])
     const body = await get<Split>('/split?by=project&range=7d&project=%20')
     expect(body.rows).toEqual([])
   })

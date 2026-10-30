@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
-import { eq } from 'drizzle-orm'
 import { usageRoutes } from './usage.js'
-import { db, runMigrations } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
+import { runMigrations } from '../db/index.js'
+import { deleteUsageBySource, seedUsageRecords, type SeedRecord } from '../test/usage-seed.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -12,41 +11,24 @@ beforeAll(async () => {
 const app = new Elysia().use(usageRoutes)
 
 // Everything this file writes carries this source and the two accounts below, so cleanup and
-// assertions stay scoped to it and never touch (or depend on) whatever the dev DB already holds.
+// assertions stay scoped to it.
 const SOURCE = 'account-test'
 const A = 'zz-test-a'
 const B = 'zz-test-b'
 
-function payload(sourceId: string, account: string | null | undefined, costUsd = 1) {
-  const ts = new Date().toISOString()
+function payload(sourceId: string, account: string | null, costUsd = 1): SeedRecord {
   return {
     source: SOURCE,
     source_id: sourceId,
-    grain: 'event',
-    ts,
-    model: null,
-    model_norm: null,
-    project: null,
-    sub_tool: null,
+    ts: new Date().toISOString(),
     machine: 'm1',
     billing: 'max',
-    ...(account === undefined ? {} : { account }),
-    duration_ms: null,
+    account,
     cost_usd: costUsd,
-    raw: null,
-    ingested_at: ts,
   }
 }
 
-function ingest(records: ReturnType<typeof payload>[]) {
-  return app.handle(
-    new Request('http://localhost/usage/records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ records }),
-    }),
-  )
-}
+const ingest = (records: SeedRecord[]) => seedUsageRecords(records)
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await app.handle(new Request(`http://localhost${path}`))
@@ -56,48 +38,7 @@ async function getJson<T>(path: string): Promise<T> {
 
 describe('usage account attribution', () => {
   afterEach(async () => {
-    await db.delete(usageRecord).where(eq(usageRecord.source, SOURCE))
-  })
-
-  it('ingest stores account, null and absent both land as NULL', async () => {
-    const res = await ingest([payload('a1', A), payload('a2', null), payload('a3', undefined)])
-    expect(res.status).toBe(200)
-    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, SOURCE))
-    const byId = Object.fromEntries(rows.map((r) => [r.source_id, r.account]))
-    expect(byId).toEqual({ a1: A, a2: null, a3: null })
-  })
-
-  it('upsert fills a missing account and replaces a stored one', async () => {
-    await ingest([payload('u1', null)])
-    await ingest([payload('u1', B)])
-    await ingest([payload('u1', A)])
-    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'u1'))
-    expect(rows).toHaveLength(1)
-    expect(rows[0]?.account).toBe(A)
-  })
-
-  it('upsert with a null or absent account never clears a stored one', async () => {
-    await ingest([payload('k1', A)])
-    await ingest([payload('k1', null)])
-    await ingest([payload('k1', undefined)])
-    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'k1'))
-    expect(rows[0]?.account).toBe(A)
-  })
-
-  it('re-sending an empty or blank account keeps the stored one', async () => {
-    await ingest([payload('e1', A)])
-    await ingest([payload('e1', '')])
-    await ingest([payload('e1', '  ')])
-    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source_id, 'e1'))
-    expect(rows[0]?.account).toBe(A)
-  })
-
-  it('trims the account and stores a bad value as null without rejecting the batch', async () => {
-    const res = await ingest([payload('n1', ` ${A} `), payload('n2', 'IU Max!'), payload('n3', B)])
-    expect(res.status).toBe(200)
-    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, SOURCE))
-    const byId = Object.fromEntries(rows.map((r) => [r.source_id, r.account]))
-    expect(byId).toEqual({ n1: A, n2: null, n3: B })
+    await deleteUsageBySource(SOURCE)
   })
 
   it('a malformed account filter is rejected', async () => {

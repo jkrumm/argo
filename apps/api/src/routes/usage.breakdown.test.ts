@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
-import { db, runMigrations } from '../db/index.js'
-import { usageRecord } from '../db/schema.js'
+import { runMigrations } from '../db/index.js'
+import { deleteAllUsageRecords, seedUsageRecords } from '../test/usage-seed.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -10,7 +10,7 @@ beforeAll(async () => {
 
 describe('GET /usage/breakdown', () => {
   afterEach(async () => {
-    await db.delete(usageRecord)
+    await deleteAllUsageRecords()
   })
 
   it('returns empty rows and total 0 for empty window', async () => {
@@ -31,7 +31,7 @@ describe('GET /usage/breakdown', () => {
 
   it('returns top 2 rows with share based on full total of 3', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -41,7 +41,7 @@ describe('GET /usage/breakdown', () => {
       cost_usd: 1,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-2',
       grain: 'event',
@@ -51,7 +51,7 @@ describe('GET /usage/breakdown', () => {
       cost_usd: 2,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-3',
       grain: 'event',
@@ -82,7 +82,7 @@ describe('GET /usage/breakdown', () => {
 
   it('buckets NULL project as (unset)', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -106,7 +106,7 @@ describe('GET /usage/breakdown', () => {
 
   it('metric=errors counts only error rows', async () => {
     const ts = new Date().toISOString()
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-1',
       grain: 'event',
@@ -116,7 +116,7 @@ describe('GET /usage/breakdown', () => {
       cost_usd: 1,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-2',
       grain: 'event',
@@ -126,7 +126,7 @@ describe('GET /usage/breakdown', () => {
       cost_usd: 1,
       ingested_at: ts,
     })
-    await db.insert(usageRecord).values({
+    await seedUsageRecords({
       source: 'test',
       source_id: 'id-3',
       grain: 'event',

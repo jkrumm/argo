@@ -1,5 +1,7 @@
 # Usage reconciliation — usage-tracker ↔ Argo
 
+> Historical (2026-10-24, against the retired `argo.usage_record`). Current reconciliation: `usage-tracker/docs/reconciliation/`.
+
 Run 2026-10-24 against Argo prod as deployed before the payer PR. Method: usage-tracker's local
 SQLite (`~/.local/share/usage-tracker/usage.db`, the mini) against `argo.usage_record` (read-only SQL),
 keyed on `(source, source_id)`, window `2026-10-22T20:30Z … 2026-10-24T18:00Z`, payer derived with the
