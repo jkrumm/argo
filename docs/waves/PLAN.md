@@ -160,6 +160,7 @@ Workers: Sonnet. Orchestrated.
 - [ ] Final dump, restore, DNS or tunnel switched, `make verify`, every page once.
 - [ ] VPS Argo stopped; its database kept, stopped, with a verified final backup on the homelab. Dropping it is a
   business decision and goes to the owner through `ask-human.sh`.
+- [ ] The dead usage posts (program lead, 2026-10-30): unset `EMAIL_GATEWAY_ARGO_USAGE_URL` (`vps/apps/email-gateway`) and image-gateway's `ARGO_USAGE_URL`, and drop the code that posts when they are empty. email-gateway's model spend is then not in `usage`; say so in `docs/usage-reconciliation.md` as a gap for track U (route its calls through agw, or let it write `usage.records` through agw's outbox).
 - [ ] ADR-009's VPS role retired; `docs/`, `vps/AGENTS.md`, `docs/architecture.md` in dotfiles say what runs.
 
 **Left behind:**
