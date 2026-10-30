@@ -1,29 +1,17 @@
-import { Elysia } from 'elysia'
-import { z } from 'zod'
-import { tracedFetch, type TraceOptions } from '../lib/traced-fetch.js'
+import { tracedFetch, type TraceOptions } from './traced-fetch.js'
 import { env } from '../env.js'
-import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
+import { recordAiUsage, type RecordUsageFn } from './ai-usage.js'
 import { log } from '../telemetry.js'
 
-// General-purpose AI gateway — an OpenAI-compatible surface at /ai/v1/* backing
-// Argo's own AI features.
-//
-//   • POST /ai/v1/chat/completions   — the model named by DEEPSEEK_MODEL on the
-//                                       IU unified endpoint (classification, verdict sentences)
-//   • GET  /ai/v1/models              — advertise the configured model(s)
-//
-// The chat/models handlers are thin proxies that inject the upstream bearer
-// server-side (never leaked to the client).
-// `aiComplete()` is the in-process seam astro/marine/reading-match import without an HTTP hop.
-// All upstreams are reached via `tracedFetch` (OTel CLIENT spans).
+// `aiComplete()` is the in-process seam astro, marine and reading-match call: one non-streaming
+// chat completion on the model named by DEEPSEEK_MODEL (IU unified endpoint, OpenAI transport).
+// The upstream is reached via `tracedFetch` (OTel CLIENT spans).
 
 /**
- * Minimal fetch shape (no `preconnect`) — matches `tracedFetch`, so the gateway
+ * Minimal fetch shape (no `preconnect`) — matches `tracedFetch`, so the caller
  * and its tests share one transport type and a fake upstream is trivial to
  * inject. The optional third `traceOptions` param mirrors `tracedFetch`'s own
- * signature so call sites can opt a proxy into `streamLifecycle: true`; a test
- * stub that only declares `(input, init)` remains assignable (the extra param
- * stays optional).
+ * signature; a test stub that only declares `(input, init)` remains assignable.
  */
 export type FetchImpl = (
   input: string | URL | Request,
@@ -31,8 +19,8 @@ export type FetchImpl = (
   traceOptions?: TraceOptions,
 ) => Promise<Response>
 
-/** Injectable upstream config so tests can point at fake endpoint. */
-export interface AiRouteDeps {
+/** Injectable upstream config so tests can point at a fake endpoint. */
+export interface AiCompleteDeps {
   /** Chat upstream base URL (IU unified endpoint, OpenAI transport), incl. `/v1`. */
   deepseekBaseURL: string
   deepseekApiKey: string
@@ -43,13 +31,13 @@ export interface AiRouteDeps {
   fetchImpl: FetchImpl
   /**
    * Usage recorder called after each `aiComplete` call when the upstream returns
-   * token counts. Defaults to `recordAiUsage` (DB write). Override in tests to
+   * token counts. Defaults to `recordAiUsage` (a structured log line). Override in tests to
    * spy without touching the DB.
    */
   recordUsage: RecordUsageFn
 }
 
-function defaultDeps(): AiRouteDeps {
+function defaultDeps(): AiCompleteDeps {
   return {
     deepseekBaseURL: env.DEEPSEEK_BASE_URL,
     deepseekApiKey: env.DEEPSEEK_API_KEY,
@@ -70,39 +58,6 @@ function bearer(key: string): Record<string, string> {
 }
 
 /**
- * Re-wrap an upstream response for the client: keep the content-type, drop the
- * body's transfer encoding/length (fetch already decoded it), and disable proxy
- * buffering so streamed completions flush promptly.
- */
-function proxyHeaders(upstream: Headers, fallbackContentType: string): Headers {
-  const headers = new Headers()
-  headers.set('content-type', upstream.get('content-type') ?? fallbackContentType)
-  // Bun's fetch auto-decompresses the body, so the upstream's compressed
-  // content-length / content-encoding are wrong for the forwarded stream.
-  headers.delete('content-encoding')
-  headers.delete('content-length')
-  headers.set('X-Accel-Buffering', 'no')
-  return headers
-}
-
-const ModelSchema = z.object({
-  id: z.string().describe('Model id, as configured by DEEPSEEK_MODEL'),
-  object: z.literal('model'),
-  owned_by: z.string().describe('Provider that owns the model'),
-})
-
-const ChatCompletionsBodySchema = z
-  .object({
-    model: z
-      .string()
-      .describe('Model id. Defaults to the configured model (DEEPSEEK_MODEL) when omitted.')
-      .optional(),
-    messages: z.array(z.unknown()).describe('OpenAI chat messages.').optional(),
-    stream: z.boolean().describe('Stream the completion as SSE. Default: false.').optional(),
-  })
-  .passthrough()
-
-/**
  * Default `max_completion_tokens` for callers that don't size their own
  * budget. `deepseekModel` is a reasoning model that spends this budget on
  * hidden reasoning before visible content — an under-budgeted call returns
@@ -115,8 +70,7 @@ export const AI_DEFAULT_MAX_COMPLETION_TOKENS = 16000
 /**
  * In-process helper: a single non-streaming chat completion returning the
  * assistant text. astro, marine and reading-match import this directly (no HTTP hop).
- * Token usage is recorded fire-and-forget into argo.usage_record (source='argo')
- * when the upstream returns a usage object.
+ * Token usage is logged fire-and-forget (`recordAiUsage`) when the upstream returns a usage object.
  *
  * `deepseekModel` is a reasoning model: an empty completion with
  * `finish_reason: "length"` means the budget was spent entirely on hidden
@@ -134,7 +88,7 @@ export async function aiComplete(
     maxTokens?: number
     /** Usage-record sub_tool tag, e.g. 'titling' | 'summarization'. */
     sub_tool?: string
-    deps?: Partial<AiRouteDeps>
+    deps?: Partial<AiCompleteDeps>
   } = {},
 ): Promise<string> {
   const deps = { ...defaultDeps(), ...opts.deps }
@@ -241,70 +195,3 @@ export async function aiComplete(
   // Unreachable — the loop above always returns or throws.
   throw new Error('AI completion failed unexpectedly')
 }
-
-export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
-  const deps = { ...defaultDeps(), ...overrides }
-
-  return new Elysia({ name: 'ai', prefix: '/ai' })
-    .get(
-      '/v1/models',
-      () => ({
-        object: 'list' as const,
-        data: deps.deepseekModel
-          ? [{ id: deps.deepseekModel, object: 'model' as const, owned_by: 'iu-unified-endpoint' }]
-          : [],
-      }),
-      {
-        response: z.object({
-          object: z.literal('list'),
-          data: z.array(ModelSchema),
-        }),
-        detail: {
-          tags: ['AI Gateway'],
-          summary: 'List available gateway models',
-          description:
-            'OpenAI-compatible model listing for the general AI gateway. Advertises the configured model (`DEEPSEEK_MODEL`, served directly by the IU unified endpoint, EU/GDPR) used for classification and verdict sentences.',
-          security: [{ BearerAuth: [] }],
-        },
-      },
-    )
-    .post(
-      '/v1/chat/completions',
-      async ({ body, status }) => {
-        if (!deps.deepseekBaseURL) {
-          return status(503, {
-            error: { message: 'AI gateway not configured', type: 'config_error' },
-          })
-        }
-        // Default the model to the configured one (DEEPSEEK_MODEL); an explicit
-        // `model` in the body wins. Routing to the EU-resident IU endpoint is
-        // what keeps the request GDPR-compliant regardless of the model field.
-        const payload = { model: deps.deepseekModel, ...(body as Record<string, unknown>) }
-        const res = await deps.fetchImpl(
-          joinUrl(deps.deepseekBaseURL, '/chat/completions'),
-          {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', ...bearer(deps.deepseekApiKey) },
-            body: JSON.stringify(payload),
-          },
-          { streamLifecycle: true },
-        )
-        return new Response(res.body, {
-          status: res.status,
-          headers: proxyHeaders(res.headers, 'application/json'),
-        })
-      },
-      {
-        body: ChatCompletionsBodySchema,
-        detail: {
-          tags: ['AI Gateway'],
-          summary: 'OpenAI-compatible chat completion (configured model, EU)',
-          description:
-            'Proxies an OpenAI chat-completion request to the configured model (`DEEPSEEK_MODEL`) on the IU unified endpoint (OpenAI transport), with the endpoint API key kept server-side. Used for fast Argo-side tasks like classification. `model` defaults to that configured model; routing always targets the EU-resident IU endpoint (GDPR). Supports non-streaming (default) and `stream: true` SSE. Response mirrors the upstream OpenAI shape.',
-          security: [{ BearerAuth: [] }],
-        },
-      },
-    )
-}
-
-export const aiRoutes = createAiRoutes()

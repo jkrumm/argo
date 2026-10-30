@@ -10,7 +10,7 @@ import { db } from '../db/index.js'
 // epoch-ms-or-ISO timestamp parsing so the two routes can't drift apart.
 
 export const HISTORY_DAYS = 7
-// The global maxRequestBodySize (50 MB, index.ts) is the only other bound.
+// The global maxRequestBodySize (8 MB, index.ts) is the only other bound.
 export const MAX_SNAPSHOT_BYTES = 1_000_000
 // `Date` cannot represent |ms| beyond this; `toISOString()` throws past it.
 const MAX_EPOCH_MS = 8.64e15

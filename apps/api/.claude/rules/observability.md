@@ -83,7 +83,7 @@ What you get:
 - W3C `traceparent` injected into outgoing headers — the receiving service (if it runs OTel) continues the trace.
 - 4xx/5xx auto-marked as error spans.
 
-For Hey-API-generated clients (`@hey-api/client-fetch`), pass `tracedFetch` to `createConfig`:
+For Hey-API-generated clients (bundled client), pass `tracedFetch` to `createConfig`:
 
 ```ts
 export const ticktickClient = createClient(
@@ -115,7 +115,7 @@ A response with **no body**, a **non-2xx status**, or the caller simply not pass
 
 **Current opt-in call sites** — set `streamLifecycle: true` because they genuinely stream a body the caller consumes over time:
 
-- `apps/api/src/routes/ai.ts` — the `/ai/v1/chat/completions` passthrough.
+- None today (the streaming `/ai/v1/chat/completions` passthrough was removed; `aiComplete` is non-streaming).
 
 Everything else stays on the default. Don't flip `streamLifecycle: true` on a call site unless its caller actually consumes the body over time (streams it to a client, or reads it to completion as part of the request) — flipping it on a fire-and-forget or `.ok`-only call reintroduces the exact defect this opt-in exists to prevent.
 

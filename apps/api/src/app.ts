@@ -39,7 +39,6 @@ import { readingRoutes } from './routes/reading.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
-import { aiRoutes } from './routes/ai.js'
 import { agentRoutes } from './routes/agents.js'
 import { wardenRoutes } from './routes/warden.js'
 import { authGuard } from './lib/auth-guard.js'
@@ -154,11 +153,6 @@ export function buildApp() {
                   'Go/no-go planning for night photography and for surf, for a given place and the next N nights or days. `/astro/window` scores each night deterministically — galactic-core altitude, astronomical darkness and moon are computed from an ephemeris, never from a model — and returns a verdict plus the named reasons a night is out. `/astro/sites` lists the candidate drive-to sites with their measured sky and terrain — zenith brightness, the brightness where the core actually sits, and the southern terrain horizon. `/astro/light-pollution` and `/astro/skyglow` add the measured half from the Lorenz light-pollution atlas: zenith brightness for a coordinate, and the direction-resolved skyglow rose plus the sky brightness where the galactic core actually sits. `/astro/tiles/lp/{year}/{z}/{x}/{y}.png` serves the same atlas as a terrarium-encoded raster tile for the dashboard map. `/marine/window` and `/marine/spots` are the surf half over the same engine, scoring the longest usable daylight session per day from swell, period and wind. Weather comes from Open-Meteo DWD-ICON (cloud by layer), Open-Meteo Marine and 7Timer (atmospheric transparency); attribution is required and returned in the payload. Ask this instead of a raw weather forecast whenever the question is "is tonight (or this week) worth going out for".',
               },
               {
-                name: 'AI Gateway',
-                description:
-                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features: the model configured by `DEEPSEEK_MODEL` on the IU unified endpoint for classification and the astro/marine verdict sentences.',
-              },
-              {
                 name: 'Reading',
                 description:
                   'Book reading vertical. Synced daily from Hardcover.app (shelf + book metadata). Generic reading-stat telemetry ingested from a homelab reading-stats job. Phase A: read-only shelf + stats ingest. `/reading` returns the full shelf with a summary; `POST /reading/stats` accepts batch telemetry. Phase C adds status/date write-back to Hardcover: `GET /reading/unmatched` + `POST /reading/match` (confirm a matched book), `POST /reading/reconcile` (run match-scan + write-back), `POST /reading/want-to-read`.',
@@ -215,7 +209,6 @@ export function buildApp() {
             'Infrastructure',
             'External Data',
             'Astro & Marine',
-            'AI Gateway',
             'Reading',
             'Agents',
             'Warden',
@@ -287,7 +280,6 @@ export function buildApp() {
       .use(walkingPadRoutes)
       .use(usageRoutes)
       .use(readingRoutes)
-      .use(aiRoutes)
       .use(agentRoutes)
       .use(wardenRoutes)
   )

@@ -56,10 +56,10 @@ export const Env = z.object({
   // like a public-API failure; it never silently falls back to the public API.
   WEATHERORB_SELFHOSTED_URL: z.string().default(''),
 
-  // General AI gateway (/ai/v1/*) — the model named by DEEPSEEK_MODEL, called
-  // directly on the IU unified endpoint's OpenAI-compatible transport. The same
-  // public endpoint serves local + prod. DEEPSEEK_BASE_URL must include the
-  // OpenAI path prefix; the gateway appends `/chat/completions`. The model
+  // aiComplete — the model named by DEEPSEEK_MODEL, called directly on the IU
+  // unified endpoint's OpenAI-compatible transport. The same public endpoint
+  // serves local + prod. DEEPSEEK_BASE_URL must include the OpenAI path
+  // prefix; aiComplete appends `/chat/completions`. The model
   // live-verifies as EU-resident (Azure Sweden Central, via IU response headers)
   // — Azure deployment type (Regional/Data-Zone-EU vs Global) is unconfirmed;
   // see modelpick/docs/decisions/hermes-brain.md.

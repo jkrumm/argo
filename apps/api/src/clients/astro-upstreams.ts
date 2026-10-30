@@ -43,7 +43,7 @@ import { log, tracer } from '../telemetry.js'
  * fetch`: Bun's global `fetch` type carries a Bun-specific `preconnect`
  * property that `tracedFetch` doesn't (and can't sanely) implement, so
  * `typeof fetch` rejects it as an assignment target. Mirrors `FetchImpl` in
- * `../routes/ai.ts`'s `AiRouteDeps`, the existing injection seam this one
+ * `../lib/ai-complete.ts`'s `AiCompleteDeps`, the existing injection seam this one
  * copies the shape of.
  */
 export type FetchImpl = (

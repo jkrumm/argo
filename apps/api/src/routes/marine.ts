@@ -26,7 +26,7 @@ import {
 import { marineWindowConfig, type MarineScoreInput } from '../lib/marine-score.js'
 import { completeSentence } from '../lib/ai-sentence.js'
 import { circularMean, scoreWindow, type Killer, type ScoredWindow } from '../lib/window-score.js'
-import { aiComplete } from './ai.js'
+import { aiComplete } from '../lib/ai-complete.js'
 
 /**
  * "Is this day worth the drive for a surf?" — the marine sibling of

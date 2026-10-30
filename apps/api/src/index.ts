@@ -16,10 +16,9 @@ app.listen({
   // upstream (a long-reasoning completion that holds the socket open with no bytes)
   // isn't dropped mid-flight.
   idleTimeout: 255,
-  // Global backstop against Bun's 128 MB default request-body size.
-  // Bun rejects an over-limit request before any Elysia handler runs (bare 413,
-  // no JSON body) — a blunt backstop, not a shaped error response.
-  maxRequestBodySize: 50 * 1024 * 1024,
+  // Backstop below Bun's 128 MB default: the largest legitimate body is a 1 MB snapshot (MAX_SNAPSHOT_BYTES).
+  // Bun rejects an over-limit request before any Elysia handler runs (bare 413, no JSON body).
+  maxRequestBodySize: 8 * 1024 * 1024,
 })
 
 registerCronJobs()

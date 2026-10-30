@@ -16,11 +16,9 @@
     "m365:auth:prod": "bun run scripts/m365-bootstrap.ts --target=prod"
   },
   "dependencies": {
-    "@elysiajs/bearer": "^1",
     "@elysiajs/cors": "^1",
     "@elysiajs/openapi": "^1.4.16",
     "@elysiajs/opentelemetry": "^1.4.11",
-    "@hey-api/client-fetch": "^0.13.1",
     "@kubiks/otel-drizzle": "^2.1.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.222.0",

@@ -57,7 +57,7 @@ HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 # see clients/astro-upstreams.ts. Not a secret, no op:// ref needed.
 # WEATHERORB_SELFHOSTED_URL=https://weatherorb.mini.jkrumm.com
 
-# General AI gateway (/ai/v1/*) — deepseek-v4.1-flash (env.ts default, effort
+# aiComplete (classification, verdict sentences) — deepseek-v4.1-flash (env.ts default, effort
 # "high"), called DIRECTLY on the IU unified endpoint's OpenAI-compatible
 # transport. No LiteLLM bridge, no localhost: the same public HTTPS endpoint is
 # reachable from local dev and the prod VPS, so one config serves both. The

@@ -70,7 +70,7 @@ import {
 import { geocodeCity } from '../lib/geocode.js'
 import { scoreWindow, type ScoredWindow } from '../lib/window-score.js'
 import { completeSentence } from '../lib/ai-sentence.js'
-import { aiComplete } from './ai.js'
+import { aiComplete } from '../lib/ai-complete.js'
 
 /**
  * "Is tonight worth going out for?" — for Milky Way nightscapes.

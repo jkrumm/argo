@@ -16,8 +16,7 @@ Health/training core, plus a growing set of personal-agent surfaces, grouped in 
   Warden (the mini's control-plane board — funnel metrics, open items, dispatch budget).
 - **Other** — M365 Explorer (IU Teams).
 
-The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — an AI Gateway and
-Slack read/write live behind the same bearer as the dashboard's own endpoints.
+The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — Slack read/write lives behind the same bearer as the dashboard's own endpoints.
 
 ## Stack
 

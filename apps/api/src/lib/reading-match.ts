@@ -7,7 +7,7 @@ import { db } from '../db/index.js'
 import { book, bookSyncMap, readingStat } from '../db/schema.js'
 import { hardcover, type HardcoverSearchHit } from '../clients/hardcover.js'
 import { upsertBook } from './book-store.js'
-import { aiComplete, AI_DEFAULT_MAX_COMPLETION_TOKENS } from '../routes/ai.js'
+import { aiComplete, AI_DEFAULT_MAX_COMPLETION_TOKENS } from './ai-complete.js'
 import { env } from '../env.js'
 import { parseLLMVerdict, decideMatch, stringAutoConfirms } from './reading-match-logic.js'
 
