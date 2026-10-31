@@ -30,12 +30,15 @@ const AgentStateEnum = z.enum(['needs_you', 'working', 'idle', 'stale', 'done', 
 
 const AgentSchema = z.looseObject({
   id: z.string(),
+  // `herdr` (classic pane), `hc` (herdr-core terminal) or `claude` (registry) — an open string, so a new producer never 422s.
   source: z.string().optional(),
   sessionId: z.string().nullable().optional(),
+  // A classic pane id (`wR:p4`) or an hc terminal address (`t7`, `mini/t7`).
   paneId: z.string().nullable().optional(),
   workspaceId: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
   state: AgentStateEnum,
+  // Runner-neutral despite the name: classic herdr's agent status or hc's 7501 state (the producer maps both to working|idle|blocked|done|unknown).
   herdrStatus: z.string().nullable().optional(),
   claudeStatus: z.string().nullable().optional(),
   waitingFor: z.string().nullable().optional(),

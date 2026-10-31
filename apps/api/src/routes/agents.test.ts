@@ -109,6 +109,30 @@ describe('/agents/overview', () => {
     expect((stored['humanQueue'] as unknown[]).length).toBe(1)
   })
 
+  it('stores an hc-source agent: terminal address as paneId, the runner-neutral herdrStatus', async () => {
+    const hcAgent = {
+      id: 'sess-hc',
+      source: 'hc',
+      sessionId: 'sess-hc',
+      paneId: 'mini/t7',
+      workspaceId: 'sp1',
+      state: 'working',
+      herdrStatus: 'working',
+    }
+    const base = snapshot() as { projects: { agents: unknown[] }[] }
+    const created = await post(
+      '/agents/overview',
+      snapshot({ projects: [{ ...base.projects[0], agents: [hcAgent] }] }),
+    )
+    expect(created.status).toBe(201)
+    const body = (await (await get('/agents/overview')).json()) as {
+      latest: { snapshot: Record<string, unknown> }
+    }
+    const stored = (body.latest.snapshot['projects'] as { agents: Record<string, unknown>[] }[])[0]!
+      .agents[0]!
+    expect(stored).toMatchObject({ source: 'hc', paneId: 'mini/t7', herdrStatus: 'working' })
+  })
+
   it('accepts a summary without dispatch and one that still carries it', async () => {
     const counts = { needsYou: 1, working: 2, idle: 0, stale: 0, done: 1 }
     const without = await post('/agents/overview', snapshot({ summary: counts }))
