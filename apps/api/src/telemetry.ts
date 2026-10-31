@@ -1,5 +1,5 @@
 import { trace, type Attributes, type Context } from '@opentelemetry/api'
-import { logs, SeverityNumber } from '@opentelemetry/api-logs'
+import { logs, SeverityNumber, type LogAttributes } from '@opentelemetry/api-logs'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto'
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-proto'
 import { resourceFromAttributes } from '@opentelemetry/resources'
@@ -156,7 +156,14 @@ function emit(level: LogLevel, body: string, attributes?: Attributes): void {
   const { number, text } = severityMap[level]
   logger.emit(
     attributes
-      ? { severityNumber: number, severityText: text, body, attributes }
+      ? // `@opentelemetry/api` >= 1.10 types attribute values as `unknown`; api-logs still declares
+        // `AnyValueMap`. The values are the same primitives at runtime, so the cast only bridges types.
+        {
+          severityNumber: number,
+          severityText: text,
+          body,
+          attributes: attributes as LogAttributes,
+        }
       : { severityNumber: number, severityText: text, body },
   )
 }
