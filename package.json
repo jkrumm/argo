@@ -26,19 +26,19 @@
     "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.2",
-    "basalt-ui": "2.27.2",
+    "@types/bun": "^1.4.4",
+    "basalt-ui": "2.29.0",
     "chrome-launcher": "1.2.2",
-    "concurrently": "^9.2.4",
-    "lefthook": "^2.1.14",
+    "concurrently": "^9.2.5",
+    "lefthook": "^2.2.2",
     "lighthouse": "13.5.0",
     "oxfmt": "^0.72.0",
-    "oxlint": "^1.87.0",
-    "playwright-core": "1.63.0",
+    "oxlint": "^1.90.0",
+    "playwright-core": "1.64.1",
     "typescript": "^5"
   },
   "overrides": {
-    "maplibre-gl": "6.10.0"
+    "maplibre-gl": "6.16.0"
   },
   "basalt": {
     "roots": [

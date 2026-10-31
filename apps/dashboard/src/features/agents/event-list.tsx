@@ -30,7 +30,7 @@ export type EventListProps = {
  * Day-grouped events: group heading with its row count, rows of actor · sentence · chip · mono
  * time pinned right. Collapses to `limit` rows. Prototype of the SPEC §4 `EventList`.
  */
-export function EventList({
+export function AgentsEventList({
   label,
   groups,
   limit = Number.POSITIVE_INFINITY,

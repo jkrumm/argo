@@ -7,7 +7,7 @@ paths:
 
 <!-- basalt:coverage -->
 <!-- GENERATED from src/surfaces.ts — `bun scripts/check-coverage.ts --write`. Do not hand-edit. -->
-<!-- backed by: guard kinds — css-raw-surface, inline-font-size, off-identity-accent, off-system-surface-var, raw-color-fn, raw-font-family, raw-hex, raw-radius, raw-surface, series-palette, surface-shadow-override, theme-allow-unscoped, unknown-vx-token · oxlint rules — basalt/no-raw-font-size, basalt/raw-size-literal -->
+<!-- backed by: guard kinds — css-raw-surface, inline-font-size, off-identity-accent, off-system-surface-var, raw-color-fn, raw-font-family, raw-hex, raw-radius, raw-surface, series-palette, surface-shadow-override, theme-allow-unscoped, unknown-vx-token · oxlint rules — basalt/no-raw-font-size, basalt/raw-size-literal, basalt/status-fill-as-text -->
 <!-- not guarded: — -->
 <!-- /basalt:coverage -->
 
@@ -20,7 +20,7 @@ Every value is a `VX.*` reference or a theme prop; the palette is derived, never
 - Write no `#hex`, `rgb()` or `hsl()`; use `VX.*` (`basalt-ui/tokens`) or Mantine `c`/`bg`. [check-theme raw-hex] [check-theme raw-color-fn]
 - Opacity is `alpha(token, a)`, never `rgba()`. [check-theme raw-color-fn]
 - Mantine hues are `blue`, `gray`, `red`, `green`, `orange`, `yellow` only; a positive delta is `green`, not `teal`. [check-theme off-identity-accent]
-- Never pin a shade (`c="yellow.7"`, `var(--mantine-color-red-6)`); use `VX.status.*` or the bare hue. [check-theme mantine-shade-index]
+- Never pin a shade (`c="yellow.7"`, `var(--mantine-color-red-6)`); use `VX.status.*` or the bare hue; `VX.status.excellent` is fill-only, text takes `good`. [check-theme mantine-shade-index] [basalt/status-fill-as-text]
 - Never read a raw ramp var (`--mantine-color-gray-N`); use `VX.surface.*`. [check-theme off-system-surface-var]
 - Fill a control with `VX.accentFill` labelled `VX.onAccent`, never `VX.accent` (that is ink). [type VX]
 - Name only `--vx-*` vars that basalt emits. [check-theme unknown-vx-token]

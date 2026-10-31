@@ -3,7 +3,7 @@ import { Badge, Box } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import type { Narrative } from '../../lib/queries/agents'
 import { useNow } from '../../lib/use-now'
-import { EventList, type EventGroup } from './event-list'
+import { AgentsEventList, type EventGroup } from './event-list'
 import { clockTime, groupByDay } from './model'
 
 type Props = {
@@ -43,7 +43,7 @@ export function NarrativesSection({ query }: Props) {
       empty={{ title: 'No narratives yet', description: 'The narrator has not written any.' }}
     >
       <Box data-shot="narratives">
-        <EventList
+        <AgentsEventList
           label="Project narratives by day"
           groups={groups}
           limit={COLLAPSED_ROWS}

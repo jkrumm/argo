@@ -40,7 +40,7 @@ paths:
 
 ## Scroll and breakpoints
 
-- A scroll region is a Mantine `ScrollArea`, not a raw `overflow: auto` box. [basalt/raw-scroll-container]
+- A scroll region is a Mantine `ScrollArea`, not a raw `overflow: auto` box; a page that fills the scrollport sets `height: var(--basalt-main-content-h)`, never a hand-built `calc(100dvh - …)`. [basalt/raw-scroll-container]
 - Never use `visibleFrom`/`hiddenFrom` or a raw `@media` width; chrome follows `useSizeClass()`, page layout follows container queries: `<SimpleGrid type="container" cols={{ base: 1, [CONTAINER_KEYS.regular]: 2 }} />` (`CONTAINER_KEYS` from `basalt-ui/tokens`), never `cols={{ base: 1, lg: 2 }}`. [basalt/raw-breakpoint] [check-theme raw-media-query]
 
 ## Motion

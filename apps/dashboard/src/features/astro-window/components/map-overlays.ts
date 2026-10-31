@@ -1,4 +1,9 @@
-import { addProtocol, type AddLayerObject, type Map as MapLibreMap } from 'maplibre-gl'
+import {
+  addProtocol,
+  type AddLayerObject,
+  type AddProtocolAction,
+  type Map as MapLibreMap,
+} from 'maplibre-gl'
 import mlcontour from 'maplibre-contour'
 import { omProtocol } from '@openmeteo/weather-map-layer'
 import type { RainViewerFrame } from '../../../lib/queries/rainviewer'
@@ -141,8 +146,12 @@ demSource.setupMaplibre({ addProtocol })
  * StrictMode double-registration guard the way a `useEffect` call would. `addProtocol('om', ...)`
  * is the same `maplibre-gl` import `demSource.setupMaplibre` already uses, not a second import of
  * the function from the package.
+ *
+ * The cast bridges a typing gap only: maplibre-gl 6.11 narrowed `AddProtocolAction`'s response from
+ * `any` to `AddProtocolResponseData`, which excludes the `{ data: null }` the package resolves for an
+ * empty tile. The runtime contract is unchanged; drop the cast once the package's own types catch up.
  */
-addProtocol('om', omProtocol)
+addProtocol('om', omProtocol as AddProtocolAction)
 
 const CONTOUR_TILE_OPTIONS = {
   thresholds: CONTOUR_THRESHOLDS,
