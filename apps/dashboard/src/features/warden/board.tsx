@@ -148,7 +148,7 @@ function ColumnBody({
  * one `Empty: A, B` line under it. At 390 one column at a time sits under a `ViewTabs` selector.
  * `data-shot="board"` wraps whichever layout renders, so the shot harness crops it at both widths.
  */
-export function Board({
+export function WardenBoard({
   columns,
   open,
   emptyText,

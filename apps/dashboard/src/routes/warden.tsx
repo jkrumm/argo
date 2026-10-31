@@ -17,7 +17,7 @@ import {
 import { StaleBanner } from '../features/warden/stale-banner'
 import { HealthStrip } from '../features/warden/health-strip'
 import { DecisionQueues } from '../features/warden/decision-queues'
-import { Board } from '../features/warden/board'
+import { WardenBoard } from '../features/warden/board'
 import { PollersList } from '../features/warden/pollers-list'
 import { ItemTimeline } from '../features/warden/item-timeline'
 
@@ -124,7 +124,7 @@ function WardenPage() {
               items={raw?.items}
               onSelectItem={setSelectedEventId}
             />
-            <Board
+            <WardenBoard
               columns={board.columns}
               open={board.open}
               emptyText={board.emptyText}

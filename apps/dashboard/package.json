@@ -35,7 +35,7 @@
     "@tanstack/react-router-devtools": "^1.167.2",
     "@tanstack/react-table": "9.2.8",
     "@tanstack/react-virtual": "3.14.14",
-    "basalt-ui": "2.27.2",
+    "basalt-ui": "2.29.0",
     "canvas-confetti": "^1.9.4",
     "d3-scale": "4.0.2",
     "date-fns": "^4.4.0",
