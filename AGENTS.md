@@ -282,7 +282,7 @@ framework-managed block at the end of this file (written by `basalt-ui sync`; `s
 in CI). Precedence: `DESIGN.md` > the
 `basalt-*` rules > the `basalt-*` skills.
 
-<!-- basalt:begin 2.27.2 -->
+<!-- basalt:begin 2.29.0 -->
 
 ## basalt-ui (managed — do not hand-edit)
 
