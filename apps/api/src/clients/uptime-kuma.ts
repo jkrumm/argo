@@ -15,6 +15,9 @@ export interface UptimeMonitor {
   ping: number | null // ms; null for docker and push monitors
   uptime1d: number | null // ratio 0.0–1.0; null until first uptime event
   uptime30d: number | null // ratio 0.0–1.0; null until first uptime event
+  parent: string | null // parent group monitor id; null for top-level monitors
+  msg: string | null // message of the newest heartbeat; null until a beat with a message lands
+  lastBeatAt: string | null // ISO time of the newest heartbeat; null until the first beat
 }
 
 export type ClientStatus = 'warming' | 'ready' | 'stale'
@@ -32,11 +35,14 @@ interface MonitorMeta {
   type: string
   url: string | null
   active: boolean
+  parent: string | null
 }
 
 interface MonitorRuntime {
   status: number
   ping: number | null
+  msg: string | null
+  lastBeatAt: string | null
 }
 
 interface UptimeRatios {
@@ -50,19 +56,18 @@ interface RawMonitor {
   type: string
   url?: string
   active: boolean
+  parent?: number | null
 }
 
 interface RawHeartbeat {
   status: number
   ping: number | null
   time: string
+  msg?: string | null
 }
 
-interface RawHeartbeatLive {
+interface RawHeartbeatLive extends RawHeartbeat {
   monitorID: number
-  status: number
-  ping: number | null
-  time: string
 }
 
 interface LoginResponse {
@@ -81,7 +86,33 @@ function normalizeUrl(raw: string | undefined): string | null {
   return v === '' || v === 'https://' ? null : v
 }
 
-class UptimeKumaClient {
+function toMeta(m: RawMonitor): MonitorMeta {
+  return {
+    name: m.name,
+    type: m.type,
+    url: normalizeUrl(m.url),
+    active: m.active,
+    parent: m.parent == null ? null : String(m.parent),
+  }
+}
+
+// Kuma sends `time` as "YYYY-MM-DD HH:mm:ss[.SSS]" in UTC; null when unparseable.
+function beatTimeToIso(raw: string | undefined): string | null {
+  if (!raw) return null
+  const ms = Date.parse(raw.includes('T') ? raw : `${raw.replace(' ', 'T')}Z`)
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString()
+}
+
+function toRuntime(beat: RawHeartbeat): MonitorRuntime {
+  return {
+    status: beat.status,
+    ping: beat.ping,
+    msg: beat.msg ? beat.msg : null,
+    lastBeatAt: beatTimeToIso(beat.time),
+  }
+}
+
+export class UptimeKumaClient {
   private socket: Socket | null = null
   private monitorMeta = new Map<string, MonitorMeta>()
   private monitorRuntime = new Map<string, MonitorRuntime>()
@@ -164,6 +195,9 @@ class UptimeKumaClient {
         ping: runtime?.ping ?? null,
         uptime1d: ratios?.d1 ?? null,
         uptime30d: ratios?.d30 ?? null,
+        parent: meta.parent,
+        msg: runtime?.msg ?? null,
+        lastBeatAt: runtime?.lastBeatAt ?? null,
       }
     })
 
@@ -214,12 +248,7 @@ class UptimeKumaClient {
     socket.on('monitorList', (data: Record<string, RawMonitor>) => {
       const next = new Map<string, MonitorMeta>()
       for (const [id, m] of Object.entries(data)) {
-        next.set(id, {
-          name: m.name,
-          type: m.type,
-          url: normalizeUrl(m.url),
-          active: m.active,
-        })
+        next.set(id, toMeta(m))
       }
       this.monitorMeta = next
       // Drop runtime/ratio entries for monitors that no longer exist
@@ -238,12 +267,7 @@ class UptimeKumaClient {
 
     socket.on('updateMonitorIntoList', (data: Record<string, RawMonitor>) => {
       for (const [id, m] of Object.entries(data)) {
-        this.monitorMeta.set(id, {
-          name: m.name,
-          type: m.type,
-          url: normalizeUrl(m.url),
-          active: m.active,
-        })
+        this.monitorMeta.set(id, toMeta(m))
       }
       this.touch()
     })
@@ -259,18 +283,12 @@ class UptimeKumaClient {
     socket.on('heartbeatList', (monitorId: number, beats: RawHeartbeat[]) => {
       const last = beats.at(-1)
       if (!last) return
-      this.monitorRuntime.set(String(monitorId), {
-        status: last.status,
-        ping: last.ping,
-      })
+      this.monitorRuntime.set(String(monitorId), toRuntime(last))
       this.touch()
     })
 
     socket.on('heartbeat', (beat: RawHeartbeatLive) => {
-      this.monitorRuntime.set(String(beat.monitorID), {
-        status: beat.status,
-        ping: beat.ping,
-      })
+      this.monitorRuntime.set(String(beat.monitorID), toRuntime(beat))
       this.touch()
     })
 

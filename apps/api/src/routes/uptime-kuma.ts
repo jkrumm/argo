@@ -21,6 +21,22 @@ const MonitorSchema = z.object({
     .number()
     .nullable()
     .describe('Uptime ratio over last 30 days (0.0–1.0). Null until first uptime event lands.'),
+  parent: z
+    .string()
+    .nullable()
+    .describe(
+      'ID of the parent group monitor (an `id` of another entry with type `group`). Null for top-level monitors.',
+    ),
+  msg: z
+    .string()
+    .nullable()
+    .describe(
+      'Message of the newest heartbeat, e.g. the failure reason or HTTP status text. Null until a beat with a message lands.',
+    ),
+  lastBeatAt: z
+    .string()
+    .nullable()
+    .describe('ISO timestamp of the newest heartbeat. Null until the first beat lands.'),
 })
 
 const StatusFieldSchema = z
