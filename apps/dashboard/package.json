@@ -41,7 +41,7 @@
     "date-fns": "^4.4.0",
     "dayjs": "^1.11.23",
     "maplibre-contour": "0.1.1",
-    "maplibre-gl": "6.10.0",
+    "maplibre-gl": "6.16.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^4.6.5",

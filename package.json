@@ -38,7 +38,7 @@
     "typescript": "^5"
   },
   "overrides": {
-    "maplibre-gl": "6.10.0"
+    "maplibre-gl": "6.16.0"
   },
   "basalt": {
     "roots": [
