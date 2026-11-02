@@ -8,12 +8,12 @@ import {
   addDays,
   computeBudget,
   mergeModels,
+  underCapOn,
   reconcileDays,
   type PortalCell,
 } from '../lib/iu-budget.js'
 import { DEFAULT_IU_KEY, IU_KEY_LIMIT_USD, IuKeyEnum, type IuKey } from '../lib/iu-keys.js'
 import { utcBucket } from '../lib/usage-query.js'
-import { underCapOn } from '../lib/usage-pace.js'
 
 // IU's own cost report, read from `usage.iu_portal_cost` (written by usage-tracker). The cap,
 // can-spend-today and the portal-vs-tracked reconciliation are computed from it, never from our own
@@ -47,12 +47,12 @@ async function earliestPortalDay(iuKey: IuKey): Promise<string | null> {
  * first day the rolling window drops under the cap at the last 7 days' mean; null when already under or
  * never within 60 days.
  */
-export async function loadIuBudget(iuKey: IuKey) {
+export async function loadIuBudget(iuKey: IuKey, now: Date = new Date()) {
   const limitUsd = IU_KEY_LIMIT_USD[iuKey]
   const latest = await latestPortalDay(iuKey)
   if (!latest) {
     return {
-      ...computeBudget([], new Date().toISOString().slice(0, 10), limitUsd),
+      ...computeBudget([], now.toISOString().slice(0, 10), limitUsd),
       iuKey,
       fetchedAt: null,
       underCapOn: null,

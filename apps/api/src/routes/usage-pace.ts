@@ -4,10 +4,10 @@ import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { USAGE_ROWS } from '../lib/usage-source.js'
 import { utcBucket } from '../lib/usage-query.js'
+import { capState } from '../lib/iu-budget.js'
 import { DEFAULT_IU_KEY, IU_KEY_LIMIT_USD } from '../lib/iu-keys.js'
 import {
   buildPace,
-  capState,
   poolAccounts,
   POOL_REGISTRY,
   RATE_WINDOW_MS,
@@ -213,10 +213,10 @@ async function readClaudeOnIu(picksReadable: boolean): Promise<number> {
 }
 
 /** `/usage/iu-budget?iuKey=personal`, reduced to what the verdict band needs; the empty shape if unreadable. */
-async function readPersonalKey() {
+async function readPersonalKey(now: Date) {
   const capUsd = IU_KEY_LIMIT_USD[DEFAULT_IU_KEY]
   try {
-    const budget = await loadIuBudget(DEFAULT_IU_KEY)
+    const budget = await loadIuBudget(DEFAULT_IU_KEY, now)
     return {
       rolling30Usd: budget.rolling30Usd,
       capUsd: budget.limitUsd,
@@ -245,7 +245,7 @@ export async function loadPace(now: Date) {
     readCutover(),
     readDemand(now, picksReadable),
     readClaudeOnIu(picksReadable),
-    readPersonalKey(),
+    readPersonalKey(now),
     Promise.all(
       poolAccounts(cycleRows.map((c) => c.account)).map(async (account): Promise<PoolInput> => {
         const cycles = cycleRows.filter((c) => c.account === account)
