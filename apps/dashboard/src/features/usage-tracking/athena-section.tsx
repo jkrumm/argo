@@ -70,36 +70,35 @@ function ProducersCard({ range }: { range: Range }) {
 }
 
 function AgwCard() {
+  const { data: pace } = useSuspenseQuery(usageQueries.pace())
   const { data } = useSuspenseQuery(
     usageQueries.timeseries({
-      range: '7d',
+      range: '30d',
       grain: 'hour',
       metric: 'cost',
       groupBy: 'source',
       payer: ['iu-team-api'],
     }),
   )
-  const now = useNow()
-  const { lastDayUsd, lastRowAt } = agwOnKey(data.buckets, now)
+  const { sinceUsd, lastRowAt } = agwOnKey(data.buckets, new Date(pace.cutover).getTime())
   return (
     <ChartCard
-      title="agw on this key · last 24 h"
-      info="Whether agent-workflows still bills this key: since agw moved to the gateway its calls pay on our own key, so anything here is a call that bypassed it."
+      title="agw on this key since the cutover"
+      info="Whether agent-workflows still bills this key since the gateway's first row: its calls pay on our own key, so anything here is a call that bypassed the gateway. Hourly buckets, the hour of the cutover included."
       placeholderHeight="content"
     >
       <Stack gap={2} data-shot="flow-athena-agw">
-        <Text size="sm" fw={600} ff="monospace" {...(lastDayUsd > 1 ? { c: VX.status.warn } : {})}>
-          {fmtUsd(lastDayUsd)}
+        <Text size="sm" fw={600} ff="monospace" {...(sinceUsd > 1 ? { c: VX.status.warn } : {})}>
+          {fmtUsd(sinceUsd)}
         </Text>
-        {lastDayUsd > 1 ? (
+        {sinceUsd > 1 ? (
           <Text size="xs" c={VX.status.warn}>
             agw still bills this key
           </Text>
         ) : null}
         <Text size="xs" c="dimmed">
-          {lastRowAt === null
-            ? 'no agw row in the last 7 days'
-            : `last agw row ${fmtInstant(lastRowAt)}`}
+          since {fmtInstant(pace.cutover)} ·{' '}
+          {lastRowAt === null ? 'no agw row in 30 days' : `last agw row ${fmtInstant(lastRowAt)}`}
         </Text>
       </Stack>
     </ChartCard>

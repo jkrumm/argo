@@ -13,9 +13,10 @@ import {
   fmtRate,
   fmtUsd,
   iuByCause,
-  iuSinceOf,
   laneLabel,
   originKnown,
+  PURPOSES,
+  purposeSegments,
   picksByReason,
   picksByTarget,
   picksPerDay,
@@ -107,8 +108,7 @@ describe('verdictOf', () => {
 })
 
 describe('factsOf', () => {
-  const since = iuSinceOf(ROUTER)
-  const cells = Object.fromEntries(factsOf(PACE, since, NOW).map((c) => [c.key, c]))
+  const cells = Object.fromEntries(factsOf(PACE, NOW).map((c) => [c.key, c]))
 
   it('credit left sums the enabled pools and names the pool that is not enabled', () => {
     expect(cells['left']?.value).toBe('$182')
@@ -127,14 +127,17 @@ describe('factsOf', () => {
     expect(cells['production']?.footer).toBe('evals $11/d apart')
   })
 
-  it('IU since the cutover reads all by design while no Claude work reached it', () => {
-    expect(cells['iu']?.value).toBe('$3.27')
-    expect(cells['iu']?.footer).toBe('all by design · fallback $0')
-    const some = factsOf({ ...PACE, claudeOnIuUsd: 0.5 }, since, NOW).find((c) => c.key === 'iu')
-    expect(some?.footer).toBe('<$1 Claude work · fallback $0')
+  it('Claude on IU since the cutover is the pace figure, all by design while none reached it', () => {
+    expect(cells['iu']?.caption).toBe('Claude on IU since the cutover')
+    expect(cells['iu']?.value).toBe('$0')
+    expect(cells['iu']?.footer).toBe('no fallback · all by design')
+    expect(cells['iu']?.tone).toBeUndefined()
+    const some = factsOf({ ...PACE, claudeOnIuUsd: 0.5 }, NOW).find((c) => c.key === 'iu')
+    expect(some?.value).toBe('<$1')
+    expect(some?.footer).toBe('fallback or Claude Code shaped')
     expect(some?.tone).toBeUndefined()
-    const claude = factsOf({ ...PACE, claudeOnIuUsd: 5 }, since, NOW).find((c) => c.key === 'iu')
-    expect(claude?.footer).toBe('$5.00 Claude work · fallback $0')
+    const claude = factsOf({ ...PACE, claudeOnIuUsd: 5 }, NOW).find((c) => c.key === 'iu')
+    expect(claude?.value).toBe('$5.00')
     expect(claude?.tone).toBe('warn')
   })
 
@@ -142,11 +145,7 @@ describe('factsOf', () => {
     expect(cells['key']?.value).toBe('$578')
     expect(cells['key']?.tone).toBe('bad')
     expect(cells['key']?.footer).toBe('of $500 cap · under it around 12 Nov')
-    const none = factsOf(
-      { ...PACE, personalKey: { ...PACE.personalKey, fetchedAt: null } },
-      since,
-      NOW,
-    )
+    const none = factsOf({ ...PACE, personalKey: { ...PACE.personalKey, fetchedAt: null } }, NOW)
     expect(none.find((c) => c.key === 'key')?.value).toBe('—')
     expect(none.find((c) => c.key === 'key')?.footer).toBe('no portal report yet')
   })
@@ -155,7 +154,7 @@ describe('factsOf', () => {
     expect(reportAgeNote(PACE, NOW)).toBeNull()
     const later = NOW + 8 * 3_600_000
     expect(reportAgeNote(PACE, later)).toBe('provider report 9\u00a0h old')
-    expect(factsOf(PACE, since, later).find((c) => c.key === 'left')?.footer).toContain(
+    expect(factsOf(PACE, later).find((c) => c.key === 'left')?.footer).toContain(
       'provider report 9\u00a0h old',
     )
   })
@@ -163,7 +162,6 @@ describe('factsOf', () => {
   it('no pool enabled reads a dash, not zero', () => {
     const none = factsOf(
       { ...PACE, verdict: 'no-pool', pools: PACE.pools.filter((p) => !p.enabled) },
-      null,
       NOW,
     )
     expect(none.find((c) => c.key === 'left')?.value).toBe('—')
@@ -301,28 +299,73 @@ describe('demand node totals', () => {
 })
 
 describe('agwOnKey', () => {
-  const bucket = (iso: string, usd: number) => ({
+  const bucket = (iso: string, usd: number | null) => ({
     bucket: iso,
     groups: { 'agent-workflows': usd, hermes: 5 },
   })
+  const CUTOVER = Date.parse('2026-11-02T00:26:00Z')
 
-  it('sums the last 24 hours and names the last hour agw billed the key', () => {
+  it('sums agw since the cutover and names the last hour agw billed the key', () => {
     const r = agwOnKey(
       [
         bucket('2026-11-01T06:00:00Z', 2),
         bucket('2026-11-02T08:00:00Z', 3),
         bucket('2026-11-02T09:00:00Z', 0),
       ],
-      NOW,
+      CUTOVER,
     )
-    expect(r).toEqual({ lastDayUsd: 3, lastRowAt: '2026-11-02T08:00:00Z' })
+    expect(r).toEqual({ sinceUsd: 3, lastRowAt: '2026-11-02T08:00:00Z' })
+  })
+
+  it('counts the hour that holds the cutover, and nothing that ended before it', () => {
+    const r = agwOnKey(
+      [
+        bucket('2026-11-01T23:00:00Z', 7),
+        bucket('2026-11-02T00:00:00Z', 4),
+        bucket('2026-11-02T01:00:00Z', 1),
+      ],
+      CUTOVER,
+    )
+    expect(r.sinceUsd).toBe(5)
+    expect(r.lastRowAt).toBe('2026-11-02T01:00:00Z')
+  })
+
+  it('a bucket of unknown cost is a row, a zero-filled hour is not', () => {
+    const r = agwOnKey(
+      [
+        bucket('2026-11-02T05:00:00Z', 2),
+        bucket('2026-11-02T06:00:00Z', null),
+        bucket('2026-11-02T07:00:00Z', 0),
+      ],
+      CUTOVER,
+    )
+    expect(r).toEqual({ sinceUsd: 2, lastRowAt: '2026-11-02T06:00:00Z' })
   })
 
   it('a key agw has left reads zero', () => {
-    expect(agwOnKey([bucket('2026-10-30T06:00:00Z', 9)], NOW)).toEqual({
-      lastDayUsd: 0,
+    expect(agwOnKey([bucket('2026-10-30T06:00:00Z', 9)], CUTOVER)).toEqual({
+      sinceUsd: 0,
       lastRowAt: '2026-10-30T06:00:00Z',
     })
-    expect(agwOnKey([], NOW)).toEqual({ lastDayUsd: 0, lastRowAt: null })
+    expect(agwOnKey([], CUTOVER)).toEqual({ sinceUsd: 0, lastRowAt: null })
+  })
+})
+
+describe('purposeSegments', () => {
+  it('covers every purpose, so the bar sums to the row', () => {
+    expect([...PURPOSES]).toEqual(['prod', 'verify', 'eval', 'other'])
+    const row = {
+      ...(DEMAND.rows[0] as (typeof DEMAND.rows)[number]),
+      usd: 10,
+      byPurpose: { prod: 6, verify: 1, eval: 2, other: 1 },
+    }
+    const segments = purposeSegments(row)
+    expect(segments.map((x) => x.key)).toEqual(['prod', 'verify', 'eval', 'other'])
+    expect(segments.reduce((acc, x) => acc + x.usd, 0)).toBe(row.usd)
+  })
+
+  it('drops purposes with no cost', () => {
+    const row = { ...(DEMAND.rows[1] as (typeof DEMAND.rows)[number]) }
+    expect(purposeSegments(row).map((x) => x.key)).toEqual(['prod', 'eval'])
   })
 })

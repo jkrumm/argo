@@ -2,8 +2,7 @@
  * The Flow tab's verdict: one sentence (will the credit be spent before it expires, and did Claude work
  * land on IU), a facts strip and the pace chart. It is state, not a range: "now" and the billing cycle,
  * so it ignores the page Range and says so in its first line. Everything is `flow-model.ts`'s words over
- * `/usage/pace`; the IU total beside it is `/usage/router?range=all` (the gateway holds nothing older
- * than the cutover).
+ * `/usage/pace`, the IU clause and its facts cell included (`claudeOnIuUsd`, since the cutover).
  */
 import { Fragment } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
@@ -13,7 +12,7 @@ import { ChartCard } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { usageQueries } from '../../lib/queries/usage'
 import { useNow } from '../../lib/use-now'
-import { factsOf, iuSinceOf, verdictOf, type SentencePart } from './flow-model'
+import { factsOf, verdictOf, type SentencePart } from './flow-model'
 import { PaceChart } from './pace-chart'
 import { paceModel } from './pace-model'
 
@@ -50,10 +49,9 @@ const Sentence = ({ parts }: { parts: readonly SentencePart[] }) => (
 
 export function VerdictBand() {
   const { data: pace } = useSuspenseQuery({ ...usageQueries.pace(), refetchInterval: 5 * 60_000 })
-  const { data: router } = useSuspenseQuery(usageQueries.router('all'))
   const now = useNow()
   const verdict = verdictOf(pace)
-  const cells: StatStripCell[] = factsOf(pace, iuSinceOf(router), now).map((f) => ({
+  const cells: StatStripCell[] = factsOf(pace, now).map((f) => ({
     key: f.key,
     caption: f.caption,
     value: f.value,

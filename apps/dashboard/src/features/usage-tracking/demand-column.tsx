@@ -15,11 +15,13 @@ import { FlowBoundary } from './flow-boundary'
 import {
   CREDIT_PAYERS,
   SUB_PAYERS,
+  PURPOSES,
   UNSET_KEYS,
   demandTotals,
   fmtUsd,
   laneRows,
   originKnown,
+  purposeSegments,
 } from './flow-model'
 import { demandNode, type FlowNode } from './flow-node'
 import { PURPOSE_STYLE } from './flow-ink'
@@ -43,8 +45,7 @@ const LANES_INFO =
 const CALLERS_INFO =
   'Who asked agw, from the origin the door forwards: Hermes, Iris, MacWhisper, oc, modelpick, the CLI. Rows before the origin header existed read unset.'
 
-const PURPOSE_KEYS = ['prod', 'verify', 'eval'] as const
-const PURPOSE_LEGEND = PURPOSE_KEYS.map((k) => ({
+const PURPOSE_LEGEND = PURPOSES.map((k) => ({
   key: k,
   label: PURPOSE_STYLE[k].label,
   color: PURPOSE_STYLE[k].color,
@@ -108,11 +109,11 @@ function WorkflowsCard({
                   <SegmentBar
                     scale={top}
                     height={6}
-                    segments={PURPOSE_KEYS.map((k) => ({
-                      key: k,
-                      label: PURPOSE_STYLE[k].label,
-                      value: r.byPurpose[k],
-                      color: PURPOSE_STYLE[k].color,
+                    segments={purposeSegments(r).map((s) => ({
+                      key: s.key,
+                      label: PURPOSE_STYLE[s.key].label,
+                      value: s.usd,
+                      color: PURPOSE_STYLE[s.key].color,
                     }))}
                   />
                 </Stack>
