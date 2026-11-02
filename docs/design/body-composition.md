@@ -363,11 +363,11 @@ Four states production cannot show, shot through `scripts/design-shot/fixture-pr
 2. One weigh-in drew a dot on a day-wide axis in a full plot box: the weight chart renders nothing until the second weigh-in (only once
    the query succeeded); the headline already states the value and day.
 
-| Round | Live / dist | Reviewer A | Reviewer B | Argo P1s fixed after it |
-|-|-|-|-|-|
-| r1 | `460740a0` | fail 56 | fail 47 | low-end meter drew nothing; one-weigh-in chart |
-| r2 | `93e71a2a` | pass 83 | fail 59 | one-weigh-in card held one sentence in a full plot box (`empty-region`) |
-| r3 | `1f120b66` | **fail 71** | **fail 74** | none: the one P1 left is basalt's |
+| Round | Live / dist | Reviewer A  | Reviewer B  | Argo P1s fixed after it                                                 |
+| ----- | ----------- | ----------- | ----------- | ----------------------------------------------------------------------- |
+| r1    | `460740a0`  | fail 56     | fail 47     | low-end meter drew nothing; one-weigh-in chart                          |
+| r2    | `93e71a2a`  | pass 83     | fail 59     | one-weigh-in card held one sentence in a full plot box (`empty-region`) |
+| r3    | `1f120b66`  | **fail 71** | **fail 74** | none: the one P1 left is basalt's                                       |
 
 **Result: fails the bar on one basalt P1.** Both final reviewers fail only the fresh state's Weight cell at 390: the `Meter` start
 caption's descender is clipped (`low 72.3 kg` reads `kq`), which `UPSTREAM.md` § Wave 53 records; `readingAt`'s default falls back to

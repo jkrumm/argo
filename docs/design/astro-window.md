@@ -402,10 +402,10 @@ are neutral context for any of the three and never compete for hue.
 
 **Which layers exclude, which combine.**
 
-| Group | Members | Rule |
-|-|-|-|
-| The answer field | the light-pollution atlas, or exactly ONE weather layer (radar, lightning, cloud mask, infrared cloud, cloud top, the three forecast fields) | Mutually exclusive. One coloured field on the canvas, ever. |
-| Context | base map, hillshade, 3D terrain, contours, trails | Combine freely with the answer field and each other. Neutral ink, no hue to collide. |
+| Group            | Members                                                                                                                                      | Rule                                                                                 |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| The answer field | the light-pollution atlas, or exactly ONE weather layer (radar, lightning, cloud mask, infrared cloud, cloud top, the three forecast fields) | Mutually exclusive. One coloured field on the canvas, ever.                          |
+| Context          | base map, hillshade, 3D terrain, contours, trails                                                                                            | Combine freely with the answer field and each other. Neutral ink, no hue to collide. |
 
 - **A weather layer hides the atlas; it does not lower it.** Lowered, the atlas's blue still reads as radar's blue. The atlas
   year, opacity, smoothing and range stay in the URL while hidden, so leaving weather restores exactly the atlas that was set.
@@ -447,12 +447,12 @@ Shots `w53-r1-map-{a,b,c}`, `w53-r2b-map-{a,b,c,d}`, `w53-r3-map-{a,b,c,d}`, `w5
 lightning, forecast cloud, forecast precipitation, `shot-map=loading`, `shot-map=error`, 1440 / 390, both schemes. Round 4 re-shot
 only the two forecast routes after the palette fix.
 
-| Round | Live | Reviewer A | Reviewer B | Argo P1s fixed after it |
-|-|-|-|-|-|
-| r1 | `93e71a2a` | fail 0 | fail 0 | forecast layers painted nothing (`map-tiles.open-meteo.com` is NXDOMAIN, moved to the S3 bucket); spinner and one muted line for pending / failed; site markers told apart by fill only |
-| r2 | `1607d567`–`4a313d91` | fail 0 | fail 0 | failed state without Retry; lightning named no frame time; forecast cloud invisible on the light base |
-| r3 | `2b959b4b` | fail 0, no argo P1 | fail 48 | dark palette's near-white overcast buried the dark base's labels |
-| r4 | `b302cf0d` | **fail 20, no argo P0/P1** | **fail 32, no argo P0/P1** | — |
+| Round | Live                  | Reviewer A                 | Reviewer B                 | Argo P1s fixed after it                                                                                                                                                                 |
+| ----- | --------------------- | -------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| r1    | `93e71a2a`            | fail 0                     | fail 0                     | forecast layers painted nothing (`map-tiles.open-meteo.com` is NXDOMAIN, moved to the S3 bucket); spinner and one muted line for pending / failed; site markers told apart by fill only |
+| r2    | `1607d567`–`4a313d91` | fail 0                     | fail 0                     | failed state without Retry; lightning named no frame time; forecast cloud invisible on the light base                                                                                   |
+| r3    | `2b959b4b`            | fail 0, no argo P1         | fail 48                    | dark palette's near-white overcast buried the dark base's labels                                                                                                                        |
+| r4    | `b302cf0d`            | **fail 20, no argo P0/P1** | **fail 32, no argo P0/P1** | —                                                                                                                                                                                       |
 
 Found on the way, not by a reviewer: a map opened with `wx=model-*` in the URL autoplayed through all 48 forecast steps and never
 went network-idle (the paused-on-switch reset only fires on a change); it opens paused now. The scrubber names the weekday when its
