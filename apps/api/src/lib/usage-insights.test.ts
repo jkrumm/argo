@@ -66,9 +66,19 @@ describe('money formatting', () => {
     expect(usd(0.4)).toBe('<$1')
     expect(usd(1)).toBe('$1.00')
     expect(usd(9.994)).toBe('$9.99')
+    expect(usd(999.6)).toBe('$1,000')
     expect(usd(10)).toBe('$10')
     expect(usd(54.3)).toBe('$54')
     expect(usd(1380.4)).toBe('$1,380')
+  })
+  it('never prints $10.00: cents round before the whole-dollar cut', () => {
+    for (const v of [9.995, 9.996, 9.997, 9.998, 9.999]) {
+      expect(usd(v)).not.toBe('$10.00')
+      expect(usdPerRun(v)).not.toBe('$10.00')
+    }
+    expect(usd(9.996)).toBe('$10')
+    expect(usd(9.994)).toBe('$9.99')
+    expect(usdPerRun(9.999)).toBe('$10')
   })
   it('a cost per run keeps its cents below one dollar', () => {
     expect(usdPerRun(0.78)).toBe('$0.78')
@@ -111,11 +121,14 @@ describe('top-share', () => {
     expect(insight.thin).toBe(false)
   })
   it('does not fire just under 50 %', () => {
-    expect(fire(49.99, 50.01).length).toBe(1) // digest is now the top at 50.01 %
+    const slices = [
+      slice(row('a', 49.99), row('b', 30), row('c', 20.01)),
+      slice(row('a', 49), row('b', 48), row('c', 3)),
+    ]
+    for (const productionCredit of slices) expect(topShare(base({ productionCredit }))).toEqual([])
+  })
+  it('names whichever workflow holds the majority', () => {
     expect(only(fire(49.99, 50.01)).node).toBe('demand:digest')
-    expect(
-      topShare(base({ productionCredit: slice(row('a', 49), row('b', 48), row('c', 3)) })),
-    ).toEqual([])
   })
   it('reads 98 % from the spec example', () => {
     expect(only(fire(54.3, 1.15)).sentence).toContain('review is 98 % of production credit')
@@ -359,13 +372,39 @@ describe('cap-near', () => {
     fetchedAt: '2026-11-09T08:00:00Z',
     ...over,
   })
-  it('fires at 80 % of the cap with the headroom', () => {
+  it('fires at 80 % of the cap with the headroom and the portal age', () => {
     const insight = only(capNear(base({ budgets: { 'athena-team': budget(465) } })))
     expect(insight.node).toBe('key:athena-team')
     expect(insight.sentence).toBe('the Athena key has $35 of headroom.')
-    expect(insight.usdMoved).toBe(35)
+    expect(insight.facts['fetchedAt']).toBe('2026-11-09T08:00:00Z')
+    expect(insight.facts['freshness']).toBe('fresh')
+    expect(insight.facts['headroomUsd']).toBe(35)
     expect(insight.thin).toBe(false)
-    expect(only(capNear(base({ budgets: { personal: budget(400) } }))).usdMoved).toBe(100)
+  })
+  it('ranks by urgency: usdMoved is the rolling 30-day spend, so 99 % outranks 81 %', () => {
+    const drafts = capNear(base({ budgets: { personal: budget(405), 'athena-team': budget(495) } }))
+    expect(drafts.map((d) => d.usdMoved)).toEqual([405, 495])
+    const ranked = detectInsights(
+      base({ budgets: { personal: budget(405), 'athena-team': budget(495) } }),
+    )
+    expect(ranked.map((i) => i.node)).toEqual(['key:athena-team', 'key:personal'])
+  })
+  it('is thin and says how old a stale portal report is (> 8 h), and calls > 48 h dead', () => {
+    const at = (hoursAgo: number) => new Date(ASOF.getTime() - hoursAgo * 3_600_000).toISOString()
+    const eight = only(capNear(base({ budgets: { personal: budget(450, { fetchedAt: at(8) }) } })))
+    expect(eight.thin).toBe(false)
+    const stale = only(capNear(base({ budgets: { personal: budget(450, { fetchedAt: at(12) }) } })))
+    expect(stale.thin).toBe(true)
+    expect(stale.facts['freshness']).toBe('stale')
+    expect(stale.facts['fetchedAt']).toBe(at(12))
+    expect(stale.sentence).toBe('the personal key has $50 of headroom (portal report 12 h old).')
+    const dead = only(capNear(base({ budgets: { personal: budget(450, { fetchedAt: at(72) }) } })))
+    expect(dead.facts['freshness']).toBe('dead')
+    expect(dead.sentence).toContain('(portal report 3 d old)')
+    expect(dead.thin).toBe(true)
+  })
+  it('does not trust a portal report with an unreadable fetch time', () => {
+    expect(capNear(base({ budgets: { personal: budget(450, { fetchedAt: 'x' }) } }))).toEqual([])
   })
   it('does not fire just under 80 %, without a portal report, or for an unreadable key', () => {
     expect(capNear(base({ budgets: { personal: budget(399.99) } }))).toEqual([])
@@ -381,6 +420,7 @@ describe('cap-near', () => {
     expect(only(capNear(base({ budgets: { personal: budget(600) } }))).sentence).toContain(
       'not back under within 60 days',
     )
+    expect(insight.usdMoved).toBe(577.57)
   })
   it('keeps the two keys in their own sentences', () => {
     const drafts = capNear(base({ budgets: { personal: budget(450), 'athena-team': budget(465) } }))
@@ -399,18 +439,23 @@ describe('detectInsights', () => {
       demandPrevious: slice(row('review', 100, { runs: 10 })),
       router: router({ cache: [{ caller: 'agw', target: 'iu', requests: 5, hitRate: 0.8 }] }),
       budgets: {
-        'athena-team': { limitUsd: 500, rolling30Usd: 465, underCapOn: null, fetchedAt: 'x' },
+        'athena-team': {
+          limitUsd: 500,
+          rolling30Usd: 465,
+          underCapOn: null,
+          fetchedAt: '2026-11-09T08:00:00Z',
+        },
       },
     })
   it('ranks by money moved, ties by id, and numbers the ranks from 1', () => {
     const items = detectInsights(firing())
-    // mover and cost-per-run both move $90: the tie goes to the id.
+    // cap-near ($465 rolling) leads; mover and cost-per-run both move $90: the tie goes to the id.
     expect(items.map((i) => i.id)).toEqual([
+      'cap-near',
       'cost-per-run',
       'mover',
       'pool-split',
       'top-share',
-      'cap-near',
     ])
     expect(items.map((i) => i.rank)).toEqual([1, 2, 3, 4, 5])
     for (let i = 1; i < items.length; i++) {
@@ -427,12 +472,17 @@ describe('detectInsights', () => {
       base({
         router: router({ cache: [{ caller: 'agw', target: 'iu', requests: 5, hitRate: 0.8 }] }),
         budgets: {
-          personal: { limitUsd: 500, rolling30Usd: 450, underCapOn: null, fetchedAt: 'x' },
+          personal: {
+            limitUsd: 500,
+            rolling30Usd: 450,
+            underCapOn: null,
+            fetchedAt: '2026-11-09T08:00:00Z',
+          },
         },
       }),
     )
     expect(items.map((i) => [i.id, i.usdMoved])).toEqual([
-      ['cap-near', 50],
+      ['cap-near', 450],
       ['claude-on-iu', 0],
     ])
   })

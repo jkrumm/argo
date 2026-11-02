@@ -26,12 +26,21 @@ const ALL_KEYS = 200
 /** purpose ≠ eval, the pace model's production. */
 const PRODUCTION_PURPOSES = ['prod', 'verify', 'other'] as const
 
-async function guarded<T>(what: string, read: () => Promise<T>): Promise<T | null> {
+/** The sources `unavailable` can name, in the order it lists them. */
+const SOURCE_ORDER = ['pace', 'router', 'demand', ...IU_KEYS.map((k) => `iu-budget:${k}`)]
+
+/** Reads one source; a throw is logged, recorded in `down` under the source's name and becomes null. */
+async function guarded<T>(
+  down: Set<string>,
+  source: string,
+  read: () => Promise<T>,
+): Promise<T | null> {
   try {
     return await read()
   } catch (error) {
+    down.add(source)
     log.warn(
-      `usage insights: ${what} unreadable: ${error instanceof Error ? error.message : 'unknown error'}`,
+      `usage insights: ${source} unreadable: ${error instanceof Error ? error.message : 'unknown error'}`,
     )
     return null
   }
@@ -45,8 +54,9 @@ const iso = (window: Window) => ({
 /** The insights of one period as of `now` (a parameter so a test can pin the clock). */
 export async function loadInsights(period: Period, now: Date) {
   const { current, previous } = periodWindows(now, period)
-  const demand = (what: string, window: Window, params: Partial<DemandParams> = {}) =>
-    guarded(`demand ${what}`, () =>
+  const down = new Set<string>()
+  const demand = (window: Window, params: Partial<DemandParams> = {}) =>
+    guarded(down, 'demand', () =>
       loadDemand({ ...iso(window), by: 'workflow', top: ALL_KEYS, ...params }),
     )
 
@@ -61,15 +71,15 @@ export async function loadInsights(period: Period, now: Date) {
     demandByCaller,
     ...budgets
   ] = await Promise.all([
-    guarded('pace', () => loadPace(now)),
-    guarded('router', () => loadRouter(iso(current))),
-    guarded('router (previous)', () => loadRouter(iso(previous))),
-    demand('all', current),
-    demand('all (previous)', previous),
-    demand('production credit', current, { payer: CREDIT_PAYERS, purpose: PRODUCTION_PURPOSES }),
-    demand('eval credit', current, { payer: CREDIT_PAYERS, purpose: ['eval'] }),
-    demand('by caller', current, { by: 'caller' }),
-    ...IU_KEYS.map((key) => guarded(`iu budget ${key}`, () => loadIuBudget(key, now))),
+    guarded(down, 'pace', () => loadPace(now)),
+    guarded(down, 'router', () => loadRouter(iso(current))),
+    guarded(down, 'router', () => loadRouter(iso(previous))),
+    demand(current),
+    demand(previous),
+    demand(current, { payer: CREDIT_PAYERS, purpose: PRODUCTION_PURPOSES }),
+    demand(current, { payer: CREDIT_PAYERS, purpose: ['eval'] }),
+    demand(current, { by: 'caller' }),
+    ...IU_KEYS.map((key) => guarded(down, `iu-budget:${key}`, () => loadIuBudget(key, now))),
   ])
 
   const inputs: InsightInputs = {
@@ -86,7 +96,12 @@ export async function loadInsights(period: Period, now: Date) {
     routerPrevious,
     budgets: Object.fromEntries(IU_KEYS.map((key, i) => [key, budgets[i] ?? null])),
   }
-  return { asOf: now.toISOString(), period, items: detectInsights(inputs) }
+  return {
+    asOf: now.toISOString(),
+    period,
+    items: detectInsights(inputs),
+    unavailable: SOURCE_ORDER.filter((source) => down.has(source)),
+  }
 }
 
 const InsightSchema = z.object({
@@ -136,6 +151,11 @@ export const usageInsightsRoutes = new Elysia().get(
       200: z.object({
         asOf: z.string().describe('ISO 8601 instant the figures were read'),
         period: z.enum(PERIODS).describe('The period the observations cover'),
+        unavailable: z
+          .array(z.string())
+          .describe(
+            'Sources that could not be read, so their detectors stayed silent: pace | router | demand | iu-budget:<key>; empty = everything was read. A view must not say "nothing stands out" over a non-empty list',
+          ),
         items: z
           .array(InsightSchema)
           .describe(
@@ -147,7 +167,7 @@ export const usageInsightsRoutes = new Elysia().get(
       tags: ['Usage Tracking'],
       summary: 'Ranked observations about the money flow, by rules',
       description:
-        'The observations under the usage page verdict over ?period=7d|30d (default 7d), the previous equal period being the comparison. Seven deterministic detectors read the same figures as /usage/demand, /usage/router, /usage/iu-budget and /usage/pace; each fires only past its threshold, its `sentence` is a template filled from its `facts` (no model writes a number or a word), and the top 5 are returned ranked by `usdMoved`, ties by id. Detectors: top-share (a workflow is ≥ 50 % of production credit spend, purpose ≠ eval on a credit pool); mover (a workflow spend changed ≥ $5 and ≥ 30 % against the previous period, which needs spend then); cost-per-run (a workflow cost per run changed ≥ 30 % with ≥ 5 runs in each period); pool-split (one pool carries ≥ 90 % of eval spend and a different one ≥ 90 % of production spend); claude-on-iu (Claude work on the IU key, causes claude-code | credit-fallback | route-fallback: above $1 a warning, at $0 (under half a cent) with gateway traffic the reassurance with usdMoved 0; silent while gateway_picks is unreadable); cache-drop (a caller × target cache hit rate fell ≥ 15 points on ≥ 50 requests in each period; usdMoved is the caller’s spend); cap-near (an IU key at ≥ 80 % of its rolling 30-day cap: its headroom, and the day it is back under when over; the Athena team key has its own sentence and is never summed with the personal key). `thin` marks an observation resting on under 24 h of gateway data. Any source that cannot be read makes its detectors silent, never an error; an empty `items` means nothing stands out. Use /usage/pace for the verdict itself, /usage/demand and /usage/router for the figures behind a node.',
+        'The observations under the usage page verdict over ?period=7d|30d (default 7d), the previous equal period being the comparison. Seven deterministic detectors read the same figures as /usage/demand, /usage/router, /usage/iu-budget and /usage/pace; each fires only past its threshold, its `sentence` is a template filled from its `facts` (no model writes a number or a word), and the top 5 are returned ranked by `usdMoved`, ties by id. Detectors: top-share (a workflow is ≥ 50 % of production credit spend, purpose ≠ eval on a credit pool); mover (a workflow spend changed ≥ $5 and ≥ 30 % against the previous period, which needs spend then); cost-per-run (a workflow cost per run changed ≥ 30 % with ≥ 5 runs in each period); pool-split (one pool carries ≥ 90 % of eval spend and a different one ≥ 90 % of production spend); claude-on-iu (Claude work on the IU key, causes claude-code | credit-fallback | route-fallback: above $1 a warning, at $0 (under half a cent) with gateway traffic the reassurance with usdMoved 0; silent while gateway_picks is unreadable); cache-drop (a caller × target cache hit rate fell ≥ 15 points on ≥ 50 requests in each period; usdMoved is the caller’s spend); cap-near (an IU key at ≥ 80 % of its rolling 30-day cap: its headroom, and the day it is back under when over; ranked by the key’s rolling 30-day spend so the key closest to its cap comes first; `facts.fetchedAt` and `facts.freshness` (fresh ≤ 8 h | stale | dead > 48 h) carry the portal report’s age, and a stale report is thin and says how old it is; the Athena team key has its own sentence and is never summed with the personal key). `thin` marks an observation resting on under 24 h of gateway data (or a portal report older than 8 h). Any source that cannot be read makes its detectors silent, never an error, and is named in `unavailable`; an empty `items` with an empty `unavailable` means nothing stands out. Use /usage/pace for the verdict itself, /usage/demand and /usage/router for the figures behind a node.',
       security: [{ BearerAuth: [] }],
     },
   },
