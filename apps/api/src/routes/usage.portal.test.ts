@@ -92,6 +92,52 @@ const track = (
     cost_usd: usd,
   })
 
+/** Day i of the 30-day window ending 2026-10-26 (i = 0 is 2026-09-27). */
+const dayWindow = (usd: (i: number) => number) =>
+  Array.from({ length: 30 }, (_, i) =>
+    cost({
+      day: new Date(Date.parse('2026-09-27T00:00:00Z') + i * 86_400_000).toISOString().slice(0, 10),
+      label: 'GPT 5.6 Terra',
+      row: i,
+      costUsd: usd(i),
+    }),
+  )
+
+describe('GET /usage/iu-budget underCapOn', () => {
+  it('is null without portal data', async () => {
+    expect((await get<{ underCapOn: string | null }>('/iu-budget')).underCapOn).toBeNull()
+  })
+
+  it('names the first day the rolling sum drops under the cap at the last 7 days’ mean', async () => {
+    // 15 × 38.5 + 15 × 1.4 = 598.5; every day the heaviest rolls off and 1.4 comes in: −37.1 a day
+    await seedIuPortal({ costs: dayWindow((i) => (i < 15 ? 38.5 : 1.4)), totals: [] })
+    const b = await get<{ rolling30Usd: number; underCapOn: string | null }>('/iu-budget')
+    expect(b.rolling30Usd).toBe(598.5)
+    // 598.5 → 561.4 (27 Oct) → 524.3 (28 Oct) → 487.2 (29 Oct)
+    expect(b.underCapOn).toBe('2026-10-29')
+  })
+
+  it('is null when the key is already under the cap', async () => {
+    await seedIuPortal({ costs: dayWindow(() => 5), totals: [] })
+    expect((await get<{ underCapOn: string | null }>('/iu-budget')).underCapOn).toBeNull()
+  })
+
+  it('is null when it stays over for 60 days', async () => {
+    await seedIuPortal({ costs: dayWindow(() => 30), totals: [] })
+    expect((await get<{ underCapOn: string | null }>('/iu-budget')).underCapOn).toBeNull()
+  })
+
+  it('reads each key on its own cap', async () => {
+    await seedIuPortal({
+      costs: dayWindow(() => 5).map((c) => ({ ...c, iu_key: 'athena-team' })),
+      totals: [],
+    })
+    expect(
+      (await get<{ underCapOn: string | null }>('/iu-budget?iuKey=athena-team')).underCapOn,
+    ).toBeNull()
+  })
+})
+
 describe('GET /usage/iu-reconcile', () => {
   it('is empty without portal data', async () => {
     const r = await get<{ days: unknown[]; unpricedRows: number }>('/iu-reconcile')
