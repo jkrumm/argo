@@ -164,9 +164,16 @@ export const walkingStore = createSearchStore({
  * old URL or stored value so they never read as unknown, then folded into `claude` with that account
  * selected by `migrateUsageSearch`. They are not offered as tabs.
  */
-export const USAGE_VIEW_VALUES = ['overview', 'claude', 'iu-api', 'iu-sub', 'me-sub'] as const
+export const USAGE_VIEW_VALUES = [
+  'overview',
+  'claude',
+  'iu-api',
+  'credits',
+  'iu-sub',
+  'me-sub',
+] as const
 /** The tabs a visitor can pick, in display order. */
-export const USAGE_TAB_VALUES = ['overview', 'claude', 'iu-api'] as const
+export const USAGE_TAB_VALUES = ['overview', 'claude', 'iu-api', 'credits'] as const
 /** The measure: dollars at API prices (list value for the subs, spend for the API) or fresh tokens. */
 export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
 /** `payer` is the Claude Max tab's "by subscription"; the IU API tab, one wallet, never offers it. */
@@ -190,7 +197,7 @@ export type UsageRoutingRange = (typeof USAGE_ROUTING_RANGE_VALUES)[number]
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
   fields: {
-    // The page tab: the combined overview, the Claude Max subscriptions together, or the IU API.
+    // The page tab: the combined overview, the Claude Max subscriptions together, the IU API, or the API credit pools.
     view: field.enum(USAGE_VIEW_VALUES, 'overview'),
     // Scopes the whole Claude Max tab to one subscription; `all` compares and sums them.
     account: field.enum(USAGE_ACCOUNT_VALUES, 'all'),
@@ -211,6 +218,7 @@ export const usageStore = createSearchStore({
     overview: 'Overview',
     claude: 'Claude Max',
     'iu-api': 'IU API',
+    credits: 'Credits',
     'iu-sub': 'Claude Max',
     'me-sub': 'Claude Max',
   },
