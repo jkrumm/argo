@@ -18,3 +18,7 @@ Lead of argo Wave 8 (usage view v7), mother `agent-workflows-w1-r4`. agw Wave 8 
   counted in `records_unique`, owner's call: no upstream marking. `/usage/demand`'s twin drop is the only correction;
   the IU personal tracked figure keeps the $5.01 of 11-02 (Left behind). r11's workers touch capabilities/index.ts,
   package.json, host review/scorer.ts + module.ts, packages/eval: rebase the agw branch onto master before training.
+- Merged to argo master: #213 pace (bed3de9a), #212 router/demand (4cea990f), #214 explore + details (e2ac8c8b).
+  Train check: `(make check || make check) && bun run test:api` (astro-visibility flakes at load ~30+).
+- Running: feat/usage-v7-flow (t8w), feat/usage-v7-insights (t8x), agw #114 (t8n; sent back to wire model-call.ts
+  and the prose/podcast fallbacks). Flow told to rebase on #214 before deleting v6 files.
