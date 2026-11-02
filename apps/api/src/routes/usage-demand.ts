@@ -3,7 +3,14 @@ import { z } from 'zod'
 import { sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { USAGE_ROWS } from '../lib/usage-source.js'
-import { PAYERS, PAYER_EXPR, RangeEnum, resolveRange, toArray } from '../lib/usage-query.js'
+import {
+  PAYERS,
+  PAYER_EXPR,
+  RangeEnum,
+  resolveRange,
+  toArray,
+  type PayerEnum,
+} from '../lib/usage-query.js'
 import { buildFilterSql, payerFilter } from '../lib/usage-filters.js'
 
 // The Demand column of the usage page (spec docs/design/usage-tracking.md v7, D1–D2): which workflows,
@@ -113,14 +120,23 @@ const RowSchema = z.object({
     ),
 })
 
-// No prefix of its own: mounted inside `usageRoutes`, which supplies `/usage`.
-export const usageDemandRoutes = new Elysia().get(
-  '/demand',
-  async ({ query }) => {
-    const { fromIso, toIso } = resolveRange(query.range)
-    const purposes = toArray(query.purpose)
-    const workflow = query.workflow
-    const where = sql`
+export interface DemandParams {
+  /** The window to read; `/usage/insights` passes the previous equal period too. */
+  fromIso: string
+  toIso: string
+  by: (typeof BY)[number]
+  top: number
+  workflow?: string | undefined
+  purpose?: readonly Purpose[] | undefined
+  payer?: readonly z.infer<typeof PayerEnum>[] | undefined
+}
+
+/** `/usage/demand` over one window, shared with `/usage/insights`. */
+export async function loadDemand(query: DemandParams) {
+  const { fromIso, toIso } = query
+  const purposes = query.purpose
+  const workflow = query.workflow
+  const where = sql`
       WHERE ts >= ${fromIso}::timestamptz AND ts <= ${toIso}::timestamptz
         AND ${DEMAND_ROWS_SQL}
         ${workflow === undefined ? sql`` : sql`AND lane_detail->>'workflow' = ${workflow}`}
@@ -132,19 +148,19 @@ export const usageDemandRoutes = new Elysia().get(
               )})`
             : sql``
         }
-        ${buildFilterSql({ payer: toArray(query.payer) })}`
-    const cte = twinsCte(fromIso, toIso)
-    const payerColumns = PAYERS.map(
-      (p, i) =>
-        sql`COALESCE(SUM(${COST_SQL}) FILTER (WHERE ${PAYER_EXPR} = ${p}), 0)::float8 AS ${sql.raw(`payer_${i}`)}`,
-    )
-    const purposeColumns = PURPOSES.map(
-      (p) =>
-        sql`COALESCE(SUM(${COST_SQL}) FILTER (WHERE ${PURPOSE_SQL} = ${p}), 0)::float8 AS ${sql.raw(`purpose_${p}`)}`,
-    )
+        ${buildFilterSql({ payer: query.payer === undefined ? undefined : [...query.payer] })}`
+  const cte = twinsCte(fromIso, toIso)
+  const payerColumns = PAYERS.map(
+    (p, i) =>
+      sql`COALESCE(SUM(${COST_SQL}) FILTER (WHERE ${PAYER_EXPR} = ${p}), 0)::float8 AS ${sql.raw(`payer_${i}`)}`,
+  )
+  const purposeColumns = PURPOSES.map(
+    (p) =>
+      sql`COALESCE(SUM(${COST_SQL}) FILTER (WHERE ${PURPOSE_SQL} = ${p}), 0)::float8 AS ${sql.raw(`purpose_${p}`)}`,
+  )
 
-    const raw = rowsOf<Record<string, unknown>>(
-      await db.execute(sql`
+  const raw = rowsOf<Record<string, unknown>>(
+    await db.execute(sql`
         ${cte}
         SELECT ${KEY_SQL[query.by]} AS key,
                COALESCE(SUM(${COST_SQL}), 0)::float8 AS usd,
@@ -158,40 +174,40 @@ export const usageDemandRoutes = new Elysia().get(
         ${where}
         GROUP BY 1
       `),
-    )
+  )
 
-    const all = raw
-      .map((r) => {
-        const byPurpose = Object.fromEntries(
-          PURPOSES.map((p) => [p, Number(r[`purpose_${p}`])]),
-        ) as Record<Purpose, number>
-        const byPayer: Record<string, number> = {}
-        PAYERS.forEach((p, i) => {
-          const usd = Number(r[`payer_${i}`])
-          if (usd !== 0) byPayer[p] = usd
-        })
-        return {
-          key: String(r['key']),
-          usd: Number(r['usd']),
-          freshTokens: Number(r['fresh']),
-          cacheReadTokens: Number(r['cache_read']),
-          requests: Number(r['requests']),
-          runs: Number(r['runs']),
-          byPurpose,
-          byPayer,
-        }
+  const all = raw
+    .map((r) => {
+      const byPurpose = Object.fromEntries(
+        PURPOSES.map((p) => [p, Number(r[`purpose_${p}`])]),
+      ) as Record<Purpose, number>
+      const byPayer: Record<string, number> = {}
+      PAYERS.forEach((p, i) => {
+        const usd = Number(r[`payer_${i}`])
+        if (usd !== 0) byPayer[p] = usd
       })
-      .toSorted((a, b) => b.usd - a.usd || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+      return {
+        key: String(r['key']),
+        usd: Number(r['usd']),
+        freshTokens: Number(r['fresh']),
+        cacheReadTokens: Number(r['cache_read']),
+        requests: Number(r['requests']),
+        runs: Number(r['runs']),
+        byPurpose,
+        byPayer,
+      }
+    })
+    .toSorted((a, b) => b.usd - a.usd || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
 
-    // Past ?top the tail is one `(other)` row (the unset buckets stay); totals are the sum of every row.
-    const cut = all.length <= query.top ? all : all.slice(0, query.top - 1)
-    const rest = all.length <= query.top ? [] : all.slice(query.top - 1)
-    const rows = [...cut, ...rest.filter((r) => NEVER_FOLDED.has(r.key))]
-    const tail = rest.filter((r) => !NEVER_FOLDED.has(r.key))
-    if (tail.length > 0) {
-      // Distinct runs do not add up across keys (a run spans models and steps): count them over the tail's rows.
-      const [folded] = rowsOf<{ runs: number }>(
-        await db.execute(sql`
+  // Past ?top the tail is one `(other)` row (the unset buckets stay); totals are the sum of every row.
+  const cut = all.length <= query.top ? all : all.slice(0, query.top - 1)
+  const rest = all.length <= query.top ? [] : all.slice(query.top - 1)
+  const rows = [...cut, ...rest.filter((r) => NEVER_FOLDED.has(r.key))]
+  const tail = rest.filter((r) => !NEVER_FOLDED.has(r.key))
+  if (tail.length > 0) {
+    // Distinct runs do not add up across keys (a run spans models and steps): count them over the tail's rows.
+    const [folded] = rowsOf<{ runs: number }>(
+      await db.execute(sql`
           ${cte}
           SELECT COUNT(DISTINCT NULLIF(lane_detail->>'run_id', ''))::int AS runs
           FROM ${USAGE_ROWS}
@@ -201,38 +217,51 @@ export const usageDemandRoutes = new Elysia().get(
               sql`, `,
             )})
         `),
-      )
-      const other = {
-        key: FOLD_KEY,
-        usd: 0,
-        freshTokens: 0,
-        cacheReadTokens: 0,
-        requests: 0,
-        runs: Number(folded?.runs ?? 0),
-        byPurpose: { prod: 0, eval: 0, verify: 0, other: 0 } as Record<Purpose, number>,
-        byPayer: {} as Record<string, number>,
-      }
-      for (const r of tail) {
-        other.usd += r.usd
-        other.freshTokens += r.freshTokens
-        other.cacheReadTokens += r.cacheReadTokens
-        other.requests += r.requests
-        for (const p of PURPOSES) other.byPurpose[p] += r.byPurpose[p]
-        for (const [payer, usd] of Object.entries(r.byPayer)) {
-          other.byPayer[payer] = (other.byPayer[payer] ?? 0) + usd
-        }
-      }
-      rows.push(other)
+    )
+    const other = {
+      key: FOLD_KEY,
+      usd: 0,
+      freshTokens: 0,
+      cacheReadTokens: 0,
+      requests: 0,
+      runs: Number(folded?.runs ?? 0),
+      byPurpose: { prod: 0, eval: 0, verify: 0, other: 0 } as Record<Purpose, number>,
+      byPayer: {} as Record<string, number>,
     }
+    for (const r of tail) {
+      other.usd += r.usd
+      other.freshTokens += r.freshTokens
+      other.cacheReadTokens += r.cacheReadTokens
+      other.requests += r.requests
+      for (const p of PURPOSES) other.byPurpose[p] += r.byPurpose[p]
+      for (const [payer, usd] of Object.entries(r.byPayer)) {
+        other.byPayer[payer] = (other.byPayer[payer] ?? 0) + usd
+      }
+    }
+    rows.push(other)
+  }
 
-    return {
-      rows,
-      totals: {
-        usd: all.reduce((acc, r) => acc + r.usd, 0),
-        requests: all.reduce((acc, r) => acc + r.requests, 0),
-      },
-    }
-  },
+  return {
+    rows,
+    totals: {
+      usd: all.reduce((acc, r) => acc + r.usd, 0),
+      requests: all.reduce((acc, r) => acc + r.requests, 0),
+    },
+  }
+}
+
+// No prefix of its own: mounted inside `usageRoutes`, which supplies `/usage`.
+export const usageDemandRoutes = new Elysia().get(
+  '/demand',
+  async ({ query }) =>
+    loadDemand({
+      ...resolveRange(query.range),
+      by: query.by,
+      top: query.top,
+      workflow: query.workflow,
+      purpose: toArray(query.purpose),
+      payer: toArray(query.payer),
+    }),
   {
     query: z.object({
       range: RangeEnum.default('7d'),
