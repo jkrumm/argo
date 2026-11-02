@@ -28,7 +28,6 @@ import { usageQuotaRoutes } from './usage-quota.js'
 import { usagePortalRoutes } from './usage-portal.js'
 import { usageAnalyticsRoutes } from './usage-analytics.js'
 import { usageSplitRoutes } from './usage-split.js'
-import { usageCreditsRoutes } from './usage-credits.js'
 import { usagePaceRoutes } from './usage-pace.js'
 import { usageDemandRoutes } from './usage-demand.js'
 import { usageRouterRoutes } from './usage-router.js'
@@ -577,7 +576,6 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .use(usagePortalRoutes)
   .use(usageAnalyticsRoutes)
   .use(usageSplitRoutes)
-  .use(usageCreditsRoutes)
   .use(usagePaceRoutes)
   .use(usageRouterRoutes)
   .use(usageDemandRoutes)
