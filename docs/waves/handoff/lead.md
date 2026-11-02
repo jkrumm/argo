@@ -28,3 +28,5 @@ Lead of argo Wave 8 (usage view v7), mother `agent-workflows-w1-r4`. agw Wave 8 
   lastRequestAt + stale note, credit-payer tests). Lead commits: 9d63c90b (unit tests 30 s), 37e3cd45 (traced-fetch
   test 10x timings), 08420e6d (dead ranked-list). Deployed 316ef3c8: make verify PASS, verify-pages PASS 14 routes.
   Criterion 2 iu $2.06 / me $2.00; criterion 3 router IU $7.5346 = SQL. @verifier running shots + criteria 1, 4, 5.
+- DONE 2026-11-02: #218 UI polish merged, argo release 6702133977ad live, @verifier round 2 PASS on all seven fixes and
+  criteria 1 and 5. Close-out in PLAN.md Wave 8 (status done). No worker or worktree left.

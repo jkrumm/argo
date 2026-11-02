@@ -203,19 +203,64 @@ Worker: Sonnet. Requested by the dotfiles Herdr app (an Uptime tab that rebuilds
 - **Gate.** `make check` green (550 tests; new `apps/api/src/clients/uptime-kuma.test.ts`, 7 cases, drives the client through a fake socket). Not run: `/review`, the change is additive mapping over three fields. The first `make check` failed on `basalt-ui sync --check` only because local `node_modules` held basalt-ui 2.29.0 against the lockfile's 2.27.2; `bun install --frozen-lockfile` fixed it, no repo change.
 - Wave 7 was the last wave of this chain; Wave 8 is run by the agent-workflows fleet.
 
-## Wave 8 — Usage view v7 <!-- status: active -->
+## Wave 8 — Usage view v7 <!-- status: done -->
 
 Run by the agent-workflows fleet (its PLAN Wave 7b; mother `agent-workflows-w1-r4`). Spec `docs/design/usage-tracking.md`
 v7, signed by the owner 2026-11-02 18:20 (`9fd63c7f`): decisions 1–4 as recommended, 5 (production pacing) deferred to
 7 days of post-hotfix data, plus §Insights.
 
-- [ ] agw side (agent-workflows, through fan worktrees and its merge train): GPT fallbacks marked on the gateway rows and
+- [x] agw side (agent-workflows, through fan worktrees and its merge train): GPT fallbacks marked on the gateway rows and
   the caller of agw recorded, per spec decision 3. The double rows are fixed by agent-workflows Wave 8; build on that.
-- [ ] Endpoints on `usage.*` per the spec (gateway rows, picks, credit cycles, platform cost, quota samples), including
+- [x] Endpoints on `usage.*` per the spec (gateway rows, picks, credit cycles, platform cost, quota samples), including
   `/usage/insights`: 3–5 ranked rule-based observations under the verdict, numbers never model-written (optional
   `agw digest` wording only).
-- [ ] Views Flow and Explore per the spec; the v6 views they supersede (Overview, Claude Max, IU API, Credits) deleted,
+- [x] Views Flow and Explore per the spec; the v6 views they supersede (Overview, Claude Max, IU API, Credits) deleted,
   not hidden. Tests.
-- [ ] Deploy, `make verify`; screenshots light and dark through `@verifier`, checked against the mocks.
+- [x] Deploy, `make verify`; screenshots light and dark through `@verifier`, checked against the mocks.
 
 **Gate:** `make check` in every repo touched, `/review` on non-doc changes, deployed and live-verified.
+
+**Left behind:**
+
+- **Live: argo release `6702133977ad`** (`make verify` PASS, `make verify-pages` PASS 14 routes), **agent-workflows
+  release `f5b3df101f57`**, gateway build `d306b78a29d319c2` (`make verify` PASS, deployed with r12's OK; r12 notified).
+  The usage page has two tabs, **Flow** (default) and **Explore**; Overview, Claude Max, IU API, Credits and
+  `/usage/credits/*` are deleted (old URLs and stored tabs migrate to Flow with the matching `?node=`).
+- **What landed.** argo #213 `GET /usage/pace` (per-day max of meter and report, the waterfall, spill, verdict, eval
+  reserve; `/usage/iu-budget` gains `underCapOn`), #212 `GET /usage/router`, `GET /usage/demand`, `/usage/split?by=lane`,
+  #214 Explore + subscription and IU key details, #215 `GET /usage/insights` (seven template detectors, top 5, `unavailable`),
+  #216 Flow (verdict band, pace chart, Supply/Router/Demand nodes, details, Athena apart, insights strip), #217 Athena
+  guard in pace, `router.lastRequestAt` and the "last request {age} ago" note, the credit-payer DB tests, #218 polish from the
+  live verification. agent-workflows #114: `x-agw-origin` → `lane_detail.origin` and `x-agw-route-fallback` →
+  `lane_detail.routeFallback` (the 402's request id, which joins its `refused` pick).
+- **Gate evidence.** Spec pass criteria, live 2 Nov ~21:00 UTC: (1) verdict, credit left and IU clause in the first
+  viewport at 1440 and 390, PASS; (2) `/usage/pace` `leftUsd` − gateway `/health` `creditLeftUsd`: iu $2.06, me $2.00, PASS;
+  (3) router IU total $7.5346 over 1,624 requests = SQL over the gateway `api_key` rows, PASS; (4) node = detail for the
+  iu pool, the router (4,960 picks, $7.58) and review ($68), PASS; (5) Athena only in its own section, absent from
+  Explore's "all", 0 Athena gateway rows, PASS; (6) v6 deleted, `make check` green in both repos, shots light and dark at
+  1440 and 390 through `@verifier` (two rounds; the second confirmed all seven polish fixes), PASS. `agw review` on every
+  non-doc PR: #212 and #216 came back actionable and were fixed before merge (picks availability, IU = billing iu,
+  bounded twin CTEs, Athena leak in pace, purpose `other` in the bars), the rest clean. Live origin proof: fresh gateway
+  rows carry `lane_detail.origin = claude-code`.
+- **Live reading.** Verdict **over** (thin, 20 h window): R $77/d, iu dry 3 Nov ~21:00 UTC, me dry 4 Nov ~22:00 UTC,
+  spill 16 days ≈ $1,239 of Claude work at list price until iu renews 21 Nov; Claude on IU since the cutover $0.004;
+  personal key $582 / $500, under around 13 Nov.
+- **Open, not done.** (1) The 383 `agent-workflows` duplicate rows of 2 Nov (and Wave 3's 34) stay counted in
+  `usage.records_unique` (owner's call, agw PLAN Wave 8); only `/usage/demand` drops them (same run, model, step), so the
+  IU personal *tracked* figure of 2 Nov carries ~$5. (2) Route-fallback marker: `model-call.ts`, prose-review and the podcast
+  fallbacks send the refused id; the OpenCode fallback session and `ocr` send `unknown`; `ocr` sends no `x-agw-origin`.
+  `routeFallbackMeasured` reads false until the first fallback happens. (3) Insights are template sentences only, no
+  `agw digest` wording; `mover`, `cost-per-run` and `cache-drop` stay silent until the gateway has a previous period (9 Nov).
+  (4) Spec decision 5 (production pacing) deferred to 7 days of data; me2 reads "not enabled" until its key and
+  `cycleDay` are claimed (Gap 8, owner). (5) Design P2s the reviewer left: near-identical grey swatches for `verify` /
+  `other` in the agw-on-credit legend, the Athena warn word on its own line, renewal labels 14 px apart at 390; the
+  `basalt-ui shot` harness here writes no `metrics.json`, so the reviewer could not score contrast or empty ratio.
+- **Gate changes made on the way.** `make check` runs the API unit tests with `--timeout 30000` (`9d63c90b`) and the
+  `tracedFetch` idle-watchdog test runs at 10× its timings (`37e3cd45`): at load average 50–100 from other fleets both
+  failed every merge-train run on code this wave never touched. The train check used was
+  `(make check || make check) && (bun run test:api --timeout 30000 || …)`.
+- **Retro.** The seam stubs (`49766225`: empty Explore/Subscription/IuKey components with fixed props on master) let
+  two frontend workers build in parallel without a broken tree; repeat it. Two cross-PR breaks only showed after
+  rebase (#212 vs #213 `usage.ts`, `flow-fixtures` vs `lastRequestAt`): give one worker the registration lines. Workers
+  twice ended turns on background shells despite the brief; the wait note plus a nudge recovered both. Briefs:
+  `docs/waves/briefs/w8-*.md`.
