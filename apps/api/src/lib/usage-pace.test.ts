@@ -1,13 +1,11 @@
 import { describe, it, expect } from 'bun:test'
 import {
   buildPace,
-  capState,
   evalReserveUsd,
   poolAccounts,
   rateOf,
   selectCycles,
   spentOf,
-  underCapOn,
   waterfall,
   type CycleInput,
   type PoolInput,
@@ -495,46 +493,5 @@ describe('buildPace with an unknown or stale cycle', () => {
 describe('poolAccounts', () => {
   it('lists the registry first, then other cycle accounts alphabetically', () => {
     expect(poolAccounts(['zeta', 'me', 'alpha'])).toEqual(['iu', 'me', 'me2', 'alpha', 'zeta'])
-  })
-})
-
-describe('capState', () => {
-  it('is ok below 80 %, warn from 80 %, over strictly above 100 %', () => {
-    expect(capState(399, 500)).toBe('ok')
-    expect(capState(400, 500)).toBe('warn')
-    expect(capState(500, 500)).toBe('warn')
-    expect(capState(577.57, 500)).toBe('over')
-  })
-})
-
-describe('underCapOn', () => {
-  // Day i (0 = 2026-10-04 .. 29 = 2026-11-02): $20 for the first 15 days, $1.4 after, like a heavy
-  // mid-month that rolls off.
-  const today = '2026-11-02'
-  const cells = Array.from({ length: 30 }, (_, i) => {
-    const day = new Date(Date.parse('2026-10-04T00:00:00Z') + i * 86_400_000)
-      .toISOString()
-      .slice(0, 10)
-    return { day, usd: i < 15 ? 38.5 : 1.4 }
-  })
-
-  it('finds the first day the sum is at or under the cap at the last 7 days’ mean', () => {
-    // 15 × 38.5 + 15 × 1.4 = 598.5; each day rolls off 38.5 and adds 1.4 (the 7-day mean): −37.1/d
-    const day = underCapOn({ cells, today, capUsd: 500 })
-    // 598.5 − 3 × 37.1 = 487.2 ≤ 500 on the third day, 598.5 − 2 × 37.1 = 524.3 on the second
-    expect(day).toBe('2026-11-05')
-  })
-
-  it('is null when the sum is already under the cap', () => {
-    expect(underCapOn({ cells, today, capUsd: 600 })).toBeNull()
-  })
-
-  it('is null when it never gets under within 60 days', () => {
-    const steady = cells.map((c) => ({ ...c, usd: 30 }))
-    expect(underCapOn({ cells: steady, today, capUsd: 500 })).toBeNull()
-  })
-
-  it('is null without any cells and a positive cap', () => {
-    expect(underCapOn({ cells: [], today, capUsd: 500 })).toBeNull()
   })
 })
