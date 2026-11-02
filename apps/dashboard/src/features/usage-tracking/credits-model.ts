@@ -45,14 +45,18 @@ export function sortPools<T extends { account: string }>(pools: readonly T[]): T
 /** One day of the burn-down chart: the credit left by each source (null = no figure). */
 export type BurnRow = { at: Date; metered: number | null; reported: number | null }
 
+/** A running cycle has a balance to count down from; an ended one waits for its reconcile. */
+export const hasBalance = (pool: CreditPool): boolean =>
+  pool.grantUsd !== null && (pool.cycle.status === 'open' || pool.cycle.status === 'unknown-end')
+
 /**
  * The chart rows: credit left by our meter and by the provider's report, per day of the axis. Without
- * a grant there is nothing to count down from: no rows. The days after today carry nulls, so the axis
- * still runs to the cycle end.
+ * a balance (no grant, or a cycle that already ended) there is nothing to count down from: no rows. The
+ * days after today carry nulls, so the axis still runs to the cycle end.
  */
 export function burnRows(pool: CreditPool): BurnRow[] {
   const grant = pool.grantUsd
-  if (grant === null) return []
+  if (grant === null || !hasBalance(pool)) return []
   const left = (spent: number | null) => (spent === null ? null : grant - spent)
   return pool.points.map((p) => ({
     at: dayToDate(p.day),
@@ -61,13 +65,35 @@ export function burnRows(pool: CreditPool): BurnRow[] {
   }))
 }
 
-/** `cycle unknown` while the end is unknown, else `29 Oct – 5 Nov`. */
+/**
+ * The chart's y-domain: zero to the grant, but a pool overspent by the provider's own report (spend
+ * made outside the gateway) goes below zero, and the axis follows it instead of clipping the line.
+ */
+export function burnDomain(rows: readonly BurnRow[], grant: number): [number, number] {
+  const lowest = rows.reduce(
+    (min, r) => Math.min(min, r.metered ?? Infinity, r.reported ?? Infinity),
+    0,
+  )
+  return [Math.min(0, lowest), Math.max(grant, 0)]
+}
+
+/** The subtitle of a pool: its cycle as days, or why it has none to show. */
 export function cycleLabel(pool: CreditPool): string {
-  if (!pool.cycle.known || pool.cycle.start === null || pool.cycle.end === null) {
-    return 'cycle unknown · last 31 d'
-  }
-  const last = new Date(new Date(pool.cycle.end).getTime() - 1)
-  return `${shortDay(new Date(pool.cycle.start))} – ${shortDay(last)}`
+  const { status, start, end } = pool.cycle
+  if (status === 'unknown-end') return 'cycle unknown · last 31 d'
+  if (status === 'none' || start === null) return 'no cycle on record · last 31 d'
+  if (end === null) return 'cycle unknown · last 31 d'
+  // The cycle's days are UTC days (the axis the API draws), whatever zone the reader is in.
+  const utcDayOf = (instant: number) => dayToDate(new Date(instant).toISOString().slice(0, 10))
+  const days = `${shortDay(utcDayOf(Date.parse(start)))} – ${shortDay(utcDayOf(Date.parse(end) - 1))}`
+  return status === 'awaiting-reconcile' ? `${days} · ended, awaiting reconcile` : days
+}
+
+/** What the burn-down chart counts: a cycle with no known end draws 31 days of a balance counted from its start. */
+export function burnNote(pool: CreditPool): string {
+  return pool.cycle.status === 'unknown-end'
+    ? 'Cycle unknown: balance counted from the cycle start, chart shows the last 31 days only'
+    : reportedNote(pool)
 }
 
 /** Dollars with cents below ten: a pool's balances are small enough that whole dollars hide the movement. */

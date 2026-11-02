@@ -17,9 +17,13 @@ import { withUnit } from '../../lib/format'
 import type { Range } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { colorForPayer } from './constants'
+import { CreditsBoundary } from './credits-boundary'
 import { creditQueries, type CreditPool } from './credit-queries'
 import {
+  burnDomain,
+  burnNote,
   burnRows,
+  hasBalance,
   cacheRows,
   creditPayerOf,
   cycleLabel,
@@ -31,7 +35,6 @@ import {
   poolTitle,
   previousNote,
   reasonLines,
-  reportedNote,
   sortPools,
   sortTargets,
   targetColor,
@@ -60,6 +63,14 @@ const PICKS_INFO =
 const CACHE_INFO =
   'Share of a caller’s prompt tokens served from the cache: cache-read over input + cache-read + cache-write, over every request that caller made through the gateway (credit-paid or IU). Prompt caches are per organization, so a session that changes pool starts cold.'
 
+/** Why the burn-down has nothing to draw. */
+function burnEmpty(pool: CreditPool): string {
+  if (pool.cycle.status === 'awaiting-reconcile') {
+    return 'This cycle has ended and is awaiting its reconcile: no balance to count down'
+  }
+  return hasBalance(pool) ? 'No spend yet' : 'No running cycle on record for this pool'
+}
+
 function PoolSection({ pool }: { pool: CreditPool }) {
   const empty = shotState() === 'empty'
   const rows = empty ? [] : burnRows(pool)
@@ -69,13 +80,20 @@ function PoolSection({ pool }: { pool: CreditPool }) {
   const previous = previousNote(pool)
   const hasReported = rows.some((r) => r.reported !== null)
 
+  const awaiting = pool.cycle.status === 'awaiting-reconcile'
+  const leftFooter = awaiting
+    ? `awaiting reconcile · grant ${fmtCredit(grant)}`
+    : grant === null
+      ? 'no cycle on record'
+      : `of ${fmtCredit(grant)}`
+
   const cells: StatStripCell[] = [
     {
       key: 'left',
       caption: 'Credit left',
-      info: 'The grant minus the larger of the metered and the reported spend to date.',
+      info: 'The grant minus the larger of the metered and the reported spend since the cycle start, whatever the chart shows. A cycle that has ended but is not reconciled yet has no balance: it waits for the provider’s final figure.',
       value: pool.creditLeftUsd === null ? null : fmtCredit(pool.creditLeftUsd),
-      footer: grant === null ? 'no cycle on record' : `of ${fmtCredit(grant)}`,
+      footer: leftFooter,
     },
     {
       key: 'spent',
@@ -92,8 +110,9 @@ function PoolSection({ pool }: { pool: CreditPool }) {
       caption: 'Unspent at cycle end',
       info: 'Projected: the grant minus the spend to date minus the last seven days’ mean daily spend times the days left, never below zero. Unknown while the cycle end is.',
       value: pool.projectedUnspentUsd === null ? null : fmtCredit(pool.projectedUnspentUsd),
-      footer:
-        pool.daysLeft === null
+      footer: awaiting
+        ? 'cycle ended'
+        : pool.daysLeft === null
           ? 'cycle end unknown'
           : `${fmtDaysLeft(pool.daysLeft)} left · ${fmtCredit(pool.dailyRateUsd)} a day`,
     },
@@ -112,9 +131,9 @@ function PoolSection({ pool }: { pool: CreditPool }) {
           <ChartCard
             title="Credit left"
             info={BURN_INFO}
-            subtitle={reportedNote(pool)}
+            subtitle={burnNote(pool)}
             placeholderHeight={BURN_HEIGHT}
-            state={{ empty: rows.length === 0 && 'No grant on record for this pool yet' }}
+            state={{ empty: rows.length === 0 && burnEmpty(pool) }}
           >
             <Lines<BurnRow, Date>
               ariaLabel={`${title} credit left per day of the cycle, by our meter and by the provider’s report`}
@@ -144,7 +163,7 @@ function PoolSection({ pool }: { pool: CreditPool }) {
                   : []),
               ]}
               y={{
-                domain: [0, grant ?? 0],
+                domain: burnDomain(rows, grant ?? 0),
                 format: (v: number) => fmtCredit(v),
               }}
               tooltip={{ formatHeader: (d) => shortDay(d) }}
@@ -174,12 +193,23 @@ function Pools() {
   }
   return (
     <Stack gap="xl">
+      {data.cyclesAvailable ? null : (
+        <Text size="sm" c="dimmed" data-shot="credits-cycles-missing">
+          No cycle table yet: balances and projections wait for usage-tracker, spend is shown as
+          metered.
+        </Text>
+      )}
       {pools.map((pool) => (
         <PoolSection key={pool.account} pool={pool} />
       ))}
     </Stack>
   )
 }
+
+const picksEmpty = (available: boolean, range: Range): string =>
+  available
+    ? noDataInWindow('gateway routing decisions', range)
+    : 'The gateway’s picks table does not exist yet'
 
 function Picks({ range }: { range: Range }) {
   const { data } = useSuspenseQuery(creditQueries.picks(range))
@@ -199,7 +229,7 @@ function Picks({ range }: { range: Range }) {
             info={PICKS_INFO}
             subtitle={`Gateway routing decisions per day · ${noun}`}
             placeholderHeight={PICKS_HEIGHT}
-            state={{ empty: empty && noDataInWindow('gateway routing decisions', range) }}
+            state={{ empty: empty && picksEmpty(data.available, range) }}
             facts={{
               value: share === null ? EM_DASH : String(Math.round(share * 100)),
               unit: '% fell back',
@@ -306,21 +336,27 @@ function CacheByCaller({ range }: { range: Range }) {
 export function CreditsTab({ range }: { range: Range }) {
   return (
     <Stack gap="xl">
-      <Suspense fallback={fallback(420)}>
-        <Pools />
-      </Suspense>
+      <CreditsBoundary noun="credit pools" height={420}>
+        <Suspense fallback={fallback(420)}>
+          <Pools />
+        </Suspense>
+      </CreditsBoundary>
       <Section
         title="Routing and cache"
         subtitle={`Gateway requests · ${periodNoun(range)}`}
         info="Over the page Range: where the gateway sent each request, and how well each caller's prompt cache hit."
       >
         <Stack gap="md">
-          <Suspense fallback={fallback(PICKS_HEIGHT)}>
-            <Picks range={range} />
-          </Suspense>
-          <Suspense fallback={fallback(200)}>
-            <CacheByCaller range={range} />
-          </Suspense>
+          <CreditsBoundary noun="gateway picks" height={PICKS_HEIGHT}>
+            <Suspense fallback={fallback(PICKS_HEIGHT)}>
+              <Picks range={range} />
+            </Suspense>
+          </CreditsBoundary>
+          <CreditsBoundary noun="cache hit rates">
+            <Suspense fallback={fallback(200)}>
+              <CacheByCaller range={range} />
+            </Suspense>
+          </CreditsBoundary>
         </Stack>
       </Section>
     </Stack>

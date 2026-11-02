@@ -395,7 +395,10 @@ Routing and cache (page Range)
 
 - *Credit left = grant − max(metered, reported).* Our meter misses spend made outside the gateway (iu spent $56.11 on 2026-10-31 before any gateway); the provider's report includes it but lags by hours. Each source is drawn as its own line (credit left by that source) so a gap between them is visible; the headline takes the lower.
 - *Estimates count.* A gateway row with no `cost_usd` contributes `lane_detail.costEstimatedUsd`; the strip says how much of the metered figure is estimated.
-- *A cycle without an end* (`credit_cycles.cycle_end` NULL while the billing day is unknown) draws the last 31 days, says "cycle unknown" and shows no projection; a pool with no open cycle row has no grant, so no chart and no credit left, only the spend.
+- *A cycle without an end* (`credit_cycles.cycle_end` NULL while the billing day is unknown) draws the last 31 days, says "cycle unknown", shows no projection and labels the chart ("balance counted from the cycle start, chart shows the last 31 days only"). The balance itself is always counted from the cycle start, never cut to the chart window.
+- *An ended cycle that is not closed yet* reads "awaiting reconcile": its grant is shown, but credit left, the chart and the projection are not, because the credit has expired and only the provider's final figure says what was spent of it. A pool with no running cycle has no grant, so no chart, only the spend.
+- *Missing tables degrade.* `credit_cycles`, `platform_cost` and `gateway_picks` come from usage-tracker; each missing one empties its part (a note on the tab) and never fails the page. Each block of the tab sits in its own error boundary with a Retry.
+- *The y-axis* runs from zero (or the lowest line, when the provider reports more than the grant) to the grant.
 - *Projection.* `grant − spent − (mean daily spend of the last 7 days × days left)`, floored at 0. It assumes the last week's pace holds and the provider's lag is covered by the meter.
 - *Fallback* = a pick of the IU passthrough (`iu-api`) with a reason other than `forced`. A refusal is not a fallback (nothing was served), and a pool named `iu` is a pool.
 - *Cache rate counts every gateway row,* credit or IU passthrough: the cache is a property of the caller. Prompt caches are per organization, so a session that changes pool starts cold.

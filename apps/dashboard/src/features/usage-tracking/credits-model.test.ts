@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import type { CreditCacheCaller, CreditPool } from './credit-queries'
 import {
+  burnDomain,
+  burnNote,
   burnRows,
   cacheRows,
   cycleLabel,
@@ -21,7 +23,7 @@ import {
 const pool = (over: Partial<CreditPool> = {}): CreditPool => ({
   account: 'iu',
   grantUsd: 200,
-  cycle: { known: true, start: '2026-10-29T14:00:00.000Z', end: '2026-11-05T14:00:00.000Z' },
+  cycle: { status: 'open', start: '2026-10-29T14:00:00.000Z', end: '2026-11-05T14:00:00.000Z' },
   points: [
     { day: '2026-10-29', meteredUsd: 10, reportedUsd: 20, creditLeftUsd: 180 },
     { day: '2026-10-30', meteredUsd: 10, reportedUsd: null, creditLeftUsd: 190 },
@@ -69,16 +71,53 @@ describe('burnRows', () => {
     expect(rows[0]!.at.getDate()).toBe(29)
   })
 
-  it('draws nothing without a grant', () => {
+  it('draws nothing without a grant, and nothing for a cycle that ended unreconciled', () => {
     expect(burnRows(pool({ grantUsd: null }))).toEqual([])
+    const ended = pool({
+      cycle: {
+        status: 'awaiting-reconcile',
+        start: '2026-10-01T00:00:00.000Z',
+        end: '2026-11-01T00:00:00.000Z',
+      },
+    })
+    expect(burnRows(ended)).toEqual([])
+  })
+
+  it('lets the y-axis go below zero when the provider reports more than the grant', () => {
+    const rows = [
+      { at: new Date(2026, 9, 29), metered: 190, reported: 180 },
+      { at: new Date(2026, 9, 30), metered: 150, reported: -12.5 },
+      { at: new Date(2026, 9, 31), metered: null, reported: null },
+    ]
+    expect(burnDomain(rows, 200)).toEqual([-12.5, 200])
+    expect(burnDomain(rows.slice(0, 1), 200)).toEqual([0, 200])
   })
 })
 
 describe('labels', () => {
   it('names a known cycle by its first and last day, and an unknown one as unknown', () => {
     expect(cycleLabel(pool())).toMatch(/29\s*Oct\s*–\s*5\s*Nov/)
-    expect(cycleLabel(pool({ cycle: { known: false, start: null, end: null } }))).toBe(
-      'cycle unknown · last 31 d',
+    expect(
+      cycleLabel(
+        pool({ cycle: { status: 'unknown-end', start: '2026-10-20T00:00:00.000Z', end: null } }),
+      ),
+    ).toBe('cycle unknown · last 31 d')
+    expect(cycleLabel(pool({ cycle: { status: 'none', start: null, end: null } }))).toBe(
+      'no cycle on record · last 31 d',
+    )
+    expect(
+      cycleLabel(
+        pool({
+          cycle: {
+            status: 'awaiting-reconcile',
+            start: '2026-10-01T00:00:00.000Z',
+            end: '2026-11-01T00:00:00.000Z',
+          },
+        }),
+      ),
+    ).toMatch(/1\s*Oct\s*–\s*31\s*Oct · ended, awaiting reconcile/)
+    expect(burnNote(pool({ cycle: { status: 'unknown-end', start: null, end: null } }))).toMatch(
+      /last 31 days only/,
     )
   })
 
