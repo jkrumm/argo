@@ -127,31 +127,31 @@ const CacheSchema = z.object({
     ),
 })
 
-// No prefix of its own: mounted inside `usageRoutes`, which supplies `/usage`.
-export const usageRouterRoutes = new Elysia().get(
-  '/router',
-  async ({ query }) => {
-    const { fromIso, toIso } = resolveRange(query.range)
-    const inRange = sql`ts >= ${fromIso}::timestamptz AND ts <= ${toIso}::timestamptz`
-    const hasPicks = await picksReadable()
-    if (!hasPicks) {
-      log.warn(
-        'usage router: usage.gateway_picks missing or unreadable; picks are empty and IU causes unverified',
-      )
-    }
+/**
+ * `/usage/router` over one window, shared with `/usage/insights` (which reads the previous equal period
+ * too, so the window is a parameter and not a range name).
+ */
+export async function loadRouter({ fromIso, toIso }: { fromIso: string; toIso: string }) {
+  const inRange = sql`ts >= ${fromIso}::timestamptz AND ts <= ${toIso}::timestamptz`
+  const hasPicks = await picksReadable()
+  if (!hasPicks) {
+    log.warn(
+      'usage router: usage.gateway_picks missing or unreadable; picks are empty and IU causes unverified',
+    )
+  }
 
-    const [pickRows, iuRows, cacheRows, measured] = await Promise.all([
-      hasPicks
-        ? db.execute(sql`
+  const [pickRows, iuRows, cacheRows, measured] = await Promise.all([
+    hasPicks
+      ? db.execute(sql`
             SELECT to_char(${utcBucket('day', sql`ts`)}, 'YYYY-MM-DD') AS day, picked, reason, COUNT(*)::int AS n
             FROM usage.gateway_picks
             WHERE ${inRange}
             GROUP BY 1, 2, 3
           `)
-        : Promise.resolve([]),
-      // One pick per request is the reason: a request refused by a pool and re-picked has two, and the IU one is the
-      // outcome that put the row on the key.
-      db.execute(sql`
+      : Promise.resolve([]),
+    // One pick per request is the reason: a request refused by a pool and re-picked has two, and the IU one is the
+    // outcome that put the row on the key.
+    db.execute(sql`
         SELECT to_char(${utcBucket('day', sql`ts`)}, 'YYYY-MM-DD') AS day,
                ${CLAUDE_MODEL_SQL} AS claude,
                (lane_detail->>'purpose' = 'eval') AS eval_purpose,
@@ -174,7 +174,7 @@ export const usageRouterRoutes = new Elysia().get(
           AND ${inRange}
         GROUP BY 1, 2, 3, 4, 5
       `),
-      db.execute(sql`
+    db.execute(sql`
         SELECT COALESCE(NULLIF(lane_detail->>'caller', ''), '(unset)') AS caller,
                (CASE WHEN billing = 'api_credit' THEN COALESCE(account, 'unknown')
                      WHEN ${IU_BILLING_SQL} THEN ${IU_API}
@@ -187,72 +187,74 @@ export const usageRouterRoutes = new Elysia().get(
         WHERE source = 'gateway' AND ${NOT_ATHENA_SQL} AND ${inRange}
         GROUP BY 1, 2
       `),
-      db.execute(sql`
+    db.execute(sql`
         SELECT EXISTS (
           SELECT 1 FROM ${USAGE_ROWS} WHERE source = 'gateway' AND jsonb_exists(lane_detail, 'routeFallback')
         ) AS measured
       `),
-    ])
+  ])
 
-    const picks = rowsOf<Record<string, unknown>>(pickRows)
-      .map((r) => ({
-        day: String(r['day']),
-        target: String(r['target'] ?? r['picked']),
-        reason: String(r['reason']),
-        n: Number(r['n']),
-      }))
-      .toSorted(
-        (a, b) =>
-          codeUnit(a.day, b.day) || codeUnit(a.target, b.target) || codeUnit(a.reason, b.reason),
-      )
-
-    const iuByKey = new Map<
-      string,
-      { day: string; cause: IuCause; usd: number; requests: number }
-    >()
-    for (const r of rowsOf<Record<string, unknown>>(iuRows)) {
-      const day = String(r['day'])
-      const cause = iuCause({
-        claude: r['claude'] === true,
-        evalPurpose: r['eval_purpose'] === true,
-        routeFallback: r['route_fallback'] === true,
-        reason: r['reason'] === null || r['reason'] === undefined ? null : String(r['reason']),
-      })
-      const key = `${day}\u0000${cause}`
-      const cell = iuByKey.get(key) ?? { day, cause, usd: 0, requests: 0 }
-      cell.usd += Number(r['usd'])
-      cell.requests += Number(r['requests'])
-      iuByKey.set(key, cell)
-    }
-    const iu = [...iuByKey.values()].toSorted(
-      (a, b) => codeUnit(a.day, b.day) || IU_CAUSES.indexOf(a.cause) - IU_CAUSES.indexOf(b.cause),
+  const picks = rowsOf<Record<string, unknown>>(pickRows)
+    .map((r) => ({
+      day: String(r['day']),
+      target: String(r['target'] ?? r['picked']),
+      reason: String(r['reason']),
+      n: Number(r['n']),
+    }))
+    .toSorted(
+      (a, b) =>
+        codeUnit(a.day, b.day) || codeUnit(a.target, b.target) || codeUnit(a.reason, b.reason),
     )
 
-    const cache = rowsOf<Record<string, unknown>>(cacheRows)
-      .map((r) => {
-        const input = Number(r['input'])
-        const cacheRead = Number(r['cache_read'])
-        const total = input + cacheRead + Number(r['cache_write'])
-        return {
-          caller: String(r['caller']),
-          target: String(r['target']),
-          requests: Number(r['requests']),
-          hitRate: total > 0 ? cacheRead / total : null,
-        }
-      })
-      .toSorted(
-        (a, b) =>
-          b.requests - a.requests || codeUnit(a.caller, b.caller) || codeUnit(a.target, b.target),
-      )
+  const iuByKey = new Map<string, { day: string; cause: IuCause; usd: number; requests: number }>()
+  for (const r of rowsOf<Record<string, unknown>>(iuRows)) {
+    const day = String(r['day'])
+    const cause = iuCause({
+      claude: r['claude'] === true,
+      evalPurpose: r['eval_purpose'] === true,
+      routeFallback: r['route_fallback'] === true,
+      reason: r['reason'] === null || r['reason'] === undefined ? null : String(r['reason']),
+    })
+    const key = `${day}\u0000${cause}`
+    const cell = iuByKey.get(key) ?? { day, cause, usd: 0, requests: 0 }
+    cell.usd += Number(r['usd'])
+    cell.requests += Number(r['requests'])
+    iuByKey.set(key, cell)
+  }
+  const iu = [...iuByKey.values()].toSorted(
+    (a, b) => codeUnit(a.day, b.day) || IU_CAUSES.indexOf(a.cause) - IU_CAUSES.indexOf(b.cause),
+  )
 
-    return {
-      picks,
-      iu,
-      cache,
-      picksAvailable: hasPicks,
-      routeFallbackMeasured: rowsOf<{ measured: boolean }>(measured)[0]?.measured === true,
-    }
-  },
+  const cache = rowsOf<Record<string, unknown>>(cacheRows)
+    .map((r) => {
+      const input = Number(r['input'])
+      const cacheRead = Number(r['cache_read'])
+      const total = input + cacheRead + Number(r['cache_write'])
+      return {
+        caller: String(r['caller']),
+        target: String(r['target']),
+        requests: Number(r['requests']),
+        hitRate: total > 0 ? cacheRead / total : null,
+      }
+    })
+    .toSorted(
+      (a, b) =>
+        b.requests - a.requests || codeUnit(a.caller, b.caller) || codeUnit(a.target, b.target),
+    )
+
+  return {
+    picks,
+    iu,
+    cache,
+    picksAvailable: hasPicks,
+    routeFallbackMeasured: rowsOf<{ measured: boolean }>(measured)[0]?.measured === true,
+  }
+}
+
+// No prefix of its own: mounted inside `usageRoutes`, which supplies `/usage`.
+export const usageRouterRoutes = new Elysia().get(
+  '/router',
+  async ({ query }) => loadRouter(resolveRange(query.range)),
   {
     query: z.object({ range: RangeEnum.default('7d') }),
     response: {
