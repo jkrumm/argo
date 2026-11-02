@@ -35,6 +35,7 @@ interface Router {
   picks: Array<{ day: string; target: string; reason: string; n: number }>
   iu: Array<{ day: string; cause: string; usd: number; requests: number }>
   cache: Array<{ caller: string; target: string; requests: number; hitRate: number | null }>
+  picksAvailable: boolean
   routeFallbackMeasured: boolean
 }
 
@@ -149,6 +150,8 @@ describe('GET /usage/router iu', () => {
       // Not IU: a credit row, an Athena team row.
       gw({ pool: 'iu', cost_usd: 1000, pick: 'bound' }),
       gw({ cost_usd: 2000, iu_key: 'athena-team' }),
+      // An api_key row with no IU key is OpenRouter's, not IU's.
+      gw({ cost_usd: 3000, billing: 'openrouter', iu_key: null }),
     ])
     const body = await get<Router>('/router?range=7d')
     const byCause = Object.fromEntries(
@@ -268,12 +271,20 @@ describe('GET /usage/router cache', () => {
       gw({ detail: { caller: 'agw' }, input_tokens: 0, cache_read_tokens: 0 }),
       gw({ pool: 'iu', detail: { caller: '' }, input_tokens: 10 }),
       gw({ iu_key: 'athena-team', detail: { caller: 'athena' }, input_tokens: 10 }),
+      gw({
+        billing: 'openrouter',
+        iu_key: null,
+        detail: { caller: 'agw' },
+        input_tokens: 10,
+        cache_read_tokens: 10,
+      }),
     ])
     const body = await get<Router>('/router?range=7d')
     expect(body.cache).toEqual([
       { caller: 'agw-opencode', target: 'iu', requests: 2, hitRate: 400 / 600 },
       { caller: '(unset)', target: 'iu', requests: 1, hitRate: 0 },
       { caller: 'agw', target: 'iu-api', requests: 1, hitRate: null },
+      { caller: 'agw', target: 'unknown', requests: 1, hitRate: 0.5 },
       { caller: 'agw-opencode', target: 'me', requests: 1, hitRate: 0.1 },
     ])
   })
@@ -296,7 +307,13 @@ describe('GET /usage/router routeFallbackMeasured', () => {
 describe('GET /usage/router empty and absent', () => {
   it('answers the empty shape with no gateway traffic', async () => {
     const body = await get<Router>('/router?range=7d')
-    expect(body).toEqual({ picks: [], iu: [], cache: [], routeFallbackMeasured: false })
+    expect(body).toEqual({
+      picks: [],
+      iu: [],
+      cache: [],
+      picksAvailable: true,
+      routeFallbackMeasured: false,
+    })
   })
 
   it('degrades while usage.gateway_picks is missing', async () => {
@@ -307,6 +324,7 @@ describe('GET /usage/router empty and absent', () => {
     await db.execute(sql`ALTER TABLE usage.gateway_picks RENAME TO gateway_picks_away`)
     try {
       const body = await get<Router>('/router?range=7d')
+      expect(body.picksAvailable).toBe(false)
       expect(body.picks).toEqual([])
       // Without picks a Claude row on IU is a credit fallback by elimination; the cache still reads.
       expect(body.iu).toEqual([{ day: day(ago(1)), cause: 'credit-fallback', usd: 2, requests: 1 }])

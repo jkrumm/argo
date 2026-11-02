@@ -267,6 +267,7 @@ describe('GET /usage/demand sources', () => {
         model: 'deepseek/deepseek-v4.1-flash',
         model_norm: 'deepseek/deepseek-v4.1-flash',
         cost_usd: 0.02,
+        detail: { step: 'verify' },
       }),
       // A media row of the same run has no gateway twin (another model) and stays;
       // so does a step written before the gateway recorded anything of its run.
@@ -312,5 +313,68 @@ describe('GET /usage/demand sources', () => {
       agw({ run_id: 'run-1', model: 'claude-opus-5-5', model_norm: 'claude-opus-5-5' }),
     ])
     expect((await get<Demand>('/demand?range=7d')).totals.requests).toBe(3)
+  })
+
+  it('drops only the step the gateway recorded when a run has two on the same model', async () => {
+    await seedUsageRecords([
+      gw({
+        pool: 'iu-api',
+        model: 'gpt-6.1-terra',
+        model_norm: 'openai.gpt-6.1-terra',
+        cost_usd: 0.4,
+        detail: { run_id: 'run-s', step: 'adversary' },
+      }),
+      agw({ run_id: 'run-s', cost_usd: 0.5, detail: { step: 'adversary' } }),
+      // Same run, same model, a step the gateway has no row for: not a twin.
+      agw({ run_id: 'run-s', cost_usd: 0.25, detail: { step: 'synthesis' } }),
+    ])
+    const body = await get<Demand>('/demand?range=7d&by=step')
+    expect(body.rows.map((r) => [r.key, r.usd, r.requests])).toEqual([
+      ['adversary', 0.4, 1],
+      ['synthesis', 0.25, 1],
+    ])
+  })
+
+  it('reads twins only within the range widened by a day', async () => {
+    await seedUsageRecords([
+      // The gateway row is 20 days old: out of reach of a 7 d call, so the agw row of the same run stays.
+      gw({
+        pool: 'iu-api',
+        model: 'gpt-6.1-terra',
+        model_norm: 'openai.gpt-6.1-terra',
+        ts: ago(20),
+        detail: { run_id: 'run-far', step: 'adversary' },
+      }),
+      agw({ run_id: 'run-far', cost_usd: 0.5 }),
+    ])
+    expect((await get<Demand>('/demand?range=7d')).totals).toEqual({ usd: 0.5, requests: 1 })
+  })
+})
+
+describe('GET /usage/demand top', () => {
+  it('folds the tail into (other), keeps (unset) and leaves totals whole', async () => {
+    await seedUsageRecords([
+      gw({ cost_usd: 8, detail: { workflow: 'w1', run_id: 'r1' } }),
+      gw({ cost_usd: 4, detail: { workflow: 'w2', run_id: 'r2' } }),
+      gw({ cost_usd: 2, detail: { workflow: 'w3', run_id: 'r3' } }),
+      gw({ cost_usd: 1, detail: { workflow: 'w4', run_id: 'r3' }, pool: 'me' }),
+      gw({ cost_usd: 0.5, detail: { workflow: 'w5', run_id: 'r5', purpose: 'eval' } }),
+      gw({ cost_usd: 0.25, detail: { workflow: null, run_id: null } }),
+    ])
+    const full = await get<Demand>('/demand?range=7d&by=workflow')
+    expect(keys(full)).toEqual(['w1', 'w2', 'w3', 'w4', 'w5', '(unset)'])
+
+    const body = await get<Demand>('/demand?range=7d&by=workflow&top=3')
+    expect(keys(body)).toEqual(['w1', 'w2', '(unset)', '(other)'])
+    expect(row(body, '(other)')).toMatchObject({
+      usd: 3.5,
+      requests: 3,
+      // r3 spans w3 and w4: one run, not two.
+      runs: 2,
+      byPurpose: { prod: 3, eval: 0.5, verify: 0, other: 0 },
+      byPayer: { 'iu-credit': 2.5, 'me-credit': 1 },
+    })
+    expect(body.totals).toEqual(full.totals)
+    expect(body.totals.usd).toBe(15.75)
   })
 })
