@@ -339,6 +339,36 @@ describe('GET /usage/pace', () => {
     }
   })
 
+  it('keeps the Athena team key out of the rate and the Claude work on IU', async () => {
+    await seedHeadline()
+    const before = await loadPace(NOW)
+    await seedGatewayRows([
+      // a route fallback and a no-pool pick, both on Athena's key
+      {
+        id: 'a1',
+        ts: '2026-11-02T14:00:00Z',
+        iu_key: 'athena-team',
+        cost_usd: 100,
+        purpose: 'prod',
+        routeFallback: 'g-refused',
+      },
+      {
+        id: 'a2',
+        ts: '2026-11-02T14:10:00Z',
+        iu_key: 'athena-team',
+        cost_usd: 200,
+        purpose: 'prod',
+      },
+    ])
+    await seedGatewayPicks([
+      { ts: '2026-11-02T14:10:00Z', picked: 'iu-api', reason: 'no-pool', request_id: 'a2' },
+    ])
+    const after = await loadPace(NOW)
+    expect(after.claudeOnIuUsd).toBe(before.claudeOnIuUsd)
+    expect(after.rate.productionUsdPerDay).toBe(before.rate.productionUsdPerDay)
+    expect(after.rate.evalUsdPerDay).toBe(before.rate.evalUsdPerDay)
+  })
+
   it('serves the documented response schema over HTTP', async () => {
     await seedHeadline()
     const res = await app.handle(new Request('http://localhost/usage/pace'))

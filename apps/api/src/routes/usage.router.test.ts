@@ -37,6 +37,7 @@ interface Router {
   cache: Array<{ caller: string; target: string; requests: number; hitRate: number | null }>
   picksAvailable: boolean
   routeFallbackMeasured: boolean
+  lastRequestAt: string | null
 }
 
 let seq = 0
@@ -304,6 +305,21 @@ describe('GET /usage/router routeFallbackMeasured', () => {
   })
 })
 
+describe('GET /usage/router lastRequestAt', () => {
+  it('is the newest gateway row as ISO, whatever the range', async () => {
+    const newest = new Date(Date.now() - 45 * DAY)
+    await seed([gw({ ts: ago(60) }), gw({ ts: newest.toISOString() })])
+    for (const range of ['7d', '90d']) {
+      expect((await get<Router>(`/router?range=${range}`)).lastRequestAt).toBe(newest.toISOString())
+    }
+  })
+
+  it('ignores rows of other sources', async () => {
+    await seedUsageRecords({ ...gw({ ts: ago(0.01) }), source: 'agent-workflows' })
+    expect((await get<Router>('/router?range=7d')).lastRequestAt).toBeNull()
+  })
+})
+
 describe('GET /usage/router empty and absent', () => {
   it('answers the empty shape with no gateway traffic', async () => {
     const body = await get<Router>('/router?range=7d')
@@ -313,6 +329,7 @@ describe('GET /usage/router empty and absent', () => {
       cache: [],
       picksAvailable: true,
       routeFallbackMeasured: false,
+      lastRequestAt: null,
     })
   })
 

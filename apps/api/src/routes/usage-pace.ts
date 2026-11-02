@@ -150,12 +150,15 @@ async function readCutover(): Promise<Date | null> {
   return parseInstant(row?.['first_ts'])
 }
 
+/** Rows billed to the IU key, Athena Teamchat's key excluded: it never counts in any total (spec pass criterion 5). */
+const IU_NOT_ATHENA = sql`billing = 'iu' AND iu_key IS DISTINCT FROM 'athena-team'`
+
 /**
  * IU rows the router sent to the passthrough for one of these pick reasons (a request id can carry two
  * picks: a drained retry writes the pool pick first, hence EXISTS and not a join).
  */
 const iuPickWithReason = (reasons: readonly string[]) => sql`
-  billing = 'iu' AND EXISTS (
+  ${IU_NOT_ATHENA} AND EXISTS (
     SELECT 1 FROM usage.gateway_picks p
     WHERE p.request_id = source_id AND p.picked = 'iu-api'
       AND p.reason IN (${sql.join(
@@ -206,7 +209,7 @@ async function readClaudeOnIu(picksReadable: boolean): Promise<number> {
       SELECT COALESCE(SUM(${cost}), 0)::float8 AS usd
       FROM ${USAGE_ROWS}
       WHERE source = 'gateway'
-        AND (${byPick} OR COALESCE(lane_detail->>'routeFallback', '') <> '')
+        AND (${byPick} OR (${IU_NOT_ATHENA} AND COALESCE(lane_detail->>'routeFallback', '') <> ''))
     `),
   )
   return Number(row?.['usd'] ?? 0)
@@ -493,7 +496,7 @@ export const usagePaceRoutes = new Elysia().get('/pace', async () => loadPace(ne
     tags: ['Usage Tracking'],
     summary: 'Credit pace: will the Claude API credit be spent before it expires',
     description:
-      'The verdict band of the usage page, as state (no range): per credit pool (iu, me, me2) the grant, spent (Σ per UTC day of max(our meter, the provider report)), credit left, days left, the even pace that spends it exactly at expiry, the eval reserve, a burn-down (days) and the previous cycle; the production rate R (last 7 days, credit-eligible Claude demand, evals excluded and shown as evalUsdPerDay); the waterfall of pools drained in cycle-end order (projection per pool); the spill onto IU from the last pool running dry to the soonest renewal, in Claude list dollars; the verdict (over | under | on-pace | no-pool) and `thin` when R rests on under 24 h; Claude work that reached IU since the cutover; and the IU personal key cap with the day it falls under. A pool without a running cycle is listed with enabled false. Reads usage.credit_cycles, usage.platform_cost, usage.gateway_picks and the gateway rows; any missing table degrades to the empty shape. For the older per-pool view use /usage/credits/pools; for the IU cap in full /usage/iu-budget.',
+      'The verdict band of the usage page, as state (no range): per credit pool (iu, me, me2) the grant, spent (Σ per UTC day of max(our meter, the provider report)), credit left, days left, the even pace that spends it exactly at expiry, the eval reserve, a burn-down (days) and the previous cycle; the production rate R (last 7 days, credit-eligible Claude demand, evals excluded and shown as evalUsdPerDay); the waterfall of pools drained in cycle-end order (projection per pool); the spill onto IU from the last pool running dry to the soonest renewal, in Claude list dollars; the verdict (over | under | on-pace | no-pool) and `thin` when R rests on under 24 h; Claude work that reached IU since the cutover; and the IU personal key cap with the day it falls under. A pool without a running cycle is listed with enabled false. Reads usage.credit_cycles, usage.platform_cost, usage.gateway_picks and the gateway rows; any missing table degrades to the empty shape. For the router behind the spill use /usage/router; for the IU cap in full /usage/iu-budget.',
     security: [{ BearerAuth: [] }],
   },
 })
