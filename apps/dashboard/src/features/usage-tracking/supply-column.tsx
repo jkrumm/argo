@@ -113,7 +113,7 @@ function PoolsCard({
           )
         })}
         <Text size="xs" c="dimmed">
-          | even pace today
+          tick: even pace today
         </Text>
       </Stack>
     </ChartCard>

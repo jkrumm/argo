@@ -92,9 +92,8 @@ export function OverTime({
   // The running bucket stays (today's payers and their legend entries are the newest news), shaded as partial.
   const stackOf = (p: TimePoint): number =>
     Object.values(p.groups).reduce<number>((s, v) => s + (v ?? 0), 0)
-  const drawn = points
   const partial = partialSpan(points, now, grain)
-  const peak = drawn.reduce((max, p) => Math.max(max, stackOf(p)), 0)
+  const peak = points.reduce((max, p) => Math.max(max, stackOf(p)), 0)
   const format = spend ? usdFormatterFor(peak) : tokensFormatterFor(peak)
   const series = groupBands(keys, colorOf, (k) => seriesLabel(groupBy, k), format)
   const total = keyTotals(points, keys).reduce((sum, t) => sum + t.value, 0)
@@ -116,11 +115,11 @@ export function OverTime({
         title={`${what} per ${grain} · by ${noun} · ${periodNoun(shown)}`}
         info={partial === null ? INFO : `${INFO} ${PARTIAL_NOTE}`}
         actions={<ViewTabs field={usageStore.field.groupBy} options={options} label="Group by" />}
-        state={{ empty: (keys.length === 0 || total <= 0 || drawn.length === 0) && emptyText }}
+        state={{ empty: (keys.length === 0 || total <= 0 || points.length === 0) && emptyText }}
       >
         <StackedArea
           ariaLabel={`${what} per ${grain}, stacked by ${noun}`}
-          data={drawn}
+          data={points}
           height={260}
           x={(d: TimePoint) => d.date}
           cursorResolution="leading"
