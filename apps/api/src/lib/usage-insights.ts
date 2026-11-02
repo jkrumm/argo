@@ -135,14 +135,15 @@ export function isThin(gatewaySince: Date | null, ...windows: Window[]): boolean
 export function usd(value: number): string {
   if (value <= 0) return '$0'
   if (value < 1) return '<$1'
-  if (value < 10) return `$${value.toFixed(2)}`
+  // Round to whole cents first: 9.996 is `$10`, never `$10.00`.
+  if (Math.round(value * 100) < 1000) return `$${(Math.round(value * 100) / 100).toFixed(2)}`
   return `$${Math.round(value).toLocaleString('en-US')}`
 }
 /** A cost per run: cents below $10 down to one cent, because "<$1 to <$1" says nothing about a cost per review. */
 export function usdPerRun(value: number): string {
   if (value <= 0) return '$0'
   if (value < 0.005) return '<$0.01'
-  if (value < 10) return `$${value.toFixed(2)}`
+  if (Math.round(value * 100) < 1000) return `$${(Math.round(value * 100) / 100).toFixed(2)}`
   return `$${Math.round(value).toLocaleString('en-US')}`
 }
 const pct = (fraction: number) => `${Math.round(fraction * 100)} %`
@@ -528,44 +529,64 @@ const KEY_LABEL: Record<IuKey, string> = {
   'athena-team': 'the Athena key',
 }
 
+/** Portal freshness (spec §Vocabulary): fresh ≤ 8 h, stale > 8 h, dead > 48 h. */
+export const PORTAL_STALE_HOURS = 8
+export const PORTAL_DEAD_HOURS = 48
+
+/** `5 h` below two days, `3 d` from there. */
+function ageText(hours: number): string {
+  return hours < 48 ? `${Math.round(hours)} h` : `${Math.round(hours / 24)} d`
+}
+
 /**
  * cap-near. An IU key at ≥ 80 % of its rolling 30-day cap, one insight per key and never a sum: the Athena key
  * appears only in its own sentence. Headroom = cap − rolling 30 d; `underCapOn` (set only for a key over its cap)
- * adds the date. Based on IU's portal, not on gateway rows, so never thin.
+ * adds the date. Ranked by urgency: usdMoved is the key's rolling 30-day spend, so a key at 99 % outranks one at
+ * 81 %. The figures are IU's portal's, not gateway rows, so the thin flag is about the portal's age instead: a
+ * report older than 8 h is thin, says how old it is in the sentence, and `facts.freshness` reads fresh | stale |
+ * dead (> 48 h). A report with an unparseable fetch time is not trusted: nothing fires.
  */
 export function capNear(input: InsightInputs): InsightDraft[] {
   const drafts: InsightDraft[] = []
   for (const key of ['personal', 'athena-team'] as const) {
     const budget = input.budgets[key]
     if (!budget || budget.fetchedAt === null) continue
+    const fetched = Date.parse(budget.fetchedAt)
+    if (Number.isNaN(fetched)) continue
     if (capState(budget.rolling30Usd, budget.limitUsd) === 'ok') continue
+    const ageHours = Math.max(0, (input.asOf.getTime() - fetched) / 3_600_000)
+    const freshness =
+      ageHours > PORTAL_DEAD_HOURS ? 'dead' : ageHours > PORTAL_STALE_HOURS ? 'stale' : 'fresh'
     const headroom = budget.limitUsd - budget.rolling30Usd
     const label = KEY_LABEL[key]
     let sentence: string
     if (headroom < 0) {
       sentence =
         budget.underCapOn === null
-          ? `${label} is ${usd(-headroom)} over its cap and not back under within 60 days.`
-          : `${label} is ${usd(-headroom)} over its cap until ${shortDate(budget.underCapOn)}.`
+          ? `${label} is ${usd(-headroom)} over its cap and not back under within 60 days`
+          : `${label} is ${usd(-headroom)} over its cap until ${shortDate(budget.underCapOn)}`
     } else {
       sentence =
         budget.underCapOn === null
-          ? `${label} has ${usd(headroom)} of headroom.`
-          : `${label} has ${usd(headroom)} of headroom until ${shortDate(budget.underCapOn)}.`
+          ? `${label} has ${usd(headroom)} of headroom`
+          : `${label} has ${usd(headroom)} of headroom until ${shortDate(budget.underCapOn)}`
     }
+    if (freshness !== 'fresh') sentence += ` (portal report ${ageText(ageHours)} old)`
     drafts.push({
       id: 'cap-near',
       node: `key:${key}`,
-      sentence,
+      sentence: `${sentence}.`,
       facts: {
         key,
         rolling30Usd: round2(budget.rolling30Usd),
         capUsd: round2(budget.limitUsd),
         headroomUsd: round2(headroom),
         underCapOn: budget.underCapOn,
+        fetchedAt: budget.fetchedAt,
+        freshness,
       },
-      usdMoved: round2(Math.abs(headroom)),
-      thin: false,
+      usdMoved: round2(budget.rolling30Usd),
+      thin: freshness !== 'fresh',
     })
   }
   return drafts

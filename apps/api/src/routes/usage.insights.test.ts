@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
-import { runMigrations } from '../db/index.js'
+import { sql } from 'drizzle-orm'
+import { db, runMigrations } from '../db/index.js'
 import {
   deleteCreditFixtures,
   deleteIuPortal,
@@ -32,6 +33,7 @@ const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString()
 interface Insights {
   asOf: string
   period: '7d' | '30d'
+  unavailable: string[]
   items: Array<{
     id: string
     rank: number
@@ -104,6 +106,7 @@ describe('GET /usage/insights', () => {
     const r = await get<Insights>('/insights')
     expect(r.period).toBe('7d')
     expect(r.items).toEqual([])
+    expect(r.unavailable).toEqual([])
     expect(Number.isNaN(Date.parse(r.asOf))).toBe(false)
   })
 
@@ -138,8 +141,10 @@ describe('GET /usage/insights', () => {
     for (let i = 1; i < r.items.length; i++) {
       expect(r.items[i - 1]!.usdMoved).toBeGreaterThanOrEqual(r.items[i]!.usdMoved)
     }
-    // cache-drop and pool-split carry the caller's $61 / the two pools' $61; the $50 tie sorts by id.
-    expect(ids(r)).toEqual(['cache-drop', 'pool-split', 'cap-near', 'cost-per-run', 'mover'])
+    // cap-near leads on its $450 rolling spend; cache-drop and pool-split carry the caller's $61 / the two
+    // pools' $61; the $50 tie of cost-per-run, mover and top-share sorts by id and top-share is cut.
+    expect(ids(r)).toEqual(['cap-near', 'cache-drop', 'pool-split', 'cost-per-run', 'mover'])
+    expect(r.unavailable).toEqual([])
 
     const by = Object.fromEntries(r.items.map((i) => [i.id, i]))
     expect(by['pool-split']).toMatchObject({
@@ -154,8 +159,11 @@ describe('GET /usage/insights', () => {
     expect(by['cap-near']).toMatchObject({
       node: 'key:personal',
       sentence: 'the personal key has $50 of headroom.',
-      usdMoved: 50,
+      usdMoved: 450,
+      thin: false,
     })
+    expect(by['cap-near']!.facts['freshness']).toBe('fresh')
+    expect(typeof by['cap-near']!.facts['fetchedAt']).toBe('string')
     expect(by['cost-per-run']!.sentence).toBe(
       'the cost per review fell from $2.00 to $1.00 (50 runs before, 50 now).',
     )
@@ -177,6 +185,22 @@ describe('GET /usage/insights', () => {
     expect(warn?.sentence).toContain('Claude work reached IU: $8.00 in the last 30 days')
     const share = r.items.find((i) => i.id === 'top-share')
     expect(share?.sentence).toStartWith('review is 100 % of production credit in the last 30 days')
+  })
+
+  it('names an unreadable source instead of looking quiet', async () => {
+    await seedUsageRecords(many(3, () => gw()))
+    await portal()
+    // The portal table is gone for a moment: both budget reads throw, everything else still reads.
+    await db.execute(sql`ALTER TABLE usage.iu_portal_cost RENAME TO iu_portal_cost_hidden`)
+    let r: Insights
+    try {
+      r = await get<Insights>('/insights')
+    } finally {
+      await db.execute(sql`ALTER TABLE usage.iu_portal_cost_hidden RENAME TO iu_portal_cost`)
+    }
+    expect(r.unavailable).toEqual(['iu-budget:personal', 'iu-budget:athena-team'])
+    expect(ids(r)).not.toContain('cap-near')
+    expect(ids(r)).toContain('top-share')
   })
 
   it('rejects an unknown period', async () => {
