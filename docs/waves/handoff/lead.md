@@ -14,3 +14,7 @@ Lead of argo Wave 8 (usage view v7), mother `agent-workflows-w1-r4`. agw Wave 8 
 ## State
 
 - Phase 1 spawned 2026-11-02.
+- r11 (2026-11-02): agw double rows fixed from release 2f657c0 (~17:00 UTC). The 383 rows of 11-02 (and Wave 3's 34) stay
+  counted in `records_unique`, owner's call: no upstream marking. `/usage/demand`'s twin drop is the only correction;
+  the IU personal tracked figure keeps the $5.01 of 11-02 (Left behind). r11's workers touch capabilities/index.ts,
+  package.json, host review/scorer.ts + module.ts, packages/eval: rebase the agw branch onto master before training.
