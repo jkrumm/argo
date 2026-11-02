@@ -3,6 +3,7 @@ import type { InsightsResponse } from '../../lib/queries/usage'
 import { DEMAND, PACE, ROUTER } from './flow-fixtures'
 import {
   agwOnKey,
+  agwReading,
   cacheShare,
   lastRequestNote,
   coldCaller,
@@ -132,7 +133,7 @@ describe('factsOf', () => {
   })
 
   it('Claude on IU since the cutover is the pace figure, all by design while none reached it', () => {
-    expect(cells['iu']?.caption).toBe('Claude on IU since the cutover')
+    expect(cells['iu']?.caption).toBe('IU since the cutover')
     expect(cells['iu']?.value).toBe('$0')
     expect(cells['iu']?.footer).toBe('no fallback · all by design')
     expect(cells['iu']?.tone).toBeUndefined()
@@ -443,5 +444,22 @@ describe('lastRequestNote', () => {
 
   it('reads the fixture as fresh at the spec instant', () => {
     expect(lastRequestNote(ROUTER.lastRequestAt, NOW)).toBeNull()
+  })
+})
+
+describe('agwReading', () => {
+  const NOW = Date.parse('2026-11-02T14:00:00Z')
+
+  it('bills only while an agw row is newer than 6 h', () => {
+    expect(agwReading('2026-11-02T09:00:00Z', NOW)).toEqual({ state: 'bills' })
+  })
+
+  it('a key agw left hours ago reads quiet, not as still billed', () => {
+    expect(agwReading('2026-11-02T08:00:00Z', NOW)).toEqual({ state: 'quiet' })
+    expect(agwReading('2026-11-01T06:00:00Z', NOW)).toEqual({ state: 'quiet' })
+  })
+
+  it('no agw row at all is its own reading', () => {
+    expect(agwReading(null, NOW)).toEqual({ state: 'none' })
   })
 })
