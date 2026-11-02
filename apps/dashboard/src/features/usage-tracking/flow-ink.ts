@@ -2,7 +2,7 @@
 import { VX } from 'basalt-ui/tokens'
 import { USAGE_RANK } from '../../lib/series'
 import { colorForPayer } from './constants'
-import { poolPayer } from './flow-model'
+import { poolPayer, type Purpose } from './flow-model'
 
 /** What a request pick landed on, as ink: a pool takes its credit shade, IU the IU API grey, refused the bad status. */
 export function targetColor(target: string): string {
@@ -17,4 +17,4 @@ export const PURPOSE_STYLE = {
   verify: { label: 'verify', color: USAGE_RANK.rank4 },
   eval: { label: 'eval', color: USAGE_RANK.rank6 },
   other: { label: 'other', color: USAGE_RANK.rank5 },
-} as const
+} as const satisfies Record<Purpose, { label: string; color: string }>

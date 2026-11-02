@@ -288,25 +288,8 @@ export interface FactCell {
   footer: string
 }
 
-/** What went to IU through the gateway since the cutover (`/usage/router?range=all`). */
-export interface IuSince {
-  totalUsd: number
-  fallbackUsd: number
-}
-
 const sum = (values: readonly (number | null)[]): number =>
   values.reduce<number>((acc, v) => acc + (v ?? 0), 0)
-
-const FALLBACK_CAUSES = ['credit-fallback', 'route-fallback'] as const
-
-export function iuSinceOf(router: RouterResponse): IuSince {
-  return {
-    totalUsd: sum(router.iu.map((r) => r.usd)),
-    fallbackUsd: sum(
-      router.iu.filter((r) => FALLBACK_CAUSES.some((c) => c === r.cause)).map((r) => r.usd),
-    ),
-  }
-}
 
 /** The provider-report age note when any enabled pool's report is older than 6 h. */
 export function reportAgeNote(pace: PaceResponse, now: number): string | null {
@@ -318,7 +301,7 @@ export function reportAgeNote(pace: PaceResponse, now: number): string | null {
   return oldest > 6 * 3_600_000 ? `provider report ${formatAge(oldest)} old` : null
 }
 
-export function factsOf(pace: PaceResponse, iuSince: IuSince | null, now: number): FactCell[] {
+export function factsOf(pace: PaceResponse, now: number): FactCell[] {
   const enabled = enabledPools(pace)
   const off = pace.pools.filter((p) => !p.enabled)
   const left = sum(enabled.map((p) => p.leftUsd))
@@ -344,10 +327,7 @@ export function factsOf(pace: PaceResponse, iuSince: IuSince | null, now: number
           .join(' · ')
 
   const claude = pace.claudeOnIuUsd
-  const iuFooter =
-    iuSince === null
-      ? EM_DASH
-      : `${claude > 0.005 ? `${fmtUsd(claude)} Claude work` : 'all by design'} · fallback ${fmtUsd(iuSince.fallbackUsd)}`
+  const iuFooter = claude > 0.005 ? 'fallback or Claude Code shaped' : 'no fallback · all by design'
 
   return [
     {
@@ -373,8 +353,8 @@ export function factsOf(pace: PaceResponse, iuSince: IuSince | null, now: number
     },
     {
       key: 'iu',
-      caption: 'IU since the cutover',
-      value: iuSince === null ? EM_DASH : fmtUsd(iuSince.totalUsd),
+      caption: 'Claude on IU since the cutover',
+      value: fmtUsd(claude),
       ...(claude > 1 ? { tone: 'warn' as const } : {}),
       footer: iuFooter,
     },
@@ -574,13 +554,13 @@ export function originKnown(demand: DemandResponse): boolean {
   return demand.rows.some((r) => !UNSET_KEYS.includes(r.key))
 }
 
+/** The purposes a gateway row is bucketed into: the keys of `DemandRow.byPurpose`, so a bar over them sums to the row. */
+export const PURPOSES = ['prod', 'verify', 'eval', 'other'] as const
+export type Purpose = (typeof PURPOSES)[number]
+
 /** The share of a row's cost by purpose, for a stacked segment bar. */
-export function purposeSegments(
-  row: DemandRow,
-): { key: 'prod' | 'verify' | 'eval' | 'other'; usd: number }[] {
-  return (['prod', 'verify', 'eval', 'other'] as const)
-    .map((key) => ({ key, usd: row.byPurpose[key] }))
-    .filter((s) => s.usd > 0)
+export function purposeSegments(row: DemandRow): { key: Purpose; usd: number }[] {
+  return PURPOSES.map((key) => ({ key, usd: row.byPurpose[key] })).filter((s) => s.usd > 0)
 }
 
 // ── Per-day series for the router detail ─────────────────────────────────────────────────────
@@ -627,22 +607,24 @@ const HOUR_MS = 3_600_000
 
 /**
  * agw's own rows on the Athena team key from an hourly cost timeseries of that key by source: what they
- * cost over the last 24 hours and the hour of the last one. A key agw has left reads `$0` and the hour
- * it stopped; null when no agw row is in the series at all.
+ * cost since `sinceMs` (the first gateway row, `pace.cutover`; the hour that holds it counts) and the hour
+ * of the last one. The timeseries zero-fills empty hours, so a bucket is an agw row when its cost is above
+ * zero or null (a row of unknown cost); a zero is no row. A key agw has left reads `$0` and the hour it
+ * stopped; `lastRowAt` is null when no agw row is in the series at all.
  */
 export function agwOnKey(
   buckets: ReadonlyArray<{ bucket: string; groups: Record<string, number | null> }>,
-  now: number,
-): { lastDayUsd: number; lastRowAt: string | null } {
-  let lastDayUsd = 0
+  sinceMs: number,
+): { sinceUsd: number; lastRowAt: string | null } {
+  let sinceUsd = 0
   let lastRowAt: string | null = null
   for (const b of buckets) {
-    const usd = Object.entries(b.groups)
-      .filter(([source]) => source.includes('agent-workflows'))
-      .reduce((acc, [, v]) => acc + (v ?? 0), 0)
-    if (usd <= 0) continue
+    const agw = Object.entries(b.groups).filter(([source]) => source.includes('agent-workflows'))
+    if (!agw.some(([, v]) => v === null || v > 0)) continue
     lastRowAt = b.bucket
-    if (new Date(b.bucket).getTime() > now - 24 * HOUR_MS) lastDayUsd += usd
+    if (new Date(b.bucket).getTime() + HOUR_MS > sinceMs) {
+      sinceUsd += agw.reduce((acc, [, v]) => acc + (v ?? 0), 0)
+    }
   }
-  return { lastDayUsd, lastRowAt }
+  return { sinceUsd, lastRowAt }
 }
