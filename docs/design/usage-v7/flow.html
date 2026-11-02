@@ -1,0 +1,1107 @@
+<!doctype html>
+<!--
+  Usage v7 mock — the Flow tab. Static, hand-built from the figures in ../usage-tracking.md (2026-11-02 16:00 UTC),
+  not a screenshot of production. Colours and type come from basalt-ui's tokens (tokens.css, `basalt-ui tokens:css`).
+  ?scheme=dark|light (default light). Fonts load from the dashboard's node_modules when opened inside the argo checkout,
+  else system fallbacks.
+-->
+<html lang="en" data-mantine-color-scheme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Usage v7 — Flow (mock)</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <style>
+      @font-face {
+        font-family: 'Nunito Sans Variable';
+        font-weight: 200 1000;
+        src: url('../../../apps/dashboard/node_modules/@fontsource-variable/nunito-sans/files/nunito-sans-latin-wght-normal.woff2')
+          format('woff2-variations');
+      }
+      @font-face {
+        font-family: 'Hubot Sans Variable';
+        font-weight: 200 900;
+        font-stretch: 75% 125%;
+        src: url('../../../apps/dashboard/node_modules/@fontsource-variable/hubot-sans/files/hubot-sans-latin-wdth-normal.woff2')
+          format('woff2-variations');
+      }
+      @font-face {
+        font-family: 'JetBrains Mono Variable';
+        font-weight: 100 800;
+        src: url('../../../apps/dashboard/node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
+          format('woff2-variations');
+      }
+      :root {
+        --sans:
+          'Nunito Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+          sans-serif;
+        --head: 'Hubot Sans Variable', ui-sans-serif, system-ui, sans-serif;
+        --mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+      }
+      /* Payer shades (apps/dashboard accounts.ts: sepia for credit, blue for subscriptions, grey for IU keys) */
+      html[data-mantine-color-scheme='light'] {
+        --iu-credit: #5e4123;
+        --me-credit: #946638;
+        --me2-credit: #af855a;
+        --iu-sub: #0c4a6e;
+        --me-sub: #0284c7;
+        --me2-sub: #38bdf8;
+        --iu-api: #52525c;
+        --team: #a1a1aa;
+        --outside: #d0b090;
+      }
+      html[data-mantine-color-scheme='dark'] {
+        --iu-credit: #d0b090;
+        --me-credit: #946638;
+        --me2-credit: #7a542e;
+        --iu-sub: #7dd3fc;
+        --me-sub: #0284c7;
+        --me2-sub: #0369a1;
+        --iu-api: #a1a1aa;
+        --team: #e4e4e7;
+        --outside: #7a542e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--vx-surface-bg);
+        color: var(--vx-ink);
+        font-family: var(--sans);
+        font-size: var(--vx-text-sm);
+        line-height: 1.45;
+      }
+      .page {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 12px 20px 40px;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 8px 0 14px;
+      }
+      .bar h1 {
+        font-family: var(--head);
+        font-stretch: 88%;
+        font-size: var(--vx-text-h2);
+        font-weight: 650;
+        margin: 0;
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+      }
+      .tab {
+        padding: 4px 12px;
+        border-radius: var(--vx-radius-ctrl);
+        color: var(--vx-muted);
+        font-weight: 600;
+      }
+      .tab.on {
+        background: var(--vx-surface-panel);
+        color: var(--vx-ink);
+        box-shadow: var(--vx-shadow-ctrl);
+      }
+      .pill {
+        margin-left: auto;
+        padding: 4px 10px;
+        border-radius: var(--vx-radius-pill);
+        background: var(--vx-surface-panel);
+        box-shadow: var(--vx-shadow-ctrl);
+        font-size: var(--vx-text-xs);
+        color: var(--vx-muted);
+      }
+      .card {
+        background: var(--vx-surface-panel);
+        border-radius: var(--vx-radius-card);
+        box-shadow: var(--vx-shadow-card);
+        padding: 14px 16px;
+      }
+      .card.sel {
+        box-shadow:
+          var(--vx-shadow-card),
+          inset 0 0 0 2px var(--vx-accent);
+      }
+      .title {
+        font-family: var(--head);
+        font-stretch: 88%;
+        font-weight: 650;
+        font-size: var(--vx-text-md);
+        margin: 0 0 2px;
+      }
+      .sub {
+        color: var(--vx-muted);
+        font-size: var(--vx-text-xs);
+      }
+      .num {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+      }
+      .verdict h2 {
+        font-family: var(--head);
+        font-stretch: 88%;
+        font-size: var(--vx-text-h1);
+        font-weight: 650;
+        line-height: 1.2;
+        margin: 2px 0 6px;
+      }
+      .verdict h2 .warn {
+        color: var(--vx-status-warn);
+      }
+      .chip {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: var(--vx-radius-pill);
+        font-size: var(--vx-text-micro);
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        vertical-align: middle;
+      }
+      .chip.warn {
+        color: var(--vx-status-warn);
+        box-shadow: inset 0 0 0 1px var(--vx-status-warn);
+      }
+      .chip.bad {
+        color: var(--vx-status-bad);
+        box-shadow: inset 0 0 0 1px var(--vx-status-bad);
+      }
+      .chip.muted {
+        color: var(--vx-muted);
+        box-shadow: inset 0 0 0 1px var(--vx-surface-border);
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin: 12px 0 8px;
+      }
+      .fact .k {
+        font-size: var(--vx-text-micro);
+        color: var(--vx-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .fact .v {
+        font-family: var(--mono);
+        font-size: var(--vx-text-kpi);
+        font-weight: 600;
+      }
+      .fact .c {
+        font-size: var(--vx-text-xs);
+        color: var(--vx-muted);
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: 1fr 24px 1fr 24px 1fr;
+        gap: 0;
+        margin-top: 16px;
+        align-items: start;
+      }
+      .col,
+      .detail > *,
+      .athena > * {
+        min-width: 0;
+      }
+      .sub {
+        overflow-wrap: anywhere;
+      }
+      .col h3 {
+        font-family: var(--head);
+        font-stretch: 88%;
+        font-size: var(--vx-text-micro);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--vx-muted);
+        margin: 0 0 8px 2px;
+      }
+      .col .card + .card {
+        margin-top: 10px;
+      }
+      .chev {
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--vx-line2);
+        font-size: 18px;
+        padding-top: 24px;
+      }
+      .node {
+        margin-top: 10px;
+      }
+      .node:first-of-type {
+        margin-top: 6px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: baseline;
+      }
+      .row .l {
+        font-weight: 600;
+      }
+      .meter {
+        position: relative;
+        height: 8px;
+        border-radius: 4px;
+        background: var(--vx-surface-subtle);
+        margin: 5px 0 4px;
+        overflow: visible;
+      }
+      .meter .seg {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+      }
+      .meter .tick {
+        position: absolute;
+        top: -3px;
+        bottom: -3px;
+        width: 2px;
+        background: var(--vx-ink);
+      }
+      .meter .tick.cap {
+        background: var(--vx-line2);
+      }
+      .bars .b {
+        display: grid;
+        grid-template-columns: 112px 1fr 64px;
+        gap: 8px;
+        align-items: center;
+        padding: 3px 0;
+      }
+      .bars .track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--vx-surface-subtle);
+        position: relative;
+        display: flex;
+        overflow: hidden;
+      }
+      .bars .v {
+        text-align: right;
+        font-family: var(--mono);
+        font-size: var(--vx-text-xs);
+      }
+      .bars .n {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        font-size: var(--vx-text-micro);
+        color: var(--vx-muted);
+        margin-top: 6px;
+      }
+      .sw {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        margin-right: 4px;
+        vertical-align: 0;
+      }
+      .detail {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+      }
+      .divider {
+        margin: 28px 0 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--vx-muted);
+        font-size: var(--vx-text-micro);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .divider::after {
+        content: '';
+        flex: 1;
+        border-top: 1px dashed var(--vx-surface-border);
+      }
+      .athena {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+      }
+      svg text {
+        font-family: var(--mono);
+        font-size: 10px;
+        fill: var(--vx-muted);
+      }
+      svg .lab {
+        font-family: var(--sans);
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .note {
+        font-size: var(--vx-text-xs);
+        color: var(--vx-muted);
+        margin-top: 6px;
+      }
+      .warnink {
+        color: var(--vx-status-warn);
+      }
+      .badink {
+        color: var(--vx-status-bad);
+      }
+      /* 390: one column, detail under its node */
+      body.narrow .page {
+        max-width: 390px;
+        margin: 0;
+        padding: 8px 12px 28px;
+      }
+      body.narrow .facts {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+      body.narrow .flow {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      body.narrow .chev {
+        padding: 4px 0;
+        transform: rotate(90deg);
+      }
+      body.narrow .detail,
+      body.narrow .athena {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      body.narrow .verdict h2 {
+        font-size: var(--vx-text-h2);
+      }
+      body.narrow .bars .b {
+        grid-template-columns: 96px 1fr 56px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="bar">
+        <h1>Usage</h1>
+        <div class="tabs"><span class="tab on">Flow</span><span class="tab">Explore</span></div>
+        <span class="pill">Range · 7 d (router, demand)</span>
+      </div>
+
+      <!-- 1 Verdict -->
+      <section class="card verdict">
+        <div class="sub">
+          Claude API credit · state now, 2 Nov 16:00 UTC <span class="chip warn">OVER PACE</span>
+          <span class="chip muted">THIN · RATE FROM 16 H</span>
+        </div>
+        <h2>
+          Credit runs <span class="warn">dry on 4 Nov</span> at today's rate, 16 days before iu
+          renews. Claude on IU since the cutover: $0.
+        </h2>
+        <div class="facts">
+          <div class="fact">
+            <div class="k">Credit left</div>
+            <div class="v">$182</div>
+            <div class="c">of $300 enabled · me2 not enabled</div>
+          </div>
+          <div class="fact">
+            <div class="k">Pace to spend it all</div>
+            <div class="v">$8.65/d</div>
+            <div class="c">iu $4.82 · me $3.83</div>
+          </div>
+          <div class="fact">
+            <div class="k">Production on credit</div>
+            <div class="v warnink">$85/d</div>
+            <div class="c">review 98 % · evals $6.91 apart</div>
+          </div>
+          <div class="fact">
+            <div class="k">IU since the cutover</div>
+            <div class="v">$3.26</div>
+            <div class="c">all by design · fallback $0</div>
+          </div>
+          <div class="fact">
+            <div class="k">IU personal key</div>
+            <div class="v badink">$578</div>
+            <div class="c">of $500 · under around 12 Nov</div>
+          </div>
+        </div>
+        <div id="pace"></div>
+        <div class="legend">
+          <span><i class="sw" style="background: var(--iu-credit)"></i>iu credit left</span>
+          <span><i class="sw" style="background: var(--me-credit)"></i>me credit left</span>
+          <span>— actual · ┄ projection at $85/d · ··· even pace to expiry</span>
+          <span
+            ><i
+              class="sw"
+              style="background: color-mix(in srgb, var(--vx-status-warn) 28%, transparent)"
+            ></i
+            >no pool left: Claude seats fall back to GPT on the IU personal key</span
+          >
+        </div>
+      </section>
+
+      <!-- 2 Flow -->
+      <div class="flow">
+        <div class="col">
+          <h3>Supply · now</h3>
+          <div class="card sel">
+            <div class="title">Credit pools</div>
+            <div class="node">
+              <div class="row">
+                <span class="l">IU credit · Ultra</span><span class="num">$88 left</span>
+              </div>
+              <div class="meter">
+                <div class="seg" style="left: 0; width: 28.06%; background: var(--outside)"></div>
+                <div
+                  class="seg"
+                  style="left: 28.06%; width: 27.73%; background: var(--iu-credit)"
+                ></div>
+                <div class="tick" style="left: 40.9%"></div>
+              </div>
+              <div class="sub">
+                expires 21 Nov · 18 d · needs $4.82/d · <span class="warnink">dry 3 Nov</span> · $30
+                ahead of even pace
+              </div>
+            </div>
+            <div class="node">
+              <div class="row">
+                <span class="l">Me credit · Max</span><span class="num">$93 left</span>
+              </div>
+              <div class="meter">
+                <div class="seg" style="left: 0; width: 6.91%; background: var(--me-credit)"></div>
+                <div class="tick" style="left: 21.5%"></div>
+              </div>
+              <div class="sub">
+                expires 27 Nov · 24 d · needs $3.83/d · draws from 3 Nov ·
+                <span class="warnink">dry 4 Nov</span>
+              </div>
+            </div>
+            <div class="node">
+              <div class="row">
+                <span class="l">Me2 credit · Max</span><span class="num sub">$100 / cycle</span>
+              </div>
+              <div class="meter"></div>
+              <div class="sub">not enabled · key not claimed · cycle unknown</div>
+            </div>
+            <div class="legend">
+              <span
+                ><i class="sw" style="background: var(--outside)"></i>spent outside the
+                gateway</span
+              ><span><i class="sw" style="background: var(--iu-credit)"></i>through it</span
+              ><span>│ even pace today</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="title">
+              Subscriptions <span class="sub">· Claude Code, weekly window</span>
+            </div>
+            <div class="node">
+              <div class="row"><span class="l">IU Ultra</span><span class="num">81 %</span></div>
+              <div class="meter">
+                <div class="seg" style="left: 0; width: 81%; background: var(--iu-sub)"></div>
+                <div class="tick cap" style="left: 80%"></div>
+              </div>
+              <div class="sub">resets 4 Nov · 5 h window –</div>
+            </div>
+            <div class="node">
+              <div class="row">
+                <span class="l">Me Max</span><span class="num warnink">95 %</span>
+              </div>
+              <div class="meter">
+                <div class="seg" style="left: 0; width: 95%; background: var(--me-sub)"></div>
+                <div class="tick cap" style="left: 80%"></div>
+              </div>
+              <div class="sub">resets 5 Nov · 5 h 2 %</div>
+            </div>
+            <div class="node">
+              <div class="row"><span class="l">Me2 Max</span><span class="num">41 %</span></div>
+              <div class="meter">
+                <div class="seg" style="left: 0; width: 41%; background: var(--me2-sub)"></div>
+                <div class="tick cap" style="left: 80%"></div>
+              </div>
+              <div class="sub">resets 8 Nov · 5 h 14 %</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="title">IU key · personal</div>
+            <div class="row">
+              <span class="l">Rolling 30 d</span><span class="num badink">$578 / $500</span>
+            </div>
+            <div class="meter">
+              <div class="seg" style="left: 0; width: 86.6%; background: var(--iu-api)"></div>
+              <div
+                class="seg"
+                style="left: 86.6%; width: 13.4%; background: var(--vx-status-bad)"
+              ></div>
+              <div class="tick cap" style="left: 86.6%"></div>
+            </div>
+            <div class="sub">
+              <span class="badink">over by $78</span> · under the cap around 12 Nov at $3.35/d ·
+              portal fresh
+            </div>
+          </div>
+        </div>
+
+        <div class="chev">›</div>
+
+        <div class="col">
+          <h3>Router · 7 d</h3>
+          <div class="card">
+            <div class="title">Where the gateway sent requests</div>
+            <div class="sub">2,719 Anthropic requests since the cutover</div>
+            <div class="meter" style="height: 12px; margin-top: 8px">
+              <div class="seg" style="left: 0; width: 72.8%; background: var(--iu-credit)"></div>
+              <div
+                class="seg"
+                style="left: 72.8%; width: 26.6%; background: var(--me-credit)"
+              ></div>
+              <div class="seg" style="left: 99.4%; width: 0.6%; background: var(--iu-api)"></div>
+            </div>
+            <div class="legend">
+              <span><i class="sw" style="background: var(--iu-credit)"></i>iu 1,979</span>
+              <span><i class="sw" style="background: var(--me-credit)"></i>me 723 (evals)</span>
+              <span><i class="sw" style="background: var(--iu-api)"></i>IU 17</span>
+              <span>refused 0</span>
+            </div>
+            <div class="bars" style="margin-top: 8px">
+              <div class="b">
+                <span class="n">bound</span
+                ><span class="track"
+                  ><span style="width: 61%; background: var(--vx-line2)"></span></span
+                ><span class="v">1,658</span>
+              </div>
+              <div class="b">
+                <span class="n">soonest expiry</span
+                ><span class="track"
+                  ><span style="width: 38.4%; background: var(--vx-line2)"></span></span
+                ><span class="v">1,044</span>
+              </div>
+              <div class="b">
+                <span class="n">Claude Code shape</span
+                ><span class="track"
+                  ><span style="width: 0.5%; background: var(--vx-line2)"></span></span
+                ><span class="v">13</span>
+              </div>
+              <div class="b">
+                <span class="n">forced (probes)</span
+                ><span class="track"
+                  ><span style="width: 0.2%; background: var(--vx-line2)"></span></span
+                ><span class="v">4</span>
+              </div>
+              <div class="b">
+                <span class="n">credit fallback</span><span class="track"></span
+                ><span class="v">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="title">What reached IU, and why</div>
+            <div class="row">
+              <span class="sub">since the cutover</span><span class="num">$3.26</span>
+            </div>
+            <div class="bars" style="margin-top: 6px">
+              <div class="b">
+                <span class="n">non-Claude seats</span
+                ><span class="track"
+                  ><span style="width: 89%; background: var(--iu-api)"></span></span
+                ><span class="v">$2.91</span>
+              </div>
+              <div class="b">
+                <span class="n">eval arms</span
+                ><span class="track"
+                  ><span style="width: 11%; background: var(--vx-line2)"></span></span
+                ><span class="v">$0.36</span>
+              </div>
+              <div class="b">
+                <span class="n">Claude Code shape</span><span class="track"></span
+                ><span class="v">&lt;$0.01</span>
+              </div>
+              <div class="b">
+                <span class="n">credit fallback</span><span class="track"></span
+                ><span class="v">$0</span>
+              </div>
+              <div class="b">
+                <span class="n">route fallback</span><span class="track"></span
+                ><span class="v sub">–</span>
+              </div>
+            </div>
+            <div class="note">
+              Fallback rows draw in the warn ink once they exist. Route fallback is not measured
+              until agw marks it (Gap 4).
+            </div>
+          </div>
+          <div class="card">
+            <div class="title">Cache hit</div>
+            <div class="bars">
+              <div class="b">
+                <span class="n">OpenCode → me</span
+                ><span class="track"
+                  ><span style="width: 79.5%; background: var(--vx-accent)"></span></span
+                ><span class="v">79 %</span>
+              </div>
+              <div class="b">
+                <span class="n">OpenCode → iu</span
+                ><span class="track"
+                  ><span style="width: 64.4%; background: var(--vx-accent)"></span></span
+                ><span class="v">64 %</span>
+              </div>
+              <div class="b">
+                <span class="n">agw direct → iu</span
+                ><span class="track"
+                  ><span style="width: 0.8%; background: var(--vx-accent)"></span></span
+                ><span class="v">1 %</span>
+              </div>
+            </div>
+            <div class="note">agw's direct calls: 562 requests, almost no cache read.</div>
+          </div>
+        </div>
+
+        <div class="chev">›</div>
+
+        <div class="col">
+          <h3>Demand · 7 d</h3>
+          <div class="card">
+            <div class="title">agw on credit</div>
+            <div class="row"><span class="sub">$62.37 · production $55.45 · eval $6.92</span></div>
+            <div class="bars" style="margin-top: 6px">
+              <div class="b">
+                <span class="n">review</span
+                ><span class="track"
+                  ><span style="width: 98.9%; background: var(--vx-accent)"></span
+                  ><span style="width: 1.1%; background: var(--vx-line2)"></span></span
+                ><span class="v">$54.91</span>
+              </div>
+              <div class="b">
+                <span class="n">otel</span
+                ><span class="track"
+                  ><span style="width: 7.2%; background: var(--vx-surface-hairline)"></span></span
+                ><span class="v">$3.95</span>
+              </div>
+              <div class="b">
+                <span class="n">research</span
+                ><span class="track"
+                  ><span style="width: 2.6%; background: var(--vx-surface-hairline)"></span></span
+                ><span class="v">$1.41</span>
+              </div>
+              <div class="b">
+                <span class="n">brain</span
+                ><span class="track"
+                  ><span style="width: 1.5%; background: var(--vx-surface-hairline)"></span></span
+                ><span class="v">$0.83</span>
+              </div>
+              <div class="b">
+                <span class="n">diagram</span
+                ><span class="track"
+                  ><span style="width: 1.2%; background: var(--vx-surface-hairline)"></span></span
+                ><span class="v">$0.65</span>
+              </div>
+              <div class="b">
+                <span class="n sub">other</span><span class="track"></span
+                ><span class="v">$0.62</span>
+              </div>
+            </div>
+            <div class="legend">
+              <span><i class="sw" style="background: var(--vx-accent)"></i>production</span
+              ><span><i class="sw" style="background: var(--vx-line2)"></i>verify</span
+              ><span><i class="sw" style="background: var(--vx-surface-hairline)"></i>eval</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="title">
+              Claude Code lanes <span class="sub">· list value on the subscriptions</span>
+            </div>
+            <div class="bars" style="margin-top: 6px">
+              <div class="b">
+                <span class="n">subagent</span
+                ><span class="track"
+                  ><span style="width: 100%; background: var(--vx-line2)"></span></span
+                ><span class="v">$2,090</span>
+              </div>
+              <div class="b">
+                <span class="n">wave mother</span
+                ><span class="track"
+                  ><span style="width: 63.8%; background: var(--vx-line2)"></span></span
+                ><span class="v">$1,333</span>
+              </div>
+              <div class="b">
+                <span class="n">interactive</span
+                ><span class="track"
+                  ><span style="width: 36.6%; background: var(--vx-line2)"></span></span
+                ><span class="v">$765</span>
+              </div>
+              <div class="b">
+                <span class="n">fan worker</span
+                ><span class="track"
+                  ><span style="width: 35.9%; background: var(--vx-line2)"></span></span
+                ><span class="v">$751</span>
+              </div>
+              <div class="b">
+                <span class="n">worker</span
+                ><span class="track"
+                  ><span style="width: 14.6%; background: var(--vx-line2)"></span></span
+                ><span class="v">$306</span>
+              </div>
+              <div class="b">
+                <span class="n">lead</span
+                ><span class="track"
+                  ><span style="width: 11%; background: var(--vx-line2)"></span></span
+                ><span class="v">$231</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="title">Other callers</div>
+            <div class="bars">
+              <div class="b">
+                <span class="n">Hermes</span
+                ><span class="track"
+                  ><span style="width: 100%; background: var(--vx-line2)"></span></span
+                ><span class="v">$0.58</span>
+              </div>
+              <div class="b">
+                <span class="n">Iris</span
+                ><span class="track"
+                  ><span style="width: 29%; background: var(--vx-line2)"></span></span
+                ><span class="v">$0.17</span>
+              </div>
+              <div class="b">
+                <span class="n">MacWhisper</span
+                ><span class="track"
+                  ><span style="width: 22%; background: var(--vx-line2)"></span></span
+                ><span class="v">$0.13</span>
+              </div>
+              <div class="b">
+                <span class="n">oc, modelpick</span><span class="track"></span
+                ><span class="v">&lt;$0.01</span>
+              </div>
+            </div>
+            <div class="note">
+              Who asked agw (a Claude Code session, the fleet, the CLI) needs the origin header (Gap
+              5).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 Detail -->
+      <div class="detail">
+        <section class="card">
+          <div class="title">IU credit · how the cycle went</div>
+          <div class="sub">
+            21 Oct – 21 Nov · our meter beside the provider's report (refreshed 14:45 UTC, trails
+            the meter by $12)
+          </div>
+          <div id="burn"></div>
+          <div class="legend">
+            <span
+              ><i class="sw" style="background: var(--iu-credit)"></i>left, per-day max of meter and
+              report</span
+            >
+            <span
+              ><i class="sw" style="background: var(--vx-line2)"></i>left by the report alone</span
+            >
+            <span>┄ projection · ··· even pace</span>
+          </div>
+        </section>
+        <section class="card">
+          <div class="title">Pool facts</div>
+          <div class="bars">
+            <div class="b">
+              <span class="n">spent</span><span></span><span class="v">$111.57</span>
+            </div>
+            <div class="b">
+              <span class="n sub">outside the gateway</span><span></span
+              ><span class="v">$56.11</span>
+            </div>
+            <div class="b">
+              <span class="n sub">through it</span><span></span><span class="v">$55.46</span>
+            </div>
+            <div class="b">
+              <span class="n">eval reserve</span><span></span><span class="v">$118</span>
+            </div>
+            <div class="b">
+              <span class="n">eval available</span><span></span><span class="v">$0</span>
+            </div>
+          </div>
+          <div class="title" style="margin-top: 12px">Picks to iu</div>
+          <div class="bars">
+            <div class="b">
+              <span class="n">bound</span
+              ><span class="track"
+                ><span style="width: 57.5%; background: var(--iu-credit)"></span></span
+              ><span class="v">1,137</span>
+            </div>
+            <div class="b">
+              <span class="n">soonest expiry</span
+              ><span class="track"
+                ><span style="width: 42.5%; background: var(--iu-credit)"></span></span
+              ><span class="v">842</span>
+            </div>
+          </div>
+          <div class="title" style="margin-top: 12px">Previous cycle</div>
+          <div class="sub">
+            21 Sep – 21 Oct · $200 granted · <span class="num">$0</span> reconciled ·
+            <span class="num">$200</span> expired unspent
+          </div>
+        </section>
+      </div>
+
+      <!-- 4 Athena, apart -->
+      <div class="divider">Athena Teamchat · its own key, never in a total</div>
+      <div class="athena">
+        <section class="card">
+          <div class="title">Athena team key</div>
+          <div class="row">
+            <span class="l">Rolling 30 d</span><span class="num warnink">$465 / $500</span>
+          </div>
+          <div class="meter">
+            <div class="seg" style="left: 0; width: 93%; background: var(--team)"></div>
+            <div class="tick cap" style="left: 80%"></div>
+          </div>
+          <div class="sub">
+            <span class="warnink">warn</span> · $35 under the cap · portal fresh
+          </div>
+        </section>
+        <section class="card">
+          <div class="title">Spend by producer · 7 d</div>
+          <div class="bars">
+            <div class="b">
+              <span class="n">agw (before the gateway)</span
+              ><span class="track"><span style="width: 100%; background: var(--team)"></span></span
+              ><span class="v">$337.51</span>
+            </div>
+            <div class="b">
+              <span class="n">Athena Teamchat</span
+              ><span class="track"><span style="width: 39.5%; background: var(--team)"></span></span
+              ><span class="v">$133.22</span>
+            </div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="title">agw on this key since the cutover</div>
+          <div class="fact">
+            <div class="v">$0</div>
+            <div class="c">last agw row 2 Nov 08:05 UTC</div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const q = new URLSearchParams(location.search)
+      document.documentElement.setAttribute(
+        'data-mantine-color-scheme',
+        q.get('scheme') === 'dark' ? 'dark' : 'light',
+      )
+      const narrow = Number(q.get('w') || innerWidth) < 700
+      if (narrow) document.body.classList.add('narrow')
+
+      const DAY = 86400000
+      const t = (s) => new Date(s + (s.length === 10 ? 'T00:00:00Z' : 'Z')).getTime()
+      const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim()
+
+      function chart(el, { from, to, max, height, series, rules, bands, ticks }) {
+        const W = el.clientWidth || 800
+        const H = height
+        const m = { l: 40, r: 24, t: 10, b: 22 }
+        const x = (ms) => m.l + ((ms - t(from)) / (t(to) - t(from))) * (W - m.l - m.r)
+        const y = (v) => m.t + (1 - v / max) * (H - m.t - m.b)
+        let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img">`
+        for (const b of bands || []) {
+          s += `<rect x="${x(t(b.from))}" y="${m.t}" width="${x(t(b.to)) - x(t(b.from))}" height="${H - m.t - m.b}" fill="color-mix(in srgb, ${css('--vx-status-warn')} 16%, transparent)"/>`
+          s += `<text class="lab" x="${x(t(b.from)) + 8}" y="${m.t + 16}" style="fill:${css('--vx-status-warn')}">${b.label}</text>`
+        }
+        for (let v = 0; v <= max; v += max / 4) {
+          s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${css('--vx-grid')}"/>`
+          s += `<text x="${m.l - 6}" y="${y(v) + 3}" text-anchor="end">$${v}</text>`
+        }
+        for (const d of ticks) {
+          s += `<text x="${x(t(d))}" y="${H - 6}" text-anchor="middle">${new Date(t(d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}</text>`
+        }
+        for (const r of rules || []) {
+          s += `<line x1="${x(t(r.at))}" x2="${x(t(r.at))}" y1="${m.t}" y2="${H - m.b}" stroke="${css(r.color || '--vx-line2')}" stroke-dasharray="${r.dash || ''}"/>`
+          s += `<text class="lab" x="${x(t(r.at)) + 4}" y="${r.top ? m.t + 12 : H - m.b - 6}" style="fill:${css(r.color || '--vx-muted')}">${r.label}</text>`
+        }
+        for (const ser of series) {
+          const d = ser.points
+            .map(([at, v], i) => `${i ? 'L' : 'M'}${x(t(at)).toFixed(1)},${y(v).toFixed(1)}`)
+            .join('')
+          s += `<path d="${d}" fill="none" stroke="${css(ser.color)}" stroke-width="${ser.width || 2}" stroke-dasharray="${ser.dash || ''}" stroke-linejoin="round"/>`
+          for (const mk of ser.marks || []) {
+            s += `<circle cx="${x(t(mk.at))}" cy="${y(mk.v)}" r="4" fill="${css('--vx-surface-panel')}" stroke="${css(mk.color || ser.color)}" stroke-width="2"/>`
+            if (mk.label)
+              s += `<text class="lab" text-anchor="${mk.anchor || 'start'}" x="${x(t(mk.at)) + (mk.anchor === 'end' ? -7 : 7)}" y="${y(mk.v) + (mk.dy ?? -6)}" style="fill:${css(mk.color || ser.color)}">${mk.label}</text>`
+          }
+        }
+        el.innerHTML = s + '</svg>'
+      }
+
+      const now = '2026-11-02T16:00:00'
+      const ticks = narrow
+        ? ['2026-10-21', '2026-11-02', '2026-11-14', '2026-11-27']
+        : [
+            '2026-10-21',
+            '2026-10-27',
+            '2026-11-02',
+            '2026-11-08',
+            '2026-11-14',
+            '2026-11-21',
+            '2026-11-27',
+          ]
+
+      chart(document.getElementById('pace'), {
+        from: '2026-10-21',
+        to: '2026-11-28',
+        max: 200,
+        height: narrow ? 200 : 230,
+        ticks,
+        bands: [
+          {
+            from: '2026-11-04T19:00:00',
+            to: '2026-11-21',
+            label: narrow
+              ? 'IU · 16 d'
+              : 'No pool left · Claude seats on GPT, IU personal key · 16 d · ≈ $1,380 of Claude work',
+          },
+        ],
+        rules: [
+          { at: now, label: 'now', color: '--vx-ink', top: true },
+          { at: '2026-11-21', label: 'iu renews', dash: '3 3' },
+          { at: '2026-11-27', label: 'me', dash: '3 3' },
+        ],
+        series: [
+          {
+            color: '--vx-line2',
+            width: 1,
+            dash: '1 3',
+            points: [
+              ['2026-10-21', 200],
+              ['2026-11-21', 0],
+            ],
+          },
+          {
+            color: '--vx-line2',
+            width: 1,
+            dash: '1 3',
+            points: [
+              ['2026-10-27', 100],
+              ['2026-11-27', 0],
+            ],
+          },
+          {
+            color: '--iu-credit',
+            points: [
+              ['2026-10-21', 200],
+              ['2026-10-31', 200],
+              ['2026-11-01', 143.89],
+              ['2026-11-02', 143.89],
+              [now, 88.43],
+            ],
+          },
+          {
+            color: '--iu-credit',
+            dash: '5 4',
+            points: [
+              [now, 88.43],
+              ['2026-11-03T17:00:00', 0],
+            ],
+            marks: [
+              { at: '2026-11-03T17:00:00', v: 0, label: 'iu dry 3 Nov', anchor: 'end', dy: -10 },
+            ],
+          },
+          {
+            color: '--me-credit',
+            points: [
+              ['2026-10-27', 100],
+              ['2026-11-02', 100],
+              [now, 93.09],
+            ],
+          },
+          {
+            color: '--me-credit',
+            dash: '5 4',
+            points: [
+              [now, 93.09],
+              ['2026-11-03T17:00:00', 93.09],
+              ['2026-11-04T19:00:00', 0],
+            ],
+            marks: [
+              { at: '2026-11-04T19:00:00', v: 0, label: narrow ? '' : 'me dry 4 Nov', dy: -10 },
+            ],
+          },
+        ],
+      })
+
+      chart(document.getElementById('burn'), {
+        from: '2026-10-21',
+        to: '2026-11-21',
+        max: 200,
+        height: narrow ? 180 : 220,
+        ticks: narrow
+          ? ['2026-10-21', '2026-11-02', '2026-11-21']
+          : [
+              '2026-10-21',
+              '2026-10-26',
+              '2026-10-31',
+              '2026-11-05',
+              '2026-11-10',
+              '2026-11-15',
+              '2026-11-21',
+            ],
+        rules: [{ at: now, label: 'now', color: '--vx-ink', top: true }],
+        series: [
+          {
+            color: '--vx-line2',
+            width: 1,
+            dash: '1 3',
+            points: [
+              ['2026-10-21', 200],
+              ['2026-11-21', 0],
+            ],
+          },
+          {
+            color: '--vx-line2',
+            width: 1.5,
+            points: [
+              ['2026-10-21', 200],
+              ['2026-10-31', 200],
+              ['2026-11-01', 143.89],
+              ['2026-11-02', 143.89],
+              ['2026-11-02T14:45:00', 100.39],
+            ],
+            marks: [
+              {
+                at: '2026-11-02T14:45:00',
+                v: 100.39,
+                label: narrow ? '' : 'report $100',
+                anchor: 'end',
+              },
+            ],
+          },
+          {
+            color: '--iu-credit',
+            points: [
+              ['2026-10-21', 200],
+              ['2026-10-31', 200],
+              ['2026-11-01', 143.89],
+              ['2026-11-02', 143.89],
+              [now, 88.43],
+            ],
+            marks: [{ at: now, v: 88.43, label: '$88 left', dy: 14 }],
+          },
+          {
+            color: '--iu-credit',
+            dash: '5 4',
+            points: [
+              [now, 88.43],
+              ['2026-11-03T17:00:00', 0],
+            ],
+          },
+        ],
+      })
+    </script>
+  </body>
+</html>
