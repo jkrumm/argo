@@ -7,6 +7,7 @@ import {
   fmtTokens,
   fmtUsdWhole,
   dropPartialBucket,
+  partialSpan,
   periodNoun,
   tokensQuantity,
   tokensFormatterFor,
@@ -207,5 +208,27 @@ describe('dropPartialBucket with a value', () => {
     expect(dropPartialBucket(points, NOW, 'day')).toHaveLength(2)
     const empty = [day(26, 0), day(27, 0), day(28, 0)]
     expect(dropPartialBucket(empty, NOW, 'day', valueOf)).toHaveLength(2)
+  })
+})
+
+describe('partialSpan', () => {
+  const at = (d: number) => ({ date: new Date(2026, 10, d), value: d })
+  const days = [at(30), at(31), at(2)]
+
+  it('marks the stretch into the running day: the partial bucket stays drawn, not dropped', () => {
+    const span = partialSpan(days, Date.UTC(2026, 10, 2, 9), 'day')
+    expect(span).toEqual({ from: days[1]!.date, to: days[2]!.date })
+  })
+
+  it('is null once the newest day has ended, or with nothing before it', () => {
+    expect(partialSpan(days, Date.UTC(2026, 10, 3, 0), 'day')).toBeNull()
+    expect(partialSpan([at(2)], Date.UTC(2026, 10, 2, 9), 'day')).toBeNull()
+    expect(partialSpan([], Date.UTC(2026, 10, 2, 9), 'day')).toBeNull()
+  })
+
+  it('reads the running hour at hour grain', () => {
+    const hours = [0, 1].map((h) => ({ date: new Date(Date.UTC(2026, 10, 2, h)) }))
+    expect(partialSpan(hours, Date.UTC(2026, 10, 2, 1, 30), 'hour')).not.toBeNull()
+    expect(partialSpan(hours, Date.UTC(2026, 10, 2, 2), 'hour')).toBeNull()
   })
 })

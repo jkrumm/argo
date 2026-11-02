@@ -169,6 +169,24 @@ export function dropPartialBucket<T extends { date: Date }>(
   return sum(complete) <= 0 && sum(points) > 0 ? [...points] : complete
 }
 
+/**
+ * The stretch a chart marks as partial: from the last complete point to the running bucket, which is
+ * the last point. Null when the newest bucket has ended or nothing precedes it. Same UTC clock as
+ * `dropPartialBucket`.
+ */
+export function partialSpan<T extends { date: Date }>(
+  points: readonly T[],
+  now: number,
+  grain: 'hour' | 'day' | 'week',
+): { from: Date; to: Date } | null {
+  const last = points.at(-1)
+  const before = points.at(-2)
+  if (last === undefined || before === undefined) return null
+  const running =
+    grain === 'hour' ? last.date.getTime() + HOUR_MS > now : isRunningBucket(last.date, now, grain)
+  return running ? { from: before.date, to: last.date } : null
+}
+
 const PERIOD_NOUN: Record<'7d' | '30d' | '90d' | 'all', string> = {
   '7d': withUnit(7, 'd'),
   '30d': D30,
