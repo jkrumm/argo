@@ -149,12 +149,12 @@ describe('GET /usage/insights', () => {
     const by = Object.fromEntries(r.items.map((i) => [i.id, i]))
     expect(by['pool-split']).toMatchObject({
       node: 'pool:iu',
-      sentence: '`me` carries every eval, `iu` every production call.',
+      sentence: 'me carries every eval, iu every production call.',
       usdMoved: 61,
       thin: false,
     })
     expect(by['cache-drop']!.sentence).toBe(
-      "agw's cache hit rate on `iu` fell from 90 % to 40 % against the previous 7 days.",
+      "agw's cache hit rate on iu fell from 90 % to 40 % against the previous 7 days.",
     )
     expect(by['cap-near']).toMatchObject({
       node: 'key:personal',

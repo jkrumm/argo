@@ -363,7 +363,7 @@ export function poolSplit(input: InsightInputs): InsightDraft[] {
     {
       id: 'pool-split',
       node: `pool:${prodTop.key}`,
-      sentence: `\`${evalTop.key}\` carries ${evalPhrase}, \`${prodTop.key}\` ${prodPhrase}.`,
+      sentence: `${evalTop.key} carries ${evalPhrase}, ${prodTop.key} ${prodPhrase}.`,
       facts: {
         evalPool: evalTop.key,
         evalShare: round4(evalShare),
@@ -451,7 +451,7 @@ export function claudeOnIu(input: InsightInputs): InsightDraft[] {
   return []
 }
 
-const targetLabel = (target: string) => (target === 'iu-api' ? 'the IU key' : `\`${target}\``)
+const targetLabel = (target: string) => (target === 'iu-api' ? 'the IU key' : target)
 
 /**
  * cache-drop. A caller × target whose cache hit rate fell ≥ 15 points against the previous period, on ≥ 50

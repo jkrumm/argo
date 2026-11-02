@@ -239,7 +239,7 @@ describe('pool-split', () => {
     poolSplit(base({ evalCredit: slice(...evalPools), productionCredit: slice(...prodPools) }))
   it('fires when two pools each carry a 90 % share', () => {
     const insight = only(run([credit('me', 7)], [credit('iu', 55)]))
-    expect(insight.sentence).toBe('`me` carries every eval, `iu` every production call.')
+    expect(insight.sentence).toBe('me carries every eval, iu every production call.')
     expect(insight.node).toBe('pool:iu')
     expect(insight.usdMoved).toBe(62)
   })
@@ -247,7 +247,7 @@ describe('pool-split', () => {
     const insight = only(
       run([credit('me', 90), credit('iu', 10)], [credit('iu', 95), credit('me', 5)]),
     )
-    expect(insight.sentence).toBe('`me` carries 90 % of eval spend, `iu` 95 % of production spend.')
+    expect(insight.sentence).toBe('me carries 90 % of eval spend, iu 95 % of production spend.')
   })
   it('does not fire under 90 %, on the same pool, or with nothing on one side', () => {
     expect(run([credit('me', 89), credit('iu', 11)], [credit('iu', 100)])).toEqual([])
@@ -330,7 +330,7 @@ describe('cache-drop', () => {
     expect(insight.id).toBe('cache-drop')
     expect(insight.node).toBe('router')
     expect(insight.sentence).toBe(
-      "agw's cache hit rate on `iu` fell from 85 % to 70 % against the previous 7 days.",
+      "agw's cache hit rate on iu fell from 85 % to 70 % against the previous 7 days.",
     )
     expect(insight.usdMoved).toBe(120)
   })
@@ -461,6 +461,9 @@ describe('detectInsights', () => {
     for (let i = 1; i < items.length; i++) {
       expect(items[i - 1]!.usdMoved).toBeGreaterThanOrEqual(items[i]!.usdMoved)
     }
+  })
+  it('emits plain text: no markdown backticks in any sentence', () => {
+    for (const item of detectInsights(firing())) expect(item.sentence).not.toContain('`')
   })
   it('keeps the top five: the reassurance, ranking last, is the one dropped', () => {
     const all = detectInsights(firing())
