@@ -30,6 +30,8 @@ import { usageAnalyticsRoutes } from './usage-analytics.js'
 import { usageSplitRoutes } from './usage-split.js'
 import { usageCreditsRoutes } from './usage-credits.js'
 import { usagePaceRoutes } from './usage-pace.js'
+import { usageDemandRoutes } from './usage-demand.js'
+import { usageRouterRoutes } from './usage-router.js'
 import { USAGE_ROWS } from '../lib/usage-source.js'
 
 function groupColumnSql(groupBy: string) {
@@ -576,3 +578,5 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .use(usageSplitRoutes)
   .use(usageCreditsRoutes)
   .use(usagePaceRoutes)
+  .use(usageRouterRoutes)
+  .use(usageDemandRoutes)

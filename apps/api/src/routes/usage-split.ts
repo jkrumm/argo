@@ -31,7 +31,24 @@ const DAY_MS = 86_400_000
 const RANGE_DAYS = { '7d': 7, '30d': 30, '90d': 90, all: null } as const
 
 /** The dimension columns `split` may group by: a closed list, so the raw column name is safe. */
-const SPLIT_COLUMN = { project: 'project', sub_tool: 'sub_tool', model_norm: 'model_norm' } as const
+const SPLIT_COLUMN = {
+  project: 'project',
+  sub_tool: 'sub_tool',
+  model_norm: 'model_norm',
+  lane: 'lane',
+} as const
+
+/**
+ * `USAGE_ROWS` plus the stored `lane` (interactive, wave_mother, lead, worker, fan_worker, subagent, hermes, iris,
+ * agw_workflow, other), which the projection folds into `sub_tool`. Joined on the row's unique key
+ * (`source`, `source_id`), so no row repeats and none is lost.
+ */
+const LANE_ROWS = sql`(
+  SELECT usage_record.*, lane_row.lane
+  FROM ${USAGE_ROWS}
+  JOIN usage.records_unique lane_row
+    ON lane_row.source = usage_record.source AND lane_row.source_id = usage_record.source_id
+) AS usage_record`
 
 const FRESH_SQL = sql.raw(
   'input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint',
@@ -98,7 +115,7 @@ export const usageSplitRoutes = new Elysia()
             (COUNT(*) FILTER (WHERE ${cur}))::int AS calls,
             COALESCE(SUM(cost_usd) FILTER (WHERE ts < ${current.fromIso}), 0)::float AS prior_cost,
             COALESCE(SUM(${FRESH_SQL}) FILTER (WHERE ts < ${current.fromIso}), 0)::float AS prior_fresh
-          FROM ${USAGE_ROWS}
+          FROM ${query.by === 'lane' ? LANE_ROWS : USAGE_ROWS}
           WHERE ts >= ${from} AND ts <= ${current.toIso}
             ${filterSql}
           GROUP BY 1, 2
@@ -123,7 +140,7 @@ export const usageSplitRoutes = new Elysia()
     },
     {
       query: z.object({
-        by: z.enum(['project', 'sub_tool', 'model_norm']).default('project'),
+        by: z.enum(['project', 'sub_tool', 'model_norm', 'lane']).default('project'),
         range: RangeEnum.default('30d'),
         lens: z.enum(['cost', 'tokens']).default('cost'),
         top: z.coerce.number().int().min(2).max(50).default(12),
@@ -149,9 +166,9 @@ export const usageSplitRoutes = new Elysia()
       },
       detail: {
         tags: ['Usage Tracking'],
-        summary: 'Usage by project, tool or model, split by payer',
+        summary: 'Usage by project, tool, model or lane, split by payer',
         description:
-          'One row per ?by key (project | sub_tool | model_norm; empty or NULL reads "(unset)", a model-less model_norm row "(unknown model)") over the rolling ?range window, each with cost (USD; list value for the Max payers), fresh tokens (input + output + cache-write + reasoning), cache-read tokens, output tokens (incl. reasoning), call count, its per-payer split (iu-sub | me-sub | me2-sub | iu-credit | me-credit | me2-credit | iu-api | iu-team-api | me-api | unknown) and `prior` = {cost, fresh} over the equally long window before (null for range=all or when that window predates the data floor). Ranked by ?lens=cost|tokens (tokens = fresh); keys with nothing in the window are dropped; past ?top (default 12) the tail is one trailing "(other)" row; "(unset)" and "(unknown model)" are never folded, so it can follow the top rows out of rank order (up to top + 1 rows). `totals` is per payer over every key, so it is also the headline. Filter by workspace[], iuKey[] (IU API key: personal | athena-team), payer[] and project[] (normalized names).',
+          'One row per ?by key (project | sub_tool | model_norm | lane; lane is the stored lane — interactive, wave_mother, lead, worker, fan_worker, subagent, hermes, iris, agw_workflow, other — so each Claude Code lane has its list value and fresh tokens split per payer, i.e. per account; empty or NULL reads "(unset)", a model-less model_norm row "(unknown model)") over the rolling ?range window, each with cost (USD; list value for the Max payers), fresh tokens (input + output + cache-write + reasoning), cache-read tokens, output tokens (incl. reasoning), call count, its per-payer split (iu-sub | me-sub | me2-sub | iu-credit | me-credit | me2-credit | iu-api | iu-team-api | me-api | unknown) and `prior` = {cost, fresh} over the equally long window before (null for range=all or when that window predates the data floor). Ranked by ?lens=cost|tokens (tokens = fresh); keys with nothing in the window are dropped; past ?top (default 12) the tail is one trailing "(other)" row; "(unset)" and "(unknown model)" are never folded, so it can follow the top rows out of rank order (up to top + 1 rows). `totals` is per payer over every key, so it is also the headline. Filter by workspace[], iuKey[] (IU API key: personal | athena-team), payer[] and project[] (normalized names).',
         security: [{ BearerAuth: [] }],
       },
     },

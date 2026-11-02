@@ -154,3 +154,45 @@ describe('project filter', () => {
     expect(body.rows).toEqual([])
   })
 })
+
+describe('GET /usage/split by lane', () => {
+  it('splits list value and fresh tokens of each lane per payer', async () => {
+    await seedUsageRecords([
+      row({
+        lane: 'subagent',
+        sub_tool: 'Explore',
+        cost_usd: 6,
+        input_tokens: 10,
+        output_tokens: 5,
+      }),
+      row({ lane: 'subagent', sub_tool: 'Plan', account: 'me', cost_usd: 2, input_tokens: 4 }),
+      row({ lane: 'wave_mother', cost_usd: 3, cache_read_tokens: 50 }),
+      row({ lane: 'interactive', account: 'me2', cost_usd: 1 }),
+      // A gateway workflow row keeps its lane too, under its own payer.
+      row({
+        source: 'gateway',
+        billing: 'api_credit',
+        lane: 'agw_workflow',
+        lane_detail: { workflow: 'review', step: 'synthesis' },
+        cost_usd: 5,
+      }),
+      // Prior window.
+      row({ lane: 'subagent', cost_usd: 9, ts: ago(10) }),
+    ])
+    const body = await get<Split>('/split?by=lane&range=7d')
+    expect(body.rows.map((r) => [r.key, r.cost])).toEqual([
+      ['subagent', 8],
+      ['agw_workflow', 5],
+      ['wave_mother', 3],
+      ['interactive', 1],
+    ])
+    const sub = body.rows[0]!
+    expect(sub).toMatchObject({ fresh: 19, prior: { cost: 9 } })
+    expect(sub.payers.map((p) => [p.payer, p.cost])).toEqual([
+      ['iu-sub', 6],
+      ['me-sub', 2],
+    ])
+    expect(body.rows[1]!.payers).toMatchObject([{ payer: 'iu-credit', cost: 5 }])
+    expect(body.totals.reduce((s, t) => s + t.cost, 0)).toBe(17)
+  })
+})
