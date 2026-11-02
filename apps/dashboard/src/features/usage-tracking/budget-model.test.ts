@@ -530,7 +530,7 @@ describe('toolSplits', () => {
 
 describe('accountTitle', () => {
   it('names the registry accounts with their plan', () => {
-    expect(accountTitle('iu')).toBe('iu 20x')
+    expect(accountTitle('iu')).toBe('iu Ultra')
     expect(accountTitle('me')).toBe('me 5x')
   })
 

@@ -16,7 +16,7 @@ describe('seriesLabel', () => {
 
   it('names a payer key by its wallet', () => {
     expect(seriesLabel('payer', 'me2-sub')).toBe('Me2 Max')
-    expect(seriesLabel('payer', 'iu-sub')).toBe('IU Max')
+    expect(seriesLabel('payer', 'iu-sub')).toBe('IU Ultra')
     expect(seriesLabel('payer', 'other')).toBe('Other')
   })
 })

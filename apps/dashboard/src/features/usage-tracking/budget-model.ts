@@ -5,7 +5,7 @@
  */
 import { formatDuration, withUnit } from '../../lib/format'
 import type { FlowLens, FlowRow, IuBudget, QuotaLatest } from '../../lib/queries/usage'
-import { USAGE_ACCOUNTS, type IuKeyId } from './accounts'
+import { PLAN_NAMES, USAGE_ACCOUNTS, type IuKeyId } from './accounts'
 import { EM_DASH, OTHER_KEY, fmtShare, fmtUsdWhole } from './model'
 
 // ── State words and freshness ────────────────────────────────────────────────────────────────
@@ -128,10 +128,10 @@ export function quotaReading(sample: QuotaSample | null | undefined, now: number
   }
 }
 
-/** `iu 20x`: an account as the quota meters name it; an id outside the registry reads as itself. */
+/** `iu Ultra`, `me 5x`: an account as the quota meters name it; an id outside the registry reads as itself. */
 export function accountTitle(id: string): string {
   const account = USAGE_ACCOUNTS.find((a) => a.id === id)
-  return account === undefined ? id : `${account.label} ${account.plan}`
+  return account === undefined ? id : `${account.label} ${PLAN_NAMES[account.plan]}`
 }
 
 // ── Money, tokens and the vocabulary lines ───────────────────────────────────────────────────

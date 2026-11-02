@@ -59,20 +59,31 @@ export const ACCOUNT_PATTERN = /^[a-z][a-z0-9-]{0,15}$/
 
 /**
  * Who pays for a row, derived from (billing, account) at query time so it works on all history and
- * needs no column: `iu-sub` / `me-sub` / `me2-sub` are the Max subscriptions, `iu-api` the IU metered API
- * on the personal key, `iu-team-api` the same API on the Athena team key (billing + `iu_key`), `me-api` the
- * personal pay-per-token API (OpenRouter today), `unknown` anything else (including Max rows whose account
- * is not yet known and IU rows whose key is unknown).
+ * needs no column: `iu-sub` / `me-sub` / `me2-sub` are the subscriptions (Ultra, Max, Max), `iu-credit` /
+ * `me-credit` / `me2-credit` the API credit those subscriptions grant (billing `api_credit` + account; the
+ * inference gateway writes them), `iu-api` the IU metered API on the personal key, `iu-team-api` the same API
+ * on the Athena team key (billing + `iu_key`), `me-api` the personal pay-per-token API (OpenRouter today),
+ * `unknown` anything else (including Max and credit rows whose account is not yet known and IU rows whose key
+ * is unknown).
  */
 export const PAYERS = [
   'iu-sub',
   'me-sub',
   'me2-sub',
+  'iu-credit',
+  'me-credit',
+  'me2-credit',
   'iu-api',
   'iu-team-api',
   'me-api',
   'unknown',
 ] as const
+
+/**
+ * The API-credit payers: each is a monthly credit pool of one subscription's Console org (real dollars
+ * at list price, spent from a grant that expires; no limit meter). The Credits tab reads them.
+ */
+export const CREDIT_PAYERS = ['iu-credit', 'me-credit', 'me2-credit'] as const
 
 /** Payers that are metered API spend (real dollars, not Max list value); the "API spend" default set. */
 export const API_PAYERS = ['iu-api', 'iu-team-api', 'me-api'] as const
@@ -83,6 +94,9 @@ export const PAYER_EXPR = sql.raw(`(CASE
   WHEN billing = 'max' AND account = 'iu' THEN 'iu-sub'
   WHEN billing = 'max' AND account = 'me' THEN 'me-sub'
   WHEN billing = 'max' AND account = 'me2' THEN 'me2-sub'
+  WHEN billing = 'api_credit' AND account = 'iu' THEN 'iu-credit'
+  WHEN billing = 'api_credit' AND account = 'me' THEN 'me-credit'
+  WHEN billing = 'api_credit' AND account = 'me2' THEN 'me2-credit'
   WHEN billing = 'iu' AND iu_key = 'personal' THEN 'iu-api'
   WHEN billing = 'iu' AND iu_key = 'athena-team' THEN 'iu-team-api'
   WHEN billing = 'openrouter' THEN 'me-api'

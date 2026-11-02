@@ -12,7 +12,7 @@ import { VX } from 'basalt-ui/tokens'
 import type { SplitRow, SplitTotal } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { usageStore, type UsageLens } from '../../lib/window-stores'
-import { dollarWord, type Wallet } from './accounts'
+import { dollarWord, planSuffix, type Wallet } from './accounts'
 import { colorForPayer, bucketToDate } from './constants'
 import { ChangeBadge } from './change-badge'
 import { WalletMeter } from './limits'
@@ -145,7 +145,7 @@ export function WalletCard({
     <Box data-shot={`wallet-${wallet.id}`} data-shot-states="empty" h="100%">
       <ChartCard
         className={classes.fill}
-        title={wallet.plan === null ? wallet.title : `${wallet.title} ${wallet.plan}`}
+        title={`${wallet.title}${planSuffix(wallet.plan)}`}
         placeholderHeight="content"
         actions={
           canOpen ? (
