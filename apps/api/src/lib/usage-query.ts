@@ -81,7 +81,7 @@ export const PAYERS = [
 
 /**
  * The API-credit payers: each is a monthly credit pool of one subscription's Console org (real dollars
- * at list price, spent from a grant that expires; no limit meter). The Credits tab reads them.
+ * at list price, spent from a grant that expires; no limit meter). /usage/pace and /usage/router read them.
  */
 export const CREDIT_PAYERS = ['iu-credit', 'me-credit', 'me2-credit'] as const
 

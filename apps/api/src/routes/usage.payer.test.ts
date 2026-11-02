@@ -127,6 +127,40 @@ describe('usage payer', () => {
     expect(series.groupKeys).toEqual(['iu-api'])
   })
 
+  it('derives iu-credit, me-credit and me2-credit from api_credit + account; none is unknown', async () => {
+    await ingest([
+      payload('c1', 'api_credit', 'iu', 1),
+      payload('c2', 'api_credit', 'me', 2),
+      payload('c3', 'api_credit', 'me2', 4),
+      // The IU passthrough and a Max row are unaffected.
+      payload('c4', 'iu', null, 8),
+      payload('c5', 'max', 'iu', 16),
+    ])
+    const scope = `sources=${SOURCE}`
+    const grouped = await getJson<Rows>(
+      `/usage/breakdown?range=7d&metric=cost&dimension=payer&${scope}`,
+    )
+    expect(Object.fromEntries(grouped.rows.map((r) => [r.key, r.value]))).toEqual({
+      'iu-credit': 1,
+      'me-credit': 2,
+      'me2-credit': 4,
+      'iu-api': 8,
+      'iu-sub': 16,
+    })
+    const base = `/usage/breakdown?range=7d&metric=cost&dimension=source&${scope}`
+    expect((await getJson<Rows>(`${base}&payer=me-credit&payer=me2-credit`)).total).toBe(6)
+    // The billing filter knows api_credit: it keeps the three credit rows and drops the rest.
+    expect((await getJson<Rows>(`${base}&billing=api_credit`)).total).toBe(7)
+  })
+
+  it('shows a credit payer in the split totals', async () => {
+    await ingest([{ ...payload('c6', 'api_credit', 'me2', 3), lane_detail: { caller: 'oc' } }])
+    const split = await getJson<{ totals: Array<{ payer: string; cost: number }> }>(
+      `/usage/split?by=sub_tool&range=7d&payer=me2-credit`,
+    )
+    expect(split.totals).toEqual([expect.objectContaining({ payer: 'me2-credit', cost: 3 })])
+  })
+
   it('rejects an unknown payer', async () => {
     const res = await app.handle(
       new Request('http://localhost/usage/breakdown?range=7d&metric=cost&dimension=source&payer=x'),

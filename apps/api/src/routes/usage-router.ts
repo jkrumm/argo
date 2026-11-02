@@ -140,7 +140,7 @@ export async function loadRouter({ fromIso, toIso }: { fromIso: string; toIso: s
     )
   }
 
-  const [pickRows, iuRows, cacheRows, measured] = await Promise.all([
+  const [pickRows, iuRows, cacheRows, measured, lastRow] = await Promise.all([
     hasPicks
       ? db.execute(sql`
             SELECT to_char(${utcBucket('day', sql`ts`)}, 'YYYY-MM-DD') AS day, picked, reason, COUNT(*)::int AS n
@@ -192,6 +192,9 @@ export async function loadRouter({ fromIso, toIso }: { fromIso: string; toIso: s
           SELECT 1 FROM ${USAGE_ROWS} WHERE source = 'gateway' AND jsonb_exists(lane_detail, 'routeFallback')
         ) AS measured
       `),
+    db.execute(
+      sql`SELECT to_char(max(ts) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last_ts FROM ${USAGE_ROWS} WHERE source = 'gateway'`,
+    ),
   ])
 
   const picks = rowsOf<Record<string, unknown>>(pickRows)
@@ -248,6 +251,7 @@ export async function loadRouter({ fromIso, toIso }: { fromIso: string; toIso: s
     cache,
     picksAvailable: hasPicks,
     routeFallbackMeasured: rowsOf<{ measured: boolean }>(measured)[0]?.measured === true,
+    lastRequestAt: rowsOf<{ last_ts: string | null }>(lastRow)[0]?.last_ts ?? null,
   }
 }
 
@@ -278,13 +282,19 @@ export const usageRouterRoutes = new Elysia().get(
           .describe(
             'true once any gateway row in the store carries lane_detail.routeFallback (the key present, even null); false = the route-fallback cause reads 0 because it is not measured yet',
           ),
+        lastRequestAt: z
+          .string()
+          .nullable()
+          .describe(
+            'ISO 8601 time of the newest gateway row, whatever the range (Athena included: it is the pipeline heartbeat, not a total); null when there is none. The input to the stale state: last row older than 30 min',
+          ),
       }),
     },
     detail: {
       tags: ['Usage Tracking'],
       summary: 'Inference gateway router: picks, IU spend by cause, cache hit',
       description:
-        "The Router column of the usage page over the rolling ?range window (7d | 30d | 90d | all, default 7d). `picks`: usage.gateway_picks counted per UTC day, target (a credit pool id iu | me | me2, `iu-api` for the IU passthrough, or `refused`) and reason; a drained retry writes two picks. `iu`: the gateway rows billed to the IU key (billing iu, i.e. an api_key row with a key; the Athena team key never counts) per UTC day and cause, with cost (cost_usd, else the gateway's lane_detail.costEstimatedUsd) and request count; its total equals the gateway's IU-key rows over the range. Cause rule, in order: a row with lane_detail.routeFallback is `route-fallback` (a GPT call that replaced a refused Claude call); a model that is not a Claude model (decided from the model name, the row has no request path) is `design`, or `eval` when lane_detail.purpose is eval; a Claude model takes its pick's reason (matched by request_id = the row's source_id): `claude-code` and `forced` as they are, `no-pool`, `drained-retry` and anything else `credit-fallback` (an `eval-` prefix reads like the plain reason). `cache`: per lane_detail.caller and target (the paying pool, or iu-api) the gateway request count and `hitRate` = cache-read ÷ (fresh input + cache-read + cache-write), null without input. `routeFallbackMeasured` is true once any gateway row carries the routeFallback key; until then `route-fallback` reads 0 because it is not measured, not because it did not happen. `picksAvailable` is true when usage.gateway_picks is readable; while false, `picks` is empty and the `iu` causes are unverified (every Claude row on IU reads `credit-fallback`). Use /usage/demand for who asked and what they spent, /usage/credits/pools for the pool balances and /usage/account-picks for the Claude Max account picker, a different router.",
+        "The Router column of the usage page over the rolling ?range window (7d | 30d | 90d | all, default 7d). `picks`: usage.gateway_picks counted per UTC day, target (a credit pool id iu | me | me2, `iu-api` for the IU passthrough, or `refused`) and reason; a drained retry writes two picks. `iu`: the gateway rows billed to the IU key (billing iu, i.e. an api_key row with a key; the Athena team key never counts) per UTC day and cause, with cost (cost_usd, else the gateway's lane_detail.costEstimatedUsd) and request count; its total equals the gateway's IU-key rows over the range. Cause rule, in order: a row with lane_detail.routeFallback is `route-fallback` (a GPT call that replaced a refused Claude call); a model that is not a Claude model (decided from the model name, the row has no request path) is `design`, or `eval` when lane_detail.purpose is eval; a Claude model takes its pick's reason (matched by request_id = the row's source_id): `claude-code` and `forced` as they are, `no-pool`, `drained-retry` and anything else `credit-fallback` (an `eval-` prefix reads like the plain reason). `cache`: per lane_detail.caller and target (the paying pool, or iu-api) the gateway request count and `hitRate` = cache-read ÷ (fresh input + cache-read + cache-write), null without input. `routeFallbackMeasured` is true once any gateway row carries the routeFallback key; until then `route-fallback` reads 0 because it is not measured, not because it did not happen. `picksAvailable` is true when usage.gateway_picks is readable; while false, `picks` is empty and the `iu` causes are unverified (every Claude row on IU reads `credit-fallback`). Use /usage/demand for who asked and what they spent, /usage/pace for the pool balances and /usage/account-picks for the Claude Max account picker, a different router. `lastRequestAt` is the newest gateway row (any range, null when none), the input to the page's stale state (\"last row older than 30 min\").",
       security: [{ BearerAuth: [] }],
     },
   },
