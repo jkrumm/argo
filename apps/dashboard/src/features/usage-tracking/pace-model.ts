@@ -28,8 +28,6 @@ export interface PaceMarker {
   at: number
   /** `iu dry 3 Nov`. */
   label: string
-  /** `iu dry`, for a narrow plot. */
-  short: string
 }
 
 export interface PaceRule {
@@ -138,7 +136,6 @@ export function paceModel(pace: PaceResponse, only?: { account: string }): PaceM
         account: a,
         at: ms(pool.projection.dryAt),
         label: `${a} dry ${fmtDay(pool.projection.dryAt)}`,
-        short: `${a} dry`,
       })
     }
     if (pool.cycle.end !== null) {
