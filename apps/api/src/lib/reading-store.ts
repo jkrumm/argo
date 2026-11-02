@@ -3,7 +3,13 @@ import { db } from '../db/index.js'
 import { book, bookSyncMap, readingStat, userBook } from '../db/schema.js'
 import { env } from '../env.js'
 import { runCommand, splitCommand } from '../clients/command.js'
-import { createThrottle, parsePulledStats, type StatInput } from './reading-link.js'
+import {
+  createCoalescer,
+  createSingleFlight,
+  createThrottle,
+  parsePulledStats,
+  type StatInput,
+} from './reading-link.js'
 
 // ── Status id → label map ─────────────────────────────────────────────────────
 
@@ -202,13 +208,9 @@ export async function pullReadingStats(): Promise<boolean> {
   }
 }
 
-let pushInFlight = false
-
-/** Pipe the current shelf into the configured sink command. Fire-and-forget: never throws, one at a time. */
-export async function pushReadingShelf(): Promise<void> {
+async function pushOnce(): Promise<void> {
   const argv = splitCommand(env.READING_SHELF_SINK_CMD)
-  if (argv.length === 0 || pushInFlight) return
-  pushInFlight = true
+  if (argv.length === 0) return
 
   try {
     const shelf = await buildReadingShelf()
@@ -216,12 +218,19 @@ export async function pushReadingShelf(): Promise<void> {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[reading] shelf push failed:', e instanceof Error ? e.message : e)
-  } finally {
-    pushInFlight = false
   }
 }
 
-const throttledPull = createThrottle(pullReadingStats, PULL_MIN_INTERVAL_MS)
+/**
+ * Pipe the current shelf into the configured sink command. Fire-and-forget, never throws.
+ * One push at a time; requests during a push coalesce into one trailing push that rebuilds the shelf.
+ */
+export const pushReadingShelf = createCoalescer(pushOnce)
+
+/** Single-flight pull shared by the page-open path and the sync cron, so they never overlap. */
+export const pullReadingStatsShared = createSingleFlight(pullReadingStats)
+
+const throttledPull = createThrottle(pullReadingStatsShared, PULL_MIN_INTERVAL_MS)
 
 /** Page-open hook: throttled pull (bounded by the command timeout), then a background push if it ran. */
 export async function pullStatsForPageOpen(): Promise<void> {

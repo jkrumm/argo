@@ -64,3 +64,43 @@ export function createThrottle(
     return run
   }
 }
+
+/** Concurrent callers share the in-flight run; a call after it settles starts a new one. */
+export function createSingleFlight<T>(fn: () => Promise<T>): () => Promise<T> {
+  let inflight: Promise<T> | null = null
+  return () => {
+    inflight ??= fn().finally(() => {
+      inflight = null
+    })
+    return inflight
+  }
+}
+
+/**
+ * Single-flight with a trailing run: calls made while `fn` runs coalesce into exactly
+ * one more run after it settles. Fire-and-forget; `fn` is expected not to throw.
+ */
+export function createCoalescer(fn: () => Promise<void>): () => void {
+  let running = false
+  let pending = false
+
+  const drain = async (): Promise<void> => {
+    running = true
+    try {
+      do {
+        pending = false
+        await fn().catch(() => undefined)
+      } while (pending)
+    } finally {
+      running = false
+    }
+  }
+
+  return () => {
+    if (running) {
+      pending = true
+      return
+    }
+    void drain()
+  }
+}

@@ -6,7 +6,7 @@ import { userBook } from '../db/schema.js'
 import { hardcover, type HardcoverUserBook } from '../clients/hardcover.js'
 import { upsertBook } from '../lib/book-store.js'
 import { env } from '../env.js'
-import { pullReadingStats, pushReadingShelf } from '../lib/reading-store.js'
+import { pullReadingStatsShared, pushReadingShelf } from '../lib/reading-store.js'
 import { tracer } from '../telemetry.js'
 
 let inProgress = false
@@ -102,16 +102,15 @@ export async function runHardcoverSync(): Promise<{ upserted: number; errors: nu
   let errors = 0
   let upserted = 0
 
-  // Stat rows first so the 05:30 reconcile sees them; never throws.
-  await pullReadingStats()
-
   try {
+    // Stat rows first so the 05:30 reconcile sees them; never throws.
+    await pullReadingStatsShared()
+
     const rows = await hardcover.myShelf()
     upserted = rows.length
 
     await upsertBooks(rows)
     await upsertUserBooks(rows)
-    void pushReadingShelf()
 
     // eslint-disable-next-line no-console
     console.log(`[hardcover-sync] done: upserted=${upserted}`)
@@ -121,6 +120,7 @@ export async function runHardcoverSync(): Promise<{ upserted: number; errors: nu
     console.error('[hardcover-sync] failed:', e)
   } finally {
     inProgress = false
+    void pushReadingShelf()
   }
 
   return { upserted, errors }

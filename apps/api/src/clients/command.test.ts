@@ -50,6 +50,11 @@ describe('runCommand', () => {
     expect(Date.now() - started).toBeLessThan(3000)
   })
 
+  it('kills the child and rejects when stdout exceeds the cap', async () => {
+    const run = runCommand(['/bin/sh', '-c', 'exec yes'], { timeoutMs: 10_000 })
+    await expect(run).rejects.toThrow(/exceeded/)
+  })
+
   it('rejects an empty argv', async () => {
     await expect(runCommand([], { timeoutMs: 100 })).rejects.toThrow(/empty command/)
   })

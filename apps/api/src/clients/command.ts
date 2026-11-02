@@ -1,4 +1,5 @@
 const STDERR_LIMIT = 500
+const STDOUT_LIMIT = 5 * 1024 * 1024
 
 /**
  * Split a configured command string into argv on whitespace. There is no shell and
@@ -6,6 +7,25 @@ const STDERR_LIMIT = 500
  */
 export function splitCommand(command: string): string[] {
   return command.trim().split(/\s+/).filter(Boolean)
+}
+
+/** Read a stream to text; once more than STDOUT_LIMIT bytes arrive, kill the child and throw. */
+async function readCapped(
+  stream: ReadableStream<Uint8Array>,
+  kill: () => void,
+  cmd: string,
+): Promise<string> {
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of stream) {
+    size += chunk.byteLength
+    if (size > STDOUT_LIMIT) {
+      kill()
+      throw new Error(`${cmd} stdout exceeded ${STDOUT_LIMIT} bytes`)
+    }
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks).toString('utf8')
 }
 
 export interface RunCommandOptions {
@@ -39,7 +59,7 @@ export async function runCommand(argv: string[], opts: RunCommandOptions): Promi
 
   const finished = (async () => {
     const [stdout, stderr, code] = await Promise.all([
-      new Response(proc.stdout).text(),
+      readCapped(proc.stdout, () => proc.kill(), cmd),
       new Response(proc.stderr).text(),
       proc.exited,
     ])

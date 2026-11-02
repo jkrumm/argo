@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'bun:test'
-import { createThrottle, parsePulledStats } from './reading-link.js'
+import {
+  createCoalescer,
+  createSingleFlight,
+  createThrottle,
+  parsePulledStats,
+} from './reading-link.js'
 
 describe('parsePulledStats', () => {
   it('accepts a good body and applies defaults', () => {
@@ -83,5 +88,60 @@ describe('createThrottle', () => {
     expect(await run()).toBe(false)
     expect(await run()).toBe(false)
     expect(calls).toBe(1)
+  })
+})
+
+describe('createCoalescer', () => {
+  it('turns N calls during a run into exactly one trailing run', async () => {
+    let runs = 0
+    let release!: () => void
+    let gate = new Promise<void>((r) => (release = r))
+    const trigger = createCoalescer(async () => {
+      runs += 1
+      await gate
+    })
+    trigger()
+    trigger()
+    trigger()
+    trigger()
+    expect(runs).toBe(1)
+    const first = release
+    gate = new Promise<void>((r) => (release = r))
+    first()
+    await Bun.sleep(5)
+    expect(runs).toBe(2)
+    release()
+    await Bun.sleep(5)
+    expect(runs).toBe(2)
+  })
+
+  it('runs again for a call after everything settled', async () => {
+    let runs = 0
+    const trigger = createCoalescer(async () => {
+      runs += 1
+    })
+    trigger()
+    await Bun.sleep(5)
+    trigger()
+    await Bun.sleep(5)
+    expect(runs).toBe(2)
+  })
+})
+
+describe('createSingleFlight', () => {
+  it('shares the in-flight promise, then starts fresh', async () => {
+    let calls = 0
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const run = createSingleFlight(async () => {
+      calls += 1
+      await gate
+      return calls
+    })
+    const a = run()
+    const b = run()
+    release()
+    expect(await Promise.all([a, b])).toEqual([1, 1])
+    expect(await run()).toBe(2)
   })
 })
