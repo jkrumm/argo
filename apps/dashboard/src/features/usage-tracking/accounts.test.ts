@@ -4,9 +4,13 @@ import {
   IU_KEYS,
   IU_KEY_WALLETS,
   ME_API,
+  PAYER_LABELS,
+  PLAN_PRICE_USD,
   SUB_WALLETS,
+  USAGE_ACCOUNTS,
   USAGE_PAYERS,
   isKeyWallet,
+  planSuffix,
 } from './accounts'
 
 describe('IU key registry', () => {
@@ -41,5 +45,39 @@ describe('isKeyWallet', () => {
     expect(IU_KEY_WALLETS.every(isKeyWallet)).toBe(true)
     expect(isKeyWallet(ME_API)).toBe(false)
     expect(SUB_WALLETS.some(isKeyWallet)).toBe(false)
+  })
+})
+
+describe('plans and credit payers', () => {
+  it('prices iu as Ultra at $200 and the Max accounts at $100, the same as the credit each grants', () => {
+    expect(USAGE_ACCOUNTS.map((a) => [a.id, a.plan, PLAN_PRICE_USD[a.plan]])).toEqual([
+      ['iu', 'ultra', 200],
+      ['me', '5x', 100],
+      ['me2', '5x', 100],
+    ])
+    expect(PAYER_LABELS['iu-sub']).toBe('IU Ultra')
+    expect(SUB_WALLETS.map((w) => `${w.title}${planSuffix(w.plan)}`)).toEqual([
+      'IU Ultra',
+      'Me Max 5x',
+      'Me2 Max 5x',
+    ])
+  })
+
+  it('registers one credit payer per subscription, labelled as the Credits tab names the pool', () => {
+    const ids = USAGE_PAYERS.map((p) => p.id)
+    for (const a of USAGE_ACCOUNTS) expect(ids).toContain(a.creditPayer)
+    expect(USAGE_ACCOUNTS.map((a) => PAYER_LABELS[a.creditPayer])).toEqual([
+      'IU credit',
+      'Me credit',
+      'Me2 credit',
+    ])
+  })
+
+  it('draws the credit pools in a family of their own, neither the subscriptions’ nor the APIs’', () => {
+    const family = (id: string) => USAGE_PAYERS.find((p) => p.id === id)!.shade[0]
+    const credit = new Set(USAGE_ACCOUNTS.map((a) => family(a.creditPayer)))
+    expect(credit.size).toBe(1)
+    expect(credit.has(family('iu-sub'))).toBe(false)
+    expect(credit.has(family('iu-api'))).toBe(false)
   })
 })

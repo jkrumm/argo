@@ -39,7 +39,7 @@ describe('mixSegments', () => {
   it('has one segment per payer with something in it, in registry order, summing to the row', () => {
     const r = row('argo', [cell('iu-api', 3), cell('iu-sub', 90), cell('me-sub', 0)])
     const segments = mixSegments(r, 'cost')
-    expect(segments.map((s) => s.label)).toEqual(['IU Max', 'IU API'])
+    expect(segments.map((s) => s.label)).toEqual(['IU Ultra', 'IU API'])
     expect(segments.reduce((s, x) => s + x.value, 0)).toBe(r.cost)
   })
 

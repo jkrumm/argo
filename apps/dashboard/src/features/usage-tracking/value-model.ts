@@ -4,7 +4,7 @@
  * range: the range, or the days since its first row when it started later (a subscription bought
  * four days ago is not charged a whole month). No React, no queries.
  */
-import { PLAN_PRICE_USD, type SubWallet } from './accounts'
+import { PLAN_NAMES, PLAN_PRICE_USD, type SubWallet } from './accounts'
 
 const DAY_MS = 86_400_000
 const DAYS_PER_MONTH = 30
@@ -22,7 +22,7 @@ export const RANGE_DAYS: Record<Exclude<RangeKey, 'all'>, number> = {
 export type ComparedRow = {
   key: string
   title: string
-  /** `20x`; `—` for the summed row. */
+  /** `Ultra`, `5x`; `—` for the summed row. */
   plan: string
   /** Plan price per month; the summed row adds them. */
   price: number
@@ -103,7 +103,7 @@ export function comparedRows({
     return {
       key: w.id,
       title: w.title,
-      plan: w.plan,
+      plan: PLAN_NAMES[w.plan],
       price,
       days,
       listValue,

@@ -1,40 +1,80 @@
 import { BP } from 'basalt-ui/tokens'
 
 /**
- * The Claude Max subscriptions the usage page names: the one registry every subscription list
- * derives from (wallet cards, the Account control, the compared table, the quota lines, the weekly
- * stack). A fourth subscription is one more entry here and needs no layout change. The API accepts
- * any account id; an id missing here still reads as itself. `plan` is the Max tier multiplier,
- * `payer` the payer id the API derives from (billing max, this account).
+ * The Claude subscriptions the usage page names (`iu` is Ultra, `me` and `me2` are Max 5x): the one
+ * registry every subscription list derives from (wallet cards, the Account control, the compared
+ * table, the quota lines, the weekly stack, the Credits tab's pools). A fourth subscription is one more
+ * entry here and needs no layout change. The API accepts any account id; an id missing here still
+ * reads as itself. `plan` is the tier, `payer` the payer id the API derives from (billing max, this
+ * account) and `creditPayer` the one for the API credit the same subscription grants (billing
+ * api_credit, this account).
  */
 export const USAGE_ACCOUNTS = [
-  { id: 'iu', label: 'iu', plan: '20x', payer: 'iu-sub', who: 'IU pays · flat' },
-  { id: 'me', label: 'me', plan: '5x', payer: 'me-sub', who: 'I pay · flat' },
-  { id: 'me2', label: 'me2', plan: '5x', payer: 'me2-sub', who: 'I pay · flat' },
+  {
+    id: 'iu',
+    label: 'iu',
+    plan: 'ultra',
+    payer: 'iu-sub',
+    creditPayer: 'iu-credit',
+    who: 'IU pays · flat',
+  },
+  {
+    id: 'me',
+    label: 'me',
+    plan: '5x',
+    payer: 'me-sub',
+    creditPayer: 'me-credit',
+    who: 'I pay · flat',
+  },
+  {
+    id: 'me2',
+    label: 'me2',
+    plan: '5x',
+    payer: 'me2-sub',
+    creditPayer: 'me2-credit',
+    who: 'I pay · flat',
+  },
 ] as const
 
 export type AccountId = (typeof USAGE_ACCOUNTS)[number]['id']
 
+/** A subscription tier of the registry. */
+export type Plan = (typeof USAGE_ACCOUNTS)[number]['plan']
+
 /**
- * List price per month of a Max plan, in dollars (edit when a plan changes). The value multiple is
- * the list value of the usage over this price: what the flat fee bought.
+ * List price per month of a plan, in dollars (edit when a plan changes). The value multiple is the
+ * list value of the usage over this price: what the flat fee bought. The monthly API credit a plan
+ * grants is the same figure (Ultra $200, Max $100).
  */
-export const PLAN_PRICE_USD: Record<(typeof USAGE_ACCOUNTS)[number]['plan'], number> = {
-  '20x': 200,
+export const PLAN_PRICE_USD: Record<Plan, number> = {
+  ultra: 200,
   '5x': 100,
 }
 
+/** How a plan reads in a table cell or beside an account id: `Ultra`, `5x`. */
+export const PLAN_NAMES: Record<Plan, string> = { ultra: 'Ultra', '5x': '5x' }
+
+/** What a plan adds to its payer label in a wallet title: Ultra is in the label already, Max takes `5x`. */
+export const planSuffix = (plan: Plan | null): string =>
+  plan === null || plan === 'ultra' ? '' : ` ${PLAN_NAMES[plan]}`
+
 /**
- * Who pays for a row (the API derives it from billing + account + IU key): the Max subscriptions and
- * the metered APIs (the IU API per key, Me API); the registry the labels and colours derive from. The subscriptions are one family
- * (the same Claude Code usage) and take SHADES of the one accent, the biggest plan the strongest;
- * the metered APIs are a different kind of spend and stay neutral. `shade` is `[family, light
- * index, dark index]`: deeper ink on light, brighter on dark. `unknown` is the default grey.
+ * Who pays for a row (the API derives it from billing + account + IU key): the subscriptions (Ultra,
+ * Max), the API credit they grant (one pool per subscription) and the metered APIs (the IU API per
+ * key, Me API); the registry the labels and colours derive from. The subscriptions are one family
+ * (the same Claude Code usage) and take SHADES of the one accent, the biggest plan the strongest; the
+ * credit pools are a family of their own (SEPIA shades, one per pool in the subscriptions' order: the
+ * same grant, a different kind of money, never read as a subscription or as the metered API); the
+ * metered APIs stay neutral. `shade` is `[family, light index, dark index]`: deeper ink on light,
+ * brighter on dark. `unknown` is the default grey.
  */
 export const USAGE_PAYERS = [
-  { id: 'iu-sub', token: 'iuSub', label: 'IU Max', shade: [BP.blue, 0, 4] },
+  { id: 'iu-sub', token: 'iuSub', label: 'IU Ultra', shade: [BP.blue, 0, 4] },
   { id: 'me-sub', token: 'meSub', label: 'Me Max', shade: [BP.blue, 2, 2] },
   { id: 'me2-sub', token: 'me2Sub', label: 'Me2 Max', shade: [BP.blue, 3, 1] },
+  { id: 'iu-credit', token: 'iuCredit', label: 'IU credit', shade: [BP.sepia, 0, 4] },
+  { id: 'me-credit', token: 'meCredit', label: 'Me credit', shade: [BP.sepia, 2, 2] },
+  { id: 'me2-credit', token: 'me2Credit', label: 'Me2 credit', shade: [BP.sepia, 3, 1] },
   { id: 'iu-api', token: 'iuApi', label: 'IU API', shade: [BP.gray, 0, 2] },
   { id: 'iu-team-api', token: 'iuTeamApi', label: 'Athena team', shade: [BP.gray, 2, 4] },
   { id: 'me-api', token: 'meApi', label: 'Me API', shade: [BP.gray, 4, 1] },

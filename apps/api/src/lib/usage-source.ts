@@ -13,8 +13,9 @@ import { sql } from 'drizzle-orm'
  *   SourceRoot names the repo normaliser leaves NULL), else NULL; a path never leaks through
  * - `sub_tool` = the lane's tool label: workflow (+ `:step`) for `agw_workflow`, the subagent type, the
  *   raw collector string for `other`, otherwise the lane itself
+ * - `lane_detail` = the lane's jsonb as stored (the gateway's `caller`, `pool`, `fallback`, `costEstimatedUsd`)
  * - `billing` = `api_key` rows are the IU metered API (`iu`) when they carry an IU key, `openrouter`
- *   (personal pay-per-token) when they do not; `max` and `unknown` as stored
+ *   (personal pay-per-token) when they do not; `max`, `api_credit` (a request paid from a subscription's API credit) and `unknown` as stored
  * - `iu_key` = `api_key` on IU rows only
  * - `cache_write_tokens` = the 5 min and 1 h writes summed (the dashboard shows one write figure)
  * - `cost_usd` as float8 (the column is numeric; the queries sum and `Number()` it)
@@ -41,6 +42,7 @@ export const USAGE_ROWS = sql.raw(`(
       WHEN r.billing = 'api_key' THEN 'openrouter'
       ELSE r.billing
     END) AS billing,
+    r.lane_detail,
     r.account,
     (CASE WHEN r.billing = 'api_key' THEN r.api_key END) AS iu_key,
     r.machine,

@@ -100,7 +100,7 @@ export function SubscriptionMeter({
   const reading = quotaReading(sample, now)
   const ink = reading.state === null ? undefined : STATE_INK[reading.state]
   const caption = pctCaption(reading)
-  const title = `Max ${accountTitle(account)} · ${withUnit(7, 'd')}`
+  const title = `${accountTitle(account)} · ${withUnit(7, 'd')}`
   return (
     <Stack gap={4}>
       <Heading
