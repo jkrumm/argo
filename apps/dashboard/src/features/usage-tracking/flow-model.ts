@@ -364,7 +364,7 @@ export function factsOf(pace: PaceResponse, now: number): FactCell[] {
     },
     {
       key: 'iu',
-      caption: 'Claude on IU since the cutover',
+      caption: 'IU since the cutover',
       value: fmtUsd(claude),
       ...(claude > 1 ? { tone: 'warn' as const } : {}),
       footer: iuFooter,
@@ -638,6 +638,22 @@ export function agwOnKey(
     }
   }
   return { sinceUsd, lastRowAt }
+}
+
+/** An agw row on the team key newer than this still counts as agw billing it; older is a key agw has left. */
+export const AGW_STALE_MS = 6 * HOUR_MS
+
+/**
+ * How the Athena card reads agw: `bills` (warn ink, "still bills this key") only while an agw row is newer
+ * than 6 h; `quiet` (neutral, the $ since the cutover as a quiet figure) for a key agw has left, rows before
+ * the cutover included; `none` when there is no agw row at all.
+ */
+export function agwReading(
+  lastRowAt: string | null,
+  now: number,
+): { state: 'bills' | 'quiet' | 'none' } {
+  if (lastRowAt === null) return { state: 'none' }
+  return { state: now - new Date(lastRowAt).getTime() < AGW_STALE_MS ? 'bills' : 'quiet' }
 }
 
 // ── Insights ─────────────────────────────────────────────────────────────────────────────────

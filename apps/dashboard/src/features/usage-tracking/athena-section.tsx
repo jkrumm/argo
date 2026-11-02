@@ -15,7 +15,7 @@ import { useNow } from '../../lib/use-now'
 import { budgetReading } from './budget-model'
 import { CapMeter } from './limits'
 import { FlowBoundary } from './flow-boundary'
-import { agwOnKey, fmtDay, fmtInstant, fmtUsd } from './flow-model'
+import { agwOnKey, agwReading, fmtDay, fmtInstant, fmtUsd } from './flow-model'
 import { periodNoun } from './model'
 
 const fallback = (height: number) => (
@@ -80,7 +80,9 @@ function AgwCard() {
       payer: ['iu-team-api'],
     }),
   )
+  const now = useNow()
   const { sinceUsd, lastRowAt } = agwOnKey(data.buckets, new Date(pace.cutover).getTime())
+  const bills = agwReading(lastRowAt, now).state === 'bills'
   return (
     <ChartCard
       title="agw on this key since the cutover"
@@ -88,17 +90,26 @@ function AgwCard() {
       placeholderHeight="content"
     >
       <Stack gap={2} data-shot="flow-athena-agw">
-        <Text size="sm" fw={600} ff="monospace" {...(sinceUsd > 1 ? { c: VX.status.warn } : {})}>
+        <Text
+          size="sm"
+          fw={600}
+          ff="monospace"
+          {...(bills ? { c: VX.status.warn } : { c: 'dimmed' })}
+        >
           {fmtUsd(sinceUsd)}
         </Text>
-        {sinceUsd > 1 ? (
+        {bills ? (
           <Text size="xs" c={VX.status.warn}>
             agw still bills this key
           </Text>
         ) : null}
         <Text size="xs" c="dimmed">
           since {fmtInstant(pace.cutover)} ·{' '}
-          {lastRowAt === null ? 'no agw row in 30 days' : `last agw row ${fmtInstant(lastRowAt)}`}
+          {lastRowAt === null
+            ? 'no agw row in 30 days'
+            : bills
+              ? `last agw row ${fmtInstant(lastRowAt)}`
+              : `last agw row ${fmtInstant(lastRowAt)} · nothing since`}
         </Text>
       </Stack>
     </ChartCard>
