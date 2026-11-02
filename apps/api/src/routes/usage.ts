@@ -28,6 +28,7 @@ import { usageQuotaRoutes } from './usage-quota.js'
 import { usagePortalRoutes } from './usage-portal.js'
 import { usageAnalyticsRoutes } from './usage-analytics.js'
 import { usageSplitRoutes } from './usage-split.js'
+import { usageCreditsRoutes } from './usage-credits.js'
 import { USAGE_ROWS } from '../lib/usage-source.js'
 
 function groupColumnSql(groupBy: string) {
@@ -474,7 +475,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage timeseries',
         description:
-          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=hour|day|week (hour reads at most 30 d; buckets are UTC instants `YYYY-MM-DDTHH:00:00Z`), ?metric=cost|tokens|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write|errors|error_rate|latency_p95|cache_ratio (tokens excludes cache-read and is kept for old callers; tokens_output includes reasoning), ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|iu_key|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/iuKey[]/payer[]/project[] (iuKey = the IU API key, personal|athena-team; groupBy=iu_key reads "(unset)" for non-IU rows and for an IU row of unknown key; payer = iu-sub|me-sub|me2-sub|iu-api|iu-team-api|me-api|unknown, derived from billing + account + iu_key; project = normalized names, a <repo>-wt spelling folds to <repo>). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window. ?top=N (additive metrics only) keeps the N largest keys and folds the rest into a trailing "other" key.',
+          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=hour|day|week (hour reads at most 30 d; buckets are UTC instants `YYYY-MM-DDTHH:00:00Z`), ?metric=cost|tokens|tokens_input|tokens_output|tokens_cache_read|tokens_cache_write|errors|error_rate|latency_p95|cache_ratio (tokens excludes cache-read and is kept for old callers; tokens_output includes reasoning), ?groupBy=source|machine|model_norm|sub_tool|project|billing|account|iu_key|payer|outcome|none. Filter via sources[]/machines[]/billing[]/workspace[]/account[]/iuKey[]/payer[]/project[] (iuKey = the IU API key, personal|athena-team; groupBy=iu_key reads "(unset)" for non-IU rows and for an IU row of unknown key; payer = iu-sub|me-sub|me2-sub|iu-credit|me-credit|me2-credit|iu-api|iu-team-api|me-api|unknown, derived from billing + account + iu_key; project = normalized names, a <repo>-wt spelling folds to <repo>). Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window. ?top=N (additive metrics only) keeps the N largest keys and folds the rest into a trailing "other" key.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -563,7 +564,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage breakdown',
         description:
-          'Top-N grouped aggregate for a single metric over a window. dimension = project|workspace|model_norm|billing|account|iu_key|payer|outcome|source|machine|sub_tool (a NULL value reads "(unset)"). Filters as /usage/timeseries (sources[]/machines[]/billing[]/workspace[]/account[]/iuKey[]/payer[]/project[]; payer = iu-sub|me-sub|me2-sub|iu-api|iu-team-api|me-api|unknown). share is value / total over the window (so the displayed top-N can sum to less than 1).',
+          'Top-N grouped aggregate for a single metric over a window. dimension = project|workspace|model_norm|billing|account|iu_key|payer|outcome|source|machine|sub_tool (a NULL value reads "(unset)"). Filters as /usage/timeseries (sources[]/machines[]/billing[]/workspace[]/account[]/iuKey[]/payer[]/project[]; payer = iu-sub|me-sub|me2-sub|iu-credit|me-credit|me2-credit|iu-api|iu-team-api|me-api|unknown). share is value / total over the window (so the displayed top-N can sum to less than 1).',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -572,3 +573,4 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .use(usagePortalRoutes)
   .use(usageAnalyticsRoutes)
   .use(usageSplitRoutes)
+  .use(usageCreditsRoutes)
