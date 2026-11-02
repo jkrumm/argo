@@ -47,6 +47,11 @@
     <string>272</string>
     <key>GITLAB_BASE_URL</key>
     <string>https://gitlab.com</string>
+    <!-- The homelab owns these two commands: stats come out on stdout, the shelf goes in on stdin. -->
+    <key>READING_STATS_SOURCE_CMD</key>
+    <string>ssh -o BatchMode=yes -o ConnectTimeout=5 homelab ~/bin/reading-stats</string>
+    <key>READING_SHELF_SINK_CMD</key>
+    <string>ssh -o BatchMode=yes -o ConnectTimeout=5 homelab ~/bin/reading-shelf-sink</string>
   </dict>
 
   <key>RunAtLoad</key>

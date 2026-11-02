@@ -62,6 +62,13 @@ const EnvShape = z.object({
   GITLAB_BASE_URL: z.string().default('https://gitlab.com'),
   GITLAB_TOKEN: z.string().default(''),
   HARDCOVER_API_KEY: z.string().default(''),
+  // Homelab reading link. Each is an argv split on whitespace (no shell, no quoting).
+  // SOURCE: its stdout is `{"stats":[...]}` (the POST /reading/stats body); pulled when the
+  // reading page opens (throttled) and before the daily Hardcover sync.
+  // SINK: receives the `GET /reading` JSON on stdin; run after the Hardcover sync and after a pull.
+  // Empty (the default) switches the respective direction off.
+  READING_STATS_SOURCE_CMD: z.string().default(''),
+  READING_SHELF_SINK_CMD: z.string().default(''),
   // Self-hosted Open-Meteo instance (a stock Open-Meteo binary, same API
   // contract as api.open-meteo.com), e.g. https://weatherorb.mini.jkrumm.com.
   // Empty (the default) keeps the astro window's DWD ICON cloud upstream on

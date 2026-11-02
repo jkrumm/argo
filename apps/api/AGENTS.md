@@ -285,6 +285,14 @@ The Claude API credit pools the inference gateway pays from (agent-workflows `do
 
 Tests: `src/routes/usage.credits.test.ts` (scratch Postgres; a cycle crossing a month end via `loadCreditPools(now)` with a pinned clock, a null `cycle_end`, estimates, a missing `platform_cost`, picks grouping, cache per caller).
 
+## Reading (Hardcover + homelab link)
+
+Argo reaches out to the homelab over SSH; nothing on the homelab calls Argo (the tailnet ACL forbids it). Two env-configured commands, each an argv split on whitespace (no shell, no quoting; `clients/command.ts`), empty = off. Argo never names the source system behind them.
+
+- `READING_STATS_SOURCE_CMD`: stdout is exactly the `POST /reading/stats` body (`{"stats":[...]}`, `{"stats":[]}` when nothing; errors on stderr, non-zero exit). Validated with `StatInputSchema` (0..1000 rows) and upserted through `upsertReadingStats`, the same function the route uses. Pulled when `GET /reading` is served (at most once per 5 min, concurrent requests share one run, 8 s timeout; a failure logs a warning and the page is served from the DB) and at the start of `runHardcoverSync`.
+- `READING_SHELF_SINK_CMD`: receives the `GET /reading` JSON (`buildReadingShelf()`) on stdin. Pushed after `runHardcoverSync` (cron and `POST /reading/sync`) and after a page-open pull that ran. Fire-and-forget, 20 s timeout, one in flight, failures logged.
+- Code: `lib/reading-store.ts` (DB + wiring), `lib/reading-link.ts` (pure: schema, pulled-body validation, throttle). Tests: `clients/command.test.ts`, `lib/reading-link.test.ts`. Production values live in `deploy/com.jkrumm.argo.plist.template`.
+
 ## Garmin (Connect Personal API)
 
 `cron/garmin-sync.ts` (every 6 h + a 60 s manual-refresh poll) pulls straight from the official Garmin Connect Personal API through `clients/garmin.ts`; pure DTO → row mapping lives in `lib/garmin-mapping.ts`. Auth is a personal API key (`GARMIN_API_KEY`, `op://vps/argo/GARMIN_API_KEY`) exchanged for a 24 h JWT that the client caches in memory and re-mints when under 1 h is left (and once on a 401). Requests are sequential — rate limits are unpublished. The cron stays disabled while `GARMIN_API_KEY` is empty.
