@@ -51,6 +51,7 @@ export function OverTime({
   groupBy,
   groupOptions,
   workspace,
+  payerNoun = GROUP_NOUN.payer,
 }: {
   range: Range
   grain: Grain
@@ -60,6 +61,8 @@ export function OverTime({
   workspace: WorkspaceValue[] | undefined
   /** The tabs offered for the grouping: the IU API has no subscription split. */
   groupOptions: readonly UsageGroupBy[]
+  /** What grouping by payer is called: `subscription` on a Claude Max scope, `payer` across wallets. */
+  payerNoun?: string
 }) {
   const spend = lens === 'cost'
   const query = useSuspenseQuery(
@@ -94,24 +97,24 @@ export function OverTime({
   const shown = grain === 'hour' && (range === '90d' || range === 'all') ? '30d' : range
   const what = spend ? scope.word.charAt(0).toUpperCase() + scope.word.slice(1) : 'Fresh tokens'
   const formatBucket = grain === 'hour' ? shortHour : shortDay
+  const noun = groupBy === 'payer' ? payerNoun : GROUP_NOUN[groupBy]
+  const options = pickOptions(usageStore.field.groupBy.options, groupOptions).map((o) =>
+    o.value === 'payer'
+      ? { ...o, label: payerNoun.charAt(0).toUpperCase() + payerNoun.slice(1) }
+      : o,
+  )
   const emptyText = noDataInWindow('usage', range)
 
   return (
     <Box data-shot={`over-time-${scope.id}`} data-shot-states="empty">
       <ChartCard
-        title={`${what} per ${grain} · by ${GROUP_NOUN[groupBy]} · ${periodNoun(shown)}`}
+        title={`${what} per ${grain} · by ${noun} · ${periodNoun(shown)}`}
         info={INFO}
-        actions={
-          <ViewTabs
-            field={usageStore.field.groupBy}
-            options={pickOptions(usageStore.field.groupBy.options, groupOptions)}
-            label="Group by"
-          />
-        }
+        actions={<ViewTabs field={usageStore.field.groupBy} options={options} label="Group by" />}
         state={{ empty: (keys.length === 0 || total <= 0 || drawn.length === 0) && emptyText }}
       >
         <StackedArea
-          ariaLabel={`${what} per ${grain}, stacked by ${GROUP_NOUN[groupBy]}`}
+          ariaLabel={`${what} per ${grain}, stacked by ${noun}`}
           data={drawn}
           height={260}
           x={(d: TimePoint) => d.date}

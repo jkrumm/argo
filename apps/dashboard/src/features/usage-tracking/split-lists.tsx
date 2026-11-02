@@ -77,6 +77,7 @@ function Timeline({
   range,
   lens,
   workspace,
+  payers,
   now,
 }: {
   id: string
@@ -87,6 +88,7 @@ function Timeline({
   range: Range
   lens: UsageLens
   workspace: WorkspaceValue[] | undefined
+  payers: PayerValue[] | undefined
   now: number
 }) {
   const cost = lens === 'cost'
@@ -98,6 +100,7 @@ function Timeline({
       metric: cost ? 'cost' : 'tokens',
       groupBy: 'payer',
       project: [rowKey],
+      payer: payers,
       workspace,
     }),
     enabled: project,
@@ -151,12 +154,15 @@ export function SplitList({
   lens,
   range,
   workspace,
+  payers,
 }: {
   dimension: SplitDimension
   rows: readonly SplitRow[]
   lens: UsageLens
   range: Range
   workspace: WorkspaceValue[] | undefined
+  /** The payers the rows were read for (their timelines read the same); none = every wallet. */
+  payers?: PayerValue[] | undefined
 }) {
   const dim = DIMENSIONS[dimension]
   const cost = lens === 'cost'
@@ -174,6 +180,7 @@ export function SplitList({
       metric: cost ? 'cost' : 'tokens',
       groupBy: dim.groupBy,
       top: SERIES_TOP,
+      payer: payers,
       workspace,
     }),
   )
@@ -279,6 +286,7 @@ export function SplitList({
                     range={range}
                     lens={lens}
                     workspace={workspace}
+                    payers={payers}
                     now={now}
                   />
                 ) : null}

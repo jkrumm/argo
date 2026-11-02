@@ -69,16 +69,19 @@ export function Compared({
   rows,
   sum,
   range,
+  title = 'Compared',
 }: {
   rows: readonly ComparedRow[]
   sum: ComparedRow
   range: '7d' | '30d' | '90d' | 'all'
+  /** The table's name: one subscription's detail is not a comparison. */
+  title?: string
 }) {
   const data = shotState() === 'empty' ? [] : rows.length > 1 ? [...rows, sum] : [...rows]
   return (
     <Box data-shot="compared" data-shot-states="empty">
       <BasaltDataTable
-        title={`Compared · ${periodNoun(range)}`}
+        title={`${title} · ${periodNoun(range)}`}
         subtitle="List value is never charged · value multiple = list value ÷ plan price for the days held in the range · quota peak from the collector’s samples"
         data={data}
         columns={columns}
