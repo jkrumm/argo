@@ -14,6 +14,7 @@ import { usageStore } from '../../lib/window-stores'
 import { AthenaSection } from './athena-section'
 import { DemandColumn } from './demand-column'
 import { FlowBoundary } from './flow-boundary'
+import { InsightsStrip } from './insights-strip'
 import { parseNode, toggleNode } from './flow-node'
 import { NodeDetail } from './node-detail'
 import { RouterColumn } from './router-column'
@@ -41,6 +42,11 @@ export function FlowTab({ range, node }: { range: Range; node: string }) {
       <FlowBoundary noun="the credit verdict" height={520}>
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={520} />}>
           <VerdictBand />
+        </Suspense>
+      </FlowBoundary>
+      <FlowBoundary noun="the insights" height={120}>
+        <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={120} />}>
+          <InsightsStrip range={range} />
         </Suspense>
       </FlowBoundary>
       <SimpleGrid type="container" cols={{ base: 1, [CONTAINER_KEYS.wide]: 3 }} spacing="md">

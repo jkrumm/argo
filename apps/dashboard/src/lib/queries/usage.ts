@@ -123,6 +123,10 @@ export type LaneSplitParams = {
   top?: number | undefined
 }
 
+export type InsightsPeriod = '7d' | '30d'
+const fetchInsights = async (query: { period: InsightsPeriod }) =>
+  unwrap(await api.usage.insights.get({ query }))
+
 const fetchPace = async () => unwrap(await api.usage.pace.get())
 const fetchRouter = async (query: { range: Range }) => unwrap(await api.usage.router.get({ query }))
 const fetchDemand = async (query: DemandParams & { top: number }) =>
@@ -131,6 +135,8 @@ const fetchDemand = async (query: DemandParams & { top: number }) =>
 const fetchLaneSplit = async (query: LaneSplitParams & { top: number }) =>
   unwrap(await api.usage.split.get({ query: { ...query, by: 'lane' } }))
 
+export type InsightsResponse = Awaited<ReturnType<typeof fetchInsights>>
+export type Insight = InsightsResponse['items'][number]
 export type PaceResponse = Awaited<ReturnType<typeof fetchPace>>
 export type PacePool = PaceResponse['pools'][number]
 export type RouterResponse = Awaited<ReturnType<typeof fetchRouter>>
@@ -226,6 +232,13 @@ export const usageQueries = {
     queryOptions({
       queryKey: [...usageQueries.all(), 'pace'] as const,
       queryFn: fetchPace,
+    }),
+  /** The strip under the verdict: ranked observations by rules over a rolling period. */
+  insights: (period: InsightsPeriod) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'insights', period] as const,
+      queryFn: () => fetchInsights({ period }),
+      refetchInterval: 5 * 60_000,
     }),
   router: (range: Range) =>
     queryOptions({
