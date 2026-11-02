@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check deploy verify rollback logs evidence design-shot db-rehearse verify-pages
+.PHONY: help check deploy verify rollback logs evidence design-shot db-rehearse verify-pages version
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -20,6 +20,9 @@ check: ## Run exactly the local validation CI runs (drift, lint, format, typeche
 
 deploy: ## Deploy origin/master to the mini: release, LaunchAgent, health wait, rollback on failure (DRY_RUN=1 = plan only)
 	@zsh scripts/deploy.sh
+
+version: ## Print the deployed commit sha (what the factory checks a shipped commit against)
+	@cat "$(HOME)/.argo/data/deployed-sha"
 
 verify: ## Prove the deployed process: launchd, sha = origin/master, SPA + assets, bearer guard, both DB schemas, clean stderr
 	@zsh scripts/verify.sh
