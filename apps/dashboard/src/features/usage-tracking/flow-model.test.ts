@@ -4,6 +4,7 @@ import { DEMAND, PACE, ROUTER } from './flow-fixtures'
 import {
   agwOnKey,
   cacheShare,
+  lastRequestNote,
   coldCaller,
   costPerRun,
   demandTotals,
@@ -422,5 +423,25 @@ describe('insights strip', () => {
     const v = insightsView(data({ items: [item('a', 1, true)], unavailable: ['router'] }))
     expect(v.items.map((i) => i.id)).toEqual(['a'])
     expect(v.note).toBe('Could not read the router.')
+  })
+})
+
+describe('lastRequestNote', () => {
+  const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString()
+
+  it('stays silent while the newest gateway row is within 30 min, or there is none', () => {
+    expect(lastRequestNote(at(2), NOW)).toBeNull()
+    expect(lastRequestNote(at(30), NOW)).toBeNull()
+    expect(lastRequestNote(null, NOW)).toBeNull()
+  })
+
+  it('reads the age once the newest row is older than 30 min', () => {
+    expect(lastRequestNote(at(31), NOW)).toBe('last request 31\u00a0min ago')
+    expect(lastRequestNote(at(180), NOW)).toBe('last request 3\u00a0h ago')
+    expect(lastRequestNote(at(3 * 24 * 60), NOW)).toBe('last request 3\u00a0d ago')
+  })
+
+  it('reads the fixture as fresh at the spec instant', () => {
+    expect(lastRequestNote(ROUTER.lastRequestAt, NOW)).toBeNull()
   })
 })

@@ -133,6 +133,7 @@ export const ROUTER: RouterResponse = {
   ],
   picksAvailable: true,
   routeFallbackMeasured: false,
+  lastRequestAt: '2026-11-02T15:58:00.000Z',
 }
 
 const zero = { prod: 0, eval: 0, verify: 0, other: 0 }

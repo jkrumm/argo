@@ -302,6 +302,16 @@ export function reportAgeNote(pace: PaceResponse, now: number): string | null {
   return oldest > 6 * 3_600_000 ? `provider report ${formatAge(oldest)} old` : null
 }
 
+/** Gateway silence the Router and Demand headers call out (spec §Empty and stale). */
+export const GATEWAY_STALE_MS = 30 * 60_000
+
+/** "last request {age} ago" once the newest gateway row is older than 30 min; null while fresh or without rows. */
+export function lastRequestNote(lastRequestAt: string | null, now: number): string | null {
+  if (lastRequestAt === null) return null
+  const age = now - new Date(lastRequestAt).getTime()
+  return age > GATEWAY_STALE_MS ? `last request ${formatAge(age)} ago` : null
+}
+
 export function factsOf(pace: PaceResponse, now: number): FactCell[] {
   const enabled = enabledPools(pace)
   const off = pace.pools.filter((p) => !p.enabled)

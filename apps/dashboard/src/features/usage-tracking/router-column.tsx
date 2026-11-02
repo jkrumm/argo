@@ -5,19 +5,21 @@
  * first card opens its detail.
  */
 import { Suspense } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { Stack, Text } from '@mantine/core'
 import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
+import { useNow } from '../../lib/use-now'
 import { FlowBoundary } from './flow-boundary'
 import {
   cacheRows,
   coldCaller,
   fmtUsd,
   iuByCause,
+  lastRequestNote,
   picksByReason,
   picksByTarget,
   routerNotes,
@@ -196,9 +198,15 @@ export function RouterColumn({
   slot: NodeSlot
   onSelect: (value: string) => void
 }) {
+  const { data } = useQuery(usageQueries.router(range))
+  const now = useNow()
+  const note = shotState() === 'empty' ? null : lastRequestNote(data?.lastRequestAt ?? null, now)
   return (
     <Stack gap="md" miw={0}>
-      <ColumnHeader name="Router" window={periodNoun(range)} />
+      <ColumnHeader
+        name="Router"
+        window={note === null ? periodNoun(range) : `${periodNoun(range)} · ${note}`}
+      />
       <FlowBoundary noun="gateway picks" height={300}>
         <Suspense fallback={fallback(300)}>
           <PicksCard range={range} node={slot.node} onSelect={onSelect} />

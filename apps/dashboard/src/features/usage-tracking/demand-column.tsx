@@ -5,12 +5,13 @@
  * holds that analysis).
  */
 import { Suspense } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Group, Stack, Text } from '@mantine/core'
 import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
+import { useNow } from '../../lib/use-now'
 import { FlowBoundary } from './flow-boundary'
 import {
   CREDIT_PAYERS,
@@ -20,6 +21,7 @@ import {
   demandTotals,
   fmtUsd,
   laneRows,
+  lastRequestNote,
   originKnown,
   purposeSegments,
 } from './flow-model'
@@ -212,9 +214,17 @@ export function DemandColumn({
   slot: NodeSlot
   onSelect: (value: string) => void
 }) {
+  // The gateway's silence is a router fact; both columns read it from the one /usage/router query.
+  const { data } = useQuery(usageQueries.router(range))
+  const now = useNow()
+  const note = shotState() === 'empty' ? null : lastRequestNote(data?.lastRequestAt ?? null, now)
   return (
     <Stack gap="md" miw={0}>
-      <ColumnHeader name="Demand" window={periodNoun(range)} last />
+      <ColumnHeader
+        name="Demand"
+        window={note === null ? periodNoun(range) : `${periodNoun(range)} · ${note}`}
+        last
+      />
       <FlowBoundary noun="agw workflows" height={300}>
         <Suspense fallback={fallback(300)}>
           <WorkflowsCard range={range} node={slot.node} onSelect={onSelect} />
