@@ -17,7 +17,10 @@ async function readCapped(
 ): Promise<string> {
   const chunks: Uint8Array[] = []
   let size = 0
-  for await (const chunk of stream) {
+  const reader = stream.getReader()
+  for (;;) {
+    const { done, value: chunk } = await reader.read()
+    if (done) break
     size += chunk.byteLength
     if (size > STDOUT_LIMIT) {
       kill()
