@@ -1,6 +1,7 @@
 # Usage Tracking — spec (v7, the money flow)
 
-> **Status: draft for the owner's sign-off** (agent-workflows Wave 7, 2026-11-02). Nothing below is built. It supersedes
+> **Status: signed by the owner 2026-11-02** with decisions 1–4 as recommended, decision 5 deferred to 7 days of
+> post-hotfix data, and one addition: §Insights. Built in agent-workflows Wave 7b. It supersedes
 > v6's page (tabs Overview, Claude Max, IU API, Credits); v6 and its build records are in this file's git history at
 > `614b5972`. Token accounting, the vocabulary and the IU key reading rules carry over (§Carried from v6).
 
@@ -162,6 +163,21 @@ v6's analysis blocks, across every payer at once, with a **Payer** multi-select 
 instead of one tab per wallet: Over time (group by payer, tool, model, project), Projects | Tools rows with their daily
 timelines, Rhythm, Weekly volume. Range, Measure, Workspace, Grain as in v6. Athena team is off by default and never in
 an "all".
+
+### Insights (owner addition at sign-off)
+
+Under the verdict, before the flow: three to five ranked observations, each one sentence that names a number and links
+to the node it is about. Examples from today's data: "review is 98 % of production credit", "the review hotfix cut the
+cost per review from $0.78 to $0.16", "`me` carries every eval, `iu` every production call", "the Athena key has $35 of
+headroom until 12 Nov", "no Claude work fell back to IU today".
+
+- **Facts by rules, never by a model.** Each insight is a deterministic detector over the same endpoints: the biggest
+  share, the biggest mover against the previous period, a pace change, a seat or route change and its effect, a
+  fallback to IU, a cache-hit drop, a cap approaching. A detector fires only past its threshold; ranked by money moved.
+- **Wording may use `agw digest`** (Haiku, cents a day) to turn a detector's facts into the sentence; the numbers are
+  inserted from the facts, never written by the model. Without it a template sentence is shown.
+- An insight with thin data says so, like every other view. Empty state: "nothing stands out".
+- Endpoint `/usage/insights?period=` returns the fired detectors with their facts, rank and target node.
 
 ## Endpoints
 
