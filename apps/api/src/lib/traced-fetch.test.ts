@@ -242,24 +242,24 @@ describe('tracedFetch', () => {
     let captured: Span | undefined
     const res = await tracedFetch('https://example.test/stream', undefined, {
       streamLifecycle: true,
-      // watchdogMs=200 -> rearmDebounceMs derives to 50ms (min(30_000, 200/4)).
+      // watchdogMs=2000 -> rearmDebounceMs derives to 500ms (min(30_000, 2000/4)).
       // This is the regression the idle-reset behavior prevents: a
-      // total-duration timer would have fired at 200ms, well before this
-      // loop's total ~240ms (4 * 60ms) elapses. Each chunk, arriving 60ms
-      // after the last (re)arm (> the 50ms debounce), pushes the 200ms
+      // total-duration timer would have fired at 2000ms, well before this
+      // loop's total ~2400ms (4 * 600ms) elapses. Each chunk, arriving 600ms
+      // after the last (re)arm (> the 500ms debounce), pushes the 2000ms
       // deadline back out, so the span must stay open the entire time —
       // mirroring a long-but-healthy Hermes run that keeps streaming
-      // tool-call output well past 10 minutes. Margins here (60ms sleep vs
-      // 50ms debounce, 200ms deadline vs a fresh 200ms window each rearm)
+      // tool-call output well past 10 minutes. Margins here (600ms sleep vs
+      // 500ms debounce, 2000ms deadline vs a fresh 2000ms window each rearm)
       // are generous specifically to absorb real-timer jitter under a busy
       // test runner.
-      watchdogMs: 200,
+      watchdogMs: 2000,
       onSpan: (span) => {
         captured = span
       },
     })
     for (let i = 0; i < 4; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 60))
+      await new Promise((resolve) => setTimeout(resolve, 600))
       push(new Uint8Array([i]))
       expect(captured?.isRecording()).toBe(true)
     }
