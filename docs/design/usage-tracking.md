@@ -58,14 +58,14 @@ Owner verdict on v5 (2026-10-27): the wallet cards work; tokens must be as promi
 
 ### Families
 
-- **Claude Max** = every Max subscription (`iu-sub` 20x, `me-sub` 5x, `me2-sub` 5x, any later one). Same work, compared and summed. Hues: IU Max gold, Me Max sky, Me2 Max turquoise.
+- **Claude Max** = every subscription (`iu-sub` Ultra $200 — the tab keeps the name Claude Max —, `me-sub` Max 5x, `me2-sub` Max 5x, any later one). Same work, compared and summed. Hues: IU Max gold, Me Max sky, Me2 Max turquoise.
 - **IU API** = the metered lane (neutral greys), different use cases, its own tab. It has one wallet per IU API key (`personal`, payer `iu-api`; `athena-team`, payer `iu-team-api`, Athena Teamchat's shared key), each with its own rolling-30-day $500 cap. `Me API` stays a footnote card at ≥ $1.
 
 A subscription with no usage and no quota sample in the range has no card and no series (me2 before its first login).
 
 ### Tabs and controls
 
-`Overview · Claude Max · IU API`. Filters: Range, Measure (`$` / Tokens), Workspace; Grain where a chart reads it. Claude Max tab adds an Account segmented control (All + one per subscription) that scopes the whole tab; the IU API tab adds a Key segmented control (`All | Personal | Athena team`, `usageStore.iuKey`, same home and persistence) that scopes the whole tab.
+`Overview · Claude Max · IU API · Credits`. Filters: Range, Measure (`$` / Tokens), Workspace; Grain where a chart reads it. Claude Max tab adds an Account segmented control (All + one per subscription) that scopes the whole tab; the IU API tab adds a Key segmented control (`All | Personal | Athena team`, `usageStore.iuKey`, same home and persistence) that scopes the whole tab.
 
 ### Overview
 
@@ -105,7 +105,7 @@ v5's wallet tab for the IU API, plus a coverage line: the share of spend with no
 
 **No portal report yet** (a key IU's portal has not reported for: `fetchedAt` null, or no portal days). One shared cause and next step on the wallet card, the Limit card and the Portal vs tracked card: "No portal report for this key yet · the next portal sync fills the cap" ("… fills this comparison" on the Portal vs tracked card), and on the cap a plain line "tracked so far $3 of $500 · 30 d" from the rolling-30-day split. A meter is never drawn from tracked spend (the portal is the cap's truth), and the Limit card's info says so instead of describing a meter and its tick. The Portal vs tracked card keeps its frame and title (`Portal vs tracked · Athena team spend · 30 d`) with that line inside. A synthetic empty state (a shot with the data withheld) keeps the section's original line, "Portal vs tracked · connect the portal sync".
 
-Plan prices (list, per month, edit in `accounts.ts` when a plan changes): Max 20x $200, Max 5x $100. The value multiple is list value at API prices over that price — what the flat fee bought.
+Plan prices (list, per month, edit in `accounts.ts` when a plan changes): Ultra (`iu`) $200, Max 5x $100 — also the API credit each plan grants a cycle (`PLAN_NAMES`, `planSuffix` name the plan in tables and wallet titles; the payer label is `IU Ultra`). The value multiple is list value at API prices over that price — what the flat fee bought.
 
 ## Page structure (v5, Wave 5 — supersedes v3)
 
@@ -369,3 +369,41 @@ Decisions and deviations:
 - The Wallet card's title stays "IU API"; the IU API tab's cards use the key label.
 
 Shots: `make design-shot` rounds `iu-keys-r1` .. `r4` and basalt shot rounds `iu-keys-r5` .. `r7` on production data, `/usage-tracking` with `?view=iu-api`, `&iuKey=personal` and `&iuKey=athena-team`, light + dark, 1440 + 390. The team key had records but no portal report during the rounds, so its no-portal state is what the shots show; its 1–3-row layouts are covered by model tests.
+
+## Credits tab (gateway credit pools, 2026-11-02)
+
+The fourth tab. A local inference gateway pays Claude API calls from the monthly API credit each subscription grants its own Console org (`iu` Ultra $200, `me` $100, `me2` $100, which is not enabled yet), else from the IU API; the credit expires with the billing cycle, no rollover (agent-workflows `docs/gateway.md` §What the credit is). Question the tab answers: **will each pool be spent before it expires, and is the gateway routing as intended?**
+
+**Payers.** `iu-credit`, `me-credit`, `me2-credit` = `billing=api_credit` + account, labelled `IU credit` / `Me credit` / `Me2 credit`. Before this change an `api_credit` row fell to `unknown`; `usage-query.test.ts` pins the CASE text and `usage.credits.test.ts` proves it through `/usage/breakdown`, `/usage/split` and the `payer[]` filter. They take a family of their own, **sepia shades** two steps apart (strongest for `iu`), because a credit is neither a subscription (blue shades) nor a metered API (greys) and no other family in the app is spent on a payer. DESIGN.md's payer table has no row for them yet (a file this change does not own).
+
+**Controls.** Only Range applies (it drives picks and cache); Measure, Grain and Workspace are hidden. The pools are cycle-based and ignore Range.
+
+```
+Credits (per pool, registry order iu, me, me2; pools the API returns)
+  Section "<pool>"  subtitle: cycle "29 Oct – 5 Nov", or "cycle unknown · last 31 d"
+    strip   Credit left of grant · Spent (metered, estimated) · Unspent at cycle end (days left, $/day)
+    chart   Credit left per day of the axis: Metered (the pool's sepia shade) and Provider report (muted);
+            subtitle: "Provider report refreshed <time>, lags by hours" | "not available yet" | "no report for this pool"
+    line    Previous cycle (ended …): $X reconciled, $Y unspent
+Routing and cache (page Range)
+  Where requests went   daily stacked picks by target (pools, IU API, refused) + fallback share;
+  Target and reason     picks by target · reason, fallbacks marked
+  Cache hit rate per caller   cache-read / (input + cache-read + cache-write), requests beside it
+```
+
+**Decisions.**
+
+- *Credit left = grant − max(metered, reported).* Our meter misses spend made outside the gateway (iu spent $56.11 on 2026-10-31 before any gateway); the provider's report includes it but lags by hours. Each source is drawn as its own line (credit left by that source) so a gap between them is visible; the headline takes the lower.
+- *Estimates count.* A gateway row with no `cost_usd` contributes `lane_detail.costEstimatedUsd`; the strip says how much of the metered figure is estimated.
+- *A cycle without an end* (`credit_cycles.cycle_end` NULL while the billing day is unknown) draws the last 31 days, says "cycle unknown" and shows no projection; a pool with no open cycle row has no grant, so no chart and no credit left, only the spend.
+- *Projection.* `grant − spent − (mean daily spend of the last 7 days × days left)`, floored at 0. It assumes the last week's pace holds and the provider's lag is covered by the meter.
+- *Fallback* = a pick of the IU passthrough (`iu-api`) with a reason other than `forced`. A refusal is not a fallback (nothing was served), and a pool named `iu` is a pool.
+- *Cache rate counts every gateway row,* credit or IU passthrough: the cache is a property of the caller. Prompt caches are per organization, so a session that changes pool starts cold.
+- *`usage.platform_cost` is optional.* Its migration is a usage-tracker branch; until it is applied the API answers `reported.available=false` and the tab says so instead of failing.
+
+| Piece | Code | Data |
+|-|-|-|
+| Registry | `accounts.ts`: `USAGE_ACCOUNTS[].creditPayer`, the three credit entries of `USAGE_PAYERS` | none |
+| Reads | `credit-queries.ts` | `GET /usage/credits/{pools,picks,cache}` |
+| Model | `credits-model.ts` (pool order and titles, `burnRows`, picks folded per day, `reasonLines`, `cacheRows`; tests `credits-model.test.ts`) | none |
+| View | `credits-tab.tsx`, mounted by `routes/usage-tracking.tsx` (`usageStore.view = credits`) | the reads above |

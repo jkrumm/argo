@@ -93,6 +93,7 @@ describe('usageStore view, lens and groupBy', () => {
 
   it('accepts every value from the URL', () => {
     expect(usageStore.validateSearch({ view: 'iu-api' }).view).toBe('iu-api')
+    expect(usageStore.validateSearch({ view: 'credits' }).view).toBe('credits')
     expect(usageStore.validateSearch({ lens: 'tokens' }).lens).toBe('tokens')
     expect(usageStore.validateSearch({ groupBy: 'project' }).groupBy).toBe('project')
     expect(usageStore.validateSearch({ grain: 'hour' }).grain).toBe('hour')

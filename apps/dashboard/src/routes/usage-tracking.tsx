@@ -11,6 +11,7 @@ import {
   validateUsageSearch,
 } from '../lib/window-stores'
 import { ClaudeTab } from '../features/usage-tracking/claude-tab'
+import { CreditsTab } from '../features/usage-tracking/credits-tab'
 import { IuApiTab } from '../features/usage-tracking/iu-api-tab'
 import { Overview } from '../features/usage-tracking/overview'
 import { pickOptions } from '../features/usage-tracking/pick-options'
@@ -42,15 +43,19 @@ function UsageTrackingPage() {
         filters={
           <FilterSet>
             <SelectFilter field={usageStore.field.range} label="Range" />
-            <SelectFilter field={usageStore.field.lens} label="Measure" />
-            {search.view === 'overview' ? null : (
-              <SelectFilter field={usageStore.field.grain} label="Grain" />
+            {search.view === 'credits' ? null : (
+              <>
+                <SelectFilter field={usageStore.field.lens} label="Measure" />
+                {search.view === 'overview' ? null : (
+                  <SelectFilter field={usageStore.field.grain} label="Grain" />
+                )}
+                <MultiSelectFilter
+                  field={usageStore.field.workspace}
+                  label="All workspaces"
+                  noun="workspaces"
+                />
+              </>
             )}
-            <MultiSelectFilter
-              field={usageStore.field.workspace}
-              label="All workspaces"
-              noun="workspaces"
-            />
           </FilterSet>
         }
       />
@@ -74,6 +79,8 @@ function UsageTrackingPage() {
             groupBy={search.groupBy}
             workspace={workspace}
           />
+        ) : search.view === 'credits' ? (
+          <CreditsTab range={search.range} />
         ) : (
           <Overview range={search.range} lens={search.lens} workspace={workspace} />
         )}
