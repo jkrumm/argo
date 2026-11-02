@@ -6,19 +6,20 @@ item 3): Argo is for analysis, Hermes is reached through iris. Argo moves to the
 **Gate:** `make check` in argo green; `/review` on the diff; after the push, the deploy is live
 (`make verify`: health `commit` equals `origin/master`) and the dashboard loads every remaining page.
 
-## Wave 1 — Remove the Hermes chat            <!-- status: done -->
+## Wave 1 — Remove the Hermes chat <!-- status: done -->
+
 Workers: Sonnet for the removal, Haiku for the doc sweep. Orchestrated: do NOT spawn a next wave.
 
 - [x] **Back up first.** Dump `argo.hermes_thread` and `argo.hermes_message` from the VPS Postgres to
-  `homelab:/mnt/hdd/backups/argo-hermes-final/` (gzipped SQL plus `SHA256SUMS`, verified on both ends) before
-  any migration drops them. No dump, no drop.
+      `homelab:/mnt/hdd/backups/argo-hermes-final/` (gzipped SQL plus `SHA256SUMS`, verified on both ends) before
+      any migration drops them. No dump, no drop.
 - [x] **API:** delete `routes/hermes.ts` and its libs (`hermes-{chunks,events,streams,trace,upstream}.ts`,
-  `resumable.ts`, `finish-reason-transform.ts` if nothing else imports it), the DeepSeek thread titling, the
-  `REDIS_URL`/ioredis dependency, `HERMES_BASE_URL`/`HERMES_API_KEY` config, and the public
-  `/hermes/health/public` route; a Drizzle migration drops the two tables. Keep `/ai` and `lib/ai-sentence.ts`
-  (astro/marine verdicts) unless nothing calls them after the removal; say which in Left behind.
+      `resumable.ts`, `finish-reason-transform.ts` if nothing else imports it), the DeepSeek thread titling, the
+      `REDIS_URL`/ioredis dependency, `HERMES_BASE_URL`/`HERMES_API_KEY` config, and the public
+      `/hermes/health/public` route; a Drizzle migration drops the two tables. Keep `/ai` and `lib/ai-sentence.ts`
+      (astro/marine verdicts) unless nothing calls them after the removal; say which in Left behind.
 - [x] **Dashboard:** delete `features/hermes-chat/`, `HermesWidget` and `HermesVoiceButton` from `routes/__root.tsx`,
-  the nav entry and the route; no dead imports, `make check` green.
+      the nav entry and the route; no dead imports, `make check` green.
 - [x] **Wiring outside argo:**
   - `vps/apps/argo/compose.yml`: drop argo-api's `valkey-net` and `REDIS_URL`, and the Hermes env lines in
     `vps/apps/argo/.env.tpl`. Remove the `redis` container itself only if no other service on the VPS uses it
@@ -29,10 +30,11 @@ Workers: Sonnet for the removal, Haiku for the doc sweep. Orchestrated: do NOT s
     reaches Hermes (a memo routed to Hermes, or iris's own Hermes health probe) after the change. If the ACL
     push needs the owner, write it into Left behind instead of blocking.
 - [x] **Docs:** AGENTS.md, README, `docs/HERMES-CHAT-PRD.md` (delete), and any page naming the chat; hermes-agent's
-  docs that call Argo its chat surface (`docs/gateway-http-api.md`).
+      docs that call Argo its chat surface (`docs/gateway-http-api.md`).
 - [x] **Ship:** push to master (RollHook deploys), `make verify`, load each remaining dashboard page once.
 
 **Left behind:** Wave 1 shipped; no further wave in this plan.
+
 - **Live:** argo `a9290f53` (`make verify` health commit = `origin/master`); migration 0029 applied (both tables gone);
   argo-api recreated from the new `vps` compose (no `REDIS_URL`, `HERMES_*` or `valkey-net`); all 14 dashboard routes load
   with zero console errors or failed requests; `/hermes-chat` is the not-found page. The `verifier` could not authenticate

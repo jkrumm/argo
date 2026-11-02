@@ -16,27 +16,27 @@ mapping.
 
 ## Payer mapping
 
-| Payer | billing | account | Today (all time) |
-|-|-|-|-|
-| `iu-sub` | max | iu | 623,935 rows |
-| `me-sub` | max | me | 591 rows (first on 2026-10-24) |
-| `iu-api` | iu | any | 131,564 rows |
-| `me-api` | openrouter | any | 47 rows, $0.003 (2026-10-05); lights up on any new `openrouter` row |
-| `unknown` | anything else, including Max without an account | | 31,919 Max rows, see finding 2 |
+| Payer     | billing                                         | account | Today (all time)                                                    |
+| --------- | ----------------------------------------------- | ------- | ------------------------------------------------------------------- |
+| `iu-sub`  | max                                             | iu      | 623,935 rows                                                        |
+| `me-sub`  | max                                             | me      | 591 rows (first on 2026-10-24)                                      |
+| `iu-api`  | iu                                              | any     | 131,564 rows                                                        |
+| `me-api`  | openrouter                                      | any     | 47 rows, $0.003 (2026-10-05); lights up on any new `openrouter` row |
+| `unknown` | anything else, including Max without an account |         | 31,919 Max rows, see finding 2                                      |
 
 Derived in the query layer (`PAYER_SQL`), not stored, so history re-reads correctly.
 
 ## 48 h by payer × day (after a forced sync)
 
-| day | payer | rows local | rows argo | tokens local | tokens argo | cost local | cost argo |
-|-|-|-|-|-|-|-|-|
-| 2026-10-22 | iu-api | 435 | 435 | 59027824 | 59027824 | 2.84 | 2.84 |
-| 2026-10-22 | iu-sub | 1324 | 1324 | 227246584 | 227246584 | 103.94 | 103.94 |
-| 2026-10-23 | iu-api | 2384 | 2395 | 323542134 | 323544128 | 20.91 | 21.00 |
-| 2026-10-23 | iu-sub | 11864 | 11864 | 2055474479 | 2055474479 | 903.30 | 903.30 |
-| 2026-10-24 | iu-api | 1858 | 1868 | 233176875 | 233180582 | 15.54 | 15.55 |
-| 2026-10-24 | iu-sub | 5281 | 5281 | 867916518 | 867916518 | 409.41 | 409.41 |
-| 2026-10-24 | me-sub | 487 | 487 | 88872428 | 88872428 | 45.82 | 45.82 |
+| day        | payer  | rows local | rows argo | tokens local | tokens argo | cost local | cost argo |
+| ---------- | ------ | ---------- | --------- | ------------ | ----------- | ---------- | --------- |
+| 2026-10-22 | iu-api | 435        | 435       | 59027824     | 59027824    | 2.84       | 2.84      |
+| 2026-10-22 | iu-sub | 1324       | 1324      | 227246584    | 227246584   | 103.94     | 103.94    |
+| 2026-10-23 | iu-api | 2384       | 2395      | 323542134    | 323544128   | 20.91      | 21.00     |
+| 2026-10-23 | iu-sub | 11864      | 11864     | 2055474479   | 2055474479  | 903.30     | 903.30    |
+| 2026-10-24 | iu-api | 1858       | 1868      | 233176875    | 233180582   | 15.54      | 15.55     |
+| 2026-10-24 | iu-sub | 5281       | 5281      | 867916518    | 867916518   | 409.41     | 409.41    |
+| 2026-10-24 | me-sub | 487        | 487       | 88872428     | 88872428    | 45.82      | 45.82     |
 
 Keyed diff of the 23,654 Argo rows against the 23,633 local rows: 0 rows only local, 21 only in Argo,
 0 cost differences, 1 account difference (pending, then resolved by the forced sync).
@@ -48,10 +48,10 @@ Keyed diff of the 23,654 Argo rows against the 23,633 local rows: 0 rows only lo
 
 ## Quota and picks
 
-| | local | argo |
-|-|-|-|
-| `quota_sample` | 32 (32 synced) | 32 |
-| `account_pick` | 20 (20 synced) | 20 |
+|                | local          | argo |
+| -------------- | -------------- | ---- |
+| `quota_sample` | 32 (32 synced) | 32   |
+| `account_pick` | 20 (20 synced) | 20   |
 
 Before the forced sync: 30/28 and 18/17 — the difference was exactly the unsynced rows.
 
@@ -66,11 +66,11 @@ findings 1 and 2.
 `session_env` line (`~/.claude/logs`) → `usage_record` (local) → Argo row, matched on the session id in
 `raw`; row count, cost and tokens are identical in both stores:
 
-| Session | Lane | Account in `session_env` | Local row | Argo row |
-|-|-|-|-|-|
-| `57fb6aa8…` | fan (interactive spawn) | iu | max / iu, 1 row, $0.0046 | max / iu, 1 row, $0.0046 |
-| `5afa20db…` | interactive | me | max / me, 1 row, $0.0025 | max / me, 1 row, $0.0025 |
-| `c00167b8…` | agent-gateway:otel worker (harness claude) | me | max / me, 2 rows, $0.1608 | max / me, 2 rows, $0.1608 |
+| Session     | Lane                                       | Account in `session_env` | Local row                 | Argo row                  |
+| ----------- | ------------------------------------------ | ------------------------ | ------------------------- | ------------------------- |
+| `57fb6aa8…` | fan (interactive spawn)                    | iu                       | max / iu, 1 row, $0.0046  | max / iu, 1 row, $0.0046  |
+| `5afa20db…` | interactive                                | me                       | max / me, 1 row, $0.0025  | max / me, 1 row, $0.0025  |
+| `c00167b8…` | agent-gateway:otel worker (harness claude) | me                       | max / me, 2 rows, $0.1608 | max / me, 2 rows, $0.1608 |
 
 ## Findings
 
@@ -94,13 +94,13 @@ No usage-tracker bug was found.
 
 ## What migration 0024 selects on prod (read-only, 2026-10-24)
 
-| | rows | cost |
-|-|-|-|
-| Step 1: NULL-machine rows with an identical twin (same ts, tokens, billing, model, cost) | 24,803 | $3,080.99 |
-| Step 2 cutoff: first Max `me` row | 2026-10-24T16:27:59Z (the first `me` row on any billing lane is the same instant) | |
-| Step 2: Max rows with NULL account before the cutoff, before step 1 | 31,919 | $4,101.72 |
-| Step 2: the same, after step 1 has removed the twins (what is actually re-accounted and archived) | 7,165 | $1,024.54 |
-| Max rows with NULL account at or after the cutoff (left untouched) | 0 | |
+|                                                                                                   | rows                                                                              | cost      |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------- |
+| Step 1: NULL-machine rows with an identical twin (same ts, tokens, billing, model, cost)          | 24,803                                                                            | $3,080.99 |
+| Step 2 cutoff: first Max `me` row                                                                 | 2026-10-24T16:27:59Z (the first `me` row on any billing lane is the same instant) |           |
+| Step 2: Max rows with NULL account before the cutoff, before step 1                               | 31,919                                                                            | $4,101.72 |
+| Step 2: the same, after step 1 has removed the twins (what is actually re-accounted and archived) | 7,165                                                                             | $1,024.54 |
+| Max rows with NULL account at or after the cutoff (left untouched)                                | 0                                                                                 |           |
 
 The 7,165 are all `claude-code` rows of machine `MacBook Pro (M2 Max)`, 2026-05-11 … 2026-07-02. The other
 24,754 of the 31,919 are the NULL-machine rows step 1 deletes. The strict step 1 predicate (billing, model

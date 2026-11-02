@@ -283,7 +283,7 @@ The Claude API credit pools the inference gateway pays from (agent-workflows `do
 - `GET /usage/credits/picks?range` — `gateway_picks` counted by `picked` × `reason` (`cells`, ranked) and per UTC day (`daily`); `picked` is a pool id, `iu-api` (the IU passthrough; a pool may itself be named `iu`) or `refused`. `fallbacks` = picks of `iu-api` with a reason other than `forced` (each cell carries the same rule as `fallback`); `refused` is reported on its own (a refusal serves nothing). A drained retry writes two picks.
 - `GET /usage/credits/cache?range` — per `lane_detail->>'caller'` over every `source='gateway'` row (credit or IU passthrough): requests, input / cache-read / cache-write tokens and `hitRate = cacheRead / (input + cacheRead + cacheWrite)` (null without input), ties ordered by code unit.
 
-Tests: `src/routes/usage.credits.test.ts` (scratch Postgres; a cycle crossing a month end via `loadCreditPools(now)` with a pinned clock, a null `cycle_end`, estimates, a missing `platform_cost`, picks grouping, cache per caller). Until the `platform_cost` migration is on usage-tracker master, the test setup creates the table itself (`CREATE TABLE IF NOT EXISTS`).
+Tests: `src/routes/usage.credits.test.ts` (scratch Postgres; a cycle crossing a month end via `loadCreditPools(now)` with a pinned clock, a null `cycle_end`, estimates, a missing `platform_cost`, picks grouping, cache per caller).
 
 ## Garmin (Connect Personal API)
 

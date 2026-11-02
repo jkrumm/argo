@@ -6,16 +6,11 @@ import { loadCreditPools } from './usage-credits.js'
 import { db, runMigrations } from '../db/index.js'
 
 // Integration tests for the Credits tab's endpoints and the credit payers. They need the scratch
-// Postgres of `bun test:api`. usage.platform_cost belongs to a usage-tracker migration that is not on its
-// master yet, so setup creates it here (same columns) when it is missing.
+// Postgres of `bun test:api`, whose usage schema comes from usage-tracker's migrations (0014 api_credit,
+// 0015 platform_cost).
 
 beforeAll(async () => {
   await runMigrations()
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS usage.platform_cost (
-      account text NOT NULL, day date NOT NULL, model text, api_key_id text,
-      cost_usd numeric NOT NULL, refreshed_at timestamptz NOT NULL
-    )`)
 })
 
 const app = new Elysia().use(usageRoutes)
@@ -332,7 +327,7 @@ describe('GET /usage/credits/pools', () => {
     }
   })
 
-  it('answers without a reported series while usage.platform_cost does not exist yet', async () => {
+  it('answers without a reported series while usage.platform_cost is missing', async () => {
     await db.execute(sql`ALTER TABLE usage.platform_cost RENAME TO platform_cost_away`)
     try {
       await seedRows([{ id: 'm1', ts: '2026-11-01T10:00:00Z', cost: 2 }])

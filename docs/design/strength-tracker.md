@@ -280,14 +280,14 @@ This section is the contract the code is built to; later rounds judge against it
 
 ### Scenario: what the reader comes for, in order
 
-| # | Question | Facts that answer it | Where |
-|-|-|-|-|
-| 1 | Am I training, and is it working? | when the last session was; how many lifts moved up in 28 d | page headline |
-| 2 | Which lifts are moving? | per lift: latest e1RM (kg), 28 d delta (kg), the last N sessions as a line against the PR, PR date | lift strip |
-| 3 | How hard should today be? | readiness score against Rest / Push thresholds, ACWR against its zones, deload signal | call card |
-| 4 | Is each lift's load right? | per lift: 28 d velocity (%/mo) with its direction word, weekly volume (kg/wk), INOL per session | per-lift table (was "Strength scan") |
-| 5 | How did I get here? | the charts, by section: Strength, Load, Balance, Readiness | sections, page period in every title |
-| 6 | Why does the model say so? | composite z-scores, training/recovery alignment | `Diagnostics`, collapsed |
+| #   | Question                          | Facts that answer it                                                                               | Where                                |
+| --- | --------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 1   | Am I training, and is it working? | when the last session was; how many lifts moved up in 28 d                                         | page headline                        |
+| 2   | Which lifts are moving?           | per lift: latest e1RM (kg), 28 d delta (kg), the last N sessions as a line against the PR, PR date | lift strip                           |
+| 3   | How hard should today be?         | readiness score against Rest / Push thresholds, ACWR against its zones, deload signal              | call card                            |
+| 4   | Is each lift's load right?        | per lift: 28 d velocity (%/mo) with its direction word, weekly volume (kg/wk), INOL per session    | per-lift table (was "Strength scan") |
+| 5   | How did I get here?               | the charts, by section: Strength, Load, Balance, Readiness                                         | sections, page period in every title |
+| 6   | Why does the model say so?        | composite z-scores, training/recovery alignment                                                    | `Diagnostics`, collapsed             |
 
 The right rail (Log, Timer, Recent records) is the working tool, not a reading surface; it answers "what do I lift now".
 
@@ -309,12 +309,12 @@ The right rail (Log, Timer, Recent records) is the working tool, not a reading s
 
 Columns by fold priority, the highest folds first:
 
-| Column | Priority | 390 | Why |
-|-|-|-|-|
-| Exercise | 0 | stays | the row's identity |
-| 28 d trend (%/mo + word) | 1 | stays | the table's answer to Q4; ~150 px fits beside the name |
-| Volume, kg/wk · 10 wk | 2 | row detail | a bar spark needs ~80 px with its header to mean anything |
-| INOL · 15 sessions | 3 | row detail | as above |
+| Column                   | Priority | 390        | Why                                                       |
+| ------------------------ | -------- | ---------- | --------------------------------------------------------- |
+| Exercise                 | 0        | stays      | the row's identity                                        |
+| 28 d trend (%/mo + word) | 1        | stays      | the table's answer to Q4; ~150 px fits beside the name    |
+| Volume, kg/wk · 10 wk    | 2        | row detail | a bar spark needs ~80 px with its header to mean anything |
+| INOL · 15 sessions       | 3        | row detail | as above                                                  |
 
 A column that cannot fit becomes **row detail** through `BasaltDataTable`'s own disclosure, which renders the folded column
 under its header label, so nothing is a silently unlabelled cell. The previous local fold (unlabelled-scale minis under the
@@ -339,12 +339,12 @@ collapsed.
 
 ### Dropped or moved
 
-| What | Fate | Reason |
-|-|-|-|
-| Scan `e1RM, kg` sparkline column | dropped | the strip draws the same series with its PR line |
-| Scan `Status` column and its dot | merged into the trend cell | same fact as velocity |
-| Local Vol/INOL minis under the lift name at 390 | dropped | the table's row detail carries them, labelled |
-| Headline narration of the strips | replaced by the last-session fact | facts only |
+| What                                            | Fate                              | Reason                                           |
+| ----------------------------------------------- | --------------------------------- | ------------------------------------------------ |
+| Scan `e1RM, kg` sparkline column                | dropped                           | the strip draws the same series with its PR line |
+| Scan `Status` column and its dot                | merged into the trend cell        | same fact as velocity                            |
+| Local Vol/INOL minis under the lift name at 390 | dropped                           | the table's row detail carries them, labelled    |
+| Headline narration of the strips                | replaced by the last-session fact | facts only                                       |
 
 ### Wave 50 round 1 (`w50-r1`, live after #195–#196)
 
