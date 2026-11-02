@@ -34,6 +34,9 @@ import {
 /** Under this plot width (px) the band and marker captions shorten and stack. */
 const NARROW_PLOT_PX = 520
 
+/** A dry marker past this share of the plot width labels to its left: no room to its right. */
+const DRY_LEFTWARD_FROM = 0.7
+
 const poolColor = (account: string) => colorForPayer(poolPayer(account))
 
 /** Strokes per kind: the actual line carries the pool, the even pace stays a whisper, the projection is dashed. */
@@ -124,8 +127,8 @@ export function PaceChart({
             fontSize: VX.text.xs,
             anchor: 'end',
             dx: -4,
-            // Stacked on a phone, where two renewals sit a few px apart.
-            dy: narrow ? -6 - i * 13 : -6,
+            // Stacked on a phone, where two renewals sit a few px apart: one full line apart.
+            dy: narrow ? -6 - i * 16 : -6,
           }),
         ),
       )
@@ -199,9 +202,11 @@ export function PaceChart({
     }
 
     // The first pool to run dry labels to the left of its marker, the later ones to the right, so two
-    // pools drying within days of each other do not print over one another.
+    // pools drying within days of each other do not print over one another. A marker in the right part of
+    // the plot labels leftwards too, so the date never clips at the edge; on a phone the labels also stack.
     for (const [i, marker] of model.dry.entries()) {
       const point = { at: new Date(marker.at), usd: 0 }
+      const leftwards = i === 0 || (plot.xFraction(point.at) ?? 0) > DRY_LEFTWARD_FROM
       out.push(
         dot([point], {
           id: `dry-${marker.account}`,
@@ -217,12 +222,12 @@ export function PaceChart({
             id: `dry-label-${marker.account}`,
             x: (d) => d.at,
             y: (d) => d.usd,
-            text: () => (narrow ? marker.short : marker.label),
+            text: () => marker.label,
             fill: VX.ink2,
             fontSize: VX.text.xs,
-            anchor: i === 0 ? 'end' : 'start',
-            dx: i === 0 ? -8 : 8,
-            dy: narrow ? -8 - i * 13 : -8,
+            anchor: leftwards ? 'end' : 'start',
+            dx: leftwards ? -8 : 8,
+            dy: narrow ? -8 - i * 16 : -8,
           }),
         ),
       )
