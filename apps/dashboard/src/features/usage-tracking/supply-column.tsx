@@ -8,6 +8,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Group, Stack, Text } from '@mantine/core'
 import { Meter } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
+import { alpha } from 'basalt-ui/tokens'
 import { usageQueries } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
@@ -24,6 +25,9 @@ import { under, type NodeSlot } from './flow-slot'
 const fallback = (height: number) => (
   <ChartCard state={{ pending: true }} placeholderHeight={height} />
 )
+
+/** The share of the payer shade the outside-the-gateway part of a pool bar takes: same hue, lighter. */
+const OUTSIDE_ALPHA = 0.45
 
 const POOLS_INFO =
   'The API credit each subscription grants its Console org every cycle (Ultra $200, Max $100): it expires unspent, and the gateway draws on the pool that expires first. The bar is spend of the grant (our meter against the provider’s report, the larger per day); the tick is where an even pace would have it today.'
@@ -55,11 +59,17 @@ function PoolRow({
         {reading.enabled ? (
           <Meter
             label={`${reading.title}: ${fmtUsd(spent)} spent of ${fmtUsd(reading.grantUsd)}`}
-            value={spent}
+            segments={[
+              {
+                value: reading.outsideUsd,
+                label: 'spent outside the gateway',
+                color: alpha(color, OUTSIDE_ALPHA),
+              },
+              { value: reading.throughUsd, label: 'through it', color },
+            ]}
             max={reading.grantUsd}
             format={fmtUsd}
             size="row"
-            color={color}
             {...(reading.evenSpentUsd === null
               ? {}
               : { ticks: [{ at: reading.evenSpentUsd, label: 'even pace today' }] })}
@@ -103,7 +113,7 @@ function PoolsCard({
           )
         })}
         <Text size="xs" c="dimmed">
-          Bar: spent of the grant · tick: even pace today
+          | even pace today
         </Text>
       </Stack>
     </ChartCard>
