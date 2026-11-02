@@ -100,6 +100,11 @@ describe('credit payers', () => {
       `/usage/breakdown?range=7d&metric=cost&dimension=source&sources=${SOURCE}&payer=me-credit&payer=me2-credit`,
     )
     expect(only.total).toBe(6)
+    // The billing filter knows api_credit: it keeps the three credit rows and drops the rest.
+    const byBilling = await getJson<{ total: number }>(
+      `/usage/breakdown?range=7d&metric=cost&dimension=source&sources=${SOURCE}&billing=api_credit`,
+    )
+    expect(byBilling.total).toBe(7)
   })
 
   it('shows up as a payer in the split totals', async () => {
@@ -136,7 +141,7 @@ describe('GET /usage/credits/pools', () => {
     const { pools } = await loadCreditPools(now)
     const iu = pools.find((p) => p.account === 'iu')!
     expect(iu.cycle).toEqual({
-      known: true,
+      status: 'open',
       start: '2026-10-29T14:00:00.000Z',
       end: '2026-11-05T14:00:00.000Z',
     })
@@ -205,12 +210,17 @@ describe('GET /usage/credits/pools', () => {
     const { pools } = await loadCreditPools(now)
     expect(pools.map((p) => p.account)).toEqual(['me', 'me2'])
     const me = pools[0]!
-    expect(me.cycle).toEqual({ known: false, start: '2026-10-20T00:00:00.000Z', end: null })
+    expect(me.cycle).toEqual({
+      status: 'unknown-end',
+      start: '2026-10-20T00:00:00.000Z',
+      end: null,
+    })
     expect(me.points).toHaveLength(31)
     expect([me.points[0]!.day, me.points.at(-1)!.day]).toEqual(['2026-10-03', '2026-11-02'])
     expect(me).toMatchObject({
       grantUsd: 100,
       meteredUsd: 3,
+      creditLeftUsd: 97,
       daysLeft: null,
       projectedUnspentUsd: null,
       previous: null,
@@ -241,6 +251,85 @@ describe('GET /usage/credits/pools', () => {
     const iu = pools.find((p) => p.account === 'iu')!
     expect(iu).toMatchObject({ grantUsd: null, creditLeftUsd: null, spentUsd: 5 })
     expect(iu.previous).toMatchObject({ reconciledUsd: null, grantUsd: 200 })
+  })
+
+  it('counts the balance of a cycle with no known end from its start, past the 31-day chart window', async () => {
+    await db.execute(sql`
+      INSERT INTO usage.credit_cycles (account, cycle_start, cycle_end, grant_usd, metered_usd)
+      VALUES ('me', '2026-09-20T00:00:00Z', NULL, 100, 0)`)
+    await seedRows([
+      { id: 'w1', ts: '2026-09-25T10:00:00Z', account: 'me', cost: 30 }, // before the axis starts
+      { id: 'w2', ts: '2026-10-25T10:00:00Z', account: 'me', cost: 3 },
+    ])
+    await db.execute(sql`
+      INSERT INTO usage.platform_cost (account, day, model, api_key_id, cost_usd, refreshed_at)
+      VALUES ('me', '2026-09-25', NULL, NULL, 35, '2026-11-02T09:00:00Z')`)
+    const { pools } = await loadCreditPools(now)
+    const me = pools[0]!
+    expect(me).toMatchObject({ meteredUsd: 33, spentUsd: 35, creditLeftUsd: 65 })
+    expect(me.points).toHaveLength(31)
+    // The chart starts at the balance the cycle had reached, not at the full grant.
+    expect(me.points[0]).toMatchObject({ day: '2026-10-03', meteredUsd: 30, creditLeftUsd: 65 })
+  })
+
+  it('shows an ended, unclosed cycle as awaiting reconcile, never as credit left; a newer open one wins', async () => {
+    await db.execute(sql`
+      INSERT INTO usage.credit_cycles (account, cycle_start, cycle_end, grant_usd, metered_usd)
+      VALUES ('iu', '2026-10-01T00:00:00Z', '2026-11-01T00:00:00Z', 200, 0)`)
+    await seedRows([{ id: 'a1', ts: '2026-10-20T10:00:00Z', cost: 25 }])
+    const awaiting = (await loadCreditPools(now)).pools[0]!
+    expect(awaiting.cycle).toEqual({
+      status: 'awaiting-reconcile',
+      start: '2026-10-01T00:00:00.000Z',
+      end: '2026-11-01T00:00:00.000Z',
+    })
+    expect(awaiting).toMatchObject({
+      grantUsd: 200,
+      creditLeftUsd: null,
+      projectedUnspentUsd: null,
+      meteredUsd: 25,
+      spentUsd: 25,
+    })
+    expect(awaiting.points.every((p) => p.creditLeftUsd === null)).toBe(true)
+
+    await db.execute(sql`
+      INSERT INTO usage.credit_cycles (account, cycle_start, cycle_end, grant_usd, metered_usd)
+      VALUES ('iu', '2026-11-01T00:00:00Z', '2026-12-01T00:00:00Z', 200, 0)`)
+    const open = (await loadCreditPools(now)).pools[0]!
+    expect(open.cycle.status).toBe('open')
+    expect(open).toMatchObject({ creditLeftUsd: 200, meteredUsd: 0 })
+  })
+
+  it('degrades to the spend alone while usage.credit_cycles is missing', async () => {
+    await db.execute(sql`ALTER TABLE usage.credit_cycles RENAME TO credit_cycles_away`)
+    try {
+      await seedRows([{ id: 'g1', ts: '2026-11-01T10:00:00Z', cost: 2 }])
+      const result = await loadCreditPools(now)
+      expect(result.cyclesAvailable).toBe(false)
+      expect(result.pools[0]).toMatchObject({
+        account: 'iu',
+        grantUsd: null,
+        creditLeftUsd: null,
+        spentUsd: 2,
+        cycle: { status: 'none' },
+      })
+    } finally {
+      await db.execute(sql`ALTER TABLE usage.credit_cycles_away RENAME TO credit_cycles`)
+    }
+  })
+
+  it('reads a platform_cost of another shape as no provider report instead of failing', async () => {
+    await db.execute(sql`ALTER TABLE usage.platform_cost RENAME COLUMN cost_usd TO cost_cents`)
+    try {
+      await seedRows([{ id: 'sh1', ts: '2026-11-01T10:00:00Z', cost: 2 }])
+      const { pools } = await loadCreditPools(now)
+      expect(pools[0]).toMatchObject({
+        meteredUsd: 2,
+        reported: { available: false, usd: null, refreshedAt: null },
+      })
+    } finally {
+      await db.execute(sql`ALTER TABLE usage.platform_cost RENAME COLUMN cost_cents TO cost_usd`)
+    }
   })
 
   it('answers without a reported series while usage.platform_cost does not exist yet', async () => {
@@ -320,6 +409,20 @@ describe('GET /usage/credits/picks', () => {
       '/usage/credits/picks?range=30d',
     )
     expect(month).toMatchObject({ total: 9, fallbacks: 4 })
+  })
+
+  it('answers an empty, unavailable list while usage.gateway_picks is missing', async () => {
+    await db.execute(sql`ALTER TABLE usage.gateway_picks RENAME TO gateway_picks_away`)
+    try {
+      expect(await getJson('/usage/credits/picks?range=7d')).toMatchObject({
+        available: false,
+        total: 0,
+        cells: [],
+        daily: [],
+      })
+    } finally {
+      await db.execute(sql`ALTER TABLE usage.gateway_picks_away RENAME TO gateway_picks`)
+    }
   })
 
   it('is empty without picks', async () => {

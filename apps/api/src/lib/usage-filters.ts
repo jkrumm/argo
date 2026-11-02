@@ -4,7 +4,7 @@ import { IuKeyEnum } from './iu-keys.js'
 import { normalizeProject } from './project-normalize.js'
 import { ACCOUNT_PATTERN, PAYER_EXPR, PayerEnum, WorkspaceEnum } from './usage-query.js'
 
-export const BillingEnum = z.enum(['max', 'iu', 'openrouter', 'unknown'])
+export const BillingEnum = z.enum(['max', 'api_credit', 'iu', 'openrouter', 'unknown'])
 
 /**
  * Accept either a single scalar or an array for filter query params.

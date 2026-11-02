@@ -32,11 +32,14 @@ function daysBetween(from: string, to: string): string[] {
 }
 
 export interface CycleWindow {
-  /** The pool's cycle is known (it has a start and an end); false = the last 31 days stand in. */
+  /** The cycle has a start and an end: the axis is the whole cycle. false = the last 31 days stand in. */
   known: boolean
   /** The axis: every UTC day of the cycle, or the last 31 days ending today. */
   days: string[]
-  /** Rows at or after this instant count towards the pool. */
+  /**
+   * Rows count towards the pool from this instant, whatever the axis: the cycle start when there is a
+   * cycle (so the balance never depends on the chart window), else the axis start.
+   */
   fromTs: Date
   /** Rows before this instant count; null = no upper bound. */
   toTs: Date | null
@@ -45,8 +48,8 @@ export interface CycleWindow {
 /**
  * The day axis of a pool. A cycle with a start and an end runs `cycle_start .. cycle_end` (the end is the
  * next cycle's start, so the last day is the one before it). Without an end (`cycle_end` NULL, or no cycle
- * row at all) the axis is the last 31 days, and a row counts from the later of the cycle start and the
- * axis start.
+ * at all) the axis is the last 31 days; spend from before the axis still counts from the cycle start
+ * (`burndown`'s baseline), so a balance is never cut to the chart window.
  */
 export function cycleWindow(
   cycle: { start: Date; end: Date | null } | null,
@@ -63,14 +66,22 @@ export function cycleWindow(
   }
   const today = utcDay(now)
   const first = addDays(today, -(UNKNOWN_CYCLE_DAYS - 1))
-  const axisStart = new Date(`${first}T00:00:00Z`)
-  const fromTs = cycle && cycle.start.getTime() > axisStart.getTime() ? cycle.start : axisStart
-  return { known: false, days: daysBetween(first, today), fromTs, toTs: null }
+  return {
+    known: false,
+    days: daysBetween(first, today),
+    fromTs: cycle?.start ?? new Date(`${first}T00:00:00Z`),
+    toTs: null,
+  }
 }
 
 export interface DaySpend {
   day: string
   usd: number
+}
+
+/** The spend dated before `firstDay`. */
+export function baselineUsd(days: readonly DaySpend[], firstDay: string): number {
+  return days.filter((d) => d.day < firstDay).reduce((acc, d) => acc + d.usd, 0)
 }
 
 export interface BurnPoint {
@@ -96,10 +107,17 @@ export function burndown(input: {
   metered: readonly DaySpend[]
   reported: readonly DaySpend[] | null
 }): BurnPoint[] {
-  const meteredByDay = new Map(input.metered.map((d) => [d.day, d.usd]))
-  const reportedByDay = input.reported ? new Map(input.reported.map((d) => [d.day, d.usd])) : null
-  let metered = 0
-  let reported = 0
+  const firstDay = input.days[0] ?? input.today
+  // Spend dated before the axis (a cycle with no known end can start before its 31 days) is the
+  // starting level of the cumulative lines, so the balance counts from the cycle start.
+  const meteredByDay = new Map(
+    input.metered.filter((d) => d.day >= firstDay).map((d) => [d.day, d.usd]),
+  )
+  const reportedByDay = input.reported
+    ? new Map(input.reported.filter((d) => d.day >= firstDay).map((d) => [d.day, d.usd]))
+    : null
+  let metered = baselineUsd(input.metered, firstDay)
+  let reported = input.reported ? baselineUsd(input.reported, firstDay) : 0
   return input.days.map((day) => {
     if (day > input.today) {
       return { day, meteredUsd: null, reportedUsd: null, creditLeftUsd: null }
@@ -138,6 +156,8 @@ export function projectUnspent(input: {
   grantUsd: number | null
   cycleEnd: Date | null
   now: Date
+  /** Spend dated before the first day of the axis; the starting level of a younger-than-a-week axis. */
+  baselineUsd?: number
 }): Projection {
   const spentAt = (day: string): number => {
     let spent = 0
@@ -151,7 +171,8 @@ export function projectUnspent(input: {
   const first = input.points[0]?.day ?? input.today
   const elapsed = Math.max(1, (Date.parse(input.today) - Date.parse(first)) / DAY_MS + 1)
   const window = Math.min(RATE_DAYS, elapsed)
-  const before = elapsed > RATE_DAYS ? spentAt(addDays(input.today, -RATE_DAYS)) : 0
+  const before =
+    elapsed > RATE_DAYS ? spentAt(addDays(input.today, -RATE_DAYS)) : (input.baselineUsd ?? 0)
   const rate = (spent - before) / window
   const daysLeft = input.cycleEnd
     ? Math.max(0, (input.cycleEnd.getTime() - input.now.getTime()) / DAY_MS)

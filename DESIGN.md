@@ -153,13 +153,16 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 
 ### Usage tracker — payer (`payer-` prefix — `USAGE_PAYER.*`)
 
-The page's default split and filter. The API derives the payer from billing + account. The Max subscriptions are one family (the same Claude Code usage), so they take SHADES of the one accent, the biggest plan the strongest; the metered APIs are a different kind of spend and stay neutral grey. Owner verdict 2026-10-27: the v5/v6 hues (gold, violet, turquoise) read as unprofessional; shades replace them.
+The page's default split and filter. The API derives the payer from billing + account. The credit pools (`api_credit` rows the inference gateway writes, one pool per subscription) are a third kind of money, neither a subscription nor a metered API: they take SHADES of one family of their own, sepia, in the subscriptions' order, so a credit never reads as the plan that grants it (Credits tab, 2026-11-02). The Max subscriptions are one family (the same Claude Code usage), so they take SHADES of the one accent, the biggest plan the strongest; the metered APIs are a different kind of spend and stay neutral grey. Owner verdict 2026-10-27: the v5/v6 hues (gold, violet, turquoise) read as unprofessional; shades replace them.
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                     |
 | ----------- | --------- | --------- | ------------------ | -------------------------------------------------------- |
-| IU Max      | `#0c4a6e` | `#7dd3fc` | `iuSub`            | IU-paid Max 20x — strongest accent shade                 |
+| IU Ultra    | `#0c4a6e` | `#7dd3fc` | `iuSub`            | IU-paid Ultra ($200) — strongest accent shade            |
 | Me Max      | `#0284c7` | `#0284c7` | `meSub`            | Personal Max 5x — middle accent shade                    |
 | Me2 Max     | `#38bdf8` | `#0369a1` | `me2Sub`           | Third Max 5x — lightest accent shade (light), deep (dark) |
+| IU credit   | `#5e4123` | `#d0b090` | `iuCredit`         | API credit of the IU Ultra plan ($200 a cycle) — strongest sepia shade |
+| Me credit   | `#946638` | `#946638` | `meCredit`         | API credit of the Me Max plan ($100) — middle sepia shade |
+| Me2 credit  | `#af855a` | `#7a542e` | `me2Credit`        | API credit of the Me2 Max plan ($100) — lightest sepia shade (light), deep (dark) |
 | IU API      | `#52525c` | `#a1a1aa` | `iuApi`            | IU metered API — neutral, a different kind of spend      |
 | Athena team | `#a1a1aa` | `#e4e4e7` | `iuTeamApi`        | IU team key (Athena Teamchat) — grey ramp steps 2 / 4: two steps from IU API (0 / 2) in both modes, the strongest legible light step |
 | Me API      | `#e4e4e7` | `#71717a` | `meApi`            | Personal pay-per-token API (OpenRouter, ~$0, a card only from $1) — neutral; the faint light step is the price of keeping four greys apart |

@@ -39,16 +39,18 @@ describe('cycleWindow', () => {
     expect(w.known).toBe(false)
     expect(w.days).toHaveLength(31)
     expect([w.days[0], w.days.at(-1)]).toEqual(['2026-10-03', '2026-11-02'])
-    expect(w.fromTs).toEqual(at('2026-10-03T00:00:00Z'))
+    // Rows count from the cycle start, not from the start of the 31-day axis.
+    expect(w.fromTs).toEqual(at('2026-09-01T00:00:00Z'))
     expect(w.toTs).toBeNull()
   })
 
-  it('counts rows from the cycle start when that is inside the 31 days, and with no cycle row at all', () => {
+  it('counts rows from the cycle start, or from the axis start with no cycle at all', () => {
     const now = at('2026-11-02T10:00:00Z')
     expect(cycleWindow({ start: at('2026-10-20T08:00:00Z'), end: null }, now).fromTs).toEqual(
       at('2026-10-20T08:00:00Z'),
     )
-    expect(cycleWindow(null, now).known).toBe(false)
+    const none = cycleWindow(null, now)
+    expect([none.known, none.fromTs]).toEqual([false, at('2026-10-03T00:00:00Z')])
   })
 })
 
@@ -90,6 +92,25 @@ describe('burndown', () => {
       reportedUsd: null,
       creditLeftUsd: null,
     })
+  })
+})
+
+describe('burndown baseline', () => {
+  it('starts the cumulative lines at the spend dated before the axis, so the balance counts from the cycle start', () => {
+    const points = burndown({
+      days: ['2026-10-03', '2026-10-04'],
+      today: '2026-10-04',
+      grantUsd: 100,
+      metered: [
+        { day: '2026-09-25', usd: 30 },
+        { day: '2026-10-04', usd: 3 },
+      ],
+      reported: [{ day: '2026-09-25', usd: 35 }],
+    })
+    expect(points).toEqual([
+      { day: '2026-10-03', meteredUsd: 30, reportedUsd: 35, creditLeftUsd: 65 },
+      { day: '2026-10-04', meteredUsd: 33, reportedUsd: 35, creditLeftUsd: 65 },
+    ])
   })
 })
 
