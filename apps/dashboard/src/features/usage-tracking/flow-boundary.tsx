@@ -1,5 +1,5 @@
 /**
- * A local error boundary for the Credits tab's suspense queries: a failed read renders in its own
+ * A local error boundary for the Flow tab's suspense queries: a failed read renders in its own
  * card (with the shared Retry) instead of reaching the route's error component and taking the other
  * tabs' siblings with it. Retry resets the queries' error state and remounts the block.
  */
@@ -19,7 +19,7 @@ class Catch extends Component<Props, State> {
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     // The query layer already reports the failure; this keeps the component stack beside it.
-    console.warn(`credits: ${this.props.noun} failed to load`, error.message, info.componentStack)
+    console.warn(`flow: ${this.props.noun} failed to load`, error.message, info.componentStack)
   }
 
   override render(): ReactNode {
@@ -39,7 +39,7 @@ class Catch extends Component<Props, State> {
   }
 }
 
-export function CreditsBoundary({
+export function FlowBoundary({
   noun,
   height = 'content',
   children,

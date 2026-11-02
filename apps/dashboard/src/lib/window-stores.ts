@@ -23,13 +23,8 @@
 import { format, startOfYear, subMonths, subYears } from 'date-fns'
 import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
 // The one feature import: the usage registry is a dependency-free leaf (as `series.ts` also reads it).
-import {
-  ACCOUNT_IDS,
-  IU_KEYS,
-  IU_KEY_IDS,
-  PAYER_LABELS,
-  USAGE_ACCOUNTS,
-} from '../features/usage-tracking/accounts'
+import { PAYER_LABELS, USAGE_PAYERS, type IuKeyId } from '../features/usage-tracking/accounts'
+import { legacyNode, type LegacyView } from '../features/usage-tracking/flow-node'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
@@ -160,11 +155,13 @@ export const walkingStore = createSearchStore({
 })
 
 /**
- * The page tabs. `iu-sub` / `me-sub` are the retired per-subscription tabs: still accepted from an
- * old URL or stored value so they never read as unknown, then folded into `claude` with that account
- * selected by `migrateUsageSearch`. They are not offered as tabs.
+ * The page tabs, Flow (the default) and Explore. The rest are the v6 tab values: still accepted from an
+ * old URL or stored value so they never read as unknown, then folded into Flow by `migrateUsageSearch`
+ * (the subscription and key tabs select their node, Credits the IU pool). They are not offered as tabs.
  */
 export const USAGE_VIEW_VALUES = [
+  'flow',
+  'explore',
   'overview',
   'claude',
   'iu-api',
@@ -173,89 +170,92 @@ export const USAGE_VIEW_VALUES = [
   'me-sub',
 ] as const
 /** The tabs a visitor can pick, in display order. */
-export const USAGE_TAB_VALUES = ['overview', 'claude', 'iu-api', 'credits'] as const
+export const USAGE_TAB_VALUES = ['flow', 'explore'] as const
 /** The measure: dollars at API prices (list value for the subs, spend for the API) or fresh tokens. */
 export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
-/** `payer` is the Claude Max tab's "by subscription"; the IU API tab, one wallet, never offers it. */
+/** `payer` is Explore's "by payer"; the single-wallet views never offer it. */
 export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
-/** The Account control of the Claude Max tab: `all`, or one account id from the registry. */
-export const USAGE_ACCOUNT_VALUES = ['all', ...ACCOUNT_IDS] as const
-/**
- * The IU API tab's Key control: one key id from the registry. There is no `all`: each key is its own
- * wallet with its own cap, and the records views (ranked lists, figures, charts) never add two keys up.
- */
-export const USAGE_IU_KEY_VALUES = IU_KEY_IDS
-/** The Routing section's own range: how many days of picker decisions it reads, independent of the page Range. */
+/** Explore's Payer control: every payer the API derives, Athena team included (off by default, never in an "all"). */
+export const USAGE_PAYER_VALUES = [...USAGE_PAYERS.map((p) => p.id), 'unknown'] as const
+/** The subscription detail's Routing section's own range: how many days of picker decisions it reads, independent of the page Range. */
 export const USAGE_ROUTING_RANGE_VALUES = ['1d', '3d', '7d', '14d', '21d'] as const
 export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
-export type UsageAccount = (typeof USAGE_ACCOUNT_VALUES)[number]
-export type UsageIuKey = (typeof USAGE_IU_KEY_VALUES)[number]
+/** An IU API key id: the shared scope helpers still name it so. */
+export type UsageIuKey = IuKeyId
 export type UsageRoutingRange = (typeof USAGE_ROUTING_RANGE_VALUES)[number]
 
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
   fields: {
-    // The page tab: the combined overview, the Claude Max subscriptions together, the IU API, or the API credit pools.
-    view: field.enum(USAGE_VIEW_VALUES, 'overview'),
-    // Scopes the whole Claude Max tab to one subscription; `all` compares and sums them.
-    account: field.enum(USAGE_ACCOUNT_VALUES, 'all'),
-    // Scopes the whole IU API tab to one API key; a leftover `all` from an old URL reads as personal.
-    iuKey: field.enum(USAGE_IU_KEY_VALUES, 'personal'),
+    // The page tab: the money flow (default) or the analytics.
+    view: field.enum(USAGE_VIEW_VALUES, 'flow'),
+    // The Flow tab's selected node (`pool:iu`, `sub:me`, `key:personal`, `router`, `demand:review`);
+    // empty is none. A string, not an enum: workflow names come from the data.
+    node: field.string({ fallback: '' }),
     // `field.enum`, not `field.range`: the API takes `range` verbatim and there is no custom
     // window here, so three params would be two more than the page can use.
-    range: field.enum(['7d', '30d', '90d', 'all'], '30d'),
+    range: field.enum(['7d', '30d', '90d', 'all'], '7d'),
     grain: field.enum(['hour', 'day', 'week'], 'day'),
     workspace: field.multi(['work', 'private'], []),
+    // Explore only; empty = every payer except Athena team.
+    payer: field.multi(USAGE_PAYER_VALUES, []),
     lens: field.enum(USAGE_LENS_VALUES, 'cost'),
     groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'sub_tool'),
-    // The Claude Max tab's Routing section: picker decisions over 1–21 days, apart from `range`.
+    // The subscription detail's Routing section: picker decisions over 1–21 days, apart from `range`.
     routingRange: field.enum(USAGE_ROUTING_RANGE_VALUES, '7d'),
   },
 }).labels({
   view: {
-    overview: 'Overview',
-    claude: 'Claude Max',
-    'iu-api': 'IU API',
-    credits: 'Credits',
-    'iu-sub': 'Claude Max',
-    'me-sub': 'Claude Max',
+    flow: 'Flow',
+    explore: 'Explore',
+    overview: 'Flow',
+    claude: 'Flow',
+    'iu-api': 'Flow',
+    credits: 'Flow',
+    'iu-sub': 'Flow',
+    'me-sub': 'Flow',
   },
-  account: {
-    all: 'All',
-    ...Object.fromEntries(USAGE_ACCOUNTS.map((a) => [a.id, PAYER_LABELS[a.payer]] as const)),
-  },
-  iuKey: Object.fromEntries(IU_KEYS.map((k) => [k.id, k.label] as const)),
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { hour: 'Hour', day: 'Day', week: 'Week' },
   workspace: { work: 'Work', private: 'Private' },
+  payer: PAYER_LABELS,
   lens: { cost: '$', tokens: 'Tokens' },
-  groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project', payer: 'Subscription' },
+  groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project', payer: 'Payer' },
   routingRange: { '1d': '1d', '3d': '3d', '7d': '7d', '14d': '14d', '21d': '21d' },
 })
 
-/** The retired tabs and the account each one scoped to. */
-const LEGACY_VIEW_ACCOUNT: Partial<Record<UsageView, UsageAccount>> = {
-  'iu-sub': 'iu',
-  'me-sub': 'me',
-}
+const LEGACY_VIEWS: readonly LegacyView[] = [
+  'overview',
+  'claude',
+  'iu-api',
+  'credits',
+  'iu-sub',
+  'me-sub',
+]
 
 /**
- * Folds a retired per-subscription tab into the Claude Max tab with that account selected; every
- * other search passes through. A leftover account the registry no longer lists reads as `all`
- * already (the enum drops it).
+ * Folds a v6 tab into Flow: the tab becomes `flow` and, when no node is chosen yet, selects the node
+ * the tab stood for (`legacy` carries the old `account` / `iuKey` URL params, which the store no longer
+ * declares). Every other search passes through.
  */
-export function migrateUsageSearch<S extends { view: UsageView; account: UsageAccount }>(
+export function migrateUsageSearch<S extends { view: UsageView; node: string }>(
   search: S,
+  legacy: { account?: unknown; iuKey?: unknown } = {},
 ): S {
-  const account = LEGACY_VIEW_ACCOUNT[search.view]
-  return account === undefined ? search : { ...search, view: 'claude', account }
+  const old = LEGACY_VIEWS.find((v) => v === search.view)
+  if (old === undefined) return search
+  return {
+    ...search,
+    view: 'flow',
+    node: search.node === '' ? legacyNode(old, legacy) : search.node,
+  }
 }
 
 /** The route's `validateSearch`: the store's, then the old tab values migrated. */
 export const validateUsageSearch = (raw: Record<string, unknown>) =>
-  migrateUsageSearch(usageStore.validateSearch(raw))
+  migrateUsageSearch(usageStore.validateSearch(raw), raw)
 
 export const astroStore = createSearchStore({
   key: 'astro-window',

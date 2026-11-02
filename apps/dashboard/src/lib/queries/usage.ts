@@ -106,6 +106,38 @@ const fetchPicksSummary = async (query: { hours: number; groupBy: 'picked' | 're
 const fetchRoutingWindows = async (query: { hours: number }) =>
   unwrap(await api.usage.routing.windows.get({ query }))
 
+export type DemandBy = 'workflow' | 'step' | 'model' | 'origin' | 'caller' | 'repo'
+export type DemandParams = {
+  range: Range
+  by: DemandBy
+  /** Keep only rows of this agw workflow (for `by=step` / `by=model` under one workflow). */
+  workflow?: string | undefined
+  payer?: PayerFilter[] | undefined
+  /** 2–200; the API default is 25 and folds the rest into a trailing `(other)` row. */
+  top?: number | undefined
+}
+export type LaneSplitParams = {
+  range: Range
+  lens: FlowLens
+  payer?: PayerFilter[] | undefined
+  top?: number | undefined
+}
+
+const fetchPace = async () => unwrap(await api.usage.pace.get())
+const fetchRouter = async (query: { range: Range }) => unwrap(await api.usage.router.get({ query }))
+const fetchDemand = async (query: DemandParams & { top: number }) =>
+  unwrap(await api.usage.demand.get({ query }))
+// The lane split lives beside `SplitBy` rather than in it: v6's ranked lists key a record on every `SplitBy`.
+const fetchLaneSplit = async (query: LaneSplitParams & { top: number }) =>
+  unwrap(await api.usage.split.get({ query: { ...query, by: 'lane' } }))
+
+export type PaceResponse = Awaited<ReturnType<typeof fetchPace>>
+export type PacePool = PaceResponse['pools'][number]
+export type RouterResponse = Awaited<ReturnType<typeof fetchRouter>>
+export type DemandResponse = Awaited<ReturnType<typeof fetchDemand>>
+export type DemandRow = DemandResponse['rows'][number]
+export type LaneSplitResponse = Awaited<ReturnType<typeof fetchLaneSplit>>
+
 export type IuBudget = Awaited<ReturnType<typeof fetchIuBudget>>
 export type IuReconcile = Awaited<ReturnType<typeof fetchIuReconcile>>
 export type FlowResponse = Awaited<ReturnType<typeof fetchFlow>>
@@ -188,6 +220,37 @@ export const usageQueries = {
     queryOptions({
       queryKey: [...usageQueries.all(), 'routing-windows', hours] as const,
       queryFn: () => fetchRoutingWindows({ hours }),
+    }),
+  /** The verdict band and the pool nodes: state now, no range. */
+  pace: () =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'pace'] as const,
+      queryFn: fetchPace,
+    }),
+  router: (range: Range) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'router', range] as const,
+      queryFn: () => fetchRouter({ range }),
+    }),
+  demand: (params: DemandParams) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'demand', params] as const,
+      queryFn: () =>
+        fetchDemand({
+          ...params,
+          top: params.top ?? 25,
+          payer: payersOrUndefined(params.payer),
+        }),
+    }),
+  laneSplit: (params: LaneSplitParams) =>
+    queryOptions({
+      queryKey: [...usageQueries.all(), 'split-lane', params] as const,
+      queryFn: () =>
+        fetchLaneSplit({
+          ...params,
+          top: params.top ?? 12,
+          payer: payersOrUndefined(params.payer),
+        }),
     }),
   quotaLatest: (account?: string[]) =>
     queryOptions({
