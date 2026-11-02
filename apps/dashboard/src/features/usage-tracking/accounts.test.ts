@@ -63,7 +63,7 @@ describe('plans and credit payers', () => {
     ])
   })
 
-  it('registers one credit payer per subscription, labelled as the Credits tab names the pool', () => {
+  it('registers one credit payer per subscription, labelled as the Flow tab names the pool', () => {
     const ids = USAGE_PAYERS.map((p) => p.id)
     for (const a of USAGE_ACCOUNTS) expect(ids).toContain(a.creditPayer)
     expect(USAGE_ACCOUNTS.map((a) => PAYER_LABELS[a.creditPayer])).toEqual([

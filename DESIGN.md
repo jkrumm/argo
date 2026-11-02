@@ -153,7 +153,7 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 
 ### Usage tracker — payer (`payer-` prefix — `USAGE_PAYER.*`)
 
-The page's default split and filter. The API derives the payer from billing + account. The credit pools (`api_credit` rows the inference gateway writes, one pool per subscription) are a third kind of money, neither a subscription nor a metered API: they take SHADES of one family of their own, sepia, in the subscriptions' order, so a credit never reads as the plan that grants it (Credits tab, 2026-11-02). The Max subscriptions are one family (the same Claude Code usage), so they take SHADES of the one accent, the biggest plan the strongest; the metered APIs are a different kind of spend and stay neutral grey. Owner verdict 2026-10-27: the v5/v6 hues (gold, violet, turquoise) read as unprofessional; shades replace them.
+The page's default split and filter. The API derives the payer from billing + account. The credit pools (`api_credit` rows the inference gateway writes, one pool per subscription) are a third kind of money, neither a subscription nor a metered API: they take SHADES of one family of their own, sepia, in the subscriptions' order, so a credit never reads as the plan that grants it (credit pools, 2026-11-02; the Flow tab's pool nodes, pace chart and pool detail draw them). The Max subscriptions are one family (the same Claude Code usage), so they take SHADES of the one accent, the biggest plan the strongest; the metered APIs are a different kind of spend and stay neutral grey. Owner verdict 2026-10-27: the v5/v6 hues (gold, violet, turquoise) read as unprofessional; shades replace them.
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                     |
 | ----------- | --------- | --------- | ------------------ | -------------------------------------------------------- |
@@ -185,7 +185,7 @@ The nth-ranked series of a stacked chart (tools, models, projects), assigned by 
 
 ### Routing — reason (`routing-` prefix — `ROUTING_REASON.*`)
 
-Why the Claude account picker chose an account (Claude Max tab, Routing section). Shades of the one accent, the lane's own account (`home`) the strongest; every unrecognised reason is a grey. Spill and no-eligible-account are not series: the view draws them in `VX.status.warn` and `VX.status.bad`, the only status inks of the section. An account itself is its payer shade (`USAGE_PAYER.*`).
+Why the Claude account picker chose an account (the subscription detail's Routing section). Shades of the one accent, the lane's own account (`home`) the strongest; every unrecognised reason is a grey. Spill and no-eligible-account are not series: the view draws them in `VX.status.warn` and `VX.status.bad`, the only status inks of the section. An account itself is its payer shade (`USAGE_PAYER.*`).
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                      |
 | ----------- | --------- | --------- | ------------------ | ----------------------------------------- |

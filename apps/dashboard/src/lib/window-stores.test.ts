@@ -85,59 +85,69 @@ describe('multi fields', () => {
   })
 })
 
-describe('usageStore view, lens and groupBy', () => {
-  it('opens on the overview, in dollars, grouped by tool', () => {
+describe('usageStore view, range, lens and groupBy', () => {
+  it('opens on Flow, over 7 days, in dollars, grouped by tool, with no node and no payer', () => {
     const v = usageStore.validateSearch({})
-    expect([v.view, v.lens, v.groupBy]).toEqual(['overview', 'cost', 'sub_tool'])
+    expect([v.view, v.range, v.lens, v.groupBy, v.node]).toEqual([
+      'flow',
+      '7d',
+      'cost',
+      'sub_tool',
+      '',
+    ])
+    expect(v.payer).toEqual([])
   })
 
   it('accepts every value from the URL', () => {
-    expect(usageStore.validateSearch({ view: 'iu-api' }).view).toBe('iu-api')
-    expect(usageStore.validateSearch({ view: 'credits' }).view).toBe('credits')
+    expect(usageStore.validateSearch({ view: 'explore' }).view).toBe('explore')
     expect(usageStore.validateSearch({ lens: 'tokens' }).lens).toBe('tokens')
-    expect(usageStore.validateSearch({ groupBy: 'project' }).groupBy).toBe('project')
+    expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('payer')
     expect(usageStore.validateSearch({ grain: 'hour' }).grain).toBe('hour')
+    expect(usageStore.validateSearch({ node: 'demand:review' }).node).toBe('demand:review')
   })
 
   it('unknown values fall back, storage beats the fallback', () => {
-    persist('usage-tracking', { view: 'claude' })
+    persist('usage-tracking', { view: 'explore' })
     expect(usageStore.validateSearch({ lens: 'spend' }).lens).toBe('cost')
-    expect(usageStore.validateSearch({ view: 'bogus' }).view).toBe('claude')
+    expect(usageStore.validateSearch({ view: 'bogus' }).view).toBe('explore')
     expect(usageStore.validateSearch({ groupBy: 'source' }).groupBy).toBe('sub_tool')
   })
 
-  it('opens on every account of the registry, falling back to all', () => {
-    expect(usageStore.validateSearch({}).account).toBe('all')
-    expect(usageStore.validateSearch({ account: 'me2' }).account).toBe('me2')
-    expect(usageStore.validateSearch({ account: 'nobody' }).account).toBe('all')
+  it('keeps the payer members the API derives and drops the rest', () => {
+    expect(
+      usageStore.validateSearch({ payer: ['iu-credit', 'iu-team-api', 'nobody'] }).payer,
+    ).toEqual(['iu-credit', 'iu-team-api'])
   })
 
-  it('opens the IU API tab on one key of the registry, falling back to personal', () => {
-    expect(usageStore.validateSearch({}).iuKey).toBe('personal')
-    expect(usageStore.validateSearch({ iuKey: 'athena-team' }).iuKey).toBe('athena-team')
-    expect(usageStore.validateSearch({ iuKey: 'personal' }).iuKey).toBe('personal')
-    expect(usageStore.validateSearch({ iuKey: 'nobody' }).iuKey).toBe('personal')
-    // The retired `all` summed both keys in the records views; it never comes back.
-    expect(usageStore.validateSearch({ iuKey: 'all' }).iuKey).toBe('personal')
+  it('no longer declares the v6 account and key fields', () => {
+    const v = usageStore.validateSearch({ account: 'me2', iuKey: 'athena-team' })
+    expect('account' in v).toBe(false)
+    expect('iuKey' in v).toBe(false)
   })
 
-  it('groups the Claude Max tab by subscription', () => {
-    expect(usageStore.validateSearch({ groupBy: 'payer' }).groupBy).toBe('payer')
+  it('folds each v6 tab into Flow with the node it stood for', () => {
+    const at = (raw: Record<string, unknown>) => {
+      const v = validateUsageSearch(raw)
+      return [v.view, v.node]
+    }
+    expect(at({ view: 'overview' })).toEqual(['flow', ''])
+    expect(at({ view: 'credits' })).toEqual(['flow', 'pool:iu'])
+    expect(at({ view: 'iu-sub' })).toEqual(['flow', 'sub:iu'])
+    expect(at({ view: 'me-sub' })).toEqual(['flow', 'sub:me'])
+    expect(at({ view: 'claude', account: 'me2' })).toEqual(['flow', 'sub:me2'])
+    expect(at({ view: 'claude', account: 'all' })).toEqual(['flow', 'sub:iu'])
+    expect(at({ view: 'iu-api', iuKey: 'athena-team' })).toEqual(['flow', 'key:athena-team'])
+    expect(at({ view: 'iu-api' })).toEqual(['flow', 'key:personal'])
   })
 
-  it('folds the retired per-subscription tabs into Claude Max with that account selected', () => {
-    const iu = validateUsageSearch({ view: 'iu-sub' })
-    expect([iu.view, iu.account]).toEqual(['claude', 'iu'])
-    const me = validateUsageSearch({ view: 'me-sub', account: 'me2' })
-    expect([me.view, me.account]).toEqual(['claude', 'me'])
-  })
-
-  it('migrates a stored retired tab too, and leaves the live tabs alone', () => {
-    persist('usage-tracking', { view: 'me-sub' })
+  it('migrates a stored v6 tab too, and leaves the live tabs and a chosen node alone', () => {
+    persist('usage-tracking', { view: 'credits' })
     const stored = validateUsageSearch({})
-    expect([stored.view, stored.account]).toEqual(['claude', 'me'])
-    const api = validateUsageSearch({ view: 'iu-api', account: 'iu' })
-    expect([api.view, api.account]).toEqual(['iu-api', 'iu'])
+    expect([stored.view, stored.node]).toEqual(['flow', 'pool:iu'])
+    const chosen = validateUsageSearch({ view: 'claude', node: 'router' })
+    expect([chosen.view, chosen.node]).toEqual(['flow', 'router'])
+    const live = validateUsageSearch({ view: 'explore' })
+    expect([live.view, live.node]).toEqual(['explore', ''])
   })
 
   it('an old URL or stored value with the removed scope field neither crashes nor leaks', () => {

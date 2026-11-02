@@ -2,8 +2,8 @@ import { BP } from 'basalt-ui/tokens'
 
 /**
  * The Claude subscriptions the usage page names (`iu` is Ultra, `me` and `me2` are Max 5x): the one
- * registry every subscription list derives from (wallet cards, the Account control, the compared
- * table, the quota lines, the weekly stack, the Credits tab's pools). A fourth subscription is one more
+ * registry every subscription list derives from (the compared
+ * table, the quota lines, the weekly stack, the Flow tab's credit pools). A fourth subscription is one more
  * entry here and needs no layout change. The API accepts any account id; an id missing here still
  * reads as itself. `plan` is the tier, `payer` the payer id the API derives from (billing max, this
  * account) and `creditPayer` the one for the API credit the same subscription grants (billing
