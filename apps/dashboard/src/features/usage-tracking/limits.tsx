@@ -13,7 +13,13 @@ import { withUnit } from '../../lib/format'
 import { usageQueries, type IuBudget, type QuotaLatest } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
-import { isKeyWallet, type KeyWallet, type SubWallet, type Wallet } from './accounts'
+import {
+  USAGE_ACCOUNTS,
+  isKeyWallet,
+  type KeyWallet,
+  type SubWallet,
+  type Wallet,
+} from './accounts'
 import {
   accountTitle,
   answersKey,
@@ -24,6 +30,7 @@ import {
   type CapState,
   type QuotaReading,
 } from './budget-model'
+import { colorForPayer } from './constants'
 import { fmtUsdWhole } from './model'
 import { totalOf } from './split-model'
 
@@ -99,7 +106,17 @@ export function SubscriptionMeter({
 }) {
   const reading = quotaReading(sample, now)
   const ink = reading.state === null ? undefined : STATE_INK[reading.state]
-  const caption = pctCaption(reading)
+  const text = pctCaption(reading)
+  // The bar stays in its payer's shade; the status ink lives on the figure alone ("ink earns its color").
+  const caption =
+    text === null || ink === undefined ? (
+      text
+    ) : (
+      <Text span inherit c={ink}>
+        {text}
+      </Text>
+    )
+  const payer = USAGE_ACCOUNTS.find((a) => a.id === account)?.payer
   const title = `${accountTitle(account)} · ${withUnit(7, 'd')}`
   return (
     <Stack gap={4}>
@@ -116,7 +133,7 @@ export function SubscriptionMeter({
         {...(caption === null ? {} : { startCaption: caption })}
         {...(reading.resets === null ? {} : { endCaption: reading.resets })}
         {...(reading.pace === null ? {} : { ticks: [{ at: reading.pace * 100, label: 'pace' }] })}
-        {...(ink === undefined ? {} : { color: ink })}
+        {...(payer === undefined ? {} : { color: colorForPayer(payer) })}
       />
     </Stack>
   )
@@ -158,6 +175,18 @@ export function CapMeter({
   const badge = freshnessBadge(budget.fetchedAt, now)
   const ink = reading.state === null ? undefined : STATE_INK[reading.state]
   const stale = badge !== null && badge.tone !== 'muted'
+  // A grey bar; only the part over the cap is red. The text keeps the cap state.
+  const spent = Math.max(0, budget.rolling30Usd)
+  const over = Math.max(0, spent - budget.limitUsd)
+  const segments = [
+    { value: Math.min(spent, budget.limitUsd), label: 'within the cap', tone: 'muted' as const },
+    ...(over > 0 ? [{ value: over, label: 'over the cap', color: VX.status.bad }] : []),
+  ]
+  const startCaption = (
+    <Text span inherit {...(ink === undefined ? {} : { c: ink })}>
+      {reading.cap ?? ''}
+    </Text>
+  )
   return (
     <Stack gap={4}>
       <Heading
@@ -174,13 +203,16 @@ export function CapMeter({
       ) : (
         <Meter
           label={`${title} spend over the rolling 30 days against the cap`}
-          value={budget.rolling30Usd}
-          max={budget.limitUsd}
+          segments={segments}
+          max={Math.max(budget.limitUsd, spent)}
           format={fmtUsdWhole}
-          ticks={[{ at: budget.limitUsd * WARN_AT, label: withUnit(WARN_AT * 100, '%') }]}
-          startCaption={reading.cap ?? ''}
+          ticks={
+            over > 0
+              ? [{ at: budget.limitUsd, label: 'cap' }]
+              : [{ at: budget.limitUsd * WARN_AT, label: withUnit(WARN_AT * 100, '%') }]
+          }
+          startCaption={startCaption}
           {...(reading.canSpend === null ? {} : { endCaption: reading.canSpend })}
-          {...(ink === undefined ? {} : { color: ink })}
         />
       )}
     </Stack>
