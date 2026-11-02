@@ -24,7 +24,10 @@ import { loadIuBudget } from './usage-portal.js'
 // GET /usage/pace: will the Claude API credit be spent before it expires? Spec:
 // docs/design/usage-tracking.md §Pace model and §Endpoints. The arithmetic is pure (`lib/usage-pace.ts`);
 // this file reads. `credit_cycles`, `platform_cost` and `gateway_picks` belong to usage-tracker and may
-// not exist (or be readable) yet: each read is guarded and degrades to the decided empty shape.
+// not exist (or be readable) yet: each of those reads is guarded (`tableReadable`, a try/catch around the
+// report) and degrades to the decided empty shape. The gateway-row reads go through `USAGE_ROWS`, like every
+// usage route. The personal key degrades like `/usage/iu-budget` does without portal data: zero, state ok,
+// `fetchedAt` null, which is how the page reads "no portal report".
 
 const rowsOf = <T>(result: unknown) => result as unknown as T[]
 
@@ -255,7 +258,10 @@ export async function loadPace(now: Date) {
           reported: null,
           reportedAt: null,
         }
-        if (!current) return { ...base, metered: [] }
+        // Not enabled, or ended and awaiting its reconcile: no balance, so nothing to read.
+        if (!current || selectCycles(cycles, now).status === 'awaiting-reconcile') {
+          return { ...base, metered: [] }
+        }
         const [metered, reported] = await Promise.all([
           readMetered(account, current.start, now),
           platformReadable ? readReported(account, utcDay(current.start)) : Promise.resolve(null),
