@@ -24,3 +24,7 @@ Lead of argo Wave 8 (usage view v7), mother `agent-workflows-w1-r4`. agw Wave 8 
   and the prose/podcast fallbacks). Flow told to rebase on #214 before deleting v6 files.
 - agw #114 merged (agw master f5b3df1 after rebase), deployed with r12's OK: release f5b3df101f57, gateway build
   d306b78a29d319c2, `make verify` PASS; fresh gateway rows carry `lane_detail.origin` (claude-code). r12 notified.
+- All argo code merged: #215 insights, #216 flow (v6 tabs + /usage/credits deleted), #217 API polish (Athena guard,
+  lastRequestAt + stale note, credit-payer tests). Lead commits: 9d63c90b (unit tests 30 s), 37e3cd45 (traced-fetch
+  test 10x timings), 08420e6d (dead ranked-list). Deployed 316ef3c8: make verify PASS, verify-pages PASS 14 routes.
+  Criterion 2 iu $2.06 / me $2.00; criterion 3 router IU $7.5346 = SQL. @verifier running shots + criteria 1, 4, 5.
