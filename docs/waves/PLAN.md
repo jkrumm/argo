@@ -201,4 +201,21 @@ Worker: Sonnet. Requested by the dotfiles Herdr app (an Uptime tab that rebuilds
 - **Final field names** on each `GET /uptime-kuma/monitors` entry (additive; existing fields and `/uptime-kuma/status` unchanged): `parent` (string | null, the parent group monitor's `id`; from `monitorList` / `updateMonitorIntoList`), `msg` (string | null, newest heartbeat message, an empty message is null), `lastBeatAt` (string | null, ISO UTC of the newest beat; Kuma's `YYYY-MM-DD HH:mm:ss` time is parsed as UTC). `msg` and `lastBeatAt` come from the newest beat of `heartbeatList` and are replaced by every live `heartbeat` event.
 - **Live, release `a482d7f46b6a`.** `make verify` PASS. `Samba - Docker`: `parent "55"`, `msg "healthy"`, `lastBeatAt` set; 109 monitors with a parent, 117 with a msg.
 - **Gate.** `make check` green (550 tests; new `apps/api/src/clients/uptime-kuma.test.ts`, 7 cases, drives the client through a fake socket). Not run: `/review`, the change is additive mapping over three fields. The first `make check` failed on `basalt-ui sync --check` only because local `node_modules` held basalt-ui 2.29.0 against the lockfile's 2.27.2; `bun install --frozen-lockfile` fixed it, no repo change.
-- Chain ends here: Wave 7 is the last wave.
+- Wave 7 was the last wave of this chain; Wave 8 is run by the agent-workflows fleet.
+
+## Wave 8 — Usage view v7 <!-- status: active -->
+
+Run by the agent-workflows fleet (its PLAN Wave 7b; mother `agent-workflows-w1-r4`). Spec `docs/design/usage-tracking.md`
+v7, signed by the owner 2026-11-02 18:20 (`9fd63c7f`): decisions 1–4 as recommended, 5 (production pacing) deferred to
+7 days of post-hotfix data, plus §Insights.
+
+- [ ] agw side (agent-workflows, through fan worktrees and its merge train): GPT fallbacks marked on the gateway rows and
+  the caller of agw recorded, per spec decision 3. The double rows are fixed by agent-workflows Wave 8; build on that.
+- [ ] Endpoints on `usage.*` per the spec (gateway rows, picks, credit cycles, platform cost, quota samples), including
+  `/usage/insights`: 3–5 ranked rule-based observations under the verdict, numbers never model-written (optional
+  `agw digest` wording only).
+- [ ] Views Flow and Explore per the spec; the v6 views they supersede (Overview, Claude Max, IU API, Credits) deleted,
+  not hidden. Tests.
+- [ ] Deploy, `make verify`; screenshots light and dark through `@verifier`, checked against the mocks.
+
+**Gate:** `make check` in every repo touched, `/review` on non-doc changes, deployed and live-verified.
