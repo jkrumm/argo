@@ -244,3 +244,106 @@ export async function deleteIuPortal(): Promise<void> {
   await db.execute(sql`DELETE FROM usage.iu_portal_cost`)
   await db.execute(sql`DELETE FROM usage.iu_portal_total`)
 }
+
+/** A gateway row (`source='gateway'`): billed to a credit pool (`api_credit` + account) or to IU (`api_key`). */
+export interface SeedGatewayRow {
+  /** Also the request id `gateway_picks` joins on. */
+  id: string
+  ts: string | Date
+  /** Pool account for an `api_credit` row; absent = the IU passthrough (an `api_key` row). */
+  account?: string
+  iu_key?: string
+  cost_usd?: number | null
+  /** `lane_detail.purpose` */
+  purpose?: string
+  /** `lane_detail.costEstimatedUsd` */
+  estimate?: number
+  /** `lane_detail.routeFallback` */
+  routeFallback?: string
+}
+
+export async function seedGatewayRows(rows: SeedGatewayRow[]): Promise<void> {
+  for (const r of rows) {
+    const detail = {
+      caller: 'agw',
+      ...(r.purpose === undefined ? {} : { purpose: r.purpose }),
+      ...(r.estimate === undefined ? {} : { costEstimatedUsd: r.estimate }),
+      ...(r.routeFallback === undefined ? {} : { routeFallback: r.routeFallback }),
+    }
+    const credit = r.account !== undefined
+    await db.execute(sql`
+      INSERT INTO usage.records (
+        source, source_id, grain, ts, billing, account, api_key, machine, outcome, lane, lane_detail,
+        input_tokens, output_tokens, cache_read_tokens, cache_write_5m_tokens, cache_write_1h_tokens,
+        reasoning_tokens, cost_usd, cost_source
+      ) VALUES (
+        'gateway', ${r.id}, 'message', ${iso(r.ts)}::timestamptz,
+        ${credit ? 'api_credit' : 'api_key'}, ${r.account ?? null}, ${credit ? null : (r.iu_key ?? 'personal')},
+        'gateway-test', 'ok', 'other', ${json(detail)}, 0, 0, 0, 0, 0, 0,
+        ${r.cost_usd === undefined ? null : r.cost_usd}, ${r.cost_usd == null ? 'none' : 'prices'}
+      )
+    `)
+  }
+}
+
+export interface SeedCreditCycle {
+  account: string
+  cycle_start: string | Date
+  cycle_end: string | Date | null
+  grant_usd: number
+  reconciled_usd?: number | null
+  unspent_usd?: number | null
+  closed_at?: string | Date | null
+}
+
+export async function seedCreditCycles(cycles: SeedCreditCycle[]): Promise<void> {
+  for (const c of cycles) {
+    await db.execute(sql`
+      INSERT INTO usage.credit_cycles (account, cycle_start, cycle_end, grant_usd, metered_usd, reconciled_usd, unspent_usd, closed_at)
+      VALUES (${c.account}, ${iso(c.cycle_start)}::timestamptz,
+              ${c.cycle_end === null ? null : iso(c.cycle_end)}::timestamptz, ${c.grant_usd}, 0,
+              ${c.reconciled_usd ?? null}, ${c.unspent_usd ?? null},
+              ${c.closed_at == null ? null : iso(c.closed_at)}::timestamptz)
+    `)
+  }
+}
+
+export interface SeedPlatformCost {
+  account: string
+  day: string
+  cost_usd: number
+  refreshed_at: string | Date
+}
+
+export async function seedPlatformCost(rows: SeedPlatformCost[]): Promise<void> {
+  for (const r of rows) {
+    await db.execute(sql`
+      INSERT INTO usage.platform_cost (account, day, model, api_key_id, cost_usd, refreshed_at)
+      VALUES (${r.account}, ${r.day}::date, 'claude-test', 'key-test', ${r.cost_usd}, ${iso(r.refreshed_at)}::timestamptz)
+    `)
+  }
+}
+
+export interface SeedGatewayPick {
+  ts: string | Date
+  picked: string
+  reason: string
+  /** The gateway row this pick served. */
+  request_id: string
+}
+
+export async function seedGatewayPicks(picks: SeedGatewayPick[]): Promise<void> {
+  for (const p of picks) {
+    await db.execute(sql`
+      INSERT INTO usage.gateway_picks (ts, caller, session, picked, reason, machine, request_id)
+      VALUES (${iso(p.ts)}::timestamptz, 'agw', 'session-test', ${p.picked}, ${p.reason}, 'gateway-test', ${p.request_id})
+    `)
+  }
+}
+
+/** Empties the credit tables the pace tests seed. Scratch databases only. */
+export async function deleteCreditFixtures(): Promise<void> {
+  await db.execute(sql`DELETE FROM usage.credit_cycles`)
+  await db.execute(sql`DELETE FROM usage.platform_cost`)
+  await db.execute(sql`DELETE FROM usage.gateway_picks`)
+}

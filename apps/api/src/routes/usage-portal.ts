@@ -13,6 +13,7 @@ import {
 } from '../lib/iu-budget.js'
 import { DEFAULT_IU_KEY, IU_KEY_LIMIT_USD, IuKeyEnum, type IuKey } from '../lib/iu-keys.js'
 import { utcBucket } from '../lib/usage-query.js'
+import { underCapOn } from '../lib/usage-pace.js'
 
 // IU's own cost report, read from `usage.iu_portal_cost` (written by usage-tracker). The cap,
 // can-spend-today and the portal-vs-tracked reconciliation are computed from it, never from our own
@@ -41,64 +42,74 @@ async function earliestPortalDay(iuKey: IuKey): Promise<string | null> {
   return row?.day ?? null
 }
 
+/**
+ * The `/usage/iu-budget` body of one key, shared with `/usage/pace` (`personalKey`). `underCapOn` is the
+ * first day the rolling window drops under the cap at the last 7 days' mean; null when already under or
+ * never within 60 days.
+ */
+export async function loadIuBudget(iuKey: IuKey) {
+  const limitUsd = IU_KEY_LIMIT_USD[iuKey]
+  const latest = await latestPortalDay(iuKey)
+  if (!latest) {
+    return {
+      ...computeBudget([], new Date().toISOString().slice(0, 10), limitUsd),
+      iuKey,
+      fetchedAt: null,
+      underCapOn: null,
+    }
+  }
+  const cells = rowsOf<{ day: string; label: string; usd: number }>(
+    await db.execute(sql`
+      SELECT day::text AS day, label, SUM(cost_usd)::float AS usd
+      FROM usage.iu_portal_cost
+      WHERE iu_key = ${iuKey} AND day > ${addDays(latest.day, -(IU_WINDOW_DAYS + 1))}::date
+      GROUP BY day, label
+    `),
+  ).map((r): PortalCell => ({ day: r.day, label: r.label, usd: Number(r.usd) }))
+  return {
+    ...computeBudget(cells, latest.day, limitUsd),
+    iuKey,
+    fetchedAt: new Date(latest.fetchedAt).toISOString(),
+    underCapOn: underCapOn({ cells, today: latest.day, capUsd: limitUsd }),
+  }
+}
+
 export const usagePortalRoutes = new Elysia()
-  .get(
-    '/iu-budget',
-    async ({ query }) => {
-      const iuKey = query.iuKey ?? DEFAULT_IU_KEY
-      const limitUsd = IU_KEY_LIMIT_USD[iuKey]
-      const latest = await latestPortalDay(iuKey)
-      if (!latest) {
-        return {
-          ...computeBudget([], new Date().toISOString().slice(0, 10), limitUsd),
-          iuKey,
-          fetchedAt: null,
-        }
-      }
-      const cells = rowsOf<{ day: string; label: string; usd: number }>(
-        await db.execute(sql`
-          SELECT day::text AS day, label, SUM(cost_usd)::float AS usd
-          FROM usage.iu_portal_cost
-          WHERE iu_key = ${iuKey} AND day > ${addDays(latest.day, -(IU_WINDOW_DAYS + 1))}::date
-          GROUP BY day, label
-        `),
-      ).map((r): PortalCell => ({ day: r.day, label: r.label, usd: Number(r.usd) }))
-      return {
-        ...computeBudget(cells, latest.day, limitUsd),
-        iuKey,
-        fetchedAt: new Date(latest.fetchedAt).toISOString(),
-      }
-    },
-    {
-      query: z.object({ iuKey: IuKeyEnum.optional() }),
-      response: {
-        200: z.object({
-          iuKey: IuKeyEnum,
-          limitUsd: z.number(),
-          windowDays: z.number().int(),
-          fetchedAt: z.string().nullable(),
-          windowFrom: z.string(),
-          windowTo: z.string(),
-          rolling30Usd: z.number(),
-          canSpendTodayUsd: z.number(),
-          burn7dUsdPerDay: z.number(),
-          projected7dUsd: z.number(),
-          daily: z.array(z.object({ day: z.string(), usd: z.number() })),
-          dropoffNext7: z.array(
-            z.object({ day: z.string(), freesUsd: z.number(), headroomUsd: z.number() }),
+  .get('/iu-budget', async ({ query }) => loadIuBudget(query.iuKey ?? DEFAULT_IU_KEY), {
+    query: z.object({ iuKey: IuKeyEnum.optional() }),
+    response: {
+      200: z.object({
+        iuKey: IuKeyEnum,
+        limitUsd: z.number(),
+        windowDays: z.number().int(),
+        fetchedAt: z.string().nullable(),
+        windowFrom: z.string(),
+        windowTo: z.string(),
+        rolling30Usd: z.number(),
+        canSpendTodayUsd: z.number(),
+        burn7dUsdPerDay: z.number(),
+        projected7dUsd: z.number(),
+        daily: z.array(z.object({ day: z.string(), usd: z.number() })),
+        dropoffNext7: z.array(
+          z.object({ day: z.string(), freesUsd: z.number(), headroomUsd: z.number() }),
+        ),
+        topModels: z.array(z.object({ label: z.string(), usd: z.number() })),
+        underCapOn: z
+          .string()
+          .nullable()
+          .describe(
+            'UTC date (YYYY-MM-DD) of the first day the rolling 30-day sum is at or under the cap, projecting every future day at burn7dUsdPerDay; null when already under or never under within 60 days',
           ),
-          topModels: z.array(z.object({ label: z.string(), usd: z.number() })),
-        }),
-      },
-      detail: {
-        tags: ['Usage Tracking'],
-        summary: 'IU API cap: rolling 30-day budget',
-        description:
-          "?iuKey=personal|athena-team (default personal; no `all`: each key has its own independent cap) picks the IU API key; everything below is computed from that key's portal rows only and the key is echoed in `iuKey`. The IU employee cap (limitUsd 500) is a rolling window of windowDays (30): the newest portal day and the 29 days before, as measured by IU's portal. canSpendTodayUsd = limit − the 29 days before the newest day (negative = over). dropoffNext7[i].freesUsd is what leaves the window i+1 days from now; headroomUsd the headroom once it has. burn7dUsdPerDay is the mean of the last 7 portal days; projected7dUsd the rolling total in 7 days at that burn. fetchedAt is the newest portal fetch (null = no portal data yet; the arithmetic then runs over zero). Reads `usage.iu_portal_cost`. Same numbers as `make budget` in usage-tracker.",
-        security: [{ BearerAuth: [] }],
-      },
+      }),
     },
-  )
+    detail: {
+      tags: ['Usage Tracking'],
+      summary: 'IU API cap: rolling 30-day budget',
+      description:
+        "?iuKey=personal|athena-team (default personal; no `all`: each key has its own independent cap) picks the IU API key; everything below is computed from that key's portal rows only and the key is echoed in `iuKey`. The IU employee cap (limitUsd 500) is a rolling window of windowDays (30): the newest portal day and the 29 days before, as measured by IU's portal. canSpendTodayUsd = limit − the 29 days before the newest day (negative = over). dropoffNext7[i].freesUsd is what leaves the window i+1 days from now; headroomUsd the headroom once it has. burn7dUsdPerDay is the mean of the last 7 portal days; projected7dUsd the rolling total in 7 days at that burn. underCapOn is the first day the rolling sum drops to the cap or below at that burn (null when already under, or not within 60 days). fetchedAt is the newest portal fetch (null = no portal data yet; the arithmetic then runs over zero). Reads `usage.iu_portal_cost`. Same numbers as `make budget` in usage-tracker.",
+      security: [{ BearerAuth: [] }],
+    },
+  })
   .get(
     '/iu-reconcile',
     async ({ query }) => {
