@@ -7,6 +7,7 @@
  */
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { ViewTabs } from 'basalt-ui/controls'
 import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { shotState } from '../../lib/shot-state'
@@ -16,8 +17,8 @@ import { useNow } from '../../lib/use-now'
 import { usageStore, type UsageGroupBy, type UsageLens } from '../../lib/window-stores'
 import { RANK_PALETTE, colorForPayer, groupBands, toTimePoints } from './constants'
 import {
-  dropPartialBucket,
   noDataInWindow,
+  partialSpan,
   periodNoun,
   shortDay,
   shortHour,
@@ -42,6 +43,9 @@ const GROUP_NOUN: Record<UsageGroupBy, string> = {
 
 const INFO =
   'Dollars at API prices ($: list value for a subscription, spend for the API) or fresh tokens (Tokens) per bucket, stacked by the grouping on the right. A subscription is never charged these dollars. Fresh tokens leave out the tokens re-read from the cache. The hour grain reads at most 30 days.'
+
+const PARTIAL_NOTE =
+  'The shaded stretch ends in the bucket still running, which is not complete yet.'
 
 export function OverTime({
   range,
@@ -85,10 +89,11 @@ export function OverTime({
     if (groupBy === 'payer') return colorForPayer(key)
     return RANK_PALETTE[keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
-  // The chart stops at the last complete bucket: the running one would draw as a drop.
+  // The running bucket stays (today's payers and their legend entries are the newest news), shaded as partial.
   const stackOf = (p: TimePoint): number =>
     Object.values(p.groups).reduce<number>((s, v) => s + (v ?? 0), 0)
-  const drawn = dropPartialBucket(points, now, grain, stackOf)
+  const drawn = points
+  const partial = partialSpan(points, now, grain)
   const peak = drawn.reduce((max, p) => Math.max(max, stackOf(p)), 0)
   const format = spend ? usdFormatterFor(peak) : tokensFormatterFor(peak)
   const series = groupBands(keys, colorOf, (k) => seriesLabel(groupBy, k), format)
@@ -109,7 +114,7 @@ export function OverTime({
     <Box data-shot={`over-time-${scope.id}`} data-shot-states="empty">
       <ChartCard
         title={`${what} per ${grain} · by ${noun} · ${periodNoun(shown)}`}
-        info={INFO}
+        info={partial === null ? INFO : `${INFO} ${PARTIAL_NOTE}`}
         actions={<ViewTabs field={usageStore.field.groupBy} options={options} label="Group by" />}
         state={{ empty: (keys.length === 0 || total <= 0 || drawn.length === 0) && emptyText }}
       >
@@ -121,6 +126,9 @@ export function OverTime({
           cursorResolution="leading"
           cursorGroup={USAGE_TIME_GROUP}
           series={series}
+          {...(partial === null
+            ? {}
+            : { xZones: [{ from: partial.from, to: partial.to, fill: alpha(VX.muted, 0.12) }] })}
           formatX={(d) => formatBucket(d)}
           y={{ format }}
           tooltip={{
