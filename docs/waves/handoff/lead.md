@@ -22,3 +22,5 @@ Lead of argo Wave 8 (usage view v7), mother `agent-workflows-w1-r4`. agw Wave 8 
   Train check: `(make check || make check) && bun run test:api` (astro-visibility flakes at load ~30+).
 - Running: feat/usage-v7-flow (t8w), feat/usage-v7-insights (t8x), agw #114 (t8n; sent back to wire model-call.ts
   and the prose/podcast fallbacks). Flow told to rebase on #214 before deleting v6 files.
+- agw #114 merged (agw master f5b3df1 after rebase), deployed with r12's OK: release f5b3df101f57, gateway build
+  d306b78a29d319c2, `make verify` PASS; fresh gateway rows carry `lane_detail.origin` (claude-code). r12 notified.
