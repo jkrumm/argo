@@ -14,7 +14,7 @@ import { db } from '../db/index.js'
  * - sub_tool -> lane: a bare lane name stays itself, `a:b[:c]` is an agw_workflow (workflow `a`, step
  *   `b[:c]`), anything else is lane `other` with the string in lane_detail.raw; absent = `interactive`.
  *   (The projection cannot yield a NULL sub_tool.) `lane` / `lane_detail` override the mapping.
- * - billing iu -> api_key with api_key = iu_key, openrouter -> api_key with NULL api_key
+ * - billing iu -> api_key with api_key = iu_key, openrouter -> api_key with NULL api_key, api_credit stays itself
  * - cache_write_tokens -> cache_write_5m_tokens
  */
 
@@ -42,7 +42,7 @@ export interface SeedRecord {
   project?: string | null
   workspace?: 'work' | 'private' | null
   sub_tool?: string | null
-  billing?: 'max' | 'iu' | 'openrouter' | 'unknown'
+  billing?: 'max' | 'iu' | 'openrouter' | 'api_credit' | 'unknown'
   account?: string | null
   iu_key?: string | null
   machine?: string | null
@@ -63,6 +63,8 @@ export interface SeedRecord {
   project_raw?: string | null
   lane?: string
   lane_detail?: Record<string, unknown> | null
+  /** The stored `run_id` column (agent-workflows rows keep their run here, not in lane_detail). */
+  run_id?: string | null
 }
 
 const iso = (v: string | Date) => (v instanceof Date ? v.toISOString() : v)
@@ -96,7 +98,7 @@ export async function seedUsageRecords(records: SeedRecord | SeedRecord[]): Prom
     const rows = (await db.execute(sql`
       INSERT INTO usage.records (
         source, source_id, grain, ts, model_raw, model, repo, project_raw, workspace, billing, account,
-        api_key, machine, outcome, lane, lane_detail, input_tokens, output_tokens, cache_read_tokens,
+        api_key, machine, outcome, lane, lane_detail, run_id, input_tokens, output_tokens, cache_read_tokens,
         cache_write_5m_tokens, cache_write_1h_tokens, reasoning_tokens, duration_ms, cost_usd, cost_source,
         raw, ingested_at
       ) VALUES (
@@ -105,9 +107,9 @@ export async function seedUsageRecords(records: SeedRecord | SeedRecord[]): Prom
         ${r.repo !== undefined ? r.repo : r.project || null},
         ${r.project_raw !== undefined ? r.project_raw : (r.project ?? null)},
         ${r.workspace ?? null},
-        ${billing === 'max' || billing === 'unknown' ? billing : 'api_key'},
+        ${billing === 'max' || billing === 'unknown' || billing === 'api_credit' ? billing : 'api_key'},
         ${r.account ?? null}, ${apiKey}, ${r.machine ?? null}, ${r.outcome ?? 'ok'},
-        ${lane}, ${detail ? json(detail) : null},
+        ${lane}, ${detail ? json(detail) : null}, ${r.run_id ?? null},
         ${r.input_tokens ?? 0}, ${r.output_tokens ?? 0}, ${r.cache_read_tokens ?? 0},
         ${r.cache_write_tokens ?? 0}, ${r.cache_write_1h_tokens ?? 0}, ${r.reasoning_tokens ?? 0},
         ${r.duration_ms ?? null}, ${r.cost_usd ?? null}, ${r.cost_source ?? 'none'},
@@ -326,9 +328,14 @@ export async function seedPlatformCost(rows: SeedPlatformCost[]): Promise<void> 
 
 export interface SeedGatewayPick {
   ts: string | Date
+  caller?: string
+  session?: string | null
+  /** A pool id, `iu-api` or `refused`. */
   picked: string
   reason: string
-  /** The gateway row this pick served. */
+  /** Defaults to `gateway-test` (what `deleteCreditFixtures` clears); pass one to clean up by machine. */
+  machine?: string
+  /** The gateway row this pick served (its `source_id`). */
   request_id: string
 }
 
@@ -336,7 +343,8 @@ export async function seedGatewayPicks(picks: SeedGatewayPick[]): Promise<void> 
   for (const p of picks) {
     await db.execute(sql`
       INSERT INTO usage.gateway_picks (ts, caller, session, picked, reason, machine, request_id)
-      VALUES (${iso(p.ts)}::timestamptz, 'agw', 'session-test', ${p.picked}, ${p.reason}, 'gateway-test', ${p.request_id})
+      VALUES (${iso(p.ts)}::timestamptz, ${p.caller ?? 'agw'}, ${p.session === undefined ? 'session-test' : p.session},
+              ${p.picked}, ${p.reason}, ${p.machine ?? 'gateway-test'}, ${p.request_id})
     `)
   }
 }
@@ -346,4 +354,8 @@ export async function deleteCreditFixtures(): Promise<void> {
   await db.execute(sql`DELETE FROM usage.credit_cycles`)
   await db.execute(sql`DELETE FROM usage.platform_cost`)
   await db.execute(sql`DELETE FROM usage.gateway_picks`)
+}
+
+export async function deleteGatewayPicksByMachine(machine: string): Promise<void> {
+  await db.execute(sql`DELETE FROM usage.gateway_picks WHERE machine = ${machine}`)
 }
