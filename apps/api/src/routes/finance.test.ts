@@ -1,13 +1,8 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, spyOn } from 'bun:test'
-import { trace } from '@opentelemetry/api'
-import {
-  BasicTracerProvider,
-  InMemorySpanExporter,
-  SimpleSpanProcessor,
-} from '@opentelemetry/sdk-trace-base'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { Elysia } from 'elysia'
 import { env } from '../env.js'
 import { authGuard } from '../lib/auth-guard.js'
+import { tracer } from '../telemetry.js'
 import { createFinanceRoutes } from './finance.js'
 
 // DB-free: the routes under test talk to a fake `fin serve` on a loopback port, so this file runs in
@@ -23,7 +18,16 @@ let seen: Seen[] = []
 let reply: () => Response = () => Response.json({ locked: true, unlock_blocked_until: null })
 let fake: ReturnType<typeof Bun.serve>
 
-const exporter = new InMemorySpanExporter()
+/**
+ * Every span `tracedFetch` opens, with the attributes it was created with and each call made on it
+ * afterwards (setAttribute, recordException, setStatus). Recorded by wrapping `tracer.startActiveSpan`
+ * rather than by installing a global provider: that is first-come across test files in one bun
+ * process, and the tracer caches its delegate.
+ */
+type SpanRecord = { name: string; attributes: unknown; calls: unknown[][] }
+let spans: SpanRecord[] = []
+let spanSpy: ReturnType<typeof spyOn>
+const startActiveSpan = tracer.startActiveSpan.bind(tracer) as (...args: unknown[]) => unknown
 
 beforeAll(() => {
   fake = Bun.serve({
@@ -41,18 +45,39 @@ beforeAll(() => {
       return reply()
     },
   })
-  trace.setGlobalTracerProvider(
-    new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] }),
-  )
 })
 
 afterAll(() => {
   void fake.stop(true)
 })
 
+afterEach(() => spanSpy.mockRestore())
+
 beforeEach(() => {
   seen = []
-  exporter.reset()
+  spans = []
+  spanSpy = spyOn(tracer, 'startActiveSpan').mockImplementation(((
+    name: string,
+    options: { attributes?: unknown },
+    fn: (span: object) => unknown,
+  ) => {
+    const record: SpanRecord = { name, attributes: options.attributes, calls: [] }
+    spans.push(record)
+    return startActiveSpan(name, options, (span: object) =>
+      fn(
+        new Proxy(span, {
+          get(target, prop) {
+            const value = Reflect.get(target, prop) as unknown
+            if (typeof value !== 'function') return value
+            return (...args: unknown[]) => {
+              record.calls.push([String(prop), ...args])
+              return (value as (...a: unknown[]) => unknown).apply(target, args)
+            }
+          },
+        }),
+      ),
+    )
+  }) as never)
   reply = () => Response.json({ locked: true, unlock_blocked_until: null })
 })
 
@@ -278,18 +303,12 @@ describe('POST /finance/unlock', () => {
       for (const spy of spies) spy.mockRestore()
     }
 
-    const spans = exporter.getFinishedSpans()
     expect(spans.length).toBeGreaterThan(0)
     const everything = JSON.stringify({
       logs: sink.map((args) =>
         args.map((a) => (a instanceof Error ? { message: a.message, stack: a.stack } : a)),
       ),
-      spans: spans.map((s) => ({
-        name: s.name,
-        attributes: s.attributes,
-        events: s.events,
-        status: s.status,
-      })),
+      spans,
     })
     expect(everything).not.toContain(VAULT_KEY)
     expect(everything).not.toContain(SERVICE_TOKEN)
@@ -297,8 +316,8 @@ describe('POST /finance/unlock', () => {
 
   it('keeps query strings off the upstream span', async () => {
     await call('/finance/api/transactions?search=landlord')
-    const span = exporter.getFinishedSpans().find((s) => s.name.startsWith('finance '))
+    const span = spans.find((s) => s.name.startsWith('finance '))
     expect(span).toBeDefined()
-    expect(JSON.stringify(span?.attributes)).not.toContain('landlord')
+    expect(JSON.stringify(span)).not.toContain('landlord')
   })
 })
