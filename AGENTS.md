@@ -116,13 +116,18 @@ reachable from the MacBook, phone and tablet only. The database is the shared Po
 the scheduled jobs run in the same process (`CRONS_ENABLED=true` in the plist). A push to `master` deploys nothing by itself:
 run `make deploy`.
 
-The VPS copy is gone (dropped 2026-11-03): no containers, images, `argo` schema or role remain there. There is no second
-copy to roll back to; the last resort is the verified final dump of the VPS schema at the cutover,
-`homelab:~/argo-backups/argo-schema-final-20261030T1643Z.{dump,sums,sha256}` (custom format, whole `argo` schema incl. the five
-legacy usage tables; `sha256sum -c` the `.sha256` first). Restoring it into `shared.argo` loses everything the mini wrote since
-2026-10-30 16:43Z: `launchctl bootout gui/$(id -u)/com.jkrumm.argo`, `pg_restore --clean --if-exists --no-owner --role=argo`
-into a scratch database first and compare against the `.sums` (per-table rows + md5), then into `shared`, keep the schema comment
-`argo live ...`, `make deploy`.
+The VPS copy is gone (dropped 2026-11-03): no containers, images, `argo` schema or role remain there, so there is no second
+copy to roll back to. Restoring the database, newest recovery point first:
+
+1. **The nightly backup of `shared`** (03:15, vps `scripts/backup-pg-dev.sh`, 14 kept, each restore-drilled on write):
+   `homelab:/mnt/hdd/backups/vps-mini-postgres/<ts>/shared.dump` plus `SHA256SUMS` and `counts.tsv`; at most ~24 h of loss.
+   Procedure and drill: vps `docs/mini-postgres.md`.
+2. **The cutover dump**, last resort for VPS-era data: `homelab:~/argo-backups/argo-schema-final-20261030T1643Z.{dump,sums,sha256}`
+   (custom format, the whole VPS `argo` schema incl. the five legacy usage tables; `sha256sum -c` the `.sha256` first). It loses
+   everything the mini wrote since 2026-10-30 16:43Z.
+
+Either way: `launchctl bootout gui/$(id -u)/com.jkrumm.argo`, `pg_restore` the `argo` schema into a scratch database first and
+compare rows against the sums, then into `shared` (keep the schema comment `argo live ...`), `make deploy`.
 
 Migrations apply automatically on API boot — **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
 

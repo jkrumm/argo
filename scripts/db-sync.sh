@@ -13,10 +13,11 @@
 # 3. The transaction COMMITs only when every table matches in rows and md5; otherwise it ROLLBACKs, so a bad copy never
 #    replaces the local schema.
 #
-# DESTRUCTIVE to the local `shared.argo`: the restore drops and recreates its tables. The restored schema is marked
+# DESTRUCTIVE to the local `shared.argo`: the restore drops every table in it, then recreates the source's. The restored schema is marked
 # 'argo dev copy ...'. A target marked 'argo live' (the mini itself) is refused unconditionally; production is restored
 # from the homelab dump, never from here. A target that holds tables and carries neither a dev-copy nor the old
-# rehearsal mark is refused unless FORCE=1.
+# rehearsal mark is refused unless FORCE=1. Independently of any comment, a target that is the source database itself
+# (same cluster system_identifier, same database name) is refused.
 #
 # Overrides: SOURCE_SSH (default `mini`; `local` runs the source side on this host, for testing on the mini against a
 # scratch TARGET_DB), TARGET_DB (default `shared`).
@@ -37,8 +38,11 @@ WORK="$(mktemp -d)"
 REMOTE_DIR=""
 
 # Runs a shell command on the source host, stdin passed through.
+# Keepalives make a wedged host or a half-open tailnet link fail the run instead of hanging it (and the snapshot with it).
 on_source() {
-  if [ "${SOURCE_SSH}" = "local" ]; then bash -c "$1"; else ssh -o BatchMode=yes "${SOURCE_SSH}" "bash -c $(printf '%q' "$1")"; fi
+  if [ "${SOURCE_SSH}" = "local" ]; then bash -c "$1"; return; fi
+  ssh -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+    "${SOURCE_SSH}" "bash -c $(printf '%q' "$1")"
 }
 
 # The dump holds the whole schema in plaintext: whatever way the run ends, it must not stay on the source host.
@@ -49,6 +53,7 @@ cleanup() {
     || echo "WARNING: could not remove ${REMOTE_DIR} on ${SOURCE_SSH}; remove it by hand" >&2
 }
 trap cleanup EXIT
+trap 'exit 130' INT TERM HUP
 
 target() { PGPASSWORD="${ARGO_DB_PASSWORD}" psql -X -h "${TARGET_HOST}" -U argo -d "${TARGET_DB}" -v ON_ERROR_STOP=1 "$@"; }
 log() { echo "[$(date +%H:%M:%S)] $*"; }
@@ -68,8 +73,9 @@ if [ "${tables_on_target}" != "0" ] && [[ "${comment}" != "${MARK}"* ]] && [[ "$
 fi
 
 # --- 1. Dump + checksums from one read-only snapshot on the mini ----------------
-REMOTE_DIR=$(on_source 'umask 077 && mktemp -d /tmp/argo-sync.XXXXXX' </dev/null)
-[[ "${REMOTE_DIR}" == /tmp/argo-sync.* ]] || { echo "ERROR: could not create a work dir on ${SOURCE_SSH}: ${REMOTE_DIR}" >&2; exit 1; }
+remote_dir=$(on_source 'umask 077 && mktemp -d /tmp/argo-sync.XXXXXX' </dev/null)
+[[ "${remote_dir}" =~ ^/tmp/argo-sync\.[A-Za-z0-9]{6}$ ]] || { echo "ERROR: could not create a work dir on ${SOURCE_SSH}: ${remote_dir}" >&2; exit 1; }
+REMOTE_DIR="${remote_dir}"
 
 log "Dumping schema argo from ${SOURCE_SSH} (read-only, snapshot-consistent)..."
 # The password travels on stdin (first line), never on a command line; psql reads the SQL from the rest of stdin.
@@ -79,7 +85,9 @@ log "Dumping schema argo from ${SOURCE_SSH} (read-only, snapshot-consistent)..."
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT pg_export_snapshot() AS snap \gset
 \setenv SNAP :snap
-\! pg_dump -h 127.0.0.1 -U argo -d shared --schema=argo --clean --if-exists --no-owner --no-privileges --snapshot="\$SNAP" -f ${REMOTE_DIR}/dump.sql
+\! pg_dump -h 127.0.0.1 -U argo -d shared --schema=argo --clean --if-exists --no-owner --no-privileges --snapshot="\$SNAP" -f ${REMOTE_DIR}/dump.sql && touch ${REMOTE_DIR}/dump.ok
+\o ${REMOTE_DIR}/sysid
+SELECT system_identifier FROM pg_control_system();
 \o ${REMOTE_DIR}/source.sums
 $(cat "${HERE}/db-sync-checksums.sql")
 \o
@@ -87,6 +95,14 @@ COMMIT;
 SQL
 } | on_source 'export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; IFS= read -r PGPASSWORD; export PGPASSWORD PGOPTIONS="-c default_transaction_read_only=on"; umask 077; exec psql -X -h 127.0.0.1 -U argo -d shared -qAt -v ON_ERROR_STOP=1 >/dev/null'
 
+on_source "test -f '${REMOTE_DIR}/dump.ok'" </dev/null || { echo "ERROR: pg_dump failed on ${SOURCE_SSH} (no dump.ok marker)" >&2; exit 1; }
+source_sysid=$(on_source "cat '${REMOTE_DIR}/sysid'" </dev/null)
+target_sysid=$(target -qAt -c "SELECT system_identifier FROM pg_control_system()")
+[ -n "${source_sysid}" ] && [ -n "${target_sysid}" ] || { echo "ERROR: could not read the cluster identity of source or target" >&2; exit 1; }
+if [ "${source_sysid}" = "${target_sysid}" ] && [ "${TARGET_DB}" = "shared" ]; then
+  echo "ERROR: the target ${TARGET_DB} is the source database itself (cluster ${source_sysid}). db:sync never writes to it." >&2
+  exit 1
+fi
 on_source "cat '${REMOTE_DIR}/dump.sql'" </dev/null > "${WORK}/dump.sql"
 on_source "cat '${REMOTE_DIR}/source.sums'" </dev/null > "${WORK}/source.sums"
 [ -s "${WORK}/dump.sql" ] && [ -s "${WORK}/source.sums" ] || { echo "ERROR: empty dump or checksum file from ${SOURCE_SSH}" >&2; exit 1; }
@@ -98,6 +114,9 @@ grep -v -E '^(DROP|CREATE|COMMENT ON|ALTER) SCHEMA' "${WORK}/dump.sql" > "${WORK
 {
   echo '\set ON_ERROR_STOP on'
   echo 'BEGIN;'
+  # Tables the source no longer has (a dropped or renamed table) would otherwise survive the --clean restore and fail
+  # the checksum comparison forever.
+  echo "DO \$\$ DECLARE t text; BEGIN FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'argo' LOOP EXECUTE format('DROP TABLE IF EXISTS argo.%I CASCADE', t); END LOOP; END \$\$;"
   echo "\\i ${WORK}/restore.sql"
   echo "COMMENT ON SCHEMA argo IS '${MARK} (synced from the mini) $(date -u +%Y-%m-%dT%H:%MZ)';"
   echo "\\o ${WORK}/target.sums"
