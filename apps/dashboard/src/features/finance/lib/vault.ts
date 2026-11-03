@@ -94,13 +94,14 @@ export function useVaultBarProps(): Pick<ComponentProps<typeof PageBar>, 'action
     onError: (error) => emit('finance:error', { message: error.message }),
   })
 
+  const syncing = sync.isPending || data?.syncing === true
   const lastRun = data?.last_sync
   const lastFinished = lastRun?.finished_at
   const failed = lastRun?.ok === false
   return {
     sync: {
-      label: 'Sync now',
-      syncing: sync.isPending || data?.syncing === true,
+      label: syncing ? 'Syncing…' : 'Sync now',
+      syncing,
       lastCompletedAt: lastFinished == null || failed ? null : new Date(lastFinished),
       ...(failed && { error: lastRun.error ?? 'The last sync failed.' }),
       onSync: () => sync.mutate(),
