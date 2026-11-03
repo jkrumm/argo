@@ -57,11 +57,11 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT TERM HUP
 
-SOURCE_PSQL='export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; IFS= read -r PGPASSWORD; export PGPASSWORD PGOPTIONS="-c default_transaction_read_only=on -c lock_timeout=30s"; umask 077; exec psql -X -h 127.0.0.1 -U argo -d shared -qAt -v ON_ERROR_STOP=1'
+SOURCE_PSQL='export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; IFS= read -r PGPASSWORD; export PGPASSWORD PGOPTIONS="-c default_transaction_read_only=on -c lock_timeout=30s -c transaction_timeout=15min"; umask 077; exec psql -X -h 127.0.0.1 -U argo -d shared -qAt -v ON_ERROR_STOP=1'
 # The password travels on stdin (first line), never on a command line; psql reads the SQL from the rest of stdin.
 source_sql() { { printf '%s\n' "${ARGO_DB_PASSWORD}"; cat; } | on_source "${SOURCE_PSQL}"; }
 
-target() { PGPASSWORD="${ARGO_DB_PASSWORD}" psql -X -h "${TARGET_HOST}" -U argo -d "${TARGET_DB}" -v ON_ERROR_STOP=1 "$@"; }
+target() { PGPASSWORD="${ARGO_DB_PASSWORD}" PGOPTIONS="-c lock_timeout=30s" psql -X -h "${TARGET_HOST}" -U argo -d "${TARGET_DB}" -v ON_ERROR_STOP=1 "$@"; }
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
 # --- Guard -------------------------------------------------------------------
@@ -94,6 +94,7 @@ remote_dir=$(on_source 'find /tmp/ -maxdepth 1 -name "argo-sync.*" -user "$(id -
 REMOTE_DIR="${remote_dir}"
 
 log "Dumping schema argo from ${SOURCE_SSH} (read-only, snapshot-consistent)..."
+# A failing `\!` does not trip ON_ERROR_STOP: the dump.ok marker is what proves pg_dump succeeded.
 source_sql >/dev/null <<SQL
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT pg_export_snapshot() AS snap \gset

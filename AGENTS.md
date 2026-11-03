@@ -126,8 +126,11 @@ copy to roll back to. Restoring the database, newest recovery point first:
    (custom format, the whole VPS `argo` schema incl. the five legacy usage tables; `sha256sum -c` the `.sha256` first). It loses
    everything the mini wrote since 2026-10-30 16:43Z.
 
-Either way: `launchctl bootout gui/$(id -u)/com.jkrumm.argo`, `pg_restore` the `argo` schema into a scratch database first and
-compare rows against the sums, then into `shared` (keep the schema comment `argo live ...`), `make deploy`.
+Either way, `argo` only (both dumps hold more than Argo; never restore a whole `shared.dump` into `shared`, it carries `usage`):
+`launchctl bootout gui/$(id -u)/com.jkrumm.argo` and confirm it is gone; `pg_restore --schema=argo --no-owner --role=argo
+--exit-on-error -d <scratch db>` and compare row counts against `counts.tsv` / `.sums`; then the same with `--clean --if-exists -d
+shared` as role `argo`; `COMMENT ON SCHEMA argo IS 'argo live (restored from <dump>) <date>'` (the restore replaces the mark the
+guards read); `make deploy`.
 
 Migrations apply automatically on API boot — **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
 
@@ -246,7 +249,7 @@ On the mini `shared.argo` is the live database: `bun dev` refuses to start there
 production) or on a MacBook with its own local copy. `bun db:sync` (`scripts/db-sync.sh`) seeds that copy from the live mini
 schema over `ssh mini`: one REPEATABLE READ READ ONLY snapshot with `default_transaction_read_only=on`, pg_dump plus per-table
 rows + md5 from that snapshot, a local restore that commits only when every table matches, marked `argo dev copy ...`; a
-local schema without that mark is replaced only with `FORCE=1`. `bun db:migrate` refuses the live database the same way as
+local schema without that mark (or the older `argo rehearsal copy`) is replaced only with `FORCE=1`. `bun db:migrate` refuses the live database the same way as
 `bun dev` (`scripts/live-guard.sh`, fail-closed: an unreadable mark also refuses).
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.
