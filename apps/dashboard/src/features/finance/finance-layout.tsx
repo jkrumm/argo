@@ -20,7 +20,9 @@ export function FinanceLayout() {
       </Center>
     )
   }
-  if (status.data === undefined) {
+  // Fail closed: react-query keeps the last good data across a failed refetch, and a service that
+  // just restarted has dropped the key. A status that cannot be read now never keeps pages on screen.
+  if (status.isError || status.data === undefined) {
     const down = status.error instanceof FinanceApiError && status.error.status === 503
     return (
       <EmptyState

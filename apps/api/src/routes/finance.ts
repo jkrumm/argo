@@ -27,6 +27,14 @@ export type FinanceConfig = {
   token: string
 }
 
+function isWrongKey(text: string): boolean {
+  try {
+    return (JSON.parse(text) as { error?: unknown } | null)?.error === 'wrong key'
+  } catch {
+    return false
+  }
+}
+
 const unavailable = (): Response =>
   new Response(JSON.stringify(UNAVAILABLE), {
     status: 503,
@@ -74,9 +82,13 @@ export function createFinanceRoutes(config: FinanceConfig) {
       // 401 on /unlock means "wrong key" and is the caller's to see. On any other path it can only
       // mean Argo's service token was refused — a deployment fault that must not read as the
       // browser's own session expiring (the dashboard logs out on 401).
-      if (upstream.status === 401 && path !== '/unlock') {
+      if (upstream.status === 401) {
+        // On /unlock the service's own `{ error: "wrong key" }` is the caller's to see; any other 401
+        // there is the same refused token and must not read as a wrong key.
+        const text = path === '/unlock' ? await upstream.text() : ''
+        if (path === '/unlock' && isWrongKey(text)) return relay(new Response(text, upstream))
         log.error('finance relay: service rejected FIN_SERVICE_TOKEN', undefined, { path })
-        await upstream.body?.cancel()
+        if (path !== '/unlock') await upstream.body?.cancel()
         return unavailable()
       }
       return relay(upstream)
@@ -115,8 +127,12 @@ export function createFinanceRoutes(config: FinanceConfig) {
     .post(
       '/unlock',
       async ({ request }) => {
-        const text = await request.text()
-        if (text.length > MAX_UNLOCK_BODY_BYTES) {
+        const declared = Number(request.headers.get('content-length') ?? 0)
+        const text = declared > MAX_UNLOCK_BODY_BYTES ? '' : await request.text()
+        if (
+          declared > MAX_UNLOCK_BODY_BYTES ||
+          new TextEncoder().encode(text).byteLength > MAX_UNLOCK_BODY_BYTES
+        ) {
           return new Response(JSON.stringify({ error: 'request too large' }), {
             status: 413,
             headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -190,8 +206,11 @@ export function createFinanceRoutes(config: FinanceConfig) {
       '/api/*',
       ({ request, params }) => {
         const rest = params['*'] ?? ''
-        // The router decodes nothing for `*`; refuse anything that could climb out of /api/.
-        if (rest.split('/').some((segment) => segment === '..' || segment === '.')) {
+        // No view path contains `%`: encoded dots or slashes could be decoded again further down.
+        if (
+          rest.includes('%') ||
+          rest.split('/').some((segment) => segment === '..' || segment === '.')
+        ) {
           return new Response(JSON.stringify({ error: 'invalid path' }), {
             status: 400,
             headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },

@@ -96,11 +96,14 @@ export function EventsPage() {
 
   if (events.isSuccess && rows.length === 0) {
     return (
-      <EmptyState
-        tier="page"
-        title="No events yet"
-        description="Group a trip or a shared cost with its reimbursements: `fin tx event add <id> --label <label>`, then `fin tx event assign <id> <booking...>`."
-      />
+      <Stack gap="sm">
+        <FinanceBar />
+        <EmptyState
+          tier="page"
+          title="No events yet"
+          description="Group a trip or a shared cost with its reimbursements: `fin tx event add <id> --label <label>`, then `fin tx event assign <id> <booking...>`."
+        />
+      </Stack>
     )
   }
 

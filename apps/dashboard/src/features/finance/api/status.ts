@@ -73,6 +73,9 @@ export type UnlockOutcome =
   | { kind: 'wrong-key' }
   | { kind: 'throttled'; blockedUntil: string | null }
   | { kind: 'unavailable' }
+  /** Argo itself refused the request (session expired); the key was not tried. */
+  | { kind: 'unauthorized' }
+  | { kind: 'failed'; status: number }
 
 /**
  * Posts the vault key. The key is a parameter of this call and the body of one request: it is not
@@ -86,12 +89,17 @@ export async function unlockVault(key: string): Promise<UnlockOutcome> {
     return { kind: 'unavailable' }
   }
   if (result.status === 204) return { kind: 'unlocked' }
-  if (result.status === 401) return { kind: 'wrong-key' }
+  if (result.status === 401) {
+    // Only the service's own answer is a wrong key; any other 401 is Argo's session guard.
+    const error = (result.body as { error?: unknown } | null)?.error
+    return error === 'wrong key' ? { kind: 'wrong-key' } : { kind: 'unauthorized' }
+  }
   if (result.status === 429) {
     const blocked = (result.body as { unlock_blocked_until?: unknown } | null)?.unlock_blocked_until
     return { kind: 'throttled', blockedUntil: typeof blocked === 'string' ? blocked : null }
   }
-  return { kind: 'unavailable' }
+  if (result.status === 503) return { kind: 'unavailable' }
+  return { kind: 'failed', status: result.status }
 }
 
 export async function lockVault(): Promise<void> {

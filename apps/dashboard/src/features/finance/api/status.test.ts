@@ -61,6 +61,16 @@ describe('unlockVault', () => {
     expect(await mod.unlockVault(VAULT_KEY)).toEqual({ kind: 'wrong-key' })
   })
 
+  it('does not read a 401 without the service’s "wrong key" body as a wrong key (Argo’s session guard)', async () => {
+    stubFetch(() => new Response('Unauthorized', { status: 401 }))
+    expect(await mod.unlockVault(VAULT_KEY)).toEqual({ kind: 'unauthorized' })
+  })
+
+  it('maps other statuses to a generic failure that names the status', async () => {
+    stubFetch(() => Response.json({ error: 'internal error' }, { status: 500 }))
+    expect(await mod.unlockVault(VAULT_KEY)).toEqual({ kind: 'failed', status: 500 })
+  })
+
   it('maps 429 to throttled and carries the end of the pause', async () => {
     stubFetch(() =>
       Response.json(
@@ -102,9 +112,9 @@ describe('startSync / lockVault', () => {
     expect(await mod.startSync()).toBe('already-running')
   })
 
-  it('throws the lock message on 423 so the caller can drop to the unlock screen', async () => {
+  it('throws a 423 FinanceApiError so the caller can drop to the unlock screen', async () => {
     stubFetch(() => Response.json({ error: 'locked' }, { status: 423 }))
-    await expect(mod.startSync()).rejects.toThrow('The vault is locked.')
+    await expect(mod.startSync()).rejects.toMatchObject({ name: 'FinanceApiError', status: 423 })
   })
 
   it('lock succeeds on 204 and throws otherwise', async () => {

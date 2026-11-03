@@ -3,7 +3,7 @@ import { IconLock } from '@tabler/icons-react'
 import type { PageBar } from 'basalt-ui'
 import { emit } from 'basalt-ui/commands'
 import { createElement, useEffect, useRef, type ComponentProps } from 'react'
-import { FINANCE_DATA, FINANCE_STATUS_KEY, onVaultLocked } from '../api/client'
+import { FINANCE_DATA, FINANCE_STATUS_KEY, FinanceApiError, onVaultLocked } from '../api/client'
 import {
   lockVault,
   startSync,
@@ -53,6 +53,8 @@ export function useVaultStatus() {
   useEffect(() => {
     if (marker === null) {
       previous.current = null
+      // A locked status seen by polling (idle lock, restart) drops decrypted rows like a 423 does.
+      if (data?.locked) queryClient.removeQueries({ queryKey: FINANCE_DATA })
       return
     }
     const before = previous.current
@@ -61,7 +63,7 @@ export function useVaultStatus() {
     if (before !== null && before !== marker && !marker.startsWith('true|')) {
       void queryClient.invalidateQueries({ queryKey: FINANCE_DATA })
     }
-  }, [marker, queryClient])
+  }, [marker, data?.locked, queryClient])
 
   return status
 }
@@ -82,7 +84,7 @@ export function useVaultBarProps(): Pick<ComponentProps<typeof PageBar>, 'action
       void queryClient.invalidateQueries({ queryKey: FINANCE_STATUS_KEY })
     },
     onError: (error) => {
-      if (error.message === 'The vault is locked.') dropToLocked()
+      if (error instanceof FinanceApiError && error.status === 423) dropToLocked()
       else emit('finance:error', { message: error.message })
     },
   })

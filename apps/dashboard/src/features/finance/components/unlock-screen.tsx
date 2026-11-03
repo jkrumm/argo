@@ -1,8 +1,10 @@
 import { Button, Container, PasswordInput, Stack, Text, TextInput } from '@mantine/core'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from '@tanstack/react-router'
 import { IconLockOpen } from '@tabler/icons-react'
 import { PageTitle } from 'basalt-ui'
 import { useRef, useState, type FormEvent } from 'react'
+import { clearToken, safeRedirect } from '../../../lib/auth'
 import { FINANCE_STATUS_KEY } from '../api/client'
 import { unlockVault, type LockedStatus } from '../api/status'
 import { dateTime } from '../lib/time'
@@ -22,6 +24,7 @@ type Props = { blockedUntil: LockedStatus['unlock_blocked_until'] }
  */
 export function UnlockScreen({ blockedUntil }: Props) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const form = useRef<HTMLFormElement>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -54,6 +57,16 @@ export function UnlockScreen({ blockedUntil }: Props) {
             : `Too many wrong keys. Unlocking is paused until ${dateTime(outcome.blockedUntil)}.`,
         )
         void queryClient.invalidateQueries({ queryKey: FINANCE_STATUS_KEY })
+        return
+      case 'unauthorized': {
+        // Argo's own session expired: the same exit every other page takes on a 401.
+        clearToken()
+        const { href } = router.state.location
+        void router.navigate({ to: '/login', search: { redirect: safeRedirect(href) } })
+        return
+      }
+      case 'failed':
+        setMessage(`Unlocking failed (HTTP ${outcome.status}).`)
         return
       case 'unavailable':
         setMessage('The finance service is not reachable. Try again in a moment.')

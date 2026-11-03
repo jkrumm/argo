@@ -145,14 +145,21 @@ describe('relay', () => {
     expect(seen[0]).toMatchObject({ path: '/api/month', search: '?month=2026-10' })
   })
 
-  it('never lets a /finance/api/* request reach a service path outside /api/', async () => {
-    // URL parsing folds `%2e%2e/` into the real /finance/status route; the encoded slash variant
-    // reaches the wildcard, which must refuse it (or leave it under /api/).
-    await call('/finance/api/%2e%2e/status')
-    const res = await call('/finance/api/..%2fstatus')
-    expect([200, 400, 404]).toContain(res.status)
-    const wildcardCalls = seen.slice(1)
-    expect(wildcardCalls.every((s) => s.path.startsWith('/api/'))).toBe(true)
+  it('refuses encoded dots and slashes in /finance/api/* before they reach the service', async () => {
+    for (const path of [
+      '/finance/api/..%2fstatus',
+      '/finance/api/%5c..%5cstatus',
+      '/finance/api/a%2fb',
+    ]) {
+      const res = await call(path)
+      expect([path, res.status]).toEqual([path, 400])
+    }
+    expect(seen).toHaveLength(0)
+    // URL parsing folds a literal `%2e%2e/` into the real /finance/status route; that is still the
+    // service's own /status, never a path outside /api/ or the mapped routes.
+    const folded = await call('/finance/api/%2e%2e/status')
+    expect(folded.status).toBe(200)
+    expect(seen.map((s) => s.path)).toEqual(['/status'])
   })
 
   it('forwards GET /finance/sync-runs with ?limit', async () => {
@@ -258,6 +265,32 @@ describe('POST /finance/unlock', () => {
       body: JSON.stringify({ key: 'nope' }),
     })
     expect(blocked.status).toBe(429)
+  })
+
+  it('maps a non-"wrong key" 401 on /unlock (a refused service token) to 503, not to a wrong key', async () => {
+    reply = () => Response.json({ error: 'unauthorized' }, { status: 401 })
+    const error = spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await call('/finance/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'x' }),
+      })
+      expect(res.status).toBe(503)
+      expect(await res.json()).toEqual({ error: 'finance service unavailable' })
+    } finally {
+      error.mockRestore()
+    }
+  })
+
+  it('measures the cap in bytes: a multibyte body under 4096 characters but over 4096 bytes is refused', async () => {
+    const res = await call('/finance/unlock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'ü'.repeat(3000) }),
+    })
+    expect(res.status).toBe(413)
+    expect(seen).toHaveLength(0)
   })
 
   it('rejects an oversized body without forwarding it', async () => {
