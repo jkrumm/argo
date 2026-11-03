@@ -81,3 +81,16 @@ period ("this month", "last 3 months"). Empty: "Nothing is due for the rest of t
 5. At 390 px nothing is clipped horizontally and every table is a card list.
 6. Filter values never appear in the address bar; `month`, `from`, `to`, `year` may.
 7. A tax tag set in the queue removes the booking from the queue and moves the year's sums.
+
+## Shot rounds
+
+Method: `basalt-ui shot` over a synthetic sandbox vault (real `fin serve` handler, Argo relay, built dashboard), auto-anchors, light and dark, 1440 and 390; scored by the `basalt-design-reviewer` subagent plus `basalt-ui shot detect --lint` (zero findings in every round).
+
+| Round | Verdict | Main findings fixed in the next one |
+|-|-|-|
+| 1 | 5 components failing | no marker for today on the pace chart; split meter without a legend; latest bookings 890 px tall beside a 450 px card; a running month compared with full-month averages; net-worth step unexplained (the depot joins in one month) |
+| 2 | 3 failing, score 30 | spending deltas without a direction glyph; crowded or uneven tick labels (trend, tax, depot); two axes with different zeros; tax queue rows too heavy; recurring right column empty |
+| 3 | 2 failing, score 68 | merchant action clipped on the tax queue; ribbon without savings rate and loss glyph; headline deltas without glyph |
+| 4 | all 18 components pass, detect clean, score 91 | P2 only: ribbon cell wrap at 390 (fixed after), delta colour neutral on mobile |
+
+Accepted, not fixable in the app: the pager's current-page fill is basalt's `Pagination`; 390 px crops of the tall tables are "not captured" by the tool (the page shots cover them); Month/From/To selects show their field name (basalt `SelectFilter`); a card list has no selection column, so bulk edits are a desktop job.

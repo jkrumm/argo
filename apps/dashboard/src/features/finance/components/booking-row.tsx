@@ -3,13 +3,10 @@ import { date } from 'basalt-ui/format'
 import { VX } from 'basalt-ui/tokens'
 import type { ReactNode } from 'react'
 import type { TxRow } from '../api/types'
+import { bookingName } from '../lib/booking'
 import { eurExact } from '../lib/format'
 import { CategoryPicker, TagPicker } from './pickers'
 import classes from './finance.module.css'
-
-/** Who a booking was with: the merchant the rules found, else the bank's counterparty. */
-export const bookingName = (row: Pick<TxRow, 'merchant' | 'counterparty'>): string =>
-  row.merchant ?? row.counterparty ?? 'Unknown'
 
 /** The signed, exact amount of a booking; income reads in the good ink. */
 export function BookingAmount({ cents }: { cents: number }) {
