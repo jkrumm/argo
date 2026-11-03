@@ -101,13 +101,11 @@ function RootLayout() {
     <BasaltShell
       brand={{ name: 'Argo', logoSrc: '/favicon.svg', version: __APP_VERSION__ }}
       nav={NAV}
-      // The Month entry links to `latest`; it stays active on every `/finance/month/<yyyy-mm>`.
-      // Every other entry keeps the shell's own rule: exact for `/`, else the path or a child of it.
+      // Every entry keeps the shell's own rule: exact for `/`, else the path or a child of it.
       isActive={(item) => {
         const to = item.link.to ?? ''
-        if (item.id === 'finance-month') return path.startsWith('/finance/month/')
-        // The report is the section's index: exact, or it would shadow every sibling page.
-        if (item.id === 'finance-report') return path.replace(/\/$/, '') === '/finance'
+        // This month is the section's index: exact, or it would shadow every sibling page.
+        if (item.id === 'finance-month') return path.replace(/\/$/, '') === '/finance'
         return to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`)
       }}
       badges={{ calendar: badges.calendar, m365: badges.m365 }}

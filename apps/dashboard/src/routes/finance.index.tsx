@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ReportPage } from '../features/finance/pages/report'
+import { ThisMonthPage } from '../features/finance/pages/this-month'
 import { finStore } from '../lib/window-stores'
 
 export const Route = createFileRoute('/finance/')({
   validateSearch: finStore.validateSearch,
-  component: ReportPage,
+  component: ThisMonthPage,
 })

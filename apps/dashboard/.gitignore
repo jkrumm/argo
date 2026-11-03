@@ -1,3 +1,6 @@
 node_modules/
 dist/
 src/routeTree.gen.ts
+
+# basalt-ui shot boards (local, regenerated every run)
+.basalt/

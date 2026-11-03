@@ -8,3 +8,13 @@ export const dateTime = (iso: string): string =>
     hour: '2-digit',
     minute: '2-digit',
   })
+
+/** `YYYY-MM-DD` of a date in the browser's local day. */
+export const isoDay = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** `YYYY-MM-DD` plus `days`, in local days. */
+export function addDays(iso: string, days: number): string {
+  const [y = 0, m = 1, d = 1] = iso.split('-').map(Number)
+  return isoDay(new Date(y, m - 1, d + days))
+}

@@ -1,14 +1,18 @@
 /**
- * PINNED CONTRACT — copied verbatim from the finances repo, `ui/src/api/types.ts` @ fbdd1c2
- * (~/SourceRoot/finances, `fin serve`; the file last changed in 0a49d44). The API is
+ * PINNED CONTRACT — copied verbatim from the finances repo, `ui/src/api/types.ts` @ ce98dfd
+ * (~/SourceRoot/finances, `fin serve`; the file last changed in a84f625). The API is
  * `/api/finance/*` here and `/api/*` on the service. Re-copy when that file changes; do not edit the
  * types below by hand. Service status/sync types live in `./status.ts` (from the service contract,
  * finances `docs/service.md`).
  */
 /**
- * The API contract of `fin ui` (docs/dashboard.md, docs/data-model.md §3). Rows are the view rows
+ * The API contract of `fin ui` and `fin serve` (docs/dashboard.md, docs/service.md, docs/data-model.md §3). Rows are the view rows
  * as the server selects them, so column names stay snake_case. Amounts are integer cents, months
  * `YYYY-MM`; income is positive, spending negative, as booked. The server imports these types.
+ *
+ * Every `month` of an aggregate (cashflow, category, merchant, report, forecast, month detail, `from`/`to`) is a BUDGET month: the
+ * calendar month, except that a salary booked on the 20th or later (`income/salary`) counts for the next one. A booking's own
+ * `booked_on` and `TxRow.month` stay the calendar values. The write types at the end are `fin serve` only.
  */
 
 /** `YYYY-MM`. */
@@ -46,23 +50,36 @@ export type Meta = {
 export type TxRow = {
   id: string
   account_id: string
-  /** `YYYY-MM-DD`. */
+  /** `YYYY-MM-DD`, the day the bank booked it. */
   booked_on: string
+  /** Calendar month of `booked_on`. */
   month: Month
+  /** Month the booking counts for: `month`, except a salary booked on the 20th or later, which counts for the next month. */
+  budget_month: Month
   amount_cents: number
   counterparty: string | null
   purpose: string | null
   merchant: string | null
   /** NULL when uncategorized. */
   category: string | null
+  /** Where the category came from: a rule, a tax tag, a PayPal pair, or someone (`manual`, `llm`). NULL when uncategorized. */
+  category_source: 'rule' | 'manual' | 'llm' | 'tag' | 'pair' | null
   /** NULL when uncategorized. */
   category_kind: CategoryKind | null
   top_category: string | null
   tax_tag: string | null
+  /** NULL when untagged. */
+  tag_source: 'rule' | 'manual' | 'llm' | null
+  /** The tag's note (why it is business, ...). */
+  note: string | null
   /** NULL when the booking belongs to no event (trip, shared cost). */
   event_id: string | null
+  event_label: string | null
   /** 1 when the category is a committed monthly cost; 0 otherwise or uncategorized. */
   fixed: 0 | 1
+  /** The other leg of a transfer (PayPal funding and its bank row); NULL when unpaired. */
+  pair_id: string | null
+  pair_account_id: string | null
 }
 
 /** `v_cashflow_monthly` */
@@ -100,22 +117,67 @@ export type MerchantTotal = {
 
 export type Cadence = 'monthly' | 'quarterly' | 'yearly'
 
-/** `v_recurring` */
+export type RecurringKind = 'subscription' | 'bill'
+
+export type RecurringStatus = 'active' | 'cancelled'
+
+export type RecurringMode = 'include' | 'exclude'
+
+/** A manual say on the detection (`recurring_overrides`). */
+export type RecurringOverride = {
+  merchant: string
+  mode: RecurringMode
+  /** Only with `include`: the cadence to assume; NULL = the detected one, else monthly. */
+  cadence: Cadence | null
+  note: string | null
+  /** ISO timestamp. */
+  updated_at: string
+}
+
+/**
+ * One recurring charge series (`GET /api/recurring`, `fin tx recurring list`), detected per booking, not per month. A merchant that
+ * is charged twice on the same days for similar amounts (two seats of one service) is TWO rows: `series` 1..`series_count`.
+ * Money is negative, like the bookings.
+ */
 export type RecurringRow = {
   merchant: string
+  /** Category of the latest charge. */
   category: string | null
-  months_active: number
-  first_month: Month
-  last_month: Month
+  /** 1-based number of this series among the merchant's parallel series. */
+  series: number
+  series_count: number
+  cadence: Cadence
+  /** Median days between consecutive charges (the nominal 30 / 91 / 365 when forced by an override or too few charges). */
+  cadence_days: number
+  /** `subscription`: the amount stays put (steps allowed, one per six charges or so); `bill`: it varies (electricity, telecom). */
+  kind: RecurringKind
+  /** `active` while today is at most 10 (monthly), 21 (quarterly) or 45 (yearly) days past `next_expected_on`, else `cancelled`. */
+  status: RecurringStatus
+  /** Regular charges in the series (settlements and extras not counted). */
+  count: number
+  /** `YYYY-MM-DD` of the first and the latest regular charge. */
+  first_on: string
+  last_on: string
+  /** Latest regular charge. */
+  current_cents: number
+  /** Mean of the regular charges within 12 months before `last_on`. */
   avg_cents: number
   min_cents: number
   max_cents: number
-  cadence: Cadence
-  /** Normalized to a month, negative like the booking. */
+  /** Monthly estimate: current_cents (subscription) or avg_cents (bill), times 1 / 1/3 / 1/12 by cadence. Settlements are not in it. */
   monthly_cents: number
-  /** Seen in the last 2 months of data; SQLite booleans arrive as 0 | 1. */
-  active: boolean | 0 | 1
+  /** `YYYY-MM-DD`; last_on plus one cadence step (1 / 3 / 12 months). NULL when cancelled. */
+  next_expected_on: string | null
+  /** Charges above 3x the instalment's median (a yearly electricity settlement), listed apart and left out of every number above. */
+  settlements: { booked_on: string; amount_cents: number }[]
+  /** Other charges of the merchant off the instalment's day of the month (irregular top-ups), listed apart and left out of every number. */
+  extras: { booked_on: string; amount_cents: number }[]
+  /** The override applied, if any. */
+  override: Pick<RecurringOverride, 'mode' | 'cadence' | 'note'> | null
 }
+
+/** `GET /api/recurring/overrides` */
+export type RecurringOverrides = RecurringOverride[]
 
 /** `v_net_worth_monthly` */
 export type NetWorthMonth = {
@@ -156,10 +218,44 @@ export type Overview = {
   latest_net_worth: NetWorthMonth | null
 }
 
-/** `GET /api/net-worth` */
+/** One account's month-end values, oldest first: bank balances for cash accounts, the depot value (`holdings`) for a depot. */
+export type AccountSeries = {
+  account_id: string
+  name: string
+  kind: AccountKind
+  series: { month: Month; balance_cents: number; extrapolated: 0 | 1 }[]
+}
+
+/** `GET /api/net-worth` (calendar months: a month end is a month end). */
 export type NetWorth = {
   net_worth: NetWorthMonth[]
+  /** Cash accounts only, as `v_balance_monthly`. */
   balances: BalanceMonth[]
+  /** Every account with data, cash and depot, for a per-account chart. */
+  accounts: AccountSeries[]
+}
+
+/** A depot position as of the account's latest import. */
+export type Holding = {
+  account_id: string
+  as_of: string
+  isin: string
+  name: string | null
+  /** Decimal string: units can be fractional. */
+  quantity: string
+  price_cents: number | null
+  value_cents: number | null
+  currency: string
+}
+
+/** `GET /api/holdings` */
+export type Holdings = {
+  /** Latest `as_of` over all depots; NULL without holdings. */
+  as_of: string | null
+  /** Largest value first. */
+  positions: Holding[]
+  /** Total depot value per import day, oldest first. */
+  history: { as_of: string; value_cents: number }[]
 }
 
 /** `GET /api/tax-year?year`: one row per tax tag (NULL = untagged) and month of that year. */
@@ -173,15 +269,39 @@ export type TaxYearRow = {
 /** Query of the range endpoints. */
 export type RangeQuery = { from: Month; to: Month }
 
-/** `GET /api/transactions` */
-export type TxQuery = RangeQuery & {
+export type TxSort = 'booked_on' | 'amount' | 'merchant'
+
+/** `GET /api/transactions` query; every field optional. `category`/`merchant`/`event` also take `__none__` (the NULL rows). */
+export type TxQuery = {
+  /** Budget months, inclusive. */
+  from?: Month
+  to?: Month
+  account?: string
+  /** A category id also selects its children. */
   category?: string
+  tag?: string
   merchant?: string
+  /** Case-insensitive substring of counterparty, purpose or merchant. */
   search?: string
   /** An event id; the server keeps that event's bookings. */
   event?: string
+  /** Signed cents, inclusive (spending is negative). */
+  min?: number
+  max?: number
+  /** `1`: only bookings without a category / without a tax tag. */
+  uncategorized?: 1
+  untagged?: 1
+  /** Default `booked_on`. */
+  sort?: TxSort
+  /** Default `desc`. */
+  dir?: 'asc' | 'desc'
+  offset?: number
+  /** 1..500, default 100. */
   limit?: number
 }
+
+/** `GET /api/transactions`: `total` counts all matches, `rows` is the requested page. */
+export type TxList = { rows: TxRow[]; total: number }
 
 /** `GET /api/merchants` */
 export type MerchantQuery = RangeQuery & { category?: string }
@@ -314,3 +434,60 @@ export type MonthDetail = {
   events: EventTotal[]
   cause: string
 }
+
+// ---- Month status (docs/insights.md §Month status) ----
+
+/** `GET /api/month-status?month` */
+export type MonthStatus = {
+  /** The budget month. Default: today's calendar month, or the next one once its salary is booked (from the 20th). */
+  month: Month
+  /** `YYYY-MM-DD`, the server's local day. */
+  today: string
+  days_total: number
+  /** Days from today (inclusive) to the month end; 0 once the month is over, `days_total` before it starts. */
+  days_left: number
+  /** Income booked so far in this budget month (positive). */
+  income_cents: number
+  /** Expenses booked so far, events included (negative). */
+  spent_cents: number
+  /** Active recurring charges not yet booked this month whose expected day falls in it, nothing for a past month. */
+  fixed_due: { merchant: string; expected_on: string; amount_cents: number }[]
+  /** Sum of `fixed_due` (negative). */
+  fixed_due_cents: number
+  /** Average daily variable spend of the last 3 complete budget months (negative) times `days_left`. */
+  variable_projection_cents: number
+  /** income + spent + fixed_due + variable projection. */
+  projected_end_cents: number
+  /** What can still be spent per day (today included) to end at 0 or more, floored at 0; NULL while no income is in or no day is left. */
+  daily_budget_cents: number | null
+  /** Expenses booked in the previous budget month up to the same day of the month (negative). */
+  last_month_same_day: { spent_cents: number }
+}
+
+// ---- Writes: `fin serve` only (docs/service.md); `fin ui` stays GET-only ----
+
+/** `POST /api/transactions/:id/category` -> `TxRow` (source `manual`; unknown category: 400, unknown id: 404). */
+export type SetCategoryRequest = { category: string }
+
+/** `POST /api/transactions/:id/tag` -> `TxRow`. `tag: null` clears the tag; rules may then set one again. */
+export type SetTagRequest = {
+  tag: 'business' | 'tax' | 'donation' | 'private' | 'transfer' | 'investment' | 'income' | null
+  note?: string
+}
+
+/**
+ * `POST /api/recurring/overrides` -> `RecurringOverride | null` (null after a clear). `mode: null` removes the override. `cadence`
+ * only goes with `include`.
+ */
+export type SetRecurringOverrideRequest = {
+  merchant: string
+  mode: RecurringMode | null
+  cadence?: Cadence
+  note?: string
+}
+
+/** `POST /api/merchant-rules`: needs `merchant` and/or `category`; re-categorizes at once. */
+export type AddMerchantRuleRequest = { pattern: string; merchant?: string; category?: string }
+
+/** `pattern` is stored normalized (lowercase tokens); `changed` = bookings whose merchant, category or source changed. */
+export type AddMerchantRuleResponse = { pattern: string; changed: number }

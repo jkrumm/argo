@@ -1,0 +1,240 @@
+/* ── A booking line: merchant and amount, then the date and purpose, then the editors ─────── */
+
+.booking {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--vx-space-stack-xs) var(--vx-space-stack-md);
+  align-items: baseline;
+  padding-block: var(--vx-space-stack-sm);
+  border-block-end: 1px solid var(--vx-surface-hairline);
+  min-width: 0;
+}
+
+.booking:last-child {
+  border-block-end: 0;
+}
+
+.merchant {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amount {
+  font-family: var(--basalt-font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: end;
+}
+
+.amountCell {
+  text-align: end;
+}
+
+.meta {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editors {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vx-space-stack-xs);
+}
+
+.editorsPair {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.bookings {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+/* ── Category against its average: a thin track, the fill is this month, the tick the average ── */
+
+.cats {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--vx-space-stack-md);
+  min-width: 0;
+}
+
+.cat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--vx-space-stack-xs) var(--vx-space-stack-md);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.catName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catFigures {
+  font-family: var(--basalt-font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: end;
+}
+
+.track {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--vx-surface-subtle);
+}
+
+.fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: calc(var(--share) * 100%);
+  border-radius: 3px;
+  background: var(--vx-line);
+}
+
+.fillOver {
+  background: var(--vx-status-bad);
+}
+
+.avgTick {
+  position: absolute;
+  inset-block: -3px;
+  inset-inline-start: calc(var(--avg) * 100%);
+  width: 2px;
+  margin-inline-start: -1px;
+  border-radius: 1px;
+  background: var(--vx-ink);
+}
+
+/* ── Queue rows (tax, uncategorized) ───────────────────────────────────────────────────────── */
+
+.queueActions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vx-space-stack-xs);
+}
+
+/* ── Page frames: columns follow the width the page is given, not the viewport's ───────────── */
+
+.page {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vx-space-stack-sm);
+  align-items: start;
+  min-width: 0;
+}
+
+@container (min-width: 800px) {
+  .splitWide {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  .splitHalf {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .splitLists {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+/* ── Month ribbon under the trend chart: one tap target per month ──────────────────────────── */
+
+.ribbon {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--vx-space-stack-xs);
+}
+
+.ribbonLink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-block: var(--vx-space-stack-xs);
+  border-radius: var(--vx-radius-ctrl);
+  text-align: center;
+  text-decoration: none;
+  background: var(--vx-surface-subtle);
+}
+
+.ribbonLink[data-current] {
+  background: var(--vx-surface-row-selected);
+}
+
+/* A booking line with one editor (the latest-bookings list): the select sits beside the date. */
+
+@container (min-width: 480px) {
+  .bookingInline .meta {
+    grid-column: 1;
+  }
+
+  .bookingInline .editors {
+    grid-column: 2;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr);
+    width: 14rem;
+  }
+}
+
+/* Wide enough for one line per booking: who and when on the left, the category, the amount. */
+@container (min-width: 800px) {
+  .bookingInline {
+    grid-template-columns: minmax(0, 1fr) 14rem 7rem;
+    align-items: center;
+  }
+
+  .bookingInline .merchant {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .bookingInline .meta {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .bookingInline .editors {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .bookingInline .amountCell {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+
+/* A link inside a list row: quiet until hovered, so a column of them does not read as a column of buttons. */
+
+.quietLink {
+  color: var(--vx-ink2);
+  text-decoration: underline;
+  text-decoration-color: var(--vx-surface-border);
+  text-underline-offset: 2px;
+}
+
+.quietLink:hover {
+  color: var(--vx-ink);
+}

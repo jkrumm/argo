@@ -4,13 +4,13 @@ import type { RouterHistory } from '@tanstack/react-router'
 /**
  * Browser history for the finance pages that keeps filter values out of the address bar.
  *
- * Merchant, category, search term, event and the focused category are the vault's data. The HyperDX
+ * Merchant, category, search term, account, tag and the focused category are the vault's data. The HyperDX
  * SDK stamps `window.location.href` on every span, so a `?merchant=Landlord` in the URL would carry
  * it to ClickStack on the VPS. The router and the search stores keep working on the REAL location
  * (every control, drill-down link and setter is unchanged); this history only changes what the
  * browser shows and stores:
  *
- * - the address bar (`createHref`) gets the path with everything but `from`, `to` and `year` removed;
+ * - the address bar (`createHref`) gets the path with everything but `month`, `from`, `to` and `year` removed;
  * - the real path rides along in `history.state` (`__finHref`), so back/forward, and a reload that
  *   keeps the entry, restore the filters, while a URL opened fresh or shared starts without them.
  *
@@ -19,8 +19,8 @@ import type { RouterHistory } from '@tanstack/react-router'
  * filters". `private-history.test.ts` pins the behaviour.
  */
 
-/** The only finance search params the address bar may show: a month range and the tax year. */
-const VISIBLE_IN_URL: ReadonlySet<string> = new Set(['from', 'to', 'year'])
+/** The only finance search params the address bar may show: a month, a month range and the tax year. */
+const VISIBLE_IN_URL: ReadonlySet<string> = new Set(['month', 'from', 'to', 'year'])
 
 const REAL_HREF = '__finHref'
 const FINANCE_PATH = /^\/finance(?:[/?#]|$)/

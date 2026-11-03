@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Meta } from '../api/types'
-import { monthsBetween, resolveRange, shiftMonth } from './months'
+import { dayMonth, everyNth, monthsBetween, resolveRange, shiftMonth } from './months'
 
 const meta = (first: string | null, last: string | null): Meta => ({
   first_month: first,
@@ -53,5 +53,18 @@ describe('month helpers', () => {
       '2026-01',
       '2026-02',
     ])
+  })
+})
+
+describe('dayMonth', () => {
+  it('reads a day as day and short month', () => {
+    expect(dayMonth('2026-10-30')).toBe('30 Oct')
+    expect(dayMonth('2026-09-01')).toBe('1 Sep')
+  })
+})
+
+describe('everyNth', () => {
+  it('keeps the first and every step-th item', () => {
+    expect(everyNth([1, 2, 3, 4, 5], 2)).toEqual([1, 3, 5])
   })
 })

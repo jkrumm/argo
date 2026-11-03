@@ -15,6 +15,13 @@ describe('finance data stays out of HyperDX', () => {
       true,
     )
     expect(matches('http://localhost:7715/api/finance/unlock')).toBe(true)
+    // The typed writes carry a merchant, a note or a rule pattern in the body and a booking id in the path.
+    expect(matches('https://argo.jkrumm.com/api/finance/api/transactions/ab12cd/category')).toBe(
+      true,
+    )
+    expect(matches('https://argo.jkrumm.com/api/finance/api/transactions/ab12cd/tag')).toBe(true)
+    expect(matches('https://argo.jkrumm.com/api/finance/api/recurring/overrides')).toBe(true)
+    expect(matches('https://argo.jkrumm.com/api/finance/api/merchant-rules')).toBe(true)
     // Other API traffic is still traced.
     expect(matches('https://argo.jkrumm.com/api/workouts')).toBe(false)
     expect(matches('https://argo.jkrumm.com/finance')).toBe(false)

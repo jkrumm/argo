@@ -220,14 +220,22 @@ describe('no finance navigation puts a filter into window.location', () => {
 })
 
 describe('publicFinanceHref', () => {
-  it('keeps from/to/year, drops everything else and unset values, preserves bytes', () => {
+  it('keeps month/from/to/year, drops everything else and unset values, preserves bytes', () => {
     expect(
       publicFinanceHref(
         '/finance/transactions?from=2026-01&merchant=Landlord%20GmbH&to=2026-10&search=x&year=&category=a%2Fb#top',
       ),
     ).toBe('/finance/transactions?from=2026-01&to=2026-10#top')
     expect(publicFinanceHref('/finance?merchant=x')).toBe('/finance')
-    expect(publicFinanceHref('/finance/month/2026-10?focus=housing')).toBe('/finance/month/2026-10')
+    expect(publicFinanceHref('/finance?month=2026-10&focus=housing')).toBe('/finance?month=2026-10')
+  })
+
+  it('hides every ledger filter: account, tag, amount, queues, sort and page', () => {
+    expect(
+      publicFinanceHref(
+        '/finance/transactions?account=giro&tag=business&amount=out-100&uncategorized=true&untagged=true&sort=amount&dir=asc&page=3&size=100&month=2026-09',
+      ),
+    ).toBe('/finance/transactions?month=2026-09')
   })
 
   it('a percent-encoded key cannot smuggle a filter through', () => {

@@ -79,3 +79,20 @@ export async function financePost(
   })
   return { status: response.status, body: await response.json().catch(() => null) }
 }
+
+/**
+ * One typed write (`POST /api/finance/api<path>`): resolves with the parsed body, throws a
+ * `FinanceApiError` carrying the service's own `{ error }` text on any non-2xx (a 423 also tells the
+ * layout the vault is locked). `body` is sent verbatim and never retained here or logged.
+ */
+export async function financeWrite<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(buildUrl(`/api${path}`, {}), {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+  if (response.status === 423) for (const listener of lockedListeners) listener()
+  if (!response.ok) throw await failure(response, path)
+  return (await response.json().catch(() => null)) as T
+}

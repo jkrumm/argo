@@ -284,46 +284,78 @@ export const calendarStore = createSearchStore({
 const monthLabels = Object.fromEntries(MONTH_UNIVERSE.map((m) => [m, monthLabel(m)]))
 const yearLabels = Object.fromEntries(YEAR_UNIVERSE.map((y) => [y, y]))
 
+/** The amount filter of the transactions page: spending and income in bands, each a closed range of cents. */
+export const AMOUNT_BANDS = {
+  '': 'Any amount',
+  'out-100': 'Spent 100 € or more',
+  'out-20': 'Spent 20 € to 100 €',
+  'out-small': 'Spent under 20 €',
+  in: 'Income and refunds',
+} as const
+
 /**
  * Every filter of the finance pages, one store so each route validates the same search shape and the
  * nav links carry it by reference. URL only (`persist: false`): the vault's numbers never go to
- * localStorage, not even a filter that hints at them.
+ * localStorage, not even a filter that hints at them. Only `month`, `from`, `to` and `year` ever show
+ * in the address bar (`private-history.ts`); every other field lives in history state.
  *
+ * - `month`: the budget month of the This-month page; `''` is the current one (the service decides).
  * - `from` / `to`: the month range. `''` is "unset": `from` then reads as the last 12 months of data
  *   and `to` as the latest month, both resolved from `/finance/api/meta` (`resolveRange`).
- * - `category` / `merchant` / `search`: the transaction filters; drill-downs link there with one set.
+ * - `category` / `merchant` / `search` / `account` / `tag` / `amount` / `uncategorized` / `untagged`:
+ *   the transaction filters; drill-downs link there with one set.
+ * - `sort` / `dir` / `page` / `size`: the ledger's server-side order and page.
  * - `year`: the tax year, `''` reading as the year of the latest month.
- * - `event`: keeps one event's bookings on the transactions page.
  * - `focus`: the category row selected on the spending page; page-local.
  */
 export const finStore = createSearchStore({
   key: 'finance',
   fields: {
+    month: field.enum(['', ...MONTH_UNIVERSE], '', { persist: false }),
     from: field.enum(['', ...MONTH_UNIVERSE], '', { persist: false }),
     to: field.enum(['', ...MONTH_UNIVERSE], '', { persist: false }),
     category: field.string({ max: 120 }, { persist: false }),
     merchant: field.string({ max: 120 }, { persist: false }),
     search: field.string({ max: 120 }, { persist: false }),
+    account: field.string({ max: 120 }, { persist: false }),
+    tag: field.string({ max: 40 }, { persist: false }),
+    amount: field.enum(['', 'out-100', 'out-20', 'out-small', 'in'], '', { persist: false }),
+    uncategorized: field.boolean(false, { persist: false }),
+    untagged: field.boolean(false, { persist: false }),
+    sort: field.enum(['booked_on', 'amount', 'merchant'], 'booked_on', { persist: false }),
+    dir: field.enum(['desc', 'asc'], 'desc', { persist: false }),
+    page: field.number({ fallback: 0, min: 0, int: true }, { persist: false }),
+    size: field.enum(['25', '50', '100'], '50', { persist: false }),
     year: field.enum(['', ...YEAR_UNIVERSE], '', { persist: false }),
-    event: field.string({ max: 120 }, { persist: false }),
     focus: field.string({ max: 120 }, { persist: false }),
   },
 }).labels({
+  month: { '': 'Current month', ...monthLabels },
   from: { '': 'Last 12 months', ...monthLabels },
   to: { '': 'Latest month', ...monthLabels },
   year: { '': 'Latest year', ...yearLabels },
+  amount: AMOUNT_BANDS,
 })
 
 export type FinanceFilters = ReturnType<typeof finStore.useValues>
 
 /** Every finance filter unset: the base an evidence link or a drill-down starts from. */
 export const FILTERS_CLEARED: FinanceFilters = {
+  month: '',
   from: '',
   to: '',
   category: '',
   merchant: '',
   search: '',
+  account: '',
+  tag: '',
+  amount: '',
+  uncategorized: false,
+  untagged: false,
+  sort: 'booked_on',
+  dir: 'desc',
+  page: 0,
+  size: '50',
   year: '',
-  event: '',
   focus: '',
 }

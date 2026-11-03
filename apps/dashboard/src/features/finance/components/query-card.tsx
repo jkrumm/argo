@@ -33,6 +33,10 @@ export function QueryCard({
   return (
     <ChartCard
       {...rest}
+      data-shot={rest.title
+        ?.toLowerCase()
+        .replaceAll(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')}
       facts={facts}
       state={{ pending: query.isPending, error: query.error ?? undefined, empty }}
       onRetry={() => void query.refetch()}

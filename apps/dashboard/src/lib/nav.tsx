@@ -164,23 +164,11 @@ export const NAV = defineNav({
     ]),
     navGroup({ id: 'finance', label: 'Finance', icon: <IconCoinEuro size={ICON} /> }, [
       {
-        id: 'finance-report',
-        label: 'Report',
+        id: 'finance-month',
+        label: 'This month',
         short: 'Finance',
         icon: <IconCoinEuro size={ICON} />,
         link: linkOptions({ to: '/finance', search: finStore.linkSearch }),
-      },
-      {
-        id: 'finance-month',
-        label: 'Month',
-        short: 'Month',
-        icon: <IconCalendar size={ICON} />,
-        // `latest` resolves to the newest month with data (pages/month.tsx redirects it).
-        link: linkOptions({
-          to: '/finance/month/$month',
-          params: { month: 'latest' },
-          search: finStore.linkSearch,
-        }),
       },
       {
         id: 'finance-spending',
@@ -190,25 +178,11 @@ export const NAV = defineNav({
         link: linkOptions({ to: '/finance/spending', search: finStore.linkSearch }),
       },
       {
-        id: 'finance-fixed',
-        label: 'Fixed costs',
-        short: 'Fixed',
+        id: 'finance-recurring',
+        label: 'Recurring',
+        short: 'Recurring',
         icon: <IconArchive size={ICON} />,
-        link: linkOptions({ to: '/finance/fixed', search: finStore.linkSearch }),
-      },
-      {
-        id: 'finance-events',
-        label: 'Events',
-        short: 'Events',
-        icon: <IconCompass size={ICON} />,
-        link: linkOptions({ to: '/finance/events', search: finStore.linkSearch }),
-      },
-      {
-        id: 'finance-net-worth',
-        label: 'Net worth',
-        short: 'Net worth',
-        icon: <IconServer size={ICON} />,
-        link: linkOptions({ to: '/finance/net-worth', search: finStore.linkSearch }),
+        link: linkOptions({ to: '/finance/recurring', search: finStore.linkSearch }),
       },
       {
         id: 'finance-transactions',
@@ -216,6 +190,13 @@ export const NAV = defineNav({
         short: 'Bookings',
         icon: <IconBook size={ICON} />,
         link: linkOptions({ to: '/finance/transactions', search: finStore.linkSearch }),
+      },
+      {
+        id: 'finance-net-worth',
+        label: 'Net worth',
+        short: 'Net worth',
+        icon: <IconServer size={ICON} />,
+        link: linkOptions({ to: '/finance/net-worth', search: finStore.linkSearch }),
       },
       {
         id: 'finance-tax',

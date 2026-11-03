@@ -15,7 +15,8 @@ export const eur = (cents: number): string =>
   })
 
 /** Cents as euros, always with cents: a booking is read to the cent. */
-export const eurExact = (cents: number): string => money(cents / 100, { currency: CURRENCY })
+export const eurExact = (cents: number): string =>
+  money(cents / 100, { currency: CURRENCY }).replace('-', '−')
 
 /** Axis form: 12K €. */
 export const eurCompact = (cents: number): string =>
@@ -45,4 +46,10 @@ export const gainTone = (cents: number): 'good' | 'bad' | undefined =>
 export const toneProp = (cents: number): { tone?: 'good' | 'bad' } => {
   const tone = gainTone(cents)
   return tone === undefined ? {} : { tone }
+}
+
+/** A change with its direction as a glyph: ▲ €1,200 / ▼ €340; zero reads plain. */
+export function deltaEur(cents: number): string {
+  if (cents === 0) return eur(0)
+  return `${cents > 0 ? '▲' : '▼'} ${eur(Math.abs(cents))}`
 }

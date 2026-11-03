@@ -97,3 +97,13 @@ export function resolveRange(
       : search.from
   return from <= to ? { from, to } : { from: to, to: from }
 }
+
+/** `30 Oct`: the tick of a day axis. */
+export function dayMonth(iso: string): string {
+  const [, number = '', day = ''] = iso.split('-')
+  return `${Number(day)} ${MONTH_NAMES[Number(number) - 1] ?? number}`
+}
+
+/** Every `step`-th month, starting with the first: the ticks of a band axis that would otherwise crowd. */
+export const everyNth = <T>(items: readonly T[], step: number): T[] =>
+  items.filter((_, i) => i % step === 0)
