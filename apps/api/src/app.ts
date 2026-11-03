@@ -41,11 +41,12 @@ import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { agentRoutes } from './routes/agents.js'
 import { wardenRoutes } from './routes/warden.js'
+import { financeRoutes } from './routes/finance.js'
 import { authGuard } from './lib/auth-guard.js'
 
 /**
  * Builds the fully composed Elysia app — every plugin, the discovery route,
- * and all 33 domain routes, in the exact order production runs them. Does
+ * and all 34 domain routes, in the exact order production runs them. Does
  * NOT listen and has no other side effects, so it's safe to import and call
  * `.handle()` against in a test without migrating a database or opening a
  * port. `index.ts` is the entrypoint: it builds once (`export const app`
@@ -168,6 +169,11 @@ export function buildApp() {
                   "The Warden control plane's board — a deterministic loop over its own SQLite ledger on the mini, pushing one JSON snapshot after every tick (POST /warden/snapshot): health/poller liveness, the six funnel metrics, the board (state counts + open items), the dispatch budget, and per-item timelines. Argo cannot reach the ledger directly and derives nothing — GET /warden/snapshot reads the latest push back verbatim. The owner queues actions (implement/merge/dismiss/reinvestigate/retry/note) against a board item with POST /warden/items/{eventId}/actions; warden's loop pulls its pending queue (GET /warden/actions) and reports outcomes back (POST /warden/actions/{id}/ack) — Argo never applies an action itself.",
               },
               {
+                name: 'Finance',
+                description:
+                  "Johannes's encrypted finance vault (bank transactions, categories, recurring costs, net worth, tax tags), relayed to the loopback `fin serve` service on the mini. The vault is LOCKED by default and only a human can unlock it (the key never passes through an agent): every data call answers 423 while locked, so read `GET /finance/status` first and, if locked, tell the user to unlock it in the Argo dashboard under /finance — never ask for or handle the key. Unlocked, `GET /finance/api/*` serves read-only views (amounts in integer cents, months YYYY-MM), `POST /finance/sync` starts a bank sync, `POST /finance/lock` closes the vault. The vault re-locks itself after 30 idle minutes. Status codes and bodies are the service's own: 423 locked, 401 wrong key, 429 unlock throttled, 409 sync already running, 503 service down.",
+              },
+              {
                 name: 'System',
                 description:
                   'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -212,6 +218,7 @@ export function buildApp() {
             'Reading',
             'Agents',
             'Warden',
+            'Finance',
             'System',
           ],
         }),
@@ -282,6 +289,7 @@ export function buildApp() {
       .use(readingRoutes)
       .use(agentRoutes)
       .use(wardenRoutes)
+      .use(financeRoutes)
   )
 }
 

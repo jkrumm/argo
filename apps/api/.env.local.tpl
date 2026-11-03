@@ -70,3 +70,7 @@ HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 # to test a different model/effort locally.
 DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
+
+# Finance vault service (`fin serve`, loopback :4581 by default). Only needed to exercise /finance/*;
+# without it those routes answer 503 {error:"finance service unavailable"}.
+FIN_SERVICE_TOKEN=op://mini/finances-service/credential

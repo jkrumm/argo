@@ -33,3 +33,4 @@ GOOGLE_CLIENT_SECRET=op://common/google-oauth/CLIENT_SECRET
 GOOGLE_ALLOWED_EMAIL=op://vps/argo/GOOGLE_ALLOWED_EMAIL
 GARMIN_HEARTBEAT_URL=op://common/garmin-collector/PUSH_URL
 HOMELAB_TAILSCALE_IP=op://common/config/HOMELAB_TAILSCALE_IP
+FIN_SERVICE_TOKEN=op://mini/finances-service/credential

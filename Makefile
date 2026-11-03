@@ -16,7 +16,7 @@ check: ## Run exactly the local validation CI runs (drift, lint, format, typeche
 	bun --cwd apps/dashboard typecheck
 	bun run typecheck:scripts
 	bun --cwd apps/dashboard test
-	DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder bun --cwd apps/api test --timeout 30000 src/env.test.ts src/lib/
+	DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder bun --cwd apps/api test --timeout 30000 src/env.test.ts src/routes/finance.test.ts src/lib/
 
 deploy: ## Deploy origin/master to the mini: release, LaunchAgent, health wait, rollback on failure (DRY_RUN=1 = plan only)
 	@zsh scripts/deploy.sh

@@ -209,6 +209,7 @@ Tests live alongside source files as `*.test.ts`:
 
 - `src/lib/formulas.test.ts` — unit tests for pure formula functions (no DB)
 - `src/env.test.ts` — env schema validation
+- `src/routes/finance.test.ts` — `/finance/*` relay against a fake `fin serve` (no DB; in `make check`): status passthrough, 423/401/429/409, 503 on a dead service, and that the vault key never reaches logs or span attributes
 - `src/serve-dashboard.test.ts`, `src/otlp-headers.test.ts` — native runtime serving + OTLP auth (no DB)
 - `src/routes/workouts.summary.test.ts` — integration: strength summary endpoint
 - `src/routes/daily-metrics.summary.test.ts` — integration: health summary endpoint
@@ -286,6 +287,10 @@ The Claude API credit pools the inference gateway pays from (agent-workflows `do
 Dashboard: the **Flow** tab reads `pace`, `router`, `demand`, `split?by=lane`, `quota-latest`, `iu-budget` (both keys); **Explore** reads the kept analytics endpoints (`timeseries`, `split`, `rhythm`, `flow`).
 
 Tests: `src/lib/usage-pace.test.ts` (DB-free, fixtures of 2 Nov 2026), `src/routes/usage.pace.test.ts`, `usage.router.test.ts`, `usage.demand.test.ts` (scratch Postgres: a cycle crossing a month end with a pinned clock, a null `cycle_end`, a missing `platform_cost`, picks grouping, causes, cache per caller), `usage.payer.test.ts` (credit payers over seeded rows).
+
+## Finance (`fin serve` relay)
+
+`src/routes/finance.ts` relays `/finance/*` to the loopback service `fin serve` (repo `~/SourceRoot/finances`, contract `docs/service.md`) at `127.0.0.1:${FIN_SERVICE_PORT:-4581}` with `Authorization: Bearer ${FIN_SERVICE_TOKEN}` (`op://mini/finances-service/credential`, in `.env.tpl` — launch is fail-closed on it). Map: `GET /finance/status`, `POST /finance/{unlock,lock,sync}`, `GET /finance/sync-runs`, `GET /finance/api/*` (query string passed through). The service's status and JSON body pass through unchanged (423 locked, 401 wrong key, 429 throttled, 409 sync running); service down, timed out or `FIN_SERVICE_TOKEN` unset → `503 {"error":"finance service unavailable"}`; a service 401 on any path but `/unlock` (our token refused) is also a 503, so the dashboard never reads it as an expired Argo session. **`POST /finance/unlock` carries the vault key**: raw body (`parse: 'none'`, no schema — a failed validation would echo it), forwarded verbatim, never logged, never on a span; upstream spans carry the path only, not the query string. Human-only: agents never call unlock.
 
 ## Reading (Hardcover + homelab link)
 

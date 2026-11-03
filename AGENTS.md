@@ -97,7 +97,7 @@ bun run --cwd apps/dashboard typecheck
 
 # Unit tests (pure logic, no DB connection) — placeholders satisfy the env schema for module init:
 DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder \
-  bun --cwd apps/api test src/env.test.ts src/lib/
+  bun --cwd apps/api test src/env.test.ts src/routes/finance.test.ts src/lib/
 
 # Integration tests (src/routes/*.test.ts, src/db/*.test.ts) need the mini's Postgres up; NOT part of CI.
 # `bun test:api` creates a scratch database argo_test_<hex> as admin (secrets-run, apps/api/.env.test.tpl),

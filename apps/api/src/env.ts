@@ -78,6 +78,12 @@ const EnvShape = z.object({
   // like a public-API failure; it never silently falls back to the public API.
   WEATHERORB_SELFHOSTED_URL: z.string().default(''),
 
+  // Finance vault service (`fin serve`, repo ~/SourceRoot/finances): a loopback-only HTTP service on
+  // this host. Argo's /finance/* routes relay to it with the service bearer. The token only lets Argo
+  // talk to the service; the vault key stays in the browser's unlock request and the service's memory.
+  FIN_SERVICE_PORT: z.coerce.number().int().default(4581),
+  FIN_SERVICE_TOKEN: z.string().default(''),
+
   // aiComplete — the model named by DEEPSEEK_MODEL, called directly on the IU
   // unified endpoint's OpenAI-compatible transport. The same public endpoint
   // serves local + prod. DEEPSEEK_BASE_URL must include the OpenAI path
