@@ -22,7 +22,7 @@ bun dev
 `make db-sync` dumps the live `argo` schema on the mini (over `ssh mini`) from one REPEATABLE READ READ ONLY snapshot,
 the session pinned to `default_transaction_read_only=on` (dump plus per-table row count and md5 taken together), restores it
 locally as role `argo` in one transaction and fails unless every table matches. It marks the local schema `argo dev copy`,
-drops local tables the source no longer has, refuses a schema marked `argo live` and, independently, a target that is the source database (same cluster `system_identifier`, database `shared`), with no override, and replaces a schema without the dev-copy mark only
+drops local tables the source no longer has, refuses a schema marked `argo live` and, independently, a target that is the source database (same cluster `system_identifier` and connected database, checked before the dump), with no override, and replaces a schema without the dev-copy mark only
 with `FORCE=1`. `SOURCE_SSH=local TARGET_DB=<scratch>` runs both sides on one host (how it is tested on the mini).
 
 ### Migrations
