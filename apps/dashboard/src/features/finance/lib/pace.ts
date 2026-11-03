@@ -1,4 +1,4 @@
-import type { CategoryMonth, Month, TxRow } from '../api/types'
+import type { CategoryMonth, Month, TxRow, MonthStatus } from '../api/types'
 import { NONE } from './categories'
 import { shiftMonth } from './months'
 
@@ -136,3 +136,13 @@ export function categoryLines(
     .filter((l) => l.current > 0 || l.average > 0)
     .toSorted((a, b) => Math.max(b.current, b.average) - Math.max(a.current, a.average))
 }
+
+/**
+ * Days of `status.month` up to and including today: all of a past month, none of a future one.
+ * `days_left === days_total` also holds on day 1 of the running month, so a month that has not
+ * started is told apart by today's date.
+ */
+export const elapsedDays = (
+  s: Pick<MonthStatus, 'days_left' | 'days_total' | 'today' | 'month'>,
+): number =>
+  s.days_left === 0 ? s.days_total : s.today < `${s.month}-01` ? 0 : s.days_total - s.days_left + 1

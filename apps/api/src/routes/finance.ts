@@ -14,7 +14,8 @@ import { tracedFetch } from '../lib/traced-fetch.js'
  * logged, or attached to a span. Spans carry only the method and the path — the query string is
  * dropped too, because a transaction search term is financial data as well. The four typed writes
  * (`POST /finance/api/…`, `WRITE_PATHS`) follow the same rule: a merchant, a note or a rule pattern
- * in the body is forwarded verbatim and never parsed, logged or traced.
+ * in the body is forwarded verbatim and never parsed, logged or traced, and the booking id in the
+ * path reaches telemetry as `:id`.
  */
 
 const UNAVAILABLE = { error: 'finance service unavailable' } as const
@@ -74,6 +75,27 @@ async function readCapped(request: Request, max: number): Promise<string | null>
 const isUnsafeRest = (rest: string): boolean =>
   rest.includes('%') || rest.split('/').some((segment) => segment === '..' || segment === '.')
 
+/**
+ * A path as telemetry may see it: the booking id of `/api/transactions/<id>/…` is the vault's data
+ * (which booking was edited), so spans and log lines carry `:id` instead. Also applied to error
+ * messages, which a fetch failure may build from the URL.
+ */
+const telemetryText = (text: string): string =>
+  text.replace(/\/api\/transactions\/[^/\s?]+/g, '/api/transactions/:id')
+
+/**
+ * A failed upstream call as a span may record it: name and message only. Bun's connection errors
+ * also carry `path`, the full request URL with its query string (a search term, a merchant) and the
+ * booking id of a write.
+ */
+function recordableError(error: unknown): Error {
+  const recorded = new Error(
+    telemetryText(error instanceof Error ? error.message : 'finance service call failed'),
+  )
+  recorded.name = error instanceof Error ? error.name : 'Error'
+  return recorded
+}
+
 const unavailable = (): Response =>
   new Response(JSON.stringify(UNAVAILABLE), {
     status: 503,
@@ -100,6 +122,7 @@ export function createFinanceRoutes(config: FinanceConfig) {
       return unavailable()
     }
     const url = `${config.baseUrl}${path}${options.search ?? ''}`
+    const loggedPath = telemetryText(path)
     try {
       const upstream = await tracedFetch(
         url,
@@ -113,9 +136,13 @@ export function createFinanceRoutes(config: FinanceConfig) {
           signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
         },
         {
+          sanitizeError: recordableError,
           spanName: `finance ${method} ${path.startsWith('/api/') ? '/api/*' : path}`,
           // Overrides the default `url.full`, which would carry the query string.
-          attributes: { 'url.full': `${config.baseUrl}${path}`, 'finance.path': path },
+          attributes: {
+            'url.full': `${config.baseUrl}${loggedPath}`,
+            'finance.path': loggedPath,
+          },
         },
       )
       // 401 on /unlock means "wrong key" and is the caller's to see. On any other path it can only
@@ -126,7 +153,9 @@ export function createFinanceRoutes(config: FinanceConfig) {
         // there is the same refused token and must not read as a wrong key.
         const text = path === '/unlock' ? await upstream.text() : ''
         if (path === '/unlock' && isWrongKey(text)) return relay(new Response(text, upstream))
-        log.error('finance relay: service rejected FIN_SERVICE_TOKEN', undefined, { path })
+        log.error('finance relay: service rejected FIN_SERVICE_TOKEN', undefined, {
+          path: loggedPath,
+        })
         if (path !== '/unlock') await upstream.body?.cancel()
         return unavailable()
       }
@@ -134,8 +163,8 @@ export function createFinanceRoutes(config: FinanceConfig) {
     } catch (error) {
       // Message only (connect refused, timeout): the request body is never part of it.
       log.warn('finance relay: service unreachable', {
-        path,
-        'error.message': error instanceof Error ? error.message : 'unknown',
+        path: loggedPath,
+        'error.message': error instanceof Error ? telemetryText(error.message) : 'unknown',
       })
       return unavailable()
     }

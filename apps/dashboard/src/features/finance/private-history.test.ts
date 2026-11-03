@@ -63,10 +63,8 @@ const bar = (win: ReturnType<typeof fakeWindow>): string => {
 
 const PATHS = [
   '/finance',
-  '/finance/month/$month',
   '/finance/spending',
-  '/finance/fixed',
-  '/finance/events',
+  '/finance/recurring',
   '/finance/net-worth',
   '/finance/transactions',
   '/finance/tax',
@@ -110,10 +108,8 @@ describe('no finance navigation puts a filter into window.location', () => {
     await router.load()
     const targets = [
       { to: '/finance' },
-      { to: '/finance/month/$month', params: { month: '2026-10' } },
       { to: '/finance/spending' },
-      { to: '/finance/fixed' },
-      { to: '/finance/events' },
+      { to: '/finance/recurring' },
       { to: '/finance/net-worth' },
       { to: '/finance/transactions' },
       { to: '/finance/tax' },

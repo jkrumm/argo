@@ -4,7 +4,7 @@ import { Bars } from 'basalt-ui/charts'
 import type { BarsBar } from 'basalt-ui/charts'
 import { FilterSet, SearchFilter, SelectFilter } from 'basalt-ui/controls'
 import { fetchAllTransactions, useMeta, useTaxYear, useTransactions } from '../api/queries'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BulkModal } from '../components/bulk-modal'
 import { reportWriteError, useCurate } from '../api/mutations'
 import type { Category, TaxYearRow, TxRow } from '../api/types'
@@ -155,6 +155,22 @@ export function TaxPage() {
           ...(filters.category !== '' && { category: filters.category }),
         },
   )
+
+  // A new year, search or category starts the queue on page one (the first render keeps a page restored from history).
+  const matchKey = `${year}|${filters.search}|${filters.category}`
+  const lastKey = useRef(matchKey)
+  useEffect(() => {
+    if (lastKey.current === matchKey) return
+    lastKey.current = matchKey
+    if (filters.page !== 0) setPage(0)
+  }, [matchKey, filters.page, setPage])
+
+  // Tagging the last rows of the last page shrinks the queue under the current page.
+  const lastPage = Math.max(Math.ceil((queue.data?.total ?? 0) / QUEUE_PAGE) - 1, 0)
+  useEffect(() => {
+    if (queue.data !== undefined && filters.page > lastPage) setPage(lastPage)
+  }, [queue.data, filters.page, lastPage, setPage])
+
   if (meta.isSuccess && year === null) return <NoDataState />
 
   /** Every untagged booking of the row's merchant in the tax year, handed to the bulk dialog. */

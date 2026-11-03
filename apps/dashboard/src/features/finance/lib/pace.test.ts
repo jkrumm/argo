@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { CategoryMonth, TxRow } from '../api/types'
-import { categoryLines, cumulative, daysInMonth, dailySpend, paceRows } from './pace'
+import { categoryLines, cumulative, daysInMonth, dailySpend, paceRows, elapsedDays } from './pace'
 
 const tx = (day: string, cents: number, kind: TxRow['category_kind'] = 'expense', month?: string) =>
   ({
@@ -119,5 +119,24 @@ describe('categoryLines', () => {
     })
     expect(lines.find((l) => l.key === '__none__')?.current).toBe(1500)
     expect(lines.some((l) => l.key === 'income')).toBe(false)
+  })
+})
+
+describe('elapsedDays', () => {
+  const status = (today: string, days_left: number) => ({
+    month: '2026-11',
+    today,
+    days_total: 30,
+    days_left,
+  })
+
+  it('counts day 1 of the running month as one elapsed day (days_left equals days_total there too)', () => {
+    expect(elapsedDays(status('2026-11-01', 30))).toBe(1)
+    expect(elapsedDays(status('2026-11-03', 28))).toBe(3)
+  })
+
+  it('is none before the month starts and all of it once it is over', () => {
+    expect(elapsedDays(status('2026-10-25', 30))).toBe(0)
+    expect(elapsedDays(status('2026-12-04', 0))).toBe(30)
   })
 })

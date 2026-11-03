@@ -371,6 +371,23 @@ describe('POST /finance/unlock', () => {
     expect(logged).not.toContain('Grocer')
   })
 
+  it('keeps the query string off the span of a failed call too', async () => {
+    const warn = spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      await call(
+        '/finance/api/transactions?search=landlord&merchant=Grocer',
+        {},
+        appFor({ baseUrl: 'http://127.0.0.1:1', token: SERVICE_TOKEN }),
+      )
+    } finally {
+      warn.mockRestore()
+    }
+    const text = JSON.stringify(spans)
+    expect(text).toContain('recordException')
+    expect(text).not.toContain('landlord')
+    expect(text).not.toContain('Grocer')
+  })
+
   it('keeps query strings off the upstream span', async () => {
     await call('/finance/api/transactions?search=landlord')
     const span = spans.find((s) => s.name.startsWith('finance '))
@@ -508,6 +525,36 @@ describe('POST /finance/api/* (typed writes)', () => {
     expect(everything).not.toContain('landlord-gmbh')
     expect(everything).not.toContain('private-note-xyz')
     expect(everything).not.toContain(SERVICE_TOKEN)
+  })
+
+  it('masks the booking id in span attributes and log lines, on every path that logs', async () => {
+    const sink: unknown[][] = []
+    const spies = (['debug', 'info', 'warn', 'error', 'log'] as const).map((level) =>
+      spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        sink.push(args)
+      }),
+    )
+    const id = 'f00dfacecafe1234'
+    try {
+      for (const kind of ['category', 'tag']) {
+        const path = `/finance/api/transactions/${id}/${kind}`
+        reply = () => Response.json({ ok: true })
+        await post(path, '{}')
+        reply = () => Response.json({ error: 'unauthorized' }, { status: 401 })
+        await post(path, '{}')
+        await post(path, '{}', appFor({ baseUrl: 'http://127.0.0.1:1', token: SERVICE_TOKEN }))
+      }
+    } finally {
+      for (const spy of spies) spy.mockRestore()
+    }
+    const spanText = JSON.stringify(spans)
+    expect(spanText).toContain('/api/transactions/:id/category')
+    expect(spanText).not.toContain(id)
+    const logged = JSON.stringify(
+      sink.map((args) => args.map((a) => (a instanceof Error ? a.message : a))),
+    )
+    expect(sink.length).toBeGreaterThan(0)
+    expect(logged).not.toContain(id)
   })
 
   it('keeps the query string of a write off the upstream span', async () => {

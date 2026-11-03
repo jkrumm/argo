@@ -33,6 +33,12 @@ export type TraceOptions = {
   /** Extra attributes set on the span at creation (merged with the standard ones). */
   attributes?: Record<string, string | number | boolean>
   /**
+   * Rewrites a failed fetch's error before it is recorded on the span (exception event and status
+   * message). Bun's connection errors carry the full request URL, query string included, so a caller
+   * whose URLs are private (the finance relay) strips it here.
+   */
+  sanitizeError?: (error: unknown) => Error
+  /**
    * Called once, synchronously, with the live span handle — before the
    * upstream `fetch` even resolves. This is the only way to reach the span
    * once it stops being `trace.getActiveSpan()` (e.g. mid-stream, once an
@@ -261,8 +267,9 @@ export async function tracedFetch(
           headers: new Headers(response.headers),
         })
       } catch (error) {
-        span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
-        span.recordException(error as Error)
+        const recorded = traceOptions?.sanitizeError?.(error) ?? (error as Error)
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(recorded) })
+        span.recordException(recorded)
         if (claimEnd()) span.end()
         throw error
       }

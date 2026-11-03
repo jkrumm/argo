@@ -26,7 +26,7 @@ import { QueryCard } from '../components/query-card'
 import { useMonthOptions } from '../components/range-bar'
 import { deltaEur, eur, eurCompact, gainTone, ratio, signedEur, toneProp } from '../lib/format'
 import { everyNth, monthName, monthTick, shiftMonth } from '../lib/months'
-import { categoryLines, paceRows, type PaceRow } from '../lib/pace'
+import { categoryLines, paceRows, type PaceRow, elapsedDays } from '../lib/pace'
 import { FINANCE_SPLIT } from '../../../lib/series'
 import { FILTERS_CLEARED, finStore } from '../../../lib/window-stores'
 import classes from '../components/finance.module.css'
@@ -35,14 +35,6 @@ const HISTORY = 3
 const TREND_MONTHS = 12
 const LATEST = 10
 const DUE_SHOWN = 8
-
-/** Days of `status.month` up to and including today: all of a past month, none of a future one. */
-const elapsedDays = (s: MonthStatus): number =>
-  s.days_left === 0
-    ? s.days_total
-    : s.days_left === s.days_total
-      ? 0
-      : s.days_total - s.days_left + 1
 
 /** The month a booking list or chart window starts at, not before the first month the vault has. */
 const clampFrom = (month: string, first: string | null): string =>
