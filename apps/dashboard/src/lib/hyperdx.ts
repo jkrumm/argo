@@ -1,4 +1,5 @@
 import HyperDX from '@hyperdx/browser'
+import { HYPERDX_BLOCK_CLASS, HYPERDX_IGNORE_URLS } from './hyperdx-options'
 
 // Self-initializing side-effect module — patches window.fetch on import.
 // Must be the FIRST import in main.tsx so the fetch patch is in place
@@ -42,7 +43,9 @@ if (typeof window !== 'undefined') {
       // Keep it on in prod for incident investigation.
       disableReplay: import.meta.env.DEV,
       // Skip Vite dev-server probes so they don't appear as spans/errors.
-      ignoreUrls: [/\/@vite\//, /\/__vite_ping/, /\.hot-update\./, /\/node_modules\/.vite\//],
+      // Finance fetches and DOM never leave the mini: see `hyperdx-options.ts`.
+      blockClass: HYPERDX_BLOCK_CLASS,
+      ignoreUrls: HYPERDX_IGNORE_URLS,
       otelResourceAttributes: {
         'deployment.environment': import.meta.env.MODE,
         // Injected by Vite at build time — see vite.config.ts `define`.

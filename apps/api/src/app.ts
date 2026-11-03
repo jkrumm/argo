@@ -43,6 +43,7 @@ import { agentRoutes } from './routes/agents.js'
 import { wardenRoutes } from './routes/warden.js'
 import { financeRoutes } from './routes/finance.js'
 import { authGuard } from './lib/auth-guard.js'
+import { shouldTraceRequest } from './lib/trace-filter.js'
 
 /**
  * Builds the fully composed Elysia app — every plugin, the discovery route,
@@ -59,12 +60,7 @@ export function buildApp() {
       .use(
         opentelemetry({
           ...telemetryConfig,
-          checkIfShouldTrace: (req) => {
-            const u = new URL(req.url)
-            return (
-              u.pathname !== '/' && u.pathname !== '/health' && !u.pathname.startsWith('/openapi')
-            )
-          },
+          checkIfShouldTrace: shouldTraceRequest,
         }),
       )
       .onError(({ error }) => {

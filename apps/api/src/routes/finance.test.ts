@@ -347,6 +347,30 @@ describe('POST /finance/unlock', () => {
     expect(everything).not.toContain(SERVICE_TOKEN)
   })
 
+  it('keeps /finance/api/* query strings out of every log line, on every failure path', async () => {
+    const sink: unknown[][] = []
+    const spies = (['debug', 'info', 'warn', 'error', 'log'] as const).map((level) =>
+      spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        sink.push(args)
+      }),
+    )
+    try {
+      const path = '/finance/api/transactions?search=landlord&merchant=Grocer'
+      reply = () => Response.json({ error: 'unauthorized' }, { status: 401 })
+      await call(path)
+      await call(path, {}, appFor({ baseUrl: 'http://127.0.0.1:1', token: SERVICE_TOKEN }))
+      await call(path, {}, appFor({ baseUrl: baseUrl(), token: '' }))
+    } finally {
+      for (const spy of spies) spy.mockRestore()
+    }
+    expect(sink.length).toBeGreaterThan(0)
+    const logged = JSON.stringify(
+      sink.map((args) => args.map((a) => (a instanceof Error ? a.message : a))),
+    )
+    expect(logged).not.toContain('landlord')
+    expect(logged).not.toContain('Grocer')
+  })
+
   it('keeps query strings off the upstream span', async () => {
     await call('/finance/api/transactions?search=landlord')
     const span = spans.find((s) => s.name.startsWith('finance '))

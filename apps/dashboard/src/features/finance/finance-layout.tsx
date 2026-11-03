@@ -1,8 +1,12 @@
-import { Button, Center, Loader } from '@mantine/core'
+import { Box, Button, Center, Loader } from '@mantine/core'
 import { Outlet } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { EmptyState } from 'basalt-ui'
 import { FinanceApiError } from './api/client'
 import { UnlockScreen } from './components/unlock-screen'
+import { HyperDX } from '../../lib/hyperdx'
+import { HYPERDX_BLOCK_CLASS } from '../../lib/hyperdx-options'
+import { pauseSessionRecording } from './lib/recorder'
 import { useVaultStatus } from './lib/vault'
 
 /**
@@ -11,6 +15,17 @@ import { useVaultStatus } from './lib/vault'
  * Polling lives and dies with this component, so it runs only while a finance page is open.
  */
 export function FinanceLayout() {
+  // Everything below (unlock screen, status errors, every page) is kept out of HyperDX: no session
+  // replay while it is mounted, and the root is blocked from any recording that is still running.
+  useEffect(() => pauseSessionRecording(HyperDX), [])
+  return (
+    <Box className={HYPERDX_BLOCK_CLASS}>
+      <FinanceGate />
+    </Box>
+  )
+}
+
+function FinanceGate() {
   const status = useVaultStatus()
 
   if (status.isPending) {

@@ -153,4 +153,6 @@ The dashboard uses `babel-plugin-react-compiler` via `vite-plugin-babel`. All co
 
 `__APP_VERSION__` is injected by Vite at build time (sourced from `package.json` `version`, override via `BUILD_VERSION` env). Surfaced as the `app.version` resource attribute in HyperDX for release diffs. Its ambient declaration ships with basalt-ui (≥1.20.0) via the root barrel — there is no local `declare const` to maintain.
 
+**Finance stays out of HyperDX** (ClickStack is on the VPS, the vault's plaintext stays on the mini): `lib/hyperdx-options.ts` sets `blockClass: 'hdx-block'` and ignores `/api/finance/` URLs (no span, no `traceparent`); the finance layout root carries the class and calls `stopSessionRecorder()` on mount / `resumeSessionRecorder()` on unmount (`features/finance/lib/recorder.ts`); no `console.*` in `features/finance` (`consoleCapture` is on; `features/finance/hyperdx-isolation.test.ts` pins all of it). Known residual: the SDK stamps `location.href` on every span, so a finance filter in the page URL (`?search=`, `merchant`, `category`) can ride along on a span from another endpoint while the page is open.
+
 See `.claude/rules/observability.md` for the full configuration contract — first-import constraint, `tracePropagationTargets` regex rules, `ignoreUrls`, prod routing, common pitfalls.
