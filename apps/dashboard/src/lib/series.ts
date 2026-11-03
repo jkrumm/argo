@@ -191,6 +191,33 @@ const LP_MAP = defineSeries({
   lpPristine: p(BP.blue),
 } satisfies SeriesMap)
 
+/**
+ * Finance — the money split of a month. Regular and fixed/variable spending are one kind of thing
+ * (routine money), so they are shades of the accent; one-offs (trips, shared costs) are the
+ * exception worth seeing and keep a warm hue on every finance page; what was left over reads green.
+ * Fixed and variable sit two steps apart (adjacent steps blur in dark mode).
+ */
+const FINANCE_SPLIT_MAP = defineSeries({
+  regular: p(BP.blue),
+  oneoff: p(BP.orange),
+  fixed: p(BP.blue, 0, 4),
+  variable: p(BP.blue, 2, 2),
+  leftover: p(BP.green),
+} satisfies SeriesMap)
+
+/**
+ * Finance — accounts by position, the same ladder as the usage ranks: three accent shades two
+ * steps apart, then greys. Accounts are one kind of thing, so none of them gets a hue of its own.
+ */
+const FINANCE_ACCOUNT_MAP = defineSeries({
+  account1: p(BP.blue, 0, 4),
+  account2: p(BP.blue, 2, 2),
+  account3: p(BP.blue, 3, 1),
+  account4: p(BP.gray, 0, 2),
+  account5: p(BP.gray, 1, 1),
+  other: p(BP.gray, 3, 0),
+} satisfies SeriesMap)
+
 export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
@@ -198,6 +225,20 @@ export const USAGE_PAYER = groupTokens('payer', USAGE_PAYER_MAP)
 export const USAGE_RANK = groupTokens('rank', USAGE_RANK_MAP)
 export const ROUTING_REASON = groupTokens('routing', ROUTING_REASON_MAP)
 export const LP = groupTokens('lp', LP_MAP)
+export const FINANCE_SPLIT = groupTokens('finsplit', FINANCE_SPLIT_MAP)
+export const FINANCE_ACCOUNT = groupTokens('finacct', FINANCE_ACCOUNT_MAP)
+
+const FINANCE_ACCOUNT_SLOTS = [
+  FINANCE_ACCOUNT.account1,
+  FINANCE_ACCOUNT.account2,
+  FINANCE_ACCOUNT.account3,
+  FINANCE_ACCOUNT.account4,
+  FINANCE_ACCOUNT.account5,
+] as const
+
+/** An account's series by position; accounts beyond the fifth share the folded grey. */
+export const financeAccountColor = (index: number): string =>
+  FINANCE_ACCOUNT_SLOTS[index] ?? FINANCE_ACCOUNT.other
 
 /**
  * `paletteOptions.groups` shape for `BasaltProvider` — appends argo's domain series on top of
@@ -211,6 +252,8 @@ export const argoPaletteGroups = [
   USAGE_RANK,
   ROUTING_REASON,
   LP,
+  FINANCE_SPLIT,
+  FINANCE_ACCOUNT,
 ]
 
 /**
@@ -237,6 +280,6 @@ export const ARGO_DERIVED = [
 
 declare module 'basalt-ui' {
   interface BasaltRegister {
-    series: typeof SERIES_MAP
+    series: typeof SERIES_MAP & typeof FINANCE_SPLIT_MAP & typeof FINANCE_ACCOUNT_MAP
   }
 }

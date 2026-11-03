@@ -26,6 +26,10 @@ export const NOTIFICATIONS = defineNotifications({
   'body-comp:save-success': { intent: 'success', toMessage },
   'body-comp:save-error': { intent: 'error', toMessage },
 
+  // ── Finance (vault sync / lock)
+  'finance:info': { intent: 'info', toMessage },
+  'finance:error': { intent: 'error', toMessage },
+
   // ── Dev tooling (theme lab, etc.) ─────────────────────────────────────────
   'dev:info': { intent: 'info', toMessage },
 

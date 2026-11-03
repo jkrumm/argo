@@ -25,6 +25,8 @@ import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
 // The one feature import: the usage registry is a dependency-free leaf (as `series.ts` also reads it).
 import { PAYER_LABELS, USAGE_PAYERS, type IuKeyId } from '../features/usage-tracking/accounts'
 import { legacyNode, type LegacyView } from '../features/usage-tracking/flow-node'
+// Dependency-free month helpers (a type-only import of the pinned finance contract).
+import { MONTH_UNIVERSE, YEAR_UNIVERSE, monthLabel } from '../features/finance/lib/months'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
@@ -278,3 +280,50 @@ export const calendarStore = createSearchStore({
   key: 'calendar',
   fields: { view: field.enum(['agenda', 'week', 'month'], 'agenda') },
 }).labels({ view: { agenda: 'Agenda', week: 'Week', month: 'Month' } })
+
+const monthLabels = Object.fromEntries(MONTH_UNIVERSE.map((m) => [m, monthLabel(m)]))
+const yearLabels = Object.fromEntries(YEAR_UNIVERSE.map((y) => [y, y]))
+
+/**
+ * Every filter of the finance pages, one store so each route validates the same search shape and the
+ * nav links carry it by reference. URL only (`persist: false`): the vault's numbers never go to
+ * localStorage, not even a filter that hints at them.
+ *
+ * - `from` / `to`: the month range. `''` is "unset": `from` then reads as the last 12 months of data
+ *   and `to` as the latest month, both resolved from `/finance/api/meta` (`resolveRange`).
+ * - `category` / `merchant` / `search`: the transaction filters; drill-downs link there with one set.
+ * - `year`: the tax year, `''` reading as the year of the latest month.
+ * - `event`: keeps one event's bookings on the transactions page.
+ * - `focus`: the category row selected on the spending page; page-local.
+ */
+export const finStore = createSearchStore({
+  key: 'finance',
+  fields: {
+    from: field.enum(['', ...MONTH_UNIVERSE], '', { persist: false }),
+    to: field.enum(['', ...MONTH_UNIVERSE], '', { persist: false }),
+    category: field.string({ max: 120 }, { persist: false }),
+    merchant: field.string({ max: 120 }, { persist: false }),
+    search: field.string({ max: 120 }, { persist: false }),
+    year: field.enum(['', ...YEAR_UNIVERSE], '', { persist: false }),
+    event: field.string({ max: 120 }, { persist: false }),
+    focus: field.string({ max: 120 }, { persist: false }),
+  },
+}).labels({
+  from: { '': 'Last 12 months', ...monthLabels },
+  to: { '': 'Latest month', ...monthLabels },
+  year: { '': 'Latest year', ...yearLabels },
+})
+
+export type FinanceFilters = ReturnType<typeof finStore.useValues>
+
+/** Every finance filter unset: the base an evidence link or a drill-down starts from. */
+export const FILTERS_CLEARED: FinanceFilters = {
+  from: '',
+  to: '',
+  category: '',
+  merchant: '',
+  search: '',
+  year: '',
+  event: '',
+  focus: '',
+}

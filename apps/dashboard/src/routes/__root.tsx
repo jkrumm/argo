@@ -1,4 +1,4 @@
-import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
+import { createRootRouteWithContext, Outlet, useRouterState } from '@tanstack/react-router'
 import { useMantineColorScheme } from '@mantine/core'
 import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
@@ -42,6 +42,7 @@ function RootLayout() {
   const { colorScheme, setColorScheme } = useMantineColorScheme()
   const queryClient = useQueryClient()
   const anyFetching = useIsFetching() > 0
+  const path = useRouterState({ select: (state) => state.location.pathname })
 
   useTimerEngine()
   const badges = useSidebarBadges()
@@ -100,6 +101,13 @@ function RootLayout() {
     <BasaltShell
       brand={{ name: 'Argo', logoSrc: '/favicon.svg', version: __APP_VERSION__ }}
       nav={NAV}
+      // The Month entry links to `latest`; it stays active on every `/finance/month/<yyyy-mm>`.
+      // Every other entry keeps the shell's own rule: exact for `/`, else the path or a child of it.
+      isActive={(item) => {
+        const to = item.link.to ?? ''
+        if (item.id === 'finance-month') return path.startsWith('/finance/month/')
+        return to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`)
+      }}
       badges={{ calendar: badges.calendar, m365: badges.m365 }}
       globalActions={globalActions}
       sidebarBlocks={sidebarBlocks}

@@ -155,18 +155,18 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 
 The page's default split and filter. The API derives the payer from billing + account. The credit pools (`api_credit` rows the inference gateway writes, one pool per subscription) are a third kind of money, neither a subscription nor a metered API: they take SHADES of one family of their own, sepia, in the subscriptions' order, so a credit never reads as the plan that grants it (credit pools, 2026-11-02; the Flow tab's pool nodes, pace chart and pool detail draw them). The Max subscriptions are one family (the same Claude Code usage), so they take SHADES of the one accent, the biggest plan the strongest; the metered APIs are a different kind of spend and stay neutral grey. Owner verdict 2026-10-27: the v5/v6 hues (gold, violet, turquoise) read as unprofessional; shades replace them.
 
-| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                     |
-| ----------- | --------- | --------- | ------------------ | -------------------------------------------------------- |
-| IU Ultra    | `#0c4a6e` | `#7dd3fc` | `iuSub`            | IU-paid Ultra ($200) — strongest accent shade            |
-| Me Max      | `#0284c7` | `#0284c7` | `meSub`            | Personal Max 5x — middle accent shade                    |
-| Me2 Max     | `#38bdf8` | `#0369a1` | `me2Sub`           | Third Max 5x — lightest accent shade (light), deep (dark) |
-| IU credit   | `#5e4123` | `#d0b090` | `iuCredit`         | API credit of the IU Ultra plan ($200 a cycle) — strongest sepia shade |
-| Me credit   | `#946638` | `#946638` | `meCredit`         | API credit of the Me Max plan ($100) — middle sepia shade |
-| Me2 credit  | `#af855a` | `#7a542e` | `me2Credit`        | API credit of the Me2 Max plan ($100) — lightest sepia shade (light), deep (dark) |
-| IU API      | `#52525c` | `#a1a1aa` | `iuApi`            | IU metered API — neutral, a different kind of spend      |
-| Athena team | `#a1a1aa` | `#e4e4e7` | `iuTeamApi`        | IU team key (Athena Teamchat) — grey ramp steps 2 / 4: two steps from IU API (0 / 2) in both modes, the strongest legible light step |
+| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                                                                                                       |
+| ----------- | --------- | --------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| IU Ultra    | `#0c4a6e` | `#7dd3fc` | `iuSub`            | IU-paid Ultra ($200) — strongest accent shade                                                                                              |
+| Me Max      | `#0284c7` | `#0284c7` | `meSub`            | Personal Max 5x — middle accent shade                                                                                                      |
+| Me2 Max     | `#38bdf8` | `#0369a1` | `me2Sub`           | Third Max 5x — lightest accent shade (light), deep (dark)                                                                                  |
+| IU credit   | `#5e4123` | `#d0b090` | `iuCredit`         | API credit of the IU Ultra plan ($200 a cycle) — strongest sepia shade                                                                     |
+| Me credit   | `#946638` | `#946638` | `meCredit`         | API credit of the Me Max plan ($100) — middle sepia shade                                                                                  |
+| Me2 credit  | `#af855a` | `#7a542e` | `me2Credit`        | API credit of the Me2 Max plan ($100) — lightest sepia shade (light), deep (dark)                                                          |
+| IU API      | `#52525c` | `#a1a1aa` | `iuApi`            | IU metered API — neutral, a different kind of spend                                                                                        |
+| Athena team | `#a1a1aa` | `#e4e4e7` | `iuTeamApi`        | IU team key (Athena Teamchat) — grey ramp steps 2 / 4: two steps from IU API (0 / 2) in both modes, the strongest legible light step       |
 | Me API      | `#e4e4e7` | `#71717a` | `meApi`            | Personal pay-per-token API (OpenRouter, ~$0, a card only from $1) — neutral; the faint light step is the price of keeping four greys apart |
-| Unknown     | `#d4d4d8` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else)      |
+| Unknown     | `#d4d4d8` | `#d4d4d8` | `unknown`          | Neutral (Max row without an account, anything else)                                                                                        |
 
 Shades sit at least two ramp steps apart where they share a chart (adjacent steps read as one colour in dark mode, routing shot 2026-10-27). Shades separate by lightness, so the legend, the segment captions and the hover name every wallet; colour is never the only carrier.
 
@@ -243,6 +243,29 @@ canonical one, so the whole ramp can be spent on a band as tight as the one an a
 cares about. The stop values in the table above are the CANONICAL, un-windowed positions — what a
 window of `[1800, 2200]` (the default, spanning the whole domain) reduces to — not what is
 necessarily painted on screen once a narrower window is selected.
+
+### Finance (`finsplit-` / `finacct-` prefixes — `FINANCE_SPLIT.*`, `FINANCE_ACCOUNT.*`)
+
+The money split of a month on the `/finance` pages. Routine money is one kind of thing, so regular
+net and the fixed / variable spending parts are **shades of the accent** (fixed and variable two
+steps apart); one-offs (trips, shared costs, their reimbursements) are the exception worth seeing and
+keep their warm hue on every finance page; what is left over reads green. Accounts are one kind
+too: three accent shades two steps apart (the usage-rank ladder), then greys, the folded `other` last.
+Categories and merchants stay neutral. Ported from the standalone finances dashboard, whose purple
+`fixed` and five-hue account set were dropped by the "no purple, siblings are shades" rule.
+
+| Series name      | Light hex             | Dark hex              | `defineSeries` key      | Role / earned reason                              |
+| ---------------- | --------------------- | --------------------- | ----------------------- | ------------------------------------------------- |
+| Split: regular   | `#0284c7`             | `#38bdf8`             | `regular`               | Regular net per month (income minus routine cost) |
+| Split: one-off   | `#c87619`             | `#ec9a3c`             | `oneoff`                | Trips and shared costs; categorical exception     |
+| Split: fixed     | `#0c4a6e`             | `#7dd3fc`             | `fixed`                 | Committed monthly costs — strongest accent shade  |
+| Split: variable  | `#0284c7`             | `#0284c7`             | `variable`              | Everyday spending — middle accent shade           |
+| Split: left over | `#238551`             | `#32a467`             | `leftover`              | What the month kept; best-case forecast line      |
+| Account 1        | `#0c4a6e`             | `#7dd3fc`             | `account1`              | First account — strongest accent shade            |
+| Account 2        | `#0284c7`             | `#0284c7`             | `account2`              | Second account — middle accent shade              |
+| Account 3        | `#38bdf8`             | `#0369a1`             | `account3`              | Third account — lightest accent shade             |
+| Account 4 / 5    | `#52525c` / `#71717a` | `#a1a1aa` / `#71717a` | `account4` / `account5` | Greys by position                                 |
+| Account 6+       | `#d4d4d8`             | `#52525c`             | `other`                 | Folded grey                                       |
 
 Rules for this table (from the `basalt-tokens` / `basalt-charts` rules — do not relax):
 

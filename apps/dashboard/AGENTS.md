@@ -30,6 +30,7 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 - `strength-tracker.tsx` — Strength Tracker page
 - `usage-tracking.tsx` — Usage Tracking page
 - `walking-pad.tsx` — Walking Pad page
+- `finance.tsx` (layout: the lock gate + status polling, `features/finance/finance-layout.tsx`) with `finance.index.tsx` (report), `finance.month.$month.tsx`, `finance.spending.tsx`, `finance.fixed.tsx`, `finance.events.tsx`, `finance.net-worth.tsx`, `finance.transactions.tsx`, `finance.tax.tsx` — the vault frontend; pages live in `features/finance/pages/`, the filters are `finStore` in `lib/window-stores.ts` (URL only, never localStorage), data goes through `features/finance/api/` (plain `fetch` against `/api/finance/*`, not Eden: the relay returns the service's raw responses). The unlock form keeps the key in an uncontrolled input, never in state, a query or a mutation (their variables outlive the call)
 
 ## Adding a page
 
