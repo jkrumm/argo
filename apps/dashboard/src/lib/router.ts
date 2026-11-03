@@ -1,6 +1,7 @@
 import { MutationCache, QueryCache } from '@tanstack/react-query'
 import { createBasaltRouter } from 'basalt-ui'
 import { clearToken, isUnauthorizedError, safeRedirect } from './auth'
+import { createPrivateFinanceHistory } from '../features/finance/lib/private-history'
 import { shotState } from './shot-state'
 import { routeTree } from '../routeTree.gen'
 
@@ -24,6 +25,8 @@ const onUnauthorized = (error: unknown): void => {
  */
 export const router = createBasaltRouter({
   routeTree,
+  // Finance filters (merchant, search, category, …) live in history state, never in the address bar.
+  ...(typeof document !== 'undefined' && { history: createPrivateFinanceHistory() }),
   query: {
     queryCache: new QueryCache({
       onError: onUnauthorized,
