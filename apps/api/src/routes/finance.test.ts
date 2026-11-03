@@ -378,3 +378,146 @@ describe('POST /finance/unlock', () => {
     expect(JSON.stringify(span)).not.toContain('landlord')
   })
 })
+
+describe('POST /finance/api/* (typed writes)', () => {
+  const json = { 'Content-Type': 'application/json' }
+  const post = (path: string, body: string, app = appFor()) =>
+    call(path, { method: 'POST', headers: json, body }, app)
+
+  it.each([
+    ['/finance/api/transactions/ab12cd34ef/category', '/api/transactions/ab12cd34ef/category'],
+    ['/finance/api/transactions/ab12cd34ef/tag', '/api/transactions/ab12cd34ef/tag'],
+    ['/finance/api/recurring/overrides', '/api/recurring/overrides'],
+    ['/finance/api/merchant-rules', '/api/merchant-rules'],
+  ])('relays %s with the body verbatim and the service bearer', async (path, upstream) => {
+    reply = () => Response.json({ ok: true }, { status: 200 })
+    const body = JSON.stringify({ category: 'food/groceries', note: 'Müller ✓' })
+    const res = await post(path, body)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(seen).toHaveLength(1)
+    expect(seen[0]).toMatchObject({
+      method: 'POST',
+      path: upstream,
+      search: '',
+      auth: `Bearer ${SERVICE_TOKEN}`,
+      body,
+    })
+  })
+
+  it('refuses every other POST path without reaching the service', async () => {
+    for (const path of [
+      '/finance/api/transactions',
+      '/finance/api/transactions/ab12/amount',
+      '/finance/api/transactions/ab12/category/extra',
+      '/finance/api/transactions//tag',
+      '/finance/api/recurring',
+      '/finance/api/recurring/overrides/x',
+      '/finance/api/meta',
+      '/finance/api/sync',
+      '/finance/api/transactions/ab..12/tag/../../merchant-rules',
+      '/finance/api/transactions/%2e%2e/tag',
+      '/finance/api/transactions/a%2fb/category',
+    ]) {
+      const res = await post(path, '{}')
+      expect([path, res.status]).toEqual([path, 400])
+    }
+    expect(seen).toHaveLength(0)
+  })
+
+  it('does not open a write path for other methods', async () => {
+    for (const method of ['PUT', 'PATCH', 'DELETE']) {
+      const res = await call('/finance/api/merchant-rules', { method, headers: json, body: '{}' })
+      expect([method, res.status === 404 || res.status === 405]).toEqual([method, true])
+    }
+    expect(seen).toHaveLength(0)
+  })
+
+  it('401s a write without Argo bearer, before reaching the service', async () => {
+    const res = await appFor().handle(
+      new Request('http://localhost/finance/api/merchant-rules', { method: 'POST', body: '{}' }),
+    )
+    expect(res.status).toBe(401)
+    expect(seen).toHaveLength(0)
+  })
+
+  it('caps the body at 16 KB, measured in bytes', async () => {
+    const just = JSON.stringify({ pattern: 'a'.repeat(16 * 1024 - 15) })
+    expect(new TextEncoder().encode(just).byteLength).toBeLessThanOrEqual(16 * 1024)
+    expect((await post('/finance/api/merchant-rules', just)).status).toBe(200)
+
+    const long = JSON.stringify({ pattern: 'a'.repeat(16 * 1024) })
+    expect((await post('/finance/api/merchant-rules', long)).status).toBe(413)
+    // Multibyte: under 16384 characters, over 16384 bytes.
+    const multibyte = JSON.stringify({ pattern: 'ü'.repeat(9000) })
+    expect(multibyte.length).toBeLessThan(16 * 1024)
+    expect((await post('/finance/api/merchant-rules', multibyte)).status).toBe(413)
+    expect(seen).toHaveLength(1)
+  })
+
+  it.each([
+    [400, { error: 'unknown category' }],
+    [404, { error: 'unknown booking' }],
+    [423, { error: 'locked' }],
+  ])('passes the service’s %s and its body through', async (status, body) => {
+    reply = () => Response.json(body, { status })
+    const res = await post('/finance/api/transactions/ab12/category', '{"category":"x"}')
+    expect(res.status).toBe(status)
+    expect(await res.json()).toEqual(body)
+  })
+
+  it('maps a refused service token to 503, never a 401 the dashboard would read as logged out', async () => {
+    reply = () => Response.json({ error: 'unauthorized' }, { status: 401 })
+    const error = spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const res = await post('/finance/api/merchant-rules', '{"pattern":"x"}')
+      expect(res.status).toBe(503)
+    } finally {
+      error.mockRestore()
+    }
+  })
+
+  it('keeps write bodies and ids out of logs and span attributes on every path', async () => {
+    const sink: unknown[][] = []
+    const spies = (['debug', 'info', 'warn', 'error', 'log'] as const).map((level) =>
+      spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        sink.push(args)
+      }),
+    )
+    const secret = JSON.stringify({ pattern: 'landlord-gmbh', note: 'private-note-xyz' })
+    try {
+      const path = '/finance/api/merchant-rules'
+      for (const status of [200, 400, 423, 500]) {
+        reply = () => Response.json({ error: 'x' }, { status })
+        await post(path, secret)
+      }
+      reply = () => Response.json({ error: 'unauthorized' }, { status: 401 })
+      await post(path, secret)
+      await post(path, secret, appFor({ baseUrl: 'http://127.0.0.1:1', token: SERVICE_TOKEN }))
+      await post(path, secret, appFor({ baseUrl: baseUrl(), token: '' }))
+      await post(path, JSON.stringify({ pattern: 'a'.repeat(20_000) }))
+    } finally {
+      for (const spy of spies) spy.mockRestore()
+    }
+    expect(spans.length).toBeGreaterThan(0)
+    const everything = JSON.stringify({
+      logs: sink.map((args) => args.map((a) => (a instanceof Error ? a.message : a))),
+      spans,
+    })
+    expect(everything).not.toContain('landlord-gmbh')
+    expect(everything).not.toContain('private-note-xyz')
+    expect(everything).not.toContain(SERVICE_TOKEN)
+  })
+
+  it('keeps the query string of a write off the upstream span', async () => {
+    await call('/finance/api/merchant-rules?search=landlord', {
+      method: 'POST',
+      headers: json,
+      body: '{}',
+    })
+    const span = spans.find((s) => s.name.startsWith('finance '))
+    expect(span).toBeDefined()
+    expect(JSON.stringify(span)).not.toContain('landlord')
+  })
+})

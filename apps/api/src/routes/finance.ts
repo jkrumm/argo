@@ -12,13 +12,28 @@ import { tracedFetch } from '../lib/traced-fetch.js'
  * KEY HYGIENE. `POST /finance/unlock` carries the 64-hex vault key. The body is read as raw text and
  * forwarded verbatim; it is never parsed, validated (a failed validation echoes the offending value),
  * logged, or attached to a span. Spans carry only the method and the path — the query string is
- * dropped too, because a transaction search term is financial data as well.
+ * dropped too, because a transaction search term is financial data as well. The four typed writes
+ * (`POST /finance/api/…`, `WRITE_PATHS`) follow the same rule: a merchant, a note or a rule pattern
+ * in the body is forwarded verbatim and never parsed, logged or traced.
  */
 
 const UNAVAILABLE = { error: 'finance service unavailable' } as const
 const UPSTREAM_TIMEOUT_MS = 30_000
 /** A vault key is 64 hex characters; anything near this size is not one. */
 const MAX_UNLOCK_BODY_BYTES = 4096
+/** The service's own cap on a typed write (`docs/service.md` §Typed writes). */
+const MAX_WRITE_BODY_BYTES = 16 * 1024
+
+/**
+ * The typed writes of `fin serve` and nothing else: a category or a tax tag for one booking, a
+ * recurring override, a merchant rule. An id is a hex hash or a prefix of one; no other segment shape
+ * reaches the service.
+ */
+const WRITE_PATHS: readonly RegExp[] = [
+  /^\/api\/transactions\/[A-Za-z0-9_-]{1,80}\/(?:category|tag)$/,
+  /^\/api\/recurring\/overrides$/,
+  /^\/api\/merchant-rules$/,
+]
 
 export type FinanceConfig = {
   /** `http://127.0.0.1:<port>` of `fin serve`. */
@@ -34,6 +49,30 @@ function isWrongKey(text: string): boolean {
     return false
   }
 }
+
+const tooLarge = (): Response =>
+  new Response(JSON.stringify({ error: 'request too large' }), {
+    status: 413,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+
+const invalidPath = (): Response =>
+  new Response(JSON.stringify({ error: 'invalid path' }), {
+    status: 400,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+
+/** The request body as text, or `null` when it is over `max` bytes (declared or measured). */
+async function readCapped(request: Request, max: number): Promise<string | null> {
+  const declared = Number(request.headers.get('content-length') ?? 0)
+  if (declared > max) return null
+  const text = await request.text()
+  return new TextEncoder().encode(text).byteLength > max ? null : text
+}
+
+/** True for a path that could be decoded again further down: `%` or a dot segment. */
+const isUnsafeRest = (rest: string): boolean =>
+  rest.includes('%') || rest.split('/').some((segment) => segment === '..' || segment === '.')
 
 const unavailable = (): Response =>
   new Response(JSON.stringify(UNAVAILABLE), {
@@ -127,17 +166,8 @@ export function createFinanceRoutes(config: FinanceConfig) {
     .post(
       '/unlock',
       async ({ request }) => {
-        const declared = Number(request.headers.get('content-length') ?? 0)
-        const text = declared > MAX_UNLOCK_BODY_BYTES ? '' : await request.text()
-        if (
-          declared > MAX_UNLOCK_BODY_BYTES ||
-          new TextEncoder().encode(text).byteLength > MAX_UNLOCK_BODY_BYTES
-        ) {
-          return new Response(JSON.stringify({ error: 'request too large' }), {
-            status: 413,
-            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-          })
-        }
+        const text = await readCapped(request, MAX_UNLOCK_BODY_BYTES)
+        if (text === null) return tooLarge()
         return forward('POST', '/unlock', { body: text })
       },
       {
@@ -207,25 +237,49 @@ export function createFinanceRoutes(config: FinanceConfig) {
       ({ request, params }) => {
         const rest = params['*'] ?? ''
         // No view path contains `%`: encoded dots or slashes could be decoded again further down.
-        if (
-          rest.includes('%') ||
-          rest.split('/').some((segment) => segment === '..' || segment === '.')
-        ) {
-          return new Response(JSON.stringify({ error: 'invalid path' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-          })
-        }
+        if (isUnsafeRest(rest)) return invalidPath()
         return forward('GET', `/api/${rest}`, { search: new URL(request.url).search })
       },
       {
         detail: {
           tags: ['Finance'],
           summary: 'Finance dashboard data (read-only)',
-          description: `Read-only views over the finance vault, relayed to \`fin serve\` with the query string unchanged. Amounts are integer cents, months \`YYYY-MM\`, income positive, spending negative. Paths: \`/finance/api/meta\` (first/last month, accounts, categories — start here), \`report?from&to\`, \`month?month\`, \`events\`, \`merchants?from&to&category\`, \`recurring\`, \`net-worth\`, \`transactions?from&to&category&merchant&search&limit\`, \`tax-year?year\`. ${lockedNote}`,
+          description: `Read-only views over the finance vault, relayed to \`fin serve\` with the query string unchanged. Amounts are integer cents, months \`YYYY-MM\`, income positive, spending negative. Paths: \`/finance/api/meta\` (first/last budget month, accounts, categories — start here), \`overview?from&to\`, \`month-status?month\`, \`categories?from&to\`, \`merchants?from&to&category\`, \`recurring?all=1\`, \`recurring/overrides\`, \`net-worth\`, \`holdings\`, \`transactions?from&to&account&category&tag&merchant&search&min&max&uncategorized&untagged&sort&dir&offset&limit\` (answers \`{ rows, total }\`), \`tax-year?year\`. ${lockedNote}`,
           security,
           responses: {
             200: { description: 'JSON view rows.' },
+            423: { description: 'Vault locked.' },
+            503: unavailableResponse,
+          },
+        },
+      },
+    )
+    .post(
+      '/api/*',
+      async ({ request, params }) => {
+        const rest = `/api/${params['*'] ?? ''}`
+        // Exact allow-list: a POST to any other view path never reaches the service.
+        if (isUnsafeRest(rest) || !WRITE_PATHS.some((pattern) => pattern.test(rest))) {
+          return invalidPath()
+        }
+        const text = await readCapped(request, MAX_WRITE_BODY_BYTES)
+        if (text === null) return tooLarge()
+        return forward('POST', rest, { body: text })
+      },
+      {
+        // Raw passthrough, like unlock: no schema (the service validates and owns the 400s), and the
+        // body (a merchant, a note) is never parsed, logged or traced here.
+        parse: 'none',
+        detail: {
+          tags: ['Finance'],
+          summary: 'Finance vault edits (typed writes)',
+          description: `Exactly four writes, relayed to \`fin serve\` with the JSON body verbatim (max 16 KB, else 413; any other POST path is 400): \`/finance/api/transactions/{id}/category\` \`{ category }\` sets a booking's category by hand and returns the booking row; \`/finance/api/transactions/{id}/tag\` \`{ tag | null, note? }\` sets or clears its tax tag; \`/finance/api/recurring/overrides\` \`{ merchant, mode | null, cadence?, note? }\` includes or excludes a merchant in the recurring list; \`/finance/api/merchant-rules\` \`{ pattern, merchant?, category? }\` stores a merchant rule and re-applies categories. The service answers 400 with \`{ error }\` for bad input and 404 for an unknown booking. These change the user's books: do not call them unprompted. ${lockedNote}`,
+          security,
+          responses: {
+            200: { description: 'The updated row, override or `{ pattern, changed }`.' },
+            400: { description: 'Not an allowed write path, or the service refused the input.' },
+            404: { description: 'Unknown booking.' },
+            413: { description: 'Body over 16 KB.' },
             423: { description: 'Vault locked.' },
             503: unavailableResponse,
           },
