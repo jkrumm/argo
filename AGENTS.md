@@ -68,7 +68,7 @@ bun install                                    # all workspace deps
 
 # Dev — runs API + dashboard concurrently with secrets injected via secrets-run (op/cache)
 bun dev                                        # API :4040, dashboard https://argo.test (→ :7715)
-bun db:sync                                    # pull fresh argo schema dump from VPS into local Postgres
+bun db:sync                                    # copy the live argo schema from the mini (read-only) into local Postgres
 bun db:migrate                                 # apply pending Drizzle migrations against local DB
 
 # Single-app
@@ -116,12 +116,13 @@ reachable from the MacBook, phone and tablet only. The database is the shared Po
 the scheduled jobs run in the same process (`CRONS_ENABLED=true` in the plist). A push to `master` deploys nothing by itself:
 run `make deploy`.
 
-The VPS copy is retired: its containers are stopped (kept for rollback), its `argo` schema and role are kept pending
-the owner's decision to drop them, and a verified final backup of that schema sits on the homelab (`~/argo-backups/`).
-Rollback to the VPS: `launchctl bootout gui/$(id -u)/com.jkrumm.argo` on the mini first (two live copies would both run crons on
-divergent databases), point the `argo.jkrumm.com` A record back at the VPS tailnet IP and `docker start` the two stopped `argo-*`
-containers (RollHook deploys are gone: the workflow and the Dockerfiles were deleted); their images and the Traefik labels are intact, but the database on the VPS no longer receives what the mini wrote
-since 2026-10-30.
+The VPS copy is gone (dropped 2026-11-03): no containers, images, `argo` schema or role remain there. There is no second
+copy to roll back to; the last resort is the verified final dump of the VPS schema at the cutover,
+`homelab:~/argo-backups/argo-schema-final-20261030T1643Z.{dump,sums,sha256}` (custom format, whole `argo` schema incl. the five
+legacy usage tables; `sha256sum -c` the `.sha256` first). Restoring it into `shared.argo` loses everything the mini wrote since
+2026-10-30 16:43Z: `launchctl bootout gui/$(id -u)/com.jkrumm.argo`, `pg_restore --clean --if-exists --no-owner --role=argo`
+into a scratch database first and compare against the `.sums` (per-table rows + md5), then into `shared`, keep the schema comment
+`argo live ...`, `make deploy`.
 
 Migrations apply automatically on API boot — **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
 
@@ -231,15 +232,17 @@ op run --account tkrumm --env-file=apps/api/.env.local.tpl -- <command>   # forc
 
 ```bash
 cd ~/SourceRoot/vps && make up && cd -   # Postgres 18 + ClickStack (once per boot)
-bun db:sync                              # optional: copy the VPS argo schema (frozen at the 2026-10-30 cutover) into the local cluster
+bun db:sync                              # optional: copy the live argo schema from the mini (read-only, md5-verified)
 bun dev                                  # API :4040 + dashboard :7715 (https://argo.test via dotfiles Caddy); crons off
 ```
 
 On the mini `shared.argo` is the live database: `bun dev` refuses to start there (set `ARGO_DEV_ON_LIVE=1` to override) and
-`bun db:sync` refuses without `FORCE=1`. Develop UI work against `make evidence` / `make design-shot` (GET-only proxy to
-production) or on a MacBook with its own local copy. The sync source is the frozen VPS copy: a fresher local copy needs a
-dump of the mini's schema, which is not built yet. `bun db:migrate` refuses the live database the same way (`scripts/live-guard.sh`,
-fail-closed: an unreadable mark also refuses).
+`bun db:sync` refuses it unconditionally. Develop UI work against `make evidence` / `make design-shot` (GET-only proxy to
+production) or on a MacBook with its own local copy. `bun db:sync` (`scripts/db-sync.sh`) seeds that copy from the live mini
+schema over `ssh mini`: one REPEATABLE READ READ ONLY snapshot with `default_transaction_read_only=on`, pg_dump plus per-table
+rows + md5 from that snapshot, a local restore that commits only when every table matches, marked `argo dev copy ...`; a
+local schema without that mark is replaced only with `FORCE=1`. `bun db:migrate` refuses the live database the same way as
+`bun dev` (`scripts/live-guard.sh`, fail-closed: an unreadable mark also refuses).
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.
 

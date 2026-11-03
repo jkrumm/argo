@@ -10,7 +10,7 @@
     "dev": "secrets-run run --env-file=apps/api/.env.local.tpl --env-file=apps/dashboard/.env.local.tpl -- ./scripts/dev.sh",
     "dev:prod-api": "op run --account tkrumm --env-file=apps/dashboard/.env.local.tpl -- ./scripts/dev-prod-api.sh",
     "db:migrate": "secrets-run run --env-file=apps/api/.env.local.tpl -- ./scripts/db-migrate.sh",
-    "db:sync": "make db-rehearse",
+    "db:sync": "make db-sync",
     "test:api": "secrets-run run --env-file=apps/api/.env.test.tpl -- ./scripts/test.sh",
     "m365:auth": "bun run --cwd apps/api m365:auth",
     "m365:auth:prod": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun run --cwd apps/api m365:auth:prod",

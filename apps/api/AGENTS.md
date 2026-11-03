@@ -12,18 +12,18 @@
 # 1. Start shared dev infra (Postgres + ClickStack), once: make db-shared
 cd ~/SourceRoot/vps && make up && make db-shared && cd -
 
-# 2. (Optional) Replace shared.argo with a fresh, checksum-verified copy of prod (the cutover rehearsal)
-bun db:sync          # = make db-rehearse; scripts/db-rehearse.sh documents the guard and what is excluded
+# 2. (Optional) Replace the local shared.argo with a fresh, checksum-verified copy of prod (MacBook only)
+bun db:sync          # = make db-sync; scripts/db-sync.sh documents the guards
 
 # 3. Start API + dashboard concurrently (runs migrations on API boot)
 bun dev
 ```
 
-`make db-rehearse` copied the VPS `argo` schema into `shared` from one REPEATABLE READ snapshot (dump plus per-table
-row count and md5 taken together), restores it as role `argo` in one transaction and fails unless every table matches.
-The five legacy usage tables are left out (usage lives in `usage`). It marks the schema `argo rehearsal copy` and
-refuses to replace a schema without that mark unless `FORCE=1`: once Argo serves from `shared` it is live data. The cutover ran it
-with `FORCE=1 LIVE=1` (the schema is now marked `argo live ...`); the VPS source it reads is stopped and kept only as a frozen copy.
+`make db-sync` dumps the live `argo` schema on the mini (over `ssh mini`) from one REPEATABLE READ READ ONLY snapshot,
+the session pinned to `default_transaction_read_only=on` (dump plus per-table row count and md5 taken together), restores it
+locally as role `argo` in one transaction and fails unless every table matches. It marks the local schema `argo dev copy`,
+refuses a schema marked `argo live` (the mini itself) with no override, and replaces a schema without the dev-copy mark only
+with `FORCE=1`. `SOURCE_SSH=local TARGET_DB=<scratch>` runs both sides on one host (how it is tested on the mini).
 
 ### Migrations
 

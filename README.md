@@ -50,7 +50,7 @@ cd -
 
 # In argo:
 bun install
-bun db:sync                                   # optional: pull fresh data from prod into local
+bun db:sync                                   # optional: copy the live argo schema from the mini (read-only)
 bun dev                                       # API :4040 + dashboard :7715 (op-wrapped, concurrent)
 ```
 

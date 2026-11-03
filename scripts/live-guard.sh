@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sourced by scripts/dev.sh and scripts/db-migrate.sh: refuse to point a dev workflow at the LIVE Argo database.
 #
-# Since the 2026-10-30 cutover `shared.argo` on the mini is production; `scripts/db-rehearse.sh` marks it
+# Since the 2026-10-30 cutover `shared.argo` on the mini is production; the cutover marked it
 # 'argo live ...' (schema comment). Booting a dev API on it would apply unreleased migrations to production, and
 # `bun db:migrate` would do the same directly. Fails CLOSED: if the mark cannot be read (psql missing, database
 # down, wrong password) the answer is "refuse", not "probably fine". ARGO_DEV_ON_LIVE=1 overrides on purpose.
