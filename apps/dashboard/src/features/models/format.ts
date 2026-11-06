@@ -53,8 +53,9 @@ export function fmtTokenTick(tokens: number): string {
 export const fmtPoints = (delta: number): string =>
   `${delta >= 0 ? '+' : '-'}${Math.abs(delta).toFixed(1)}${NBSP}pts`
 
-/** `×0.37`, `×1.1`: two significant figures. */
-export const fmtRatio = (ratio: number): string => `×${Number(ratio.toPrecision(2))}`
+/** An efficiency index (or a ratio of two): `0.4×`, `1×`, `12×`; two significant figures under 10. */
+export const fmtIndex = (index: number): string =>
+  `${index >= 10 ? Math.round(index) : Number(index.toPrecision(2))}×`
 
 /**
  * Ticks of a log axis at 1-2-5 steps inside `[min, max]`. Over `maxCount` it thins to 1-5 and then to
@@ -85,9 +86,9 @@ export function logTicks(min: number, max: number, maxCount: number): number[] {
 
 /**
  * A lineage name without its vendor prefix, the same rule for every lineage (`GPT-6.1 Terra` is
- * `Terra`, `GPT-6.1 Sol` is `Sol`, `Claude Opus 5.5` is `Opus 5.5`). For chart labels only: two
- * lineages can read the same (`GPT-6 Sol` and `GPT-6.1 Sol`), so the tooltip, the tables and the
- * verdicts use the full name.
+ * `Terra`, `Claude Opus 5.5` is `Opus 5.5`). For chart labels only: two
+ * lineages can read the same (`GPT-6 Sol` and `GPT-6.1 Sol`), so the tooltip and the tables use
+ * the full name.
  */
 export const shortLineage = (lineage: string): string =>
   lineage.replace(/^(?:Claude|GPT-[\d.]+)\s+/, '')

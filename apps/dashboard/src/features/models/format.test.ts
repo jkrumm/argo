@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   fmtMinuteTick,
   fmtPoints,
-  fmtRatio,
+  fmtIndex,
   fmtSeconds,
   fmtTokens,
   fmtUsd,
@@ -33,11 +33,15 @@ describe('format', () => {
     expect(fmtMinuteTick(240).replace(/\s/g, ' ')).toBe('4 h')
   })
 
-  it('writes the verdict delta', () => {
+  it('writes the points delta', () => {
     expect(fmtPoints(8.3).replace(/\s/g, ' ')).toBe('+8.3 pts')
-    expect(fmtRatio(0.5)).toBe('×0.5')
-    expect(fmtRatio(0.3733)).toBe('×0.37')
-    expect(fmtRatio(1.064)).toBe('×1.1')
+  })
+
+  it('writes an index as a multiple of the median', () => {
+    expect(fmtIndex(0.5)).toBe('0.5×')
+    expect(fmtIndex(0.3733)).toBe('0.37×')
+    expect(fmtIndex(1)).toBe('1×')
+    expect(fmtIndex(12.4)).toBe('12×')
   })
 })
 

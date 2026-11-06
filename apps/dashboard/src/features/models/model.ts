@@ -1,7 +1,7 @@
 /**
- * The models page's logic, pure: which variants are visible, the Pareto frontier and the attractive
- * quadrant of a chart, the effort ladders, the verdict on a slot, the slots grouped from the agw
- * routes, and the catalog's lineage rows. The components only draw what this returns.
+ * The models page's logic, pure: which variants are visible, the efficiency index, the Pareto frontier
+ * and the attractive quadrant of the chart, the effort ladders, the leanest alternative to a slot, and
+ * the slots grouped from the agw routes. The components only draw what this returns.
  */
 import type { EfficiencyRoute, EfficiencyVariant, Effort } from './api/types'
 
@@ -125,20 +125,79 @@ export const visibleVariants = (
   return variants.filter((v) => isVisible(v, filters, routed))
 }
 
+// ── efficiency index ────────────────────────────────────────────────────────
+
+/**
+ * What the index weighs. The token and time estimates are derived from cost per task, so the index is
+ * not three independent measurements: mathematically it weighs tokens x1, price x0.6 and speed x-0.3.
+ * Lowering the tokens weight therefore raises the price or speed weight; token use stays x1.
+ */
+export const INDEX_WEIGHTS = { cost: 0.6, time: 0.3, tokens: 0.1 } as const
+
+const positive = (value: number | null): value is number => value !== null && value > 0
+
+const median = (values: readonly number[]): number => {
+  const sorted = values.toSorted((a, b) => a - b)
+  const mid = sorted.length >> 1
+  return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2
+}
+
+/**
+ * The efficiency index of every variant that has cost, time and tokens: a weighted geometric mean of
+ * each against its median, so `1` is the median variant and lower is leaner. The medians are taken over
+ * ALL the variants passed in (hand it the whole response, never the filtered set, so a filter cannot
+ * move a model's index). A variant missing any of the three has no entry; nothing is renormalised.
+ */
+export function efficiencyIndexes(variants: readonly EfficiencyVariant[]): Map<string, number> {
+  const measured = variants.flatMap((v) =>
+    positive(v.costPerTask) && positive(v.timePerTaskEstSec) && positive(v.tokensPerTaskEst)
+      ? [
+          {
+            slug: v.slug,
+            cost: v.costPerTask,
+            time: v.timePerTaskEstSec,
+            tokens: v.tokensPerTaskEst,
+          },
+        ]
+      : [],
+  )
+  const indexes = new Map<string, number>()
+  if (measured.length === 0) return indexes
+  const med = {
+    cost: median(measured.map((m) => m.cost)),
+    time: median(measured.map((m) => m.time)),
+    tokens: median(measured.map((m) => m.tokens)),
+  }
+  for (const m of measured) {
+    const log =
+      INDEX_WEIGHTS.cost * Math.log(m.cost / med.cost) +
+      INDEX_WEIGHTS.time * Math.log(m.time / med.time) +
+      INDEX_WEIGHTS.tokens * Math.log(m.tokens / med.tokens)
+    indexes.set(m.slug, Math.exp(log))
+  }
+  return indexes
+}
+
 // ── chart points ────────────────────────────────────────────────────────────
 
-export type Axis = 'cost' | 'tokens' | 'time'
+export type Axis = 'index' | 'cost' | 'tokens' | 'time'
 
 /** The x of a variant on an axis (time in minutes), or null when it cannot sit on a log axis. */
-export function axisValue(variant: EfficiencyVariant, axis: Axis): number | null {
+export function axisValue(
+  variant: EfficiencyVariant,
+  axis: Axis,
+  indexes: ReadonlyMap<string, number>,
+): number | null {
   const raw =
-    axis === 'cost'
-      ? variant.costPerTask
-      : axis === 'tokens'
-        ? variant.tokensPerTaskEst
-        : variant.timePerTaskEstSec === null
-          ? null
-          : variant.timePerTaskEstSec / 60
+    axis === 'index'
+      ? (indexes.get(variant.slug) ?? null)
+      : axis === 'cost'
+        ? variant.costPerTask
+        : axis === 'tokens'
+          ? variant.tokensPerTaskEst
+          : variant.timePerTaskEstSec === null
+            ? null
+            : variant.timePerTaskEstSec / 60
   return raw !== null && raw > 0 ? raw : null
 }
 
@@ -150,23 +209,34 @@ export interface ScatterPoint {
   lx: number
   /** Intelligence. */
   y: number
+  /** The efficiency index, null when the variant misses a measure. */
+  index: number | null
 }
 
 export function scatterPoints(
   variants: readonly EfficiencyVariant[],
   axis: Axis,
-): { points: ScatterPoint[]; free: number } {
+  indexes: ReadonlyMap<string, number>,
+): { points: ScatterPoint[]; free: number; missing: number } {
   const points: ScatterPoint[] = []
   let free = 0
+  let missing = 0
   for (const variant of variants) {
-    const x = axisValue(variant, axis)
+    const x = axisValue(variant, axis, indexes)
     if (x === null) {
       if (variant.costPerTask === 0) free += 1
+      else missing += 1
       continue
     }
-    points.push({ variant, x, lx: Math.log10(x), y: variant.intelligence })
+    points.push({
+      variant,
+      x,
+      lx: Math.log10(x),
+      y: variant.intelligence,
+      index: indexes.get(variant.slug) ?? null,
+    })
   }
-  return { points, free }
+  return { points, free, missing }
 }
 
 export interface Ladder {
@@ -203,12 +273,6 @@ export function paretoFrontier<T>(
     out.push(item)
   }
   return out
-}
-
-const median = (values: readonly number[]): number => {
-  const sorted = values.toSorted((a, b) => a - b)
-  const mid = sorted.length >> 1
-  return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2
 }
 
 const MIN_QUADRANT_POINTS = 4
@@ -290,160 +354,39 @@ export function routeUse(routes: readonly EfficiencyRoute[]): Map<string, RouteU
   return out
 }
 
-// ── verdict ─────────────────────────────────────────────────────────────────
+// ── leanest alternative ────────────────────────────────────────────────────
 
-/**
- * What a better variant has to offer to count as "beating" a slot: enough more intelligence for about
- * the same money, or a smaller gain for half the money. A bare tie on intelligence at a quarter of the
- * price is not here on purpose: Terra low is 0.8 points over DeepSeek high and a seventh of the price,
- * but it is not the model anyone would move to.
- */
-export const BEATS: readonly { minGain: number; maxCostRatio: number }[] = [
-  { minGain: 5, maxCostRatio: 1.1 },
-  { minGain: 2, maxCostRatio: 0.5 },
-]
+/** An alternative has to be at most this share of the slot's index to count: under 10% saved is noise. */
+export const MIN_SAVING = 0.9
 
-export type Verdict =
-  | { kind: 'unscored' }
-  | { kind: 'frontier' }
-  | { kind: 'near' }
-  | { kind: 'beaten'; by: EfficiencyVariant; points: number; costRatio: number }
+export interface Alternative {
+  by: EfficiencyVariant
+  /** Intelligence gained, zero or more. */
+  points: number
+  /** The alternative's index over the slot's: 0.4 is 60% leaner. */
+  indexRatio: number
+}
 
-/**
- * The verdict on a slot's variant against the `visible` ones: beaten by the cheapest callable variant
- * that meets {@link BEATS}, else on the cost frontier, else near it.
- */
-export function verdictOf(
+/** The leanest variant in `pool` at equal or better intelligence, if it saves enough to matter. */
+export function leanestAlternative(
   variant: EfficiencyVariant,
-  visible: readonly EfficiencyVariant[],
-): Verdict {
-  const cost = variant.costPerTask
-  if (cost === null || cost <= 0) return { kind: 'unscored' }
-  const better = visible
-    .filter(
-      (c) =>
-        c.slug !== variant.slug && c.iu.accessible && c.costPerTask !== null && c.costPerTask > 0,
-    )
-    .map((c) => ({
-      by: c,
-      points: c.intelligence - variant.intelligence,
-      costRatio: (c.costPerTask ?? 0) / cost,
-    }))
-    .filter((c) => BEATS.some((b) => c.points >= b.minGain && c.costRatio <= b.maxCostRatio))
-    .toSorted((a, b) => a.costRatio - b.costRatio || b.points - a.points)
-  const best = better[0]
-  if (best !== undefined) return { kind: 'beaten', ...best }
-  const priced = [...visible, variant].filter((v) => v.costPerTask !== null && v.costPerTask > 0)
-  const frontier = paretoFrontier(
-    priced,
-    (v) => v.costPerTask ?? 0,
-    (v) => v.intelligence,
-  )
-  return { kind: frontier.some((v) => v.slug === variant.slug) ? 'frontier' : 'near' }
-}
-
-// ── catalog ─────────────────────────────────────────────────────────────────
-
-export interface LineageRow {
-  lineage: string
-  creator: string
-  releaseDate: string | null
-  /** The variants in effort order. */
-  variants: EfficiencyVariant[]
-  /** The most intelligent variant: the catalog's cost, tokens and time are this one's. */
-  best: EfficiencyVariant
-  callable: boolean
-  legs: string[]
-  /** Routes using any variant of the lineage. */
-  slots: number
-  superseded: boolean
-}
-
-export function lineageRows(
-  visible: readonly EfficiencyVariant[],
-  routes: readonly EfficiencyRoute[],
-): LineageRow[] {
-  const use = routeUse(routes)
-  const groups = new Map<string, EfficiencyVariant[]>()
-  for (const variant of visible) {
-    const list = groups.get(variant.lineage) ?? []
-    list.push(variant)
-    groups.set(variant.lineage, list)
+  pool: readonly EfficiencyVariant[],
+  indexes: ReadonlyMap<string, number>,
+): Alternative | null {
+  const own = indexes.get(variant.slug)
+  if (own === undefined) return null
+  let best: { by: EfficiencyVariant; index: number } | null = null
+  for (const candidate of pool) {
+    if (candidate.slug === variant.slug || candidate.superseded) continue
+    if (candidate.intelligence < variant.intelligence) continue
+    const index = indexes.get(candidate.slug)
+    if (index === undefined) continue
+    if (best === null || index < best.index) best = { by: candidate, index }
   }
-  return [...groups].map(([lineage, list]) => {
-    const variants = list.toSorted(byEffort)
-    const best = variants.reduce((a, b) => (b.intelligence > a.intelligence ? b : a))
-    return {
-      lineage,
-      creator: best.creator,
-      releaseDate: best.releaseDate,
-      variants,
-      best,
-      callable: variants.some((v) => v.iu.accessible),
-      legs: [...new Set(variants.flatMap((v) => v.iu.legs))],
-      slots: variants.reduce((n, v) => n + (use.get(v.slug)?.routes.length ?? 0), 0),
-      superseded: variants.every((v) => v.superseded),
-    }
-  })
-}
-
-export const CATALOG_SORT_KEYS = [
-  'lineage',
-  'creator',
-  'released',
-  'intelligence',
-  'cost',
-  'tokens',
-  'time',
-  'priceIn',
-  'priceOut',
-  'slots',
-] as const
-export type CatalogSortKey = (typeof CATALOG_SORT_KEYS)[number]
-
-const sortValue = (row: LineageRow, key: CatalogSortKey): string | number | null => {
-  switch (key) {
-    case 'lineage':
-      return row.lineage
-    case 'creator':
-      return row.creator
-    case 'released':
-      return row.releaseDate
-    case 'intelligence':
-      return row.best.intelligence
-    case 'cost':
-      return row.best.costPerTask
-    case 'tokens':
-      return row.best.tokensPerTaskEst
-    case 'time':
-      return row.best.timePerTaskEstSec
-    case 'priceIn':
-      return row.best.priceIn
-    case 'priceOut':
-      return row.best.priceOut
-    case 'slots':
-      return row.slots
+  if (best === null || best.index > MIN_SAVING * own) return null
+  return {
+    by: best.by,
+    points: best.by.intelligence - variant.intelligence,
+    indexRatio: best.index / own,
   }
-}
-
-/** Rows ordered by a column; a row without the value sorts last in either direction. */
-export function sortLineageRows(
-  rows: readonly LineageRow[],
-  key: CatalogSortKey,
-  dir: 'asc' | 'desc',
-  /** The name a lineage shows: the Model column sorts on what it displays, the slug only breaks ties. */
-  name: (lineage: string) => string = (lineage) => lineage,
-): LineageRow[] {
-  const sign = dir === 'asc' ? 1 : -1
-  return rows.toSorted((a, b) => {
-    const va = key === 'lineage' ? name(a.lineage) : sortValue(a, key)
-    const vb = key === 'lineage' ? name(b.lineage) : sortValue(b, key)
-    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1
-    const order = typeof va === 'string' ? va.localeCompare(String(vb)) : va - Number(vb)
-    return (
-      sign * order ||
-      name(a.lineage).localeCompare(name(b.lineage)) ||
-      a.lineage.localeCompare(b.lineage)
-    )
-  })
 }

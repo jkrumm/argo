@@ -8,7 +8,7 @@
  * `curl -s localhost:7727/api/efficiency -o .design-shots/efficiency.local.json`). Every other
  * `/api/*` read gets `{}`, so no request leaves the machine. Shoots dark/light x desktop/mobile into
  * `.design-shots/<label>/` (default `models-fixture`) with the same harness as `make design-shot`; the
- * second route opens a lineage so the highlight state is on record. Bounded: it exits when the shots are done.
+ * `metric=` routes shoot the chart's other measures and `pick=` opens a lineage so the highlight chip is on record. Bounded: it exits when the shots are done.
  */
 import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -22,7 +22,14 @@ import { shootAll } from './shoot'
 const ROOT = resolve(import.meta.dirname, '../..')
 const DIST = join(ROOT, 'apps/dashboard/dist')
 const LOCAL_SNAPSHOT = join(ROOT, '.design-shots/efficiency.local.json')
-const ROUTES = ['/models', '/models?pick=gpt-9-1-vega', '/models?callable=false&superseded=true']
+const ROUTES = [
+  '/models',
+  '/models?metric=cost',
+  '/models?metric=time',
+  '/models?metric=tokens',
+  '/models?pick=gpt-9-1-vega',
+  '/models?callable=false&superseded=true',
+]
 const live = process.argv.includes('--live')
 const label = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? 'models-fixture'
 

@@ -269,7 +269,7 @@ Categories and merchants stay neutral. Ported from the standalone finances dashb
 
 ### Models (`model-` prefix — `MODEL_CREATOR.*`)
 
-The three vendors the owner's agw slots run on, drawn on the `/models` scatters by the colour the reader already knows them by (identities, the stated exception to "siblings are shades"). Every other creator is neutral grey; effort ladders, rings and the frontier carry no hue of their own.
+The three vendors the owner's agw slots run on, drawn on the `/models` scatter and its catalog dots by the colour the reader already knows them by (identities, the stated exception to "siblings are shades"). Every other creator is neutral grey; effort ladders, rings and the frontier carry no hue of their own.
 
 | Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
 | ----------- | --------- | --------- | ------------------ | -------------------- |

@@ -4,26 +4,26 @@ import { EFFICIENCY_FIXTURE } from './__fixtures__/efficiency'
 import {
   attractiveQuadrant,
   creatorKey,
+  efficiencyIndexes,
   groupSlots,
   intelligenceDomain,
   isVisible,
+  ladders,
+  leanestAlternative,
   lineageNameOf,
   lineageNames,
   lineageOfModel,
-  variantLabel,
-  ladders,
-  lineageRows,
+  MIN_SAVING,
   paretoFrontier,
   routeUse,
   routedSlugs,
   scatterPoints,
-  sortLineageRows,
-  verdictOf,
+  variantLabel,
   visibleVariants,
   type ModelFilters,
 } from './model'
 
-/** A variant with the real figures of a row of the 2026-11-06 Artificial Analysis dump. */
+/** An invented variant: the shape of the contract with made-up figures. */
 function variant(
   slug: string,
   lineage: string,
@@ -56,32 +56,20 @@ function variant(
   }
 }
 
-const terraLow = variant('terra-low', 'GPT-6.1 Terra', 'low', 29.4, 0.0713)
-const terraMedium = variant('terra-medium', 'GPT-6.1 Terra', 'medium', 38.2, 0.1688)
-const terraHigh = variant('terra-high', 'GPT-6.1 Terra', 'high', 42.4, 0.2593)
-const haikuHigh = variant('haiku-high', 'Claude Haiku 5.5', 'high', 29.9, 0.1586, {
-  creator: 'Anthropic',
-})
-const haikuXhigh = variant('haiku-xhigh', 'Claude Haiku 5.5', 'xhigh', 34.6, 0.2484, {
-  creator: 'Anthropic',
-})
-const deepseekHigh = variant('deepseek-high', 'DeepSeek V4.1 Flash 1017', 'high', 28.6, 0.4562, {
-  creator: 'DeepSeek',
-})
-const solHigh = variant('sol-high', 'GPT-6.1 Sol', 'high', 50.3, 0.591)
-const opusMedium = variant('opus-medium', 'Claude Opus 5.5', 'medium', 48.2, 2.4511, {
-  creator: 'Anthropic',
-})
-const POOL = [
-  terraLow,
-  terraMedium,
-  terraHigh,
-  haikuHigh,
-  haikuXhigh,
-  deepseekHigh,
-  solHigh,
-  opusMedium,
-]
+/** A variant with all three measures: `cost` dollars, `time` seconds, `tokens` tokens per task. */
+const measured = (slug: string, cost: number, time: number, tokens: number, intelligence = 40) =>
+  variant(slug, slug, 'high', intelligence, cost, {
+    timePerTaskEstSec: time,
+    tokensPerTaskEst: tokens,
+  })
+
+const quillLow = variant('quill-low', 'Quill 4', 'low', 20, 0.1)
+const quillMedium = variant('quill-medium', 'Quill 4', 'medium', 30, 0.2)
+const quillHigh = variant('quill-high', 'Quill 4', 'high', 40, 0.3)
+const mireHigh = variant('mire-high', 'Mire 2', 'high', 24, 0.15, { creator: 'Anthropic' })
+const mireXhigh = variant('mire-xhigh', 'Mire 2', 'xhigh', 33, 0.4, { creator: 'Anthropic' })
+const POOL = [quillLow, quillMedium, quillHigh, mireHigh, mireXhigh]
+const NO_INDEX = new Map<string, number>()
 
 const route = (model: string, effort: string | null, over: Partial<EfficiencyRoute> = {}) =>
   ({
@@ -95,57 +83,53 @@ const route = (model: string, effort: string | null, over: Partial<EfficiencyRou
     ...over,
   }) satisfies EfficiencyRoute
 
-describe('verdictOf', () => {
-  it('beats Haiku high with Terra medium: +8.3 points for about the same money', () => {
-    const verdict = verdictOf(haikuHigh, POOL)
-    expect(verdict.kind).toBe('beaten')
-    if (verdict.kind !== 'beaten') return
-    expect(verdict.by.slug).toBe('terra-medium')
-    expect(verdict.points).toBeCloseTo(8.3, 5)
-    expect(verdict.costRatio).toBeCloseTo(0.1688 / 0.1586, 5)
+describe('efficiencyIndexes', () => {
+  const none = new Map<string, number>()
+
+  it('is a weighted geometric mean against the median, 1 for the median variant', () => {
+    const indexes = efficiencyIndexes([
+      measured('a', 1, 10, 100),
+      measured('b', 2, 20, 200),
+      measured('c', 4, 40, 400),
+    ])
+    expect(indexes.get('a')).toBeCloseTo(0.5, 10)
+    expect(indexes.get('b')).toBeCloseTo(1, 10)
+    expect(indexes.get('c')).toBeCloseTo(2, 10)
   })
 
-  it('beats DeepSeek high with Terra medium: the cheapest variant that is clearly better', () => {
-    const verdict = verdictOf(deepseekHigh, POOL)
-    expect(verdict.kind).toBe('beaten')
-    if (verdict.kind !== 'beaten') return
-    // Terra low is cheaper still but only 0.8 points better: not a move anyone makes.
-    expect(verdict.by.slug).toBe('terra-medium')
-    expect(verdict.points).toBeCloseTo(9.6, 5)
-    expect(verdict.costRatio).toBeCloseTo(0.37, 2)
+  it('weighs cost 0.6, time 0.3 and tokens 0.1', () => {
+    // Two variants at the median and one four times over on a single measure.
+    const spike = (cost: number, time: number, tokens: number) =>
+      efficiencyIndexes([
+        measured('m1', 1, 1, 1),
+        measured('m2', 1, 1, 1),
+        measured('hi', cost, time, tokens),
+      ]).get('hi')
+    expect(spike(4, 1, 1)).toBeCloseTo(4 ** 0.6, 10)
+    expect(spike(1, 4, 1)).toBeCloseTo(4 ** 0.3, 10)
+    expect(spike(1, 1, 4)).toBeCloseTo(4 ** 0.1, 10)
   })
 
-  it('beats Opus medium with Sol high: +2.1 points at a quarter of the price', () => {
-    const verdict = verdictOf(opusMedium, POOL)
-    expect(verdict.kind).toBe('beaten')
-    if (verdict.kind !== 'beaten') return
-    expect(verdict.by.slug).toBe('sol-high')
-    expect(verdict.points).toBeCloseTo(2.1, 5)
-    expect(verdict.costRatio).toBeCloseTo(0.241, 3)
+  it('takes the medians over every variant it is given, so a subset would move them', () => {
+    const all = [measured('a', 1, 10, 100), measured('b', 2, 20, 200), measured('c', 4, 40, 400)]
+    const whole = efficiencyIndexes(all)
+    // The page looks a filtered variant up in the whole map; computing over the subset gives another number.
+    expect(whole.get('c')).toBeCloseTo(2, 10)
+    expect(efficiencyIndexes([all[2]!]).get('c')).toBeCloseTo(1, 10)
   })
 
-  it('calls the unbeaten variants frontier, and the dominated near it', () => {
-    expect(verdictOf(solHigh, POOL).kind).toBe('frontier')
-    expect(verdictOf(terraLow, POOL).kind).toBe('frontier')
-    // Terra high is under Sol high on cost (0.2593 < 0.591) and over every cheaper one: frontier.
-    expect(verdictOf(terraHigh, POOL).kind).toBe('frontier')
-    // Dominated by Terra medium (+3.2 points, 11% cheaper), but not by enough to be "beaten".
-    const middling = variant('middling', 'Middling', 'high', 35, 0.19)
-    expect(verdictOf(middling, [...POOL, middling]).kind).toBe('near')
+  it('has no index for a variant missing a value, and does not renormalise or move the medians', () => {
+    const base = [measured('a', 1, 10, 100), measured('b', 2, 20, 200), measured('c', 4, 40, 400)]
+    const noTime = variant('x', 'x', 'high', 40, 9, { tokensPerTaskEst: 900 })
+    const free = measured('free', 0, 5, 50)
+    const indexes = efficiencyIndexes([...base, noTime, free])
+    expect(indexes.has('x')).toBe(false)
+    expect(indexes.has('free')).toBe(false)
+    expect(indexes.get('c')).toBeCloseTo(2, 10)
   })
 
-  it('beats Haiku xhigh with Terra high', () => {
-    const verdict = verdictOf(haikuXhigh, POOL)
-    expect(verdict.kind === 'beaten' && verdict.by.slug).toBe('terra-high')
-  })
-
-  it('only counts variants the IU endpoint can call', () => {
-    const uncallable = { ...terraMedium, iu: { ...terraMedium.iu, accessible: false } }
-    expect(verdictOf(haikuHigh, [haikuHigh, uncallable]).kind).toBe('frontier')
-  })
-
-  it('has no verdict for a variant without a cost', () => {
-    expect(verdictOf(variant('x', 'X', 'high', 20, null), POOL).kind).toBe('unscored')
+  it('is empty when no variant has all three', () => {
+    expect(efficiencyIndexes([variant('x', 'x', 'high', 40, 1)])).toEqual(none)
   })
 })
 
@@ -163,27 +147,30 @@ describe('paretoFrontier', () => {
     expect(paretoFrontier([xy(1, 2), xy(1, 3)], get.x, get.y)).toEqual([xy(1, 3)])
   })
 
-  it('on the real cost points keeps Terra low, medium, high and Sol high', () => {
+  it('on cost points keeps the variants nothing beats on both axes', () => {
     const frontier = paretoFrontier(
       POOL,
       (v) => v.costPerTask ?? 0,
       (v) => v.intelligence,
     )
     expect(frontier.map((v) => v.slug)).toEqual([
-      'terra-low',
-      'haiku-high',
-      'terra-medium',
-      'terra-high',
-      'sol-high',
+      'quill-low',
+      'mire-high',
+      'quill-medium',
+      'quill-high',
     ])
   })
 })
 
 describe('ladders', () => {
   it('orders a lineage none to max whatever the input order', () => {
-    const max = variant('t-max', 'GPT-6.1 Terra', 'max', 47, 0.88)
-    const none = variant('t-none', 'GPT-6.1 Terra', 'none', 27.5, 0.2)
-    const { points } = scatterPoints([max, terraHigh, none, terraLow, terraMedium], 'cost')
+    const max = variant('q-max', 'Quill 4', 'max', 47, 0.88)
+    const none = variant('q-none', 'Quill 4', 'none', 12, 0.05)
+    const { points } = scatterPoints(
+      [max, quillHigh, none, quillLow, quillMedium],
+      'cost',
+      NO_INDEX,
+    )
     const [ladder] = ladders(points)
     expect(ladder?.points.map((p) => p.variant.effort)).toEqual([
       'none',
@@ -195,52 +182,69 @@ describe('ladders', () => {
   })
 
   it('puts an effort-less model after the ladder and keeps one ladder per lineage', () => {
-    const plain = variant('t-default', 'GPT-6.1 Terra', 'default', 40, 0.3)
-    const result = ladders(scatterPoints([plain, terraLow, haikuHigh], 'cost').points)
-    expect(result.map((l) => l.lineage).toSorted()).toEqual(['Claude Haiku 5.5', 'GPT-6.1 Terra'])
-    const terra = result.find((l) => l.lineage === 'GPT-6.1 Terra')
-    expect(terra?.points.map((p) => p.variant.effort)).toEqual(['low', 'default'])
+    const plain = variant('q-default', 'Quill 4', 'default', 40, 0.3)
+    const result = ladders(scatterPoints([plain, quillLow, mireHigh], 'cost', NO_INDEX).points)
+    expect(result.map((l) => l.lineage).toSorted()).toEqual(['Mire 2', 'Quill 4'])
+    const quill = result.find((l) => l.lineage === 'Quill 4')
+    expect(quill?.points.map((p) => p.variant.effort)).toEqual(['low', 'default'])
   })
 })
 
 describe('scatterPoints', () => {
-  it('drops variants the axis has no value for, and counts the free ones', () => {
+  it('drops variants the axis has no value for, counting the free and the missing', () => {
     const free = variant('free', 'Free', 'default', 15, 0)
     const missing = variant('missing', 'Missing', 'default', 15, null)
-    const { points, free: freeCount } = scatterPoints([terraLow, free, missing], 'cost')
-    expect(points.map((p) => p.variant.slug)).toEqual(['terra-low'])
-    expect(freeCount).toBe(1)
+    const result = scatterPoints([quillLow, free, missing], 'cost', NO_INDEX)
+    expect(result.points.map((p) => p.variant.slug)).toEqual(['quill-low'])
+    expect(result.free).toBe(1)
+    expect(result.missing).toBe(1)
   })
 
   it('reads time in minutes and drops a variant without an estimate', () => {
     const timed = variant('timed', 'T', 'high', 40, 0.2, { timePerTaskEstSec: 660 })
-    const { points } = scatterPoints([timed, terraLow], 'time')
+    const { points, missing } = scatterPoints([timed, quillLow], 'time', NO_INDEX)
     expect(points).toHaveLength(1)
+    expect(missing).toBe(1)
     expect(points[0]?.x).toBe(11)
     expect(points[0]?.lx).toBeCloseTo(Math.log10(11), 10)
+  })
+
+  it('puts the index on the x axis and carries it on every point', () => {
+    const a = measured('a', 1, 10, 100)
+    const b = measured('b', 2, 20, 200)
+    const c = measured('c', 4, 40, 400)
+    const indexes = efficiencyIndexes([a, b, c])
+    const { points, missing } = scatterPoints([a, b, c, quillLow], 'index', indexes)
+    expect(points.map((p) => p.x)).toHaveLength(3)
+    ;[0.5, 1, 2].forEach((value, i) => expect(points[i]?.x).toBeCloseTo(value, 10))
+    expect(points.map((p) => p.index)).toEqual(points.map((p) => p.x))
+    expect(missing).toBe(1)
+    expect(scatterPoints([a], 'cost', indexes).points[0]?.index).toBeCloseTo(0.5, 10)
   })
 })
 
 describe('attractiveQuadrant', () => {
   it('is the median x and y of the points drawn', () => {
-    const { points } = scatterPoints(POOL, 'cost')
+    const { points } = scatterPoints(POOL, 'cost', NO_INDEX)
     const quadrant = attractiveQuadrant(points)
-    expect(quadrant?.xBelow).toBeCloseTo((0.2484 + 0.2593) / 2, 6)
-    expect(quadrant?.yAbove).toBeCloseTo((34.6 + 38.2) / 2, 6)
+    expect(quadrant?.xBelow).toBeCloseTo(0.2, 6)
+    expect(quadrant?.yAbove).toBeCloseTo(30, 6)
   })
 
   it('needs enough points to mean anything', () => {
-    expect(attractiveQuadrant(scatterPoints([terraLow, terraHigh], 'cost').points)).toBeNull()
+    expect(
+      attractiveQuadrant(scatterPoints([quillLow, quillHigh], 'cost', NO_INDEX).points),
+    ).toBeNull()
   })
 })
 
 describe('visibility', () => {
-  const sol = EFFICIENCY_FIXTURE.variants.filter((v) => v.lineage === 'gpt-9-1-sable')
+  const sable = EFFICIENCY_FIXTURE.variants.filter((v) => v.lineage === 'gpt-9-1-sable')
   const solOld = EFFICIENCY_FIXTURE.variants.filter((v) => v.lineage === 'gpt-9-sable')
   const defaults: ModelFilters = { callable: true, superseded: false, creators: [] }
 
-  it('shows GPT-6.1 Sol and hides the GPT-6 Sol it replaced', () => {
-    const visible = visibleVariants([...sol, ...solOld], defaults, [])
+  it('shows GPT-9.1 Sable and hides the GPT-9 Sable it replaced', () => {
+    const visible = visibleVariants([...sable, ...solOld], defaults, [])
     expect(visible.map((v) => v.lineage)).toContain('gpt-9-1-sable')
     expect(visible.map((v) => v.lineage)).not.toContain('gpt-9-sable')
   })
@@ -283,15 +287,15 @@ describe('slots', () => {
     route('claude-marlow-4', 'high', { route: 'a', variantSlug: 'h', access: 'subscription' }),
     route('claude-marlow-4', 'high', { route: 'b', variantSlug: 'h', access: 'subscription' }),
     route('claude-marlow-4', 'none', { route: 'c', reason: 'No Artificial Analysis row' }),
-    route('gpt-6.1-terra', 'medium', { route: 'd', variantSlug: 'tm', access: 'metered' }),
-    route('gpt-6.1-terra', 'medium', { route: 'e', variantSlug: 'tm', access: 'subscription' }),
+    route('gpt-9.1-vega', 'medium', { route: 'd', variantSlug: 'tm', access: 'metered' }),
+    route('gpt-9.1-vega', 'medium', { route: 'e', variantSlug: 'tm', access: 'subscription' }),
   ]
 
   it('groups by model and effort and collapses the route ids, busiest first', () => {
     const groups = groupSlots(routes)
     expect(groups.map((g) => [g.model, g.effort, g.routes.length])).toEqual([
       ['claude-marlow-4', 'high', 2],
-      ['gpt-6.1-terra', 'medium', 2],
+      ['gpt-9.1-vega', 'medium', 2],
       ['claude-marlow-4', 'none', 1],
     ])
   })
@@ -303,7 +307,7 @@ describe('slots', () => {
   })
 
   it('marks a group mixed when routes disagree on billing', () => {
-    expect(groupSlots(routes).find((g) => g.model === 'gpt-6.1-terra')?.access).toBe('mixed')
+    expect(groupSlots(routes).find((g) => g.model === 'gpt-9.1-vega')?.access).toBe('mixed')
   })
 
   it('is metered for a variant as soon as one route bills', () => {
@@ -314,64 +318,49 @@ describe('slots', () => {
   })
 })
 
-describe('catalog', () => {
-  const visible = visibleVariants(
-    EFFICIENCY_FIXTURE.variants,
-    { callable: true, superseded: false, creators: [] },
-    EFFICIENCY_FIXTURE.routes,
-  )
-  const rows = lineageRows(visible, EFFICIENCY_FIXTURE.routes)
+describe('leanestAlternative', () => {
+  const own = variant('own', 'Own', 'high', 40, 1)
+  const pick = (candidates: readonly EfficiencyVariant[], index: Record<string, number>) =>
+    leanestAlternative(own, candidates, new Map(Object.entries({ own: 1, ...index })))
+  const cand = (slug: string, intelligence: number, extra: Partial<EfficiencyVariant> = {}) =>
+    variant(slug, slug, 'high', intelligence, 1, extra)
 
-  it('has one row per lineage, the ladder in effort order and the best variant', () => {
-    expect(new Set(rows.map((r) => r.lineage)).size).toBe(rows.length)
-    const terra = rows.find((r) => r.lineage === 'gpt-9-1-vega')
-    expect(terra?.best.effort).toBe('max')
-    const efforts = terra?.variants.map((v) => v.effort) ?? []
-    expect(efforts.slice(0, 3)).toEqual(['none', 'low', 'medium'])
-    expect(terra?.slots).toBeGreaterThan(0)
+  it('takes the lowest index at equal or better intelligence, equal included', () => {
+    const found = pick([cand('same', 40), cand('better', 46), cand('lean-but-dumb', 30)], {
+      same: 0.5,
+      better: 0.6,
+      'lean-but-dumb': 0.1,
+    })
+    expect(found?.by.slug).toBe('same')
+    expect(found?.points).toBe(0)
+    expect(found?.indexRatio).toBeCloseTo(0.5, 10)
   })
 
-  it('sorts by a column, rows without the value last', () => {
-    const byCost = sortLineageRows(rows, 'cost', 'asc').map((r) => r.best.costPerTask)
-    expect(byCost).toEqual(byCost.toSorted((a, b) => (a ?? Infinity) - (b ?? Infinity)))
-    const down = sortLineageRows(rows, 'intelligence', 'desc')
-    expect(down[0]?.best.intelligence).toBe(Math.max(...rows.map((r) => r.best.intelligence)))
+  it('reports the intelligence gained', () => {
+    const found = pick([cand('better', 48.3)], { better: 0.4 })
+    expect(found?.points).toBeCloseTo(8.3, 10)
   })
-})
 
-describe('sortLineageRows by name', () => {
-  it('sorts the Model column on the name it shows, the slug breaking ties', () => {
-    const [a, b, c] = ['gpt-6-1-sol', 'gpt-6-astra', 'gpt-6-sol'].map((lineage) => ({
-      lineage,
-      creator: 'OpenAI',
-      releaseDate: null,
-      variants: [],
-      best: variant(lineage, lineage, 'max', 40, 1),
-      callable: true,
-      legs: [],
-      slots: 0,
-      superseded: false,
-    }))
-    if (a === undefined || b === undefined || c === undefined) return
-    const display: Record<string, string> = {
-      'gpt-6-1-sol': 'GPT-6.1 Sol',
-      'gpt-6-astra': 'GPT-6 Astra',
-      'gpt-6-sol': 'GPT-6 Sol',
-    }
-    const shown = (l: string) => display[l] ?? l
-    const names = (rows: (typeof a)[]) =>
-      sortLineageRows(rows, 'lineage', 'asc', shown).map((r) => shown(r.lineage))
-    // By slug "gpt-6-1-sol" sorts first; by name "GPT-6 Astra" does.
-    expect(names([a, b, c])).toEqual(['GPT-6 Astra', 'GPT-6 Sol', 'GPT-6.1 Sol'])
-    expect(
-      sortLineageRows([a, b, c], 'lineage', 'desc', shown).map((r) => shown(r.lineage)),
-    ).toEqual(['GPT-6.1 Sol', 'GPT-6 Sol', 'GPT-6 Astra'])
+  it('is null unless it saves enough to matter', () => {
+    expect(MIN_SAVING).toBe(0.9)
+    expect(pick([cand('close', 41)], { close: 0.95 })).toBeNull()
+    expect(pick([cand('edge', 41)], { edge: 0.9 })?.by.slug).toBe('edge')
+  })
+
+  it('skips superseded variants, itself, and variants without an index', () => {
+    const old = cand('old', 50, { superseded: true })
+    const unmeasured = cand('unmeasured', 50)
+    expect(pick([old, own, unmeasured], { old: 0.1, own: 0.1 })).toBeNull()
+  })
+
+  it('is null for a variant that has no index of its own', () => {
+    expect(leanestAlternative(own, [cand('x', 50)], new Map([['x', 0.1]]))).toBeNull()
   })
 })
 
 describe('intelligenceDomain', () => {
   it('pads the visible range and snaps it to 5', () => {
-    expect(intelligenceDomain(POOL)).toEqual([25, 55])
+    expect(intelligenceDomain(POOL)).toEqual([15, 45])
   })
 })
 
@@ -387,9 +376,9 @@ describe('names', () => {
     expect(names.get('gpt-9-1-vega')).toBe('GPT-9.1 Vega')
     expect(names.get('claude-marlow-4')).toBe('Claude Marlow 4')
     expect(names.get('gpt-9-1-sable')).toBe('GPT-9.1 Sable')
-    const terra = EFFICIENCY_FIXTURE.variants.find((v) => v.slug === 'gpt-9-1-vega-medium')
-    if (terra === undefined) throw new Error('fixture lacks terra medium')
-    expect(variantLabel(terra, (l) => names.get(l) ?? l)).toBe('GPT-9.1 Vega medium')
+    const vega = EFFICIENCY_FIXTURE.variants.find((v) => v.slug === 'gpt-9-1-vega-medium')
+    if (vega === undefined) throw new Error('fixture lacks vega medium')
+    expect(variantLabel(vega, (l) => names.get(l) ?? l)).toBe('GPT-9.1 Vega medium')
   })
 
   it('finds the lineage of a route model id through the IU id', () => {

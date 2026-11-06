@@ -538,7 +538,14 @@ function fillerLineages(): LineageSpec[] {
 }
 
 const rand = prng(20261106)
-const variants = [...LINEAGES, ...fillerLineages()].flatMap((spec) => variantsOf(spec, rand))
+// One filler variant has no speed measure, so it has no time estimate and no efficiency index: the
+// footnote and the catalog's missing-value sort have something to show.
+const withoutSpeed = (variant: EfficiencyVariant): EfficiencyVariant =>
+  variant.slug === 'filler-03-high' ? { ...variant, tps: null, timePerTaskEstSec: null } : variant
+
+const variants = [...LINEAGES, ...fillerLineages()]
+  .flatMap((spec) => variantsOf(spec, rand))
+  .map(withoutSpeed)
 
 // Five slots, as a real route table has: two Anthropic-like on a quota (one with no benchmark row at
 // its effort), one metered OpenAI-like, one metered Google-like with no effort set.
@@ -578,12 +585,6 @@ const routes: EfficiencyRoute[] = [
   route('eval.label', 'iu-openai', 'gemini-prism-5', null, 'gemini-prism-5', 'metered'),
 ]
 
-const unscored = Array.from({ length: 24 }, (_, i) => ({
-  id: `synthetic-model-${String(i + 1).padStart(2, '0')}`,
-  legs: i % 3 === 0 ? ['openai', 'anthropic'] : ['openai'],
-  accessible: i % 7 !== 6,
-}))
-
 export const EFFICIENCY_FIXTURE: EfficiencyResponse = {
   capturedAt: '2026-11-06 07:17:10',
   generatedAt: '2026-11-06T09:30:00.000Z',
@@ -595,5 +596,4 @@ export const EFFICIENCY_FIXTURE: EfficiencyResponse = {
   variants,
   routes,
   routesError: null,
-  unscored,
 }

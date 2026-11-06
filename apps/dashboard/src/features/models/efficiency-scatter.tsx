@@ -1,22 +1,27 @@
 /**
- * One scatter of the models page: intelligence (y, shared by all three) against a log axis of cost,
- * tokens or time per task. Composed on `CartesianChart` because no shipped kind draws a scatter.
+ * The one scatter of the models page: intelligence (y) against a log axis of the efficiency index, cost,
+ * tokens or time per task, switched by the toggle in the card's actions. Composed on `CartesianChart`
+ * because no shipped kind draws a scatter.
  *
- * The encoding is the same on every chart so the eye carries over: a thin line joins each lineage's
+ * A thin line joins each lineage's
  * variants in effort order (the ladder), a dotted line is the Pareto frontier of what is drawn, a faint
  * band is the most attractive quadrant (cheaper than the median, smarter than the median), the three
  * vendors have a hue and everything else is neutral, and a variant one of the owner's routes uses gets a
  * ring (solid on a quota, dashed when it bills) and a persistent label. The x scale is linear over
  * `log10(x)`: `CartesianChart` has a log y axis only, so ticks and the tooltip map back to the value.
+ * Hovering a dot dims the other ladders; a click highlights the lineage (`pick`, shown as a chip in the
+ * actions). On a phone the tooltip is a block under the chart, so it never covers the dot.
  */
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Anchor, Box, Group, Paper, Stack, Text } from '@mantine/core'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Anchor, Box, Button, Group, Paper, Stack, Text } from '@mantine/core'
+import { IconX } from '@tabler/icons-react'
 import { dot } from '@tanstack/charts/dot'
 import { lineY } from '@tanstack/charts/line'
 import { decorative } from '@tanstack/charts/mark/decorative'
 import { rect } from '@tanstack/charts/rect'
 import { text } from '@tanstack/charts/text'
 import { useSizeClass } from 'basalt-ui'
+import { ViewTabs } from 'basalt-ui/controls'
 import {
   CartesianChart,
   ChartCard,
@@ -34,6 +39,7 @@ import type { EfficiencyResponse } from './api/types'
 import {
   APPROX,
   EM_DASH,
+  fmtIndex,
   fmtMinuteTick,
   fmtPrice,
   fmtSeconds,
@@ -43,7 +49,6 @@ import {
   logTicks,
   timeTicks,
 } from './format'
-import { setHoverLineage } from './hover'
 import { captureRadius, nearestPoint, pointerInPlot, toPlotPixel } from './pointer'
 import { dotRadius, labelPass, RING_GAP } from './scatter-labels'
 import {
@@ -59,6 +64,7 @@ import {
 const NEVER = () => null
 
 const AXIS_TICK: Record<Axis, (value: number) => string> = {
+  index: fmtIndex,
   cost: (v) => fmtUsd(v),
   tokens: fmtTokenTick,
   time: fmtMinuteTick,
@@ -98,11 +104,12 @@ export interface EfficiencyScatterProps {
   points: readonly ScatterPoint[]
   /** Variants with a cost of exactly 0: not on a log axis, counted in the footnote. */
   free: number
-  /** The y domain all three charts share. */
+  /** Variants not drawn because the axis has no value for them, counted in the footnote. */
+  missing: number
+  /** What the missing ones lack ("speed measure"), for the footnote. */
+  lacks: string
   yDomain: readonly [number, number]
   use: ReadonlyMap<string, RouteUse>
-  /** The highlighted lineage, `''` for none. */
-  selected: string
   /** A lineage's short chart-label name (the same rule for every lineage). */
   names: (lineage: string) => string
   /** A lineage's full readable name, for the tooltip. */
@@ -110,7 +117,6 @@ export interface EfficiencyScatterProps {
   source: EfficiencyResponse['source'] | null
   state: ChartState
   height: number | ResponsiveChartHeight
-  cursorGroup: string
 }
 
 const effortWord = (effort: string): string => (effort === 'default' ? '' : ` ${effort}`)
@@ -126,8 +132,9 @@ interface DotGroup {
 }
 
 export function EfficiencyScatter(props: EfficiencyScatterProps) {
-  const { axis, points, free, source, state, height } = props
+  const { axis, points, free, missing, lacks, source, state, height, display } = props
   const compact = useSizeClass() === 'compact'
+  const [pick, setPick] = modelsStore.field.pick.use()
   const resting = !state.pending && !state.error && !state.empty && points.length > 0
 
   return (
@@ -137,11 +144,28 @@ export function EfficiencyScatter(props: EfficiencyScatterProps) {
       info={props.info}
       placeholderHeight={height}
       state={state}
+      actions={
+        <Group gap="xs" wrap="wrap" justify="flex-end">
+          {pick === '' ? null : (
+            <Button
+              size="compact-xs"
+              variant="light"
+              color="gray"
+              rightSection={<IconX size={12} />}
+              aria-label={`Clear highlight: ${display(pick)}`}
+              onClick={() => setPick('')}
+            >
+              {display(pick)}
+            </Button>
+          )}
+          <ViewTabs field={modelsStore.field.metric} label="Chart measure" />
+        </Group>
+      }
     >
       {resting ? (
         <>
           <Scatter {...props} compact={compact} />
-          <Footnote source={source} free={free} axis={axis} />
+          <Footnote source={source} free={free} missing={missing} lacks={lacks} axis={axis} />
         </>
       ) : null}
     </ChartCard>
@@ -151,10 +175,14 @@ export function EfficiencyScatter(props: EfficiencyScatterProps) {
 function Footnote({
   source,
   free,
+  missing,
+  lacks,
   axis,
 }: {
   source: EfficiencyResponse['source'] | null
   free: number
+  missing: number
+  lacks: string
   axis: Axis
 }) {
   return (
@@ -168,6 +196,9 @@ function Footnote({
         {free > 0
           ? ` · ${plural(free, 'free model')} not shown: a cost of $0 cannot sit on a log ${axis === 'cost' ? 'axis' : 'scale'}`
           : null}
+        {missing > 0
+          ? ` · ${plural(missing, 'variant')} not shown: ${missing === 1 ? 'it has' : 'they have'} no ${lacks}`
+          : null}
       </Text>
     </Box>
   )
@@ -178,16 +209,29 @@ function Scatter({
   points,
   yDomain,
   use,
-  selected,
   names,
   display,
   height,
-  cursorGroup,
   compact,
 }: EfficiencyScatterProps & { compact: boolean }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [pick, setPick] = modelsStore.field.pick.use()
   const [tip, setTip] = useState<TipAt | null>(null)
+  // The lineage under the mouse lights its ladder over the picked one; transient, so not in the store.
+  const [hover, setHover] = useState('')
+  const selected = hover || pick
+  const tipOpen = tip !== null
+
+  // A phone's tooltip stays until the next tap: a touch outside the chart closes it.
+  useEffect(() => {
+    if (!tipOpen) return
+    const close = (event: PointerEvent) => {
+      if (event.target instanceof Node && wrapRef.current?.contains(event.target)) return
+      setTip(null)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [tipOpen])
   const lxs = points.map((p) => p.lx)
   const xDomain: readonly [number, number] = [Math.min(...lxs) - X_PAD, Math.max(...lxs) + X_PAD]
   const ticks = (axis === 'time' ? timeTicks : logTicks)(
@@ -491,6 +535,7 @@ function Scatter({
             },
           ]
     const core: ChartTooltipRow[] = [
+      { label: 'Efficiency index', value: p.index === null ? EM_DASH : fmtIndex(p.index) },
       { label: 'Cost / task', value: v.costPerTask === null ? EM_DASH : fmtUsd(v.costPerTask) },
       { label: 'Tokens / task', value: fmtTokens(v.tokensPerTaskEst) },
       { label: 'Time / task', value: fmtSeconds(v.timePerTaskEstSec) },
@@ -590,11 +635,12 @@ function Scatter({
         if (event.pointerType === 'touch') return
         const found = locate(event)
         show(found)
-        setHoverLineage(found === null ? '' : found.point.variant.lineage)
+        setHover(found === null ? '' : found.point.variant.lineage)
       }}
-      onPointerLeave={() => {
+      onPointerLeave={(event) => {
+        if (event.pointerType === 'touch') return
         setTip(null)
-        setHoverLineage('')
+        setHover('')
       }}
       onClick={(event) => {
         const found = locate(event.nativeEvent as PointerEvent)
@@ -612,7 +658,6 @@ function Scatter({
         xDomain={xDomain}
         xTicks={ticks}
         formatX={(lx) => AXIS_TICK[axis](10 ** lx)}
-        cursorGroup={cursorGroup}
         series={series}
         marks={marks}
         y={{ domain: yDomain, ticks: yTicks(yDomain), format: (v) => String(v) }}
@@ -642,7 +687,6 @@ interface TipAt {
 }
 
 const TIP_WIDTH = 236
-const TIP_WIDTH_COMPACT = 196
 /** Room one row takes, and the title and padding, for placing the tooltip before it is measured. */
 const TIP_ROW_PX = 17
 const TIP_FRAME_PX = 40
@@ -671,7 +715,38 @@ function PointTip({
   compact: boolean
 }) {
   const v = point.variant
-  const width = compact ? TIP_WIDTH_COMPACT : TIP_WIDTH
+  const body = (
+    <Stack gap={2}>
+      <Text size="sm" fw={600}>
+        {title}
+      </Text>
+      <Group justify="space-between" gap="xs" wrap="nowrap">
+        <Text size="xs" c="dimmed">
+          Intelligence
+        </Text>
+        <Text size="xs">{v.intelligence.toFixed(1)}</Text>
+      </Group>
+      {rows.map((row) => (
+        <Group key={row.label} justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
+          <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+            {row.label}
+          </Text>
+          <Text size="xs" ta="right">
+            {row.value}
+          </Text>
+        </Group>
+      ))}
+    </Stack>
+  )
+  // A phone: a block under the chart, so the finger and the tooltip never cover the dot.
+  if (compact) {
+    return (
+      <Paper mt="xs" shadow="xs" data-shot-tip>
+        {body}
+      </Paper>
+    )
+  }
+  const width = TIP_WIDTH
   const height = TIP_FRAME_PX + (rows.length + 1) * TIP_ROW_PX
   const { plot } = tip
   const left =
@@ -694,33 +769,15 @@ function PointTip({
         top: Math.max(0, top),
       }}
     >
-      <Stack gap={2}>
-        <Text size="sm" fw={600}>
-          {title}
-        </Text>
-        <Group justify="space-between" gap="xs" wrap="nowrap">
-          <Text size="xs" c="dimmed">
-            Intelligence
-          </Text>
-          <Text size="xs">{v.intelligence.toFixed(1)}</Text>
-        </Group>
-        {rows.map((row) => (
-          <Group key={row.label} justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
-            <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-              {row.label}
-            </Text>
-            <Text size="xs" ta="right">
-              {row.value}
-            </Text>
-          </Group>
-        ))}
-      </Stack>
+      {body}
     </Paper>
   )
 }
 
 function ariaLabelOf(axis: Axis): string {
   switch (axis) {
+    case 'index':
+      return 'Intelligence index against efficiency index'
     case 'cost':
       return 'Intelligence index against cost per task'
     case 'tokens':

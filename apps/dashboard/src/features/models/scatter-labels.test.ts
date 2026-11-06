@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { EFFICIENCY_FIXTURE } from './__fixtures__/efficiency'
 import { shortLineage } from './format'
 import {
+  efficiencyIndexes,
   lineageNames,
   routeUse,
   scatterPoints,
@@ -21,10 +22,11 @@ const use = routeUse(routes)
 const readable = lineageNames(variants)
 const names = (lineage: string) => shortLineage(readable.get(lineage) ?? lineage)
 const yDomain = intelligenceDomain(visible)
+const indexes = efficiencyIndexes(variants)
 
 /** The chart's own x domain: the points' log range, padded. */
 function pass(axis: Axis, width: number, height: number, selected = '') {
-  const { points } = scatterPoints(visible, axis)
+  const { points } = scatterPoints(visible, axis, indexes)
   const lx = points.map((p) => p.lx)
   const xDomain = [Math.min(...lx) - 0.14, Math.max(...lx) + 0.14] as const
   return {
@@ -39,7 +41,7 @@ const WIDTHS = [
 ] as const
 
 describe('labelPass on the fixture routes', () => {
-  for (const axis of ['cost', 'time', 'tokens'] as const) {
+  for (const axis of ['index', 'cost', 'time', 'tokens'] as const) {
     for (const [device, width, height] of WIDTHS) {
       it(`labels every ringed variant on the ${axis} chart, ${device}`, () => {
         const { points, placed } = pass(axis, width, height)

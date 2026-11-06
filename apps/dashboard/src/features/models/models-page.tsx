@@ -1,30 +1,28 @@
 /**
- * The models page: where the owner decides which model to use for what. Three scatters share one
- * encoding (intelligence against cost, time and tokens per task, log x), "Your slots" puts the agw routes
- * against the field, and the catalog lists the current models with their effort ladders. Everything
- * on screen is `model.ts`'s answer over `GET /api/models/efficiency`.
+ * The models page: where the owner decides which model to use for what. One big scatter of intelligence
+ * against the efficiency index (or cost, time or tokens, by the toggle), "Your slots" with the leanest
+ * alternative to each agw route, and the catalog of every effort of every current model as a data
+ * table. Everything on screen is `model.ts`'s answer over `GET /api/models/efficiency`.
  */
 import { useQuery } from '@tanstack/react-query'
-import { SimpleGrid, Stack, Text } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 import { PageBar, PageSummary, useSizeClass } from 'basalt-ui'
-import { FilterSet, MultiSelectFilter, SelectFilter, ToggleFilter } from 'basalt-ui/controls'
-import { CONTAINER_KEYS } from 'basalt-ui/tokens'
+import { FilterSet, MultiSelectFilter, ToggleFilter } from 'basalt-ui/controls'
 import { chartStateOf } from '../../lib/chart-state'
 import { formatRelative } from '../../lib/format'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { modelsStore } from '../../lib/window-stores'
-import { useHoverLineage } from './hover'
 import { modelsQueries } from './api/queries'
 import type { EfficiencyVariant } from './api/types'
 import { CatalogTable } from './catalog-table'
-import { COST_INFO, COST_NOTE, ESTIMATE_NOTE, TIME_INFO, TOKENS_INFO } from './copy'
+import { METRIC_COPY } from './copy'
 import { EfficiencyScatter } from './efficiency-scatter'
 import { asUtc, shortLineage } from './format'
 import {
+  efficiencyIndexes,
   intelligenceDomain,
   lineageNames,
-  lineageRows,
   routeUse,
   scatterPoints,
   variantLabel,
@@ -33,7 +31,7 @@ import {
 import { slotRows, slotSummary } from './slot-rows'
 import { SlotsList } from './slots-list'
 
-const HEIGHT = { base: 300, regular: 340 } as const
+const HEIGHT = { base: 340, regular: 520 } as const
 const EMPTY: readonly EfficiencyVariant[] = []
 
 export function ModelsPage() {
@@ -47,47 +45,24 @@ export function ModelsPage() {
   const visible = visibleVariants(variants, filters, routes)
   const use = routeUse(routes)
 
-  const lineages = [...new Set(variants.map((v) => v.lineage))]
-  // The tables, verdicts and tooltips say the readable lineage name (the API's `name` without its effort
+  // The tables, tooltips and the chip say the readable lineage name (the API's `name` without its effort
   // parenthetical); only the chart labels shorten it, one rule for every lineage.
   const readable = lineageNames(variants)
   const display = (lineage: string) => readable.get(lineage) ?? lineage
   const variantName = (v: EfficiencyVariant) => variantLabel(v, display)
-  const hover = useHoverLineage()
   const compact = useSizeClass() === 'compact'
 
-  const yDomain = intelligenceDomain(visible)
-  const cost = scatterPoints(visible, 'cost')
-  const tokens = scatterPoints(visible, 'tokens')
-  const time = scatterPoints(visible, 'time')
-
-  const slots = slotRows(routes, variants, visible, display)
-  const rows = lineageRows(visible, routes)
-
-  const base = {
-    yDomain,
-    use,
-    selected: hover || filters.pick,
-    names: (lineage: string) => shortLineage(display(lineage)),
-    display,
-    source: data?.source ?? null,
-    height: HEIGHT,
-  }
-  const stateFor = (points: number) =>
-    chartStateOf(
-      query,
-      query.isSuccess && points === 0
-        ? visible.length === 0
-          ? 'No model matches the filters'
-          : 'No variant has this measure'
-        : undefined,
-    )
+  // Medians and recommendation pools use every variant: a filter never moves an index or a verdict.
+  const indexes = efficiencyIndexes(variants)
+  const scatter = scatterPoints(visible, filters.metric, indexes)
+  const copy = METRIC_COPY[filters.metric]
+  const slots = slotRows(routes, variants, indexes, display)
 
   const summary =
     data === undefined
       ? null
       : slots.length === 0
-        ? `${rows.length} models shown.`
+        ? `${visible.length} variants shown.`
         : slotSummary(slots)
   const captured = data?.capturedAt ?? null
   const aside =
@@ -114,14 +89,6 @@ export function ModelsPage() {
               label="All creators"
               noun="creators"
             />
-            <SelectFilter
-              field={modelsStore.field.pick}
-              label="Highlight"
-              clearable
-              options={lineages
-                .toSorted((a, b) => display(a).localeCompare(display(b)))
-                .map((lineage) => ({ value: lineage, label: display(lineage) }))}
-            />
           </FilterSet>
         }
       />
@@ -140,54 +107,35 @@ export function ModelsPage() {
         ) : (
           <PageSummary sentence={summary} aside={aside} />
         )}
-        <SimpleGrid type="container" cols={{ base: 1, [CONTAINER_KEYS.wide]: 2 }} spacing="md">
-          <EfficiencyScatter
-            {...base}
-            axis="cost"
-            title="Intelligence vs cost per task"
-            subtitle={COST_NOTE}
-            info={COST_INFO}
-            points={cost.points}
-            free={cost.free}
-            state={stateFor(cost.points.length)}
-            cursorGroup="models-cost"
-          />
-          <EfficiencyScatter
-            {...base}
-            axis="time"
-            title="Intelligence vs time per task"
-            subtitle={ESTIMATE_NOTE}
-            info={TIME_INFO}
-            points={time.points}
-            free={time.free}
-            state={stateFor(time.points.length)}
-            cursorGroup="models-time"
-          />
-        </SimpleGrid>
-        {/* Aligned to the top: the slots list is taller than a chart, and a stretched card is empty below its legend. */}
-        <SimpleGrid
-          type="container"
-          cols={{ base: 1, [CONTAINER_KEYS.wide]: 2 }}
-          spacing="md"
-          style={{ alignItems: 'start' }}
-        >
-          <EfficiencyScatter
-            {...base}
-            axis="tokens"
-            title="Intelligence vs tokens per task"
-            subtitle={ESTIMATE_NOTE}
-            info={TOKENS_INFO}
-            points={tokens.points}
-            free={tokens.free}
-            state={stateFor(tokens.points.length)}
-            cursorGroup="models-tokens"
-          />
-          <SlotsList rows={slots} routesError={data?.routesError ?? null} names={variantName} />
-        </SimpleGrid>
+        <EfficiencyScatter
+          axis={filters.metric}
+          title={copy.title}
+          subtitle={copy.subtitle}
+          info={copy.info}
+          lacks={copy.lacks}
+          points={scatter.points}
+          free={scatter.free}
+          missing={scatter.missing}
+          yDomain={intelligenceDomain(visible)}
+          use={use}
+          names={(lineage) => shortLineage(display(lineage))}
+          display={display}
+          source={data?.source ?? null}
+          height={HEIGHT}
+          state={chartStateOf(
+            query,
+            query.isSuccess && scatter.points.length === 0
+              ? visible.length === 0
+                ? 'No model matches the filters'
+                : 'No variant has this measure'
+              : undefined,
+          )}
+        />
+        <SlotsList rows={slots} routesError={data?.routesError ?? null} names={variantName} />
         <CatalogTable
-          lineages={rows}
-          unscored={data?.unscored ?? []}
-          slotsOf={(v) => use.get(v.slug)?.routes.length ?? 0}
+          variants={visible}
+          indexes={indexes}
+          routesOf={(v) => use.get(v.slug)?.routes.length ?? 0}
           names={display}
         />
       </Stack>

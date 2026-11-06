@@ -44,12 +44,6 @@ export interface EfficiencyRoute {
   reason: string | null
 }
 
-export interface UnscoredModel {
-  id: string
-  legs: string[]
-  accessible: boolean
-}
-
 export interface EfficiencyResponse {
   capturedAt: string | null
   generatedAt: string
@@ -61,5 +55,4 @@ export interface EfficiencyResponse {
   variants: EfficiencyVariant[]
   routes: EfficiencyRoute[]
   routesError: string | null
-  unscored: UnscoredModel[]
 }
