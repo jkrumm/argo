@@ -9,6 +9,7 @@ import {
   type SubDrainInput,
 } from './drain-model'
 import { PACE } from './flow-fixtures'
+import { shortDay } from './model'
 
 const DAY = 86_400_000
 const HOUR = 3_600_000
@@ -212,9 +213,14 @@ describe('keyDrain', () => {
   it('names the day it is back under the cap', () => {
     const m = keyDrain(input({ rolling30Usd: 600, burn7dUsdPerDay: 0, underCapOn: '2026-11-12' }))
     expect(m.runOut?.at).toBe(m.actual.at(-1)?.at)
-    expect(m.resets).toEqual([{ at: local(2026, 11, 12), label: 'back under cap 12 Nov' }])
+    expect(m.resets).toEqual([
+      {
+        at: local(2026, 11, 12),
+        label: `back under cap ${shortDay(new Date(local(2026, 11, 12)))}`,
+      },
+    ])
     expect(m.verdict).toContain('Over the cap')
-    expect(m.verdict).toContain('12 Nov')
+    expect(m.verdict).toContain(shortDay(new Date(local(2026, 11, 12))))
   })
 
   it('is empty without a portal report', () => {

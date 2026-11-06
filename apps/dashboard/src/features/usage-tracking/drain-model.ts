@@ -9,6 +9,7 @@ import { formatDuration, withUnit } from '../../lib/format'
 import type { PaceResponse } from '../../lib/queries/usage'
 import { dayToDate } from './constants'
 import { DAY_MS, fmtDay, fmtUsd } from './flow-model'
+import { shortDay } from './model'
 import { paceModel } from './pace-model'
 
 const HOUR_MS = 3_600_000
@@ -82,14 +83,6 @@ const two = (n: number): string => String(n).padStart(2, '0')
 export function whenText(ms: number): string {
   const d = new Date(ms)
   return `${WEEKDAYS[d.getDay()]} ${two(d.getHours())}:${two(d.getMinutes())}`
-}
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-/** `12 Nov`, the local day (a bare `YYYY-MM-DD` day parses to local midnight here). */
-const dayText = (ms: number): string => {
-  const d = new Date(ms)
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`
 }
 
 const inText = (ms: number): string => `in ${formatDuration(Math.max(0, ms))}`
@@ -418,13 +411,13 @@ export function keyDrain(input: KeyDrainInput): DrainModel {
   const resets: DrainMark[] = []
   const under = budget.underCapOn === null ? null : dayToDate(budget.underCapOn).getTime()
   if (under !== null && under >= from && under <= base.window.to) {
-    resets.push({ at: under, label: `back under cap ${dayText(under)}` })
+    resets.push({ at: under, label: `back under cap ${shortDay(new Date(under))}` })
   }
   const final = projection[projection.length - 1]?.left ?? current
   const verdict =
     runOut !== null
       ? runOut.at <= anchor
-        ? `Over the cap${budget.underCapOn === null ? '' : `, back under ${dayText(under ?? 0)}`}`
+        ? `Over the cap${budget.underCapOn === null ? '' : `, back under ${shortDay(new Date(under ?? 0))}`}`
         : `Hits the cap ${whenText(runOut.at)}`
       : `Stays under the cap, ≈${pctText(final)} left in ${KEY_AHEAD_DAYS} d`
   return {

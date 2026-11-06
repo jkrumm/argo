@@ -85,7 +85,7 @@ IU.
 
 | #   | Question                                                                                                         | View                                                                   | Endpoint                                                                                    | Answer today                                                                           |
 | --- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| H   | Are we on pace to spend every credit dollar before it expires, without Claude work touching the over-cap IU key? | Verdict band: sentence, facts, the pace chart                          | `GET /usage/pace` (new)                                                                     | over pace; dry 3–5 Nov; $0 Claude on IU so far                                         |
+| H   | Are we on pace to spend every credit dollar before it expires, without Claude work touching the over-cap IU key? | Verdict band: sentence, facts, the drain cards                         | `GET /usage/pace` (new)                                                                     | over pace; dry 3–5 Nov; $0 Claude on IU so far                                         |
 | S1  | How much credit does each pool have left, until when, at what required pace?                                     | Supply: one pool node each (meter with an even-pace tick)              | `/usage/pace`                                                                               | iu $88 / 18 d / $4.82/d; me $93 / 24 d / $3.83/d                                       |
 | S2  | How did a pool's credit go, and how far does our meter differ from the provider's report?                        | Pool detail: burn-down, spent by source, eval reserve, previous cycle  | `/usage/pace` (`pools[].days`)                                                              | iu: $56 outside, $55 through; the report trails the meter by $12 today                 |
 | S3  | How much subscription headroom is left this week?                                                                | Supply: one subscription node each (weekly %, reset)                   | `/usage/quota-latest` (kept)                                                                | iu 81 % (resets 4 Nov), me 95 % (5 Nov), me2 41 % (8 Nov)                              |
@@ -130,9 +130,13 @@ node replaces them.
 ### Flow
 
 ```
-1 Verdict   one sentence (the verdict + the IU clause), a facts strip, the pace chart:
-            credit left per pool on a calendar axis — actual (solid, pool shade), even pace (thin neutral),
-            projection at R (dashed), dry markers, expiry rules, the IU spill as a warn band
+1 Verdict   one sentence (the verdict + the IU clause), a facts strip, then the drain cards: one small chart
+            per payer in ONE form — 3 subscriptions (two 7 d windows, last week + this week, reset rules),
+            3 credit pools (billing cycle), the IU personal key (rolling 30 d, no reset). Each is share left
+            (0–100 %) on a fixed x window the subtitle names: actual (solid, payer shade), projection at the
+            current drain rate (dashed), even pace (dotted neutral), now / reset / renew rules, a dot where it
+            runs empty. The IU spill (no pool left) is no longer drawn as a band: the sentence's IU clause
+            says it, and each pool card shows its own run-out
 2 Flow      three columns of node cards, columns joined by a thin chevron rule
             Supply                        Router                           Demand
             Credit pools  meter + tick    Picks by target  bar             agw workflows on credit  rows, purpose split
@@ -155,7 +159,7 @@ column are state ("now", the cycle) and say so. Measure is `$` on Flow; tokens s
 dollars. No Workspace on Flow: supply has none.
 
 **Mobile 390.** One column: verdict, then Supply, Router, Demand as stacked node cards; a tapped node's detail opens
-directly under it. The pace chart keeps its full height.
+directly under it. The drain cards stack one per row at full width.
 
 ### Explore
 
