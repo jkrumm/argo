@@ -267,6 +267,16 @@ Categories and merchants stay neutral. Ported from the standalone finances dashb
 | Account 4 / 5    | `#52525c` / `#71717a` | `#a1a1aa` / `#71717a` | `account4` / `account5` | Greys by position                                 |
 | Account 6+       | `#d4d4d8`             | `#52525c`             | `other`                 | Folded grey                                       |
 
+### Models (`model-` prefix — `MODEL_CREATOR.*`)
+
+The three vendors the owner's agw slots run on, drawn on the `/models` scatters by the colour the reader already knows them by (identities, the stated exception to "siblings are shades"). Every other creator is neutral grey; effort ladders, rings and the frontier carry no hue of their own.
+
+| Series name | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
+| ----------- | --------- | --------- | ------------------ | -------------------- |
+| OpenAI      | `#29a634` | `#43bf4d` | `openai`           | Forest               |
+| Anthropic   | `#c87619` | `#ec9a3c` | `anthropic`        | Orange               |
+| Google      | `#0284c7` | `#38bdf8` | `google`           | Sky                  |
+
 Rules for this table (from the `basalt-tokens` / `basalt-charts` rules — do not relax):
 
 - One hue per series, drawn from the identity families only. Never raw Material/AntD/Tailwind.

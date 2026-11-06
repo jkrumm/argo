@@ -13,3 +13,4 @@
 /usage-tracking
 /walking-pad
 /warden
+/models

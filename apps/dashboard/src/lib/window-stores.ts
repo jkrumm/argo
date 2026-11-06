@@ -27,6 +27,8 @@ import { PAYER_LABELS, USAGE_PAYERS, type IuKeyId } from '../features/usage-trac
 import { legacyNode, type LegacyView } from '../features/usage-tracking/flow-node'
 // Dependency-free month helpers (a type-only import of the pinned finance contract).
 import { MONTH_UNIVERSE, YEAR_UNIVERSE, monthLabel } from '../features/finance/lib/months'
+// Pure, import-free of the app but for the pinned contract types: the models page's value sets.
+import { CATALOG_SORT_KEYS, CREATOR_LABELS, CREATOR_VALUES } from '../features/models/model'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
@@ -359,3 +361,23 @@ export const FILTERS_CLEARED: FinanceFilters = {
   year: '',
   focus: '',
 }
+
+/**
+ * The models page. `callable` and `superseded` are the visibility filters (the defaults are the
+ * uncluttered view: what the IU endpoint can call, without the models a newer one replaced); `creators`
+ * narrows the field, empty meaning all. `pick` is the highlighted lineage, URL only so a link carries it.
+ * `sort` / `dir` order the catalog.
+ */
+export const modelsStore = createSearchStore({
+  key: 'models',
+  fields: {
+    callable: field.boolean(true),
+    superseded: field.boolean(false),
+    creators: field.multi(CREATOR_VALUES, []),
+    pick: field.string({ max: 80 }, { persist: false }),
+    sort: field.enum(CATALOG_SORT_KEYS, 'intelligence'),
+    dir: field.enum(['asc', 'desc'], 'desc'),
+  },
+}).labels({
+  creators: CREATOR_LABELS,
+})

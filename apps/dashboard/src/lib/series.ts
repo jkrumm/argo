@@ -218,6 +218,16 @@ const FINANCE_ACCOUNT_MAP = defineSeries({
   other: p(BP.gray, 3, 0),
 } satisfies SeriesMap)
 
+/**
+ * Models page — the three vendors the owner's slots run on, by the colour the reader already knows
+ * them by (OpenAI green, Anthropic orange, Google blue). Every other creator stays neutral.
+ */
+const MODEL_CREATOR_MAP = defineSeries({
+  openai: p(BP.forest),
+  anthropic: p(BP.orange),
+  google: p(BP.blue),
+} satisfies SeriesMap)
+
 export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
@@ -227,6 +237,7 @@ export const ROUTING_REASON = groupTokens('routing', ROUTING_REASON_MAP)
 export const LP = groupTokens('lp', LP_MAP)
 export const FINANCE_SPLIT = groupTokens('finsplit', FINANCE_SPLIT_MAP)
 export const FINANCE_ACCOUNT = groupTokens('finacct', FINANCE_ACCOUNT_MAP)
+export const MODEL_CREATOR = groupTokens('model', MODEL_CREATOR_MAP)
 
 const FINANCE_ACCOUNT_SLOTS = [
   FINANCE_ACCOUNT.account1,
@@ -254,6 +265,7 @@ export const argoPaletteGroups = [
   LP,
   FINANCE_SPLIT,
   FINANCE_ACCOUNT,
+  MODEL_CREATOR,
 ]
 
 /**
