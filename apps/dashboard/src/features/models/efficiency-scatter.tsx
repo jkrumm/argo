@@ -641,7 +641,7 @@ function Scatter({
         series={series}
         marks={marks}
         y={{ domain: yDomain, ticks: yTicks(yDomain), format: (v) => String(v) }}
-        legend={{ groups: true, toggle: true }}
+        legend={{ groups: true, toggle: false }}
         tooltip={false}
       />
       {tip === null || tipPoint === undefined ? null : (
