@@ -56,15 +56,16 @@ describe('logTicks', () => {
 })
 
 describe('shortLineage', () => {
-  const all = ['GPT-6.1 Terra', 'GPT-6.1 Sol', 'GPT-6 Sol', 'Claude Haiku 5.5', 'Kimi K3.1 Pro']
-  it('drops the vendor prefix when the rest is unique', () => {
-    expect(shortLineage('GPT-6.1 Terra', all)).toBe('Terra')
-    expect(shortLineage('Claude Haiku 5.5', all)).toBe('Haiku 5.5')
-    expect(shortLineage('Kimi K3.1 Pro', all)).toBe('Kimi K3.1 Pro')
+  it('drops the vendor prefix of every lineage the same way', () => {
+    expect(shortLineage('GPT-6.1 Terra')).toBe('Terra')
+    expect(shortLineage('GPT-6.1 Sol')).toBe('Sol')
+    expect(shortLineage('GPT-6 Astra')).toBe('Astra')
+    expect(shortLineage('Claude Opus 5.5')).toBe('Opus 5.5')
+    expect(shortLineage('Claude Haiku 5.5')).toBe('Haiku 5.5')
   })
 
-  it('keeps the full name when two lineages would read the same', () => {
-    expect(shortLineage('GPT-6.1 Sol', all)).toBe('GPT-6.1 Sol')
-    expect(shortLineage('GPT-6 Sol', all)).toBe('GPT-6 Sol')
+  it('leaves a name with no vendor prefix alone', () => {
+    expect(shortLineage('Kimi K3.1 Pro')).toBe('Kimi K3.1 Pro')
+    expect(shortLineage('DeepSeek V4.1 Flash 1017')).toBe('DeepSeek V4.1 Flash 1017')
   })
 })

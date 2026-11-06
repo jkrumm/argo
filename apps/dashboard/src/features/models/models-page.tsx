@@ -5,8 +5,8 @@
  * on screen is `model.ts`'s answer over `GET /api/models/efficiency`.
  */
 import { useQuery } from '@tanstack/react-query'
-import { SimpleGrid, Stack } from '@mantine/core'
-import { PageBar, PageSummary } from 'basalt-ui'
+import { SimpleGrid, Stack, Text } from '@mantine/core'
+import { PageBar, PageSummary, useSizeClass } from 'basalt-ui'
 import { FilterSet, MultiSelectFilter, SelectFilter, ToggleFilter } from 'basalt-ui/controls'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../lib/chart-state'
@@ -14,6 +14,7 @@ import { formatRelative } from '../../lib/format'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { modelsStore } from '../../lib/window-stores'
+import { useHoverLineage } from './hover'
 import { modelsQueries } from './api/queries'
 import type { EfficiencyVariant } from './api/types'
 import { CatalogTable } from './catalog-table'
@@ -21,7 +22,7 @@ import { COST_INFO, COST_NOTE, ESTIMATE_NOTE, TIME_INFO, TOKENS_INFO } from './c
 import { EfficiencyScatter } from './efficiency-scatter'
 import { shortLineage } from './format'
 import { intelligenceDomain, lineageRows, routeUse, scatterPoints, visibleVariants } from './model'
-import { slotRows } from './slot-rows'
+import { slotRows, slotSummary } from './slot-rows'
 import { SlotsList } from './slots-list'
 
 const HEIGHT = { base: 300, regular: 340 } as const
@@ -39,9 +40,11 @@ export function ModelsPage() {
   const use = routeUse(routes)
 
   const lineages = [...new Set(variants.map((v) => v.lineage))]
-  const names = (lineage: string) => shortLineage(lineage, lineages)
+  // The tables, verdicts and tooltips say the API's lineage name as is; only the chart labels shorten it.
   const variantName = (v: EfficiencyVariant) =>
-    `${names(v.lineage)}${v.effort === 'default' ? '' : ` ${v.effort}`}`
+    `${v.lineage}${v.effort === 'default' ? '' : ` ${v.effort}`}`
+  const hover = useHoverLineage()
+  const compact = useSizeClass() === 'compact'
 
   const yDomain = intelligenceDomain(visible)
   const cost = scatterPoints(visible, 'cost')
@@ -50,14 +53,12 @@ export function ModelsPage() {
 
   const slots = slotRows(routes, variants, visible, variantName)
   const rows = lineageRows(visible, routes)
-  const beaten = slots.filter((s) => s.verdict?.kind === 'beaten').length
-  const frontier = slots.filter((s) => s.verdict?.kind === 'frontier').length
 
   const base = {
     yDomain,
     use,
-    selected: filters.pick,
-    names,
+    selected: hover || filters.pick,
+    names: shortLineage,
     source: data?.source ?? null,
     height: HEIGHT,
   }
@@ -76,7 +77,7 @@ export function ModelsPage() {
       ? null
       : slots.length === 0
         ? `${rows.length} models shown.`
-        : `${beaten} of your ${slots.length} slots ${beaten === 1 ? 'is' : 'are'} beaten by a callable variant; ${frontier} on the frontier.`
+        : slotSummary(slots)
   const captured = data?.capturedAt ?? null
   const aside =
     data === undefined
@@ -107,15 +108,27 @@ export function ModelsPage() {
               label="Highlight"
               clearable
               options={lineages
-                .toSorted((a, b) => names(a).localeCompare(names(b)))
-                .map((lineage) => ({ value: lineage, label: names(lineage) }))}
+                .toSorted((a, b) => a.localeCompare(b))
+                .map((lineage) => ({ value: lineage, label: lineage }))}
             />
           </FilterSet>
         }
       />
 
       <Stack gap="md">
-        {summary === null ? null : <PageSummary sentence={summary} aside={aside} />}
+        {summary === null ? null : compact ? (
+          // A phone: the headline at body size with the freshness under it, not beside it.
+          <Stack gap={2}>
+            <Text size="md" fw={600}>
+              {summary}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {aside}
+            </Text>
+          </Stack>
+        ) : (
+          <PageSummary sentence={summary} aside={aside} />
+        )}
         <SimpleGrid type="container" cols={{ base: 1, [CONTAINER_KEYS.wide]: 2 }} spacing="md">
           <EfficiencyScatter
             {...base}
@@ -158,7 +171,7 @@ export function ModelsPage() {
           lineages={rows}
           unscored={data?.unscored ?? []}
           slotsOf={(v) => use.get(v.slug)?.routes.length ?? 0}
-          names={names}
+          names={(lineage) => lineage}
         />
       </Stack>
     </>

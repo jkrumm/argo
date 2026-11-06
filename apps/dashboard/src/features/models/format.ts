@@ -84,15 +84,10 @@ export function logTicks(min: number, max: number, maxCount: number): number[] {
 }
 
 /**
- * A lineage name without its vendor prefix (`GPT-6.1 Terra` is `Terra`, `Claude Opus 5.5` is `Opus
- * 5.5`) when that leaves it unique among `all`; the full name otherwise (`GPT-6 Sol` and `GPT-6.1
- * Sol` would both read `Sol`).
+ * A lineage name without its vendor prefix, the same rule for every lineage (`GPT-6.1 Terra` is
+ * `Terra`, `GPT-6.1 Sol` is `Sol`, `Claude Opus 5.5` is `Opus 5.5`). For chart labels only: two
+ * lineages can read the same (`GPT-6 Sol` and `GPT-6.1 Sol`), so the tooltip, the tables and the
+ * verdicts use the full name.
  */
-const stripVendor = (name: string): string => name.replace(/^(?:Claude|GPT-[\d.]+)\s+/, '')
-
-export function shortLineage(lineage: string, all: readonly string[]): string {
-  const short = stripVendor(lineage)
-  if (short === lineage) return lineage
-  const clash = all.some((other) => other !== lineage && stripVendor(other) === short)
-  return clash ? lineage : short
-}
+export const shortLineage = (lineage: string): string =>
+  lineage.replace(/^(?:Claude|GPT-[\d.]+)\s+/, '')

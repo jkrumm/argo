@@ -26,7 +26,7 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 - `charts-smoke.tsx` — chart smoke-test page
 - `garmin-health.tsx` — Garmin Health page
 - `m365-explorer.tsx` — M365 Explorer page
-- `models.tsx` — Models page (System → which model to use for what: three log-x scatters of AA intelligence against cost, ≈time and ≈tokens per task, your agw slots with a verdict, a lineage catalog with effort ladders; `features/models/`, data from `GET /api/models/efficiency` via the modelpick relay, plain fetch, contract pinned in `api/types.ts`, logic pure in `model.ts`/`labels.ts`; filters and the highlighted lineage are `modelsStore`; fixture shots: `bun scripts/design-shot/models-fixture.ts` after a dashboard build)
+- `models.tsx` — Models page (System → which model to use for what: three log-x scatters of AA intelligence against cost, ≈time and ≈tokens per task, your agw slots with a verdict, a lineage catalog with effort ladders; `features/models/`, data from `GET /api/models/efficiency` via the modelpick relay, plain fetch, contract pinned in `api/types.ts`, logic pure in `model.ts`/`labels.ts`/`pointer.ts` (the scatter's own pointer overlay: nearest dot in 2D pixel space from the chart's clip rect and the page's own domains, since `CartesianChart` exposes no scales; hover shows the tooltip and lights the lineage on all three charts, a click or tap toggles `pick`); filters and the highlighted lineage are `modelsStore`; fixture shots: `bun scripts/design-shot/models-fixture.ts` after a dashboard build)
 - `reading.tsx` — Reading page
 - `strength-tracker.tsx` — Strength Tracker page
 - `usage-tracking.tsx` — Usage Tracking page

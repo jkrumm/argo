@@ -9,7 +9,8 @@
  * ring (solid on a quota, dashed when it bills) and a persistent label. The x scale is linear over
  * `log10(x)`: `CartesianChart` has a log y axis only, so ticks and the tooltip map back to the value.
  */
-import { Anchor, Box, Text } from '@mantine/core'
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Anchor, Box, Group, Paper, Stack, Text } from '@mantine/core'
 import { dot } from '@tanstack/charts/dot'
 import { lineY } from '@tanstack/charts/line'
 import { decorative } from '@tanstack/charts/mark/decorative'
@@ -28,6 +29,7 @@ import {
 } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { MODEL_CREATOR } from '../../lib/series'
+import { modelsStore } from '../../lib/window-stores'
 import type { EfficiencyResponse } from './api/types'
 import {
   APPROX,
@@ -40,6 +42,8 @@ import {
   fmtUsd,
   logTicks,
 } from './format'
+import { setHoverLineage } from './hover'
+import { captureRadius, nearestPoint, pointerInPlot, toPlotPixel } from './pointer'
 import { placeLabels, type LabelCandidate, type LabelObstacle } from './labels'
 import {
   attractiveQuadrant,
@@ -107,7 +111,7 @@ export interface EfficiencyScatterProps {
   use: ReadonlyMap<string, RouteUse>
   /** The highlighted lineage, `''` for none. */
   selected: string
-  /** A lineage's display name. */
+  /** A lineage's short chart-label name (the same rule for every lineage). */
   names: (lineage: string) => string
   source: EfficiencyResponse['source'] | null
   state: ChartState
@@ -189,6 +193,9 @@ function Scatter({
   cursorGroup,
   compact,
 }: EfficiencyScatterProps & { compact: boolean }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [pick, setPick] = modelsStore.field.pick.use()
+  const [tip, setTip] = useState<TipAt | null>(null)
   const lxs = points.map((p) => p.lx)
   const xDomain: readonly [number, number] = [Math.min(...lxs) - X_PAD, Math.max(...lxs) + X_PAD]
   const ticks = logTicks(10 ** xDomain[0], 10 ** xDomain[1], compact ? 4 : 6).map((t) =>
@@ -416,6 +423,25 @@ function Scatter({
       }
     }
 
+    // The point under the pointer or finger.
+    const tipPoint = tip === null ? undefined : shown.find((p) => p.variant.slug === tip.slug)
+    if (tipPoint !== undefined) {
+      out.push(
+        decorative(
+          dot([tipPoint], {
+            id: 'pointer',
+            x: (p) => p.lx,
+            y: (p) => p.y,
+            r: radius(tipPoint) + 3,
+            fill: VX.ink,
+            fillOpacity: 0,
+            stroke: VX.ink,
+            strokeWidth: 1.5,
+          }),
+        ),
+      )
+    }
+
     // 6. Persistent labels: the highlighted lineage, then the routed variants, then the frontier.
     const frontierSlugs = new Set(frontier.map((p) => p.variant.slug))
     const narrow = W < NARROW_PLOT_PX
@@ -528,25 +554,169 @@ function Scatter({
     return rows
   }
 
+  /** The point nearest to the pointer in 2D pixel space, with where to draw its tooltip. */
+  function locate(event: ReactPointerEvent | MouseEvent | React.MouseEvent) {
+    const root = wrapRef.current
+    const svg = root?.querySelector<SVGSVGElement>('svg.ts-chart')
+    const clip = svg?.querySelector('clipPath rect')
+    if (root === null || root === undefined || svg === null || svg === undefined || !clip)
+      return null
+    const box = svg.getBoundingClientRect()
+    const frame = svg.viewBox.baseVal.width
+    const scale = frame > 0 ? box.width / frame : 1
+    const plot = {
+      x: Number(clip.getAttribute('x')),
+      y: Number(clip.getAttribute('y')),
+      width: Number(clip.getAttribute('width')),
+      height: Number(clip.getAttribute('height')),
+    }
+    const type = 'pointerType' in event ? event.pointerType : 'mouse'
+    const radius = captureRadius(type)
+    const at = pointerInPlot(
+      { x: (event.clientX - box.left) / scale, y: (event.clientY - box.top) / scale },
+      plot,
+      radius,
+    )
+    if (at === null) return null
+    const hit = nearestPoint(
+      at,
+      points.map((p) => ({ p, ...toPlotPixel({ x: p.lx, y: p.y }, xDomain, yDomain, plot) })),
+      radius,
+    )
+    if (hit === null) return null
+    const rootBox = root.getBoundingClientRect()
+    const x = box.left - rootBox.left + (plot.x + hit.x) * scale
+    const y = box.top - rootBox.top + (plot.y + hit.y) * scale
+    return { point: hit.p, x, y, width: rootBox.width, height: rootBox.height }
+  }
+
+  const show = (found: NonNullable<ReturnType<typeof locate>> | null) => {
+    setTip(
+      found === null
+        ? null
+        : {
+            slug: found.point.variant.slug,
+            x: found.x,
+            y: found.y,
+            width: found.width,
+            height: found.height,
+          },
+    )
+  }
+
+  const tipPoint = tip === null ? undefined : points.find((p) => p.variant.slug === tip.slug)
+
   return (
-    <CartesianChart<ScatterPoint, number>
-      ariaLabel={`${ariaLabelOf(axis)}, one dot per model and reasoning effort`}
-      data={points}
-      height={height}
-      x={(p) => p.lx}
-      xDomain={xDomain}
-      xTicks={ticks}
-      formatX={(lx) => AXIS_TICK[axis](10 ** lx)}
-      cursorGroup={cursorGroup}
-      series={series}
-      marks={marks}
-      y={{ domain: yDomain, ticks: yTicks(yDomain), format: (v) => String(v) }}
-      legend={{ groups: true, toggle: true }}
-      tooltip={{
-        formatHeader: (_x, p) => variantName(p, names),
-        rows: (p) => tooltipRows(p),
+    <Box
+      ref={wrapRef}
+      pos="relative"
+      onPointerMove={(event) => {
+        // A finger selects on tap; hover is the mouse's.
+        if (event.pointerType === 'touch') return
+        const found = locate(event)
+        show(found)
+        setHoverLineage(found === null ? '' : found.point.variant.lineage)
       }}
-    />
+      onPointerLeave={() => {
+        setTip(null)
+        setHoverLineage('')
+      }}
+      onClick={(event) => {
+        const found = locate(event.nativeEvent as PointerEvent)
+        show(found)
+        if (found === null) return
+        const lineage = found.point.variant.lineage
+        setPick(lineage === pick ? '' : lineage)
+      }}
+    >
+      <CartesianChart<ScatterPoint, number>
+        ariaLabel={`${ariaLabelOf(axis)}, one dot per model and reasoning effort`}
+        data={points}
+        height={height}
+        x={(p) => p.lx}
+        xDomain={xDomain}
+        xTicks={ticks}
+        formatX={(lx) => AXIS_TICK[axis](10 ** lx)}
+        cursorGroup={cursorGroup}
+        series={series}
+        marks={marks}
+        y={{ domain: yDomain, ticks: yTicks(yDomain), format: (v) => String(v) }}
+        legend={{ groups: true, toggle: true }}
+        tooltip={false}
+      />
+      {tip === null || tipPoint === undefined ? null : (
+        <PointTip point={tipPoint} tip={tip} rows={tooltipRows(tipPoint)} />
+      )}
+    </Box>
+  )
+}
+
+interface TipAt {
+  slug: string
+  /** The dot, px inside the chart wrapper, and the wrapper's size. */
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const TIP_WIDTH = 240
+/** A tooltip's height with its usual ten rows; only used to keep it inside the chart. */
+const TIP_HEIGHT = 215
+const TIP_OFFSET = 12
+const clamp = (value: number, max: number): number => Math.max(0, Math.min(value, max))
+
+/** The tooltip of one variant, beside its dot; it never takes the pointer. */
+function PointTip({
+  point,
+  tip,
+  rows,
+}: {
+  point: ScatterPoint
+  tip: TipAt
+  rows: readonly ChartTooltipRow[]
+}) {
+  const v = point.variant
+  // Right of the dot when it fits, else left; below when it fits, else above; always inside the chart.
+  const right = tip.x + TIP_OFFSET
+  const left = right + TIP_WIDTH <= tip.width ? right : tip.x - TIP_OFFSET - TIP_WIDTH
+  const below = tip.y + TIP_OFFSET
+  const top = below + TIP_HEIGHT <= tip.height ? below : tip.y - TIP_OFFSET - TIP_HEIGHT
+  return (
+    <Paper
+      w={TIP_WIDTH}
+      shadow="md"
+      style={{
+        position: 'absolute',
+        zIndex: 5,
+        pointerEvents: 'none',
+        left: clamp(left, tip.width - TIP_WIDTH),
+        top: clamp(top, tip.height - TIP_HEIGHT),
+      }}
+    >
+      <Stack gap={2}>
+        <Text size="sm" fw={600}>
+          {v.lineage}
+          {effortWord(v.effort)}
+        </Text>
+        <Group justify="space-between" gap="xs" wrap="nowrap">
+          <Text size="xs" c="dimmed">
+            Intelligence index
+          </Text>
+          <Text size="xs">{v.intelligence.toFixed(1)}</Text>
+        </Group>
+        {rows.map((row) => (
+          <Group key={row.label} justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
+            <Text size="xs" c="dimmed">
+              {row.label}
+            </Text>
+            <Text size="xs" ta="right">
+              {row.value}
+            </Text>
+          </Group>
+        ))}
+      </Stack>
+    </Paper>
   )
 }
 

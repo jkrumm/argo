@@ -74,6 +74,47 @@ const iuText = (row: CatalogRow): string =>
     ? `callable${row.legs.length > 0 ? ` · ${row.legs.join(', ')}` : ''}`
     : 'not callable'
 
+function CatalogCard({ row, open }: { row: CatalogRow; open: boolean }) {
+  const v = row.variant
+  const figures = `Intel. ${v.intelligence.toFixed(1)} · ${fmtUsd(v.costPerTask)} / task · ${fmtSeconds(v.timePerTaskEstSec)} · ${fmtTokens(v.tokensPerTaskEst)} tokens`
+  if (row.kind === 'variant') {
+    return (
+      <Stack gap={2} pl="md">
+        <Text size="sm" fw={500}>
+          {row.name}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {figures}
+        </Text>
+      </Stack>
+    )
+  }
+  const Chevron = open ? IconChevronDown : IconChevronRight
+  return (
+    <Stack gap={2}>
+      <Group justify="space-between" wrap="nowrap">
+        <Group gap="xs" wrap="nowrap">
+          <Chevron size={14} />
+          <Text size="sm" fw={600}>
+            {row.name}
+          </Text>
+        </Group>
+        <Text size="xs" c="dimmed">
+          {row.creator}
+          {row.superseded ? ' · superseded' : ''}
+        </Text>
+      </Group>
+      <Text size="xs" c="dimmed">
+        {figures}
+      </Text>
+      <Text size="xs" c="dimmed">
+        {fmtPrice(v.priceIn)} in / {fmtPrice(v.priceOut)} out per 1M · {iuText(row)}
+        {row.slots > 0 ? ` · ${row.slots} ${row.slots === 1 ? 'slot' : 'slots'}` : ''}
+      </Text>
+    </Stack>
+  )
+}
+
 const SORT_IDS = new Set<string>(CATALOG_SORT_KEYS)
 const isSortKey = (id: string): id is CatalogSortKey => SORT_IDS.has(id)
 
@@ -211,6 +252,8 @@ export function CatalogTable({
         onRowActivate={(row) =>
           setPick(row.lineage === pick && row.kind === 'lineage' ? '' : row.lineage)
         }
+        // A phone gets one card per row: the column fold's disclosure would add a bare dot column.
+        renderCard={(row) => <CatalogCard row={row} open={row.lineage === pick} />}
         emptyState="No model matches the filters"
         stickyHeader
         maxHeight={640}
