@@ -488,17 +488,20 @@ export const bookSyncMap = argoSchema.table('book_sync_map', {
 // ingest) so the dashboard, Hermes and the brain page read ONE record.
 // `agentNarrative` is one summary row per project, upserted by the narrator.
 
+/** The raw-JSON-per-machine column set (fresh builders per table). */
+const snapshotColumns = () => ({
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+  machine: text('machine').notNull(),
+  generated_at: timestamp('generated_at', { withTimezone: true, mode: 'string' }).notNull(),
+  received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
+    .notNull()
+    .defaultNow(),
+  raw: jsonb('raw').notNull(),
+})
+
 export const agentOverviewSnapshot = argoSchema.table(
   'agent_overview_snapshots',
-  {
-    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
-    machine: text('machine').notNull(),
-    generated_at: timestamp('generated_at', { withTimezone: true, mode: 'string' }).notNull(),
-    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-    raw: jsonb('raw').notNull(),
-  },
+  snapshotColumns(),
   (t) => [index('idx_agent_overview_machine_received').on(t.machine, t.received_at.desc())],
 )
 
@@ -521,32 +524,14 @@ export const agentNarrative = argoSchema.table('agent_narratives', {
 // contract as `agentOverviewSnapshot` above: latest snapshot per machine plus
 // a 7-day history, pruned on ingest.
 
-export const wardenSnapshot = argoSchema.table(
-  'warden_snapshots',
-  {
-    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
-    machine: text('machine').notNull(),
-    generated_at: timestamp('generated_at', { withTimezone: true, mode: 'string' }).notNull(),
-    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-    raw: jsonb('raw').notNull(),
-  },
-  (t) => [index('idx_warden_machine_received').on(t.machine, t.received_at.desc())],
-)
+export const wardenSnapshot = argoSchema.table('warden_snapshots', snapshotColumns(), (t) => [
+  index('idx_warden_machine_received').on(t.machine, t.received_at.desc()),
+])
 
 // Review stats pushed by agent-workflows (`agw review stats`), raw jsonb like warden_snapshots.
 export const agentReviewStatsSnapshot = argoSchema.table(
   'agent_review_stats_snapshots',
-  {
-    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
-    machine: text('machine').notNull(),
-    generated_at: timestamp('generated_at', { withTimezone: true, mode: 'string' }).notNull(),
-    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-    raw: jsonb('raw').notNull(),
-  },
+  snapshotColumns(),
   (t) => [index('idx_agent_review_stats_machine_received').on(t.machine, t.received_at.desc())],
 )
 

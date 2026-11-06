@@ -4,13 +4,10 @@ import { desc, gte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agentNarrative, agentOverviewSnapshot, agentReviewStatsSnapshot } from '../db/schema.js'
 import {
-  exceedsSnapshotBytes,
   HISTORY_DAYS,
-  insertAndPruneSnapshot,
+  ingestSnapshot,
   latestSnapshotRow,
-  MAX_SNAPSHOT_BYTES,
   pgIso,
-  stripNulBytes,
   toIso,
 } from '../lib/snapshot-store.js'
 
@@ -281,19 +278,8 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
   .post(
     '/overview',
     async ({ body, status }) => {
-      const generatedAt = toIso(body.generatedAt)
-      if (!generatedAt) return status(400, 'generatedAt is not a valid timestamp')
-
-      const { machine, ...snapshot } = body
-      if (exceedsSnapshotBytes(snapshot)) {
-        return status(413, `Snapshot exceeds ${MAX_SNAPSHOT_BYTES} bytes`)
-      }
-      const inserted = await insertAndPruneSnapshot(agentOverviewSnapshot, AgentOverviewColumns, {
-        machine,
-        generated_at: generatedAt,
-        raw: { ...snapshot, generatedAt: Date.parse(generatedAt) },
-      })
-      return status(201, inserted)
+      const r = await ingestSnapshot(agentOverviewSnapshot, AgentOverviewColumns, body)
+      return status(r.code, r.body)
     },
     {
       body: OverviewIngestSchema,
@@ -438,19 +424,8 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
   .post(
     '/review-stats',
     async ({ body, status }) => {
-      const generatedAt = toIso(body.generatedAt)
-      if (!generatedAt) return status(400, 'generatedAt is not a valid timestamp')
-
-      const { machine, ...snapshot } = body
-      if (exceedsSnapshotBytes(snapshot)) {
-        return status(413, `Snapshot exceeds ${MAX_SNAPSHOT_BYTES} bytes`)
-      }
-      const inserted = await insertAndPruneSnapshot(agentReviewStatsSnapshot, ReviewStatsColumns, {
-        machine,
-        generated_at: generatedAt,
-        raw: stripNulBytes({ ...snapshot, generatedAt: Date.parse(generatedAt) }),
-      })
-      return status(201, inserted)
+      const r = await ingestSnapshot(agentReviewStatsSnapshot, ReviewStatsColumns, body)
+      return status(r.code, r.body)
     },
     {
       body: ReviewStatsIngestSchema,

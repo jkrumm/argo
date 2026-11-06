@@ -4,7 +4,7 @@
 export const DEFAULT_WEEKS = 8
 export const MAX_WEEKS = 26
 export const ISSUE_LIMIT = 50
-export const WEEK_MS = 7 * 86_400_000
+const WEEK_MS = 7 * 86_400_000
 
 export const COST_BASIS =
   'cost_usd as stored in usage.records: Max-subscription rows carry the list value of the tokens, not billed money; API-key and credit rows carry their reported or priced cost.'

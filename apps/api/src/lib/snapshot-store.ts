@@ -112,3 +112,31 @@ export async function latestSnapshotRow<Row>(
     .limit(1)
   return row as Row | undefined
 }
+
+type IngestResult =
+  | { code: 201; body: { id: number; receivedAt: string } }
+  | { code: 400 | 413; body: string }
+
+/**
+ * The shared body of an `{ machine, generatedAt, ...snapshot }` ingest route: timestamp check,
+ * size cap, then insert + prune. The caller turns the result into its `status(code, body)`.
+ */
+export async function ingestSnapshot(
+  table: AnyPgTable,
+  columns: SnapshotColumns,
+  body: { machine: string; generatedAt: number | string },
+): Promise<IngestResult> {
+  const generatedAt = toIso(body.generatedAt)
+  if (!generatedAt) return { code: 400, body: 'generatedAt is not a valid timestamp' }
+
+  const { machine, ...snapshot } = body
+  if (exceedsSnapshotBytes(snapshot)) {
+    return { code: 413, body: `Snapshot exceeds ${MAX_SNAPSHOT_BYTES} bytes` }
+  }
+  const inserted = await insertAndPruneSnapshot(table, columns, {
+    machine,
+    generated_at: generatedAt,
+    raw: { ...snapshot, generatedAt: Date.parse(generatedAt) },
+  })
+  return { code: 201, body: inserted }
+}

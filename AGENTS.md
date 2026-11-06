@@ -42,7 +42,9 @@ subagent type and factory role, the same per week, and per factory Issue with a 
 `cost_usd` as stored (list value on Max rows, not billed money). `POST`/`GET /agents/review-stats[?machine=]`
 stores the latest `agw review stats` result (weekly groups + per prompt) that agent-workflows pushes, raw
 jsonb, loosely validated, same snapshot store as the overview (`agent_review_stats_snapshots`). Code:
-`apps/api/src/routes/agent-kpis.ts`, `src/lib/agent-kpis.ts`; the dashboard page reads both through Eden.
+`apps/api/src/routes/agent-kpis.ts`, `src/lib/agent-kpis.ts`; the dashboard's **System → Agent performance** page
+(`/agent-performance`, `docs/design/agent-performance.md`) reads both through Eden and shows an honest "not pushed yet" state
+until agent-workflows pushes review stats.
 
 ## Warden — the control-plane board
 

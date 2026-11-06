@@ -20,6 +20,7 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 - `__root.tsx` — AppShell sidebar layout + theme toggle + `<Outlet />`
 - `index.tsx` — Today (the home page: merged needs-you inbox, day strip, agenda, activity; `features/home/`, `lib/decisions.ts`)
 - `agents.tsx` — Agents page (System → the agent-workflows overview snapshot Argo stores)
+- `agent-performance.tsx` — Agent performance page (System → review quality per week and tier from the pushed `agw review stats`, cost per Issue with its lanes, count and cost per subagent type, runs per week; `features/agent-performance/`, pure derivations in `model.ts`, `agentPerfStore.weeks` is the window; `docs/design/agent-performance.md`)
 - `astro-window.tsx` — Astro Window page
 - `body-composition.tsx` — Body Composition page
 - `calendar.tsx` — Calendar page

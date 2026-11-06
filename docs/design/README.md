@@ -29,6 +29,8 @@ feed (Home) first.
 | 11   | [Strength Tracker](strength-tracker.md) | 3        | The analytics are well shaped. Filler subtitles, four per-lift cards of bare numbers, and no verdict at the top                                     | 22   |
 | 12   | [Astro Window](astro-window.md)         | 3        | The Forecast tab and the engine are good. The Tonight tab is a 20-row facts table with ten identical OUT cells                                      | 23   |
 
+[Agent performance](agent-performance.md) is newer than this ranking (built after the waves, unscored).
+
 The wave order in `PLAN.md` stays as planned and overrides rank: it groups pages by shared patterns. Wave 19's Garmin
 Health is where `Meter`, the strip and the chart facts header are first proven, and Wave 20 proves the
 decision card and `Board`. That order outweighs strict rank.
