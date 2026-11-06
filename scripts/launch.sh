@@ -15,6 +15,11 @@ cd "$DIR" || { print -u2 "argo: cannot cd to $DIR"; exit 78; }
 
 [[ "${1:-}" == "--check" ]] && export ARGO_LAUNCH_CHECK=1
 
+# Marks where this process's stderr begins. launchd restarts the process on a crash (KeepAlive), and deploy records the
+# log offset only once, so without this line `make verify` would judge a crash-looped process by what its predecessors
+# wrote. The text must match START_MARKER in verify.sh.
+[[ -z "${ARGO_LAUNCH_CHECK:-}" ]] && print -u2 "argo: process start pid=$$"
+
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 # `timeout` is a Homebrew coreutils binary (macOS ships none); a missing one must not read as an unrelated error.

@@ -22,6 +22,7 @@ ERR_LOG="$HOME/Library/Logs/argo.err.log"
 BASE="http://127.0.0.1:7737"
 API_SECRET_REF="op://common/api/SECRET"
 BAD_LOG='Unhandled|ECONNREFUSED.*5432|password authentication failed'
+START_MARKER='argo: process start pid='  # written by launch.sh at every launchd start
 
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
@@ -101,6 +102,10 @@ if [[ -f "$ERR_LOG" ]]; then
   else
     recent=""
   fi
+  # launchd restarts a crashed process into the same log: only what follows the last start marker belongs to the
+  # running process (launch.sh writes it). No marker (a release from before it) leaves the deploy-offset window as is.
+  last_start=$(print -r -- "$recent" | /usr/bin/grep -n "^$START_MARKER" | tail -n 1 | cut -d: -f1)
+  [[ -n "$last_start" ]] && recent=$(print -r -- "$recent" | tail -n +"$last_start")
   bad=$(print -r -- "$recent" | /usr/bin/grep -E "$BAD_LOG" | head -n 5)
   [[ -z "$bad" ]] || fail "$ERR_LOG has error lines since the process started:"$'\n'"$bad"
 fi

@@ -180,7 +180,7 @@ loaded; `GET /api/health` is ok and its `commit` equals `deployed-sha` equals `g
 fails, naming both, when origin/master moved ahead); `GET /` is the SPA and an `/assets/*` file it names is 200 with an immutable
 `Cache-Control`; unauthenticated `GET /api/usage/summary` is 401; with the bearer,
 `/api/usage/summary` (reads the `usage` schema), `/api/exercises` (reads the `argo` schema) and `/api/openapi/json` answer 200 JSON;
-the stderr log has no `Unhandled`, `ECONNREFUSED … 5432` or `password authentication failed` line since the process started.
+the stderr log has no `Unhandled`, `ECONNREFUSED … 5432` or `password authentication failed` line since the process started (the last `argo: process start` line `scripts/launch.sh` writes on every launchd start, else the log offset `make deploy` recorded; a crash-looped predecessor's lines do not count).
 `make verify-pages [BASE=<origin>]` loads every route of `scripts/evidence/routes.txt` in a real Chrome (bearer from `secrets-run`,
 reads only) and fails on an uncaught page error, a 5xx other than 503 or an empty page; 503s (Google / M365 without tokens) are listed as notes.
 The mini door is `https://<mini-door-host>` (dotfiles Caddy registry, tailnet clients only); the process serves the SPA, `/api/*`
