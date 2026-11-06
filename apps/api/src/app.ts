@@ -42,6 +42,7 @@ import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { agentRoutes } from './routes/agents.js'
 import { wardenRoutes } from './routes/warden.js'
 import { financeRoutes } from './routes/finance.js'
+import { modelsRoutes } from './routes/models.js'
 import { authGuard } from './lib/auth-guard.js'
 import { shouldTraceRequest } from './lib/trace-filter.js'
 
@@ -170,6 +171,11 @@ export function buildApp() {
                   "Johannes's encrypted finance vault (bank transactions, categories, recurring costs, net worth, tax tags), relayed to the loopback `fin serve` service on the mini. The vault is LOCKED by default and only a human can unlock it (the key never passes through an agent): every data call answers 423 while locked, so read `GET /finance/status` first and, if locked, tell the user to unlock it in the Argo dashboard under /finance — never ask for or handle the key. Unlocked, `GET /finance/api/*` serves read-only views (amounts in integer cents, months YYYY-MM), `POST /finance/sync` starts a bank sync, `POST /finance/lock` closes the vault. The vault re-locks itself after 30 idle minutes. Status codes and bodies are the service's own: 423 locked, 401 wrong key, 429 unlock throttled, 409 sync already running, 503 service down.",
               },
               {
+                name: 'Models',
+                description:
+                  'Which model to use for what: Artificial Analysis intelligence, cost per task and speed per model and reasoning effort, joined with the agent-workflows route table and IU access, relayed from the loopback modelpick server on the mini. `GET /models/efficiency` is the one read; tokens and time per task in it are estimates. 503 when modelpick is down.',
+              },
+              {
                 name: 'System',
                 description:
                   'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -215,6 +221,7 @@ export function buildApp() {
             'Agents',
             'Warden',
             'Finance',
+            'Models',
             'System',
           ],
         }),
@@ -286,6 +293,7 @@ export function buildApp() {
       .use(agentRoutes)
       .use(wardenRoutes)
       .use(financeRoutes)
+      .use(modelsRoutes)
   )
 }
 

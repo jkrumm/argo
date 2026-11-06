@@ -84,6 +84,10 @@ const EnvShape = z.object({
   FIN_SERVICE_PORT: z.coerce.number().int().default(4581),
   FIN_SERVICE_TOKEN: z.string().default(''),
 
+  // modelpick server (repo ~/SourceRoot/modelpick): loopback-only and read-only, so no service token.
+  // Argo's /models/* routes relay to it.
+  MODELPICK_PORT: z.coerce.number().int().default(7727),
+
   // aiComplete — the model named by DEEPSEEK_MODEL, called directly on the IU
   // unified endpoint's OpenAI-compatible transport. The same public endpoint
   // serves local + prod. DEEPSEEK_BASE_URL must include the OpenAI path
