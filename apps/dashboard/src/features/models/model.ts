@@ -21,6 +21,39 @@ export const effortRank = (effort: Effort): number => EFFORT_ORDER.indexOf(effor
 export const byEffort = (a: EfficiencyVariant, b: EfficiencyVariant): number =>
   effortRank(a.effort) - effortRank(b.effort) || a.intelligence - b.intelligence
 
+// ── names ───────────────────────────────────────────────────────────────────
+
+/** A lineage's readable name: a variant's `name` without its trailing parenthetical (`GPT-6.1 Terra (Medium)`). */
+export const lineageNameOf = (name: string): string => name.replace(/\s*\([^)]*\)\s*$/, '')
+
+/** Lineage slug → readable name, from the first variant of each. */
+export function lineageNames(variants: readonly EfficiencyVariant[]): Map<string, string> {
+  const names = new Map<string, string>()
+  for (const variant of variants) {
+    if (!names.has(variant.lineage)) names.set(variant.lineage, lineageNameOf(variant.name))
+  }
+  return names
+}
+
+/** A variant as the page names it: `GPT-6.1 Terra medium`; an effort-less model has no suffix. */
+export const variantLabel = (
+  variant: EfficiencyVariant,
+  display: (lineage: string) => string,
+): string =>
+  `${display(variant.lineage)}${variant.effort === 'default' ? '' : ` ${variant.effort}`}`
+
+/**
+ * The lineage a route's model id belongs to, through any variant that carries it (`gpt-6.1-terra` is the
+ * IU id of lineage `gpt-6-1-terra`), or null when no variant does.
+ */
+export function lineageOfModel(
+  model: string,
+  variants: readonly EfficiencyVariant[],
+): string | null {
+  const match = variants.find((v) => v.iu.id === model || v.lineage === model || v.slug === model)
+  return match?.lineage ?? null
+}
+
 // ── creators ────────────────────────────────────────────────────────────────
 
 export const CREATOR_VALUES = [
@@ -398,13 +431,19 @@ export function sortLineageRows(
   rows: readonly LineageRow[],
   key: CatalogSortKey,
   dir: 'asc' | 'desc',
+  /** The name a lineage shows: the Model column sorts on what it displays, the slug only breaks ties. */
+  name: (lineage: string) => string = (lineage) => lineage,
 ): LineageRow[] {
   const sign = dir === 'asc' ? 1 : -1
   return rows.toSorted((a, b) => {
-    const va = sortValue(a, key)
-    const vb = sortValue(b, key)
+    const va = key === 'lineage' ? name(a.lineage) : sortValue(a, key)
+    const vb = key === 'lineage' ? name(b.lineage) : sortValue(b, key)
     if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1
     const order = typeof va === 'string' ? va.localeCompare(String(vb)) : va - Number(vb)
-    return sign * order || a.lineage.localeCompare(b.lineage)
+    return (
+      sign * order ||
+      name(a.lineage).localeCompare(name(b.lineage)) ||
+      a.lineage.localeCompare(b.lineage)
+    )
   })
 }

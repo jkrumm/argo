@@ -12,6 +12,8 @@ export interface LabelCandidate {
   y: number
   /** Dot radius, px. */
   r: number
+  /** A required label is never dropped: it takes any free spot, then any spot clear of other labels, then the nearest one. */
+  required?: boolean
 }
 
 export type LabelSide = 'right' | 'left' | 'above' | 'below'
@@ -49,25 +51,26 @@ function placement(
   c: LabelCandidate,
   side: LabelSide,
   layout: LabelLayout,
+  lift = 0,
 ): { rect: Rect; anchor: PlacedLabel['anchor']; dx: number; dy: number } {
   const w = c.text.length * layout.charWidth
   const h = layout.lineHeight
   // The text baseline sits `h * 0.3` under the vertical middle of the line.
-  const middle = (top: number) => ({ top, bottom: top + h })
+  const middle = (top: number) => ({ top: top + lift, bottom: top + h + lift })
   switch (side) {
     case 'right':
       return {
         rect: { left: c.x + c.r + GAP, right: c.x + c.r + GAP + w, ...middle(c.y - h / 2) },
         anchor: 'start',
         dx: c.r + GAP,
-        dy: h * 0.3,
+        dy: h * 0.3 + lift,
       }
     case 'left':
       return {
         rect: { left: c.x - c.r - GAP - w, right: c.x - c.r - GAP, ...middle(c.y - h / 2) },
         anchor: 'end',
         dx: -(c.r + GAP),
-        dy: h * 0.3,
+        dy: h * 0.3 + lift,
       }
     case 'above':
       return {
@@ -95,7 +98,17 @@ function hitsDot(rect: Rect, dot: LabelObstacle): boolean {
   return (nx - dot.x) ** 2 + (ny - dot.y) ** 2 < dot.r ** 2
 }
 
-/** `candidates` in priority order; the result keeps that order and omits what found no room. */
+/** Spots tried for a required label that no dot-free side suits: further and further from the dot. */
+const REACH = [0, 12, 24, 40, 60] as const
+
+const inside = (rect: Rect, layout: LabelLayout): boolean =>
+  rect.left >= 0 && rect.right <= layout.width && rect.top >= 0 && rect.bottom <= layout.height
+
+/**
+ * `candidates` in priority order, required ones first; the result omits only optional labels that
+ * found no room. A required label ends clear of every other label whenever the plot has room for it,
+ * and is pulled back inside the plot edge as a last resort.
+ */
 export function placeLabels(
   candidates: readonly LabelCandidate[],
   obstacles: readonly LabelObstacle[],
@@ -103,22 +116,53 @@ export function placeLabels(
 ): PlacedLabel[] {
   const placed: PlacedLabel[] = []
   const taken: Rect[] = []
-  const bounds: Rect = { left: 0, right: layout.width, top: 0, bottom: layout.height }
-  for (const c of candidates) {
+  const ordered = [
+    ...candidates.filter((c) => c.required === true),
+    ...candidates.filter((c) => c.required !== true),
+  ]
+  const accept = (c: LabelCandidate, side: LabelSide, spot: ReturnType<typeof placement>) => {
+    taken.push(spot.rect)
+    placed.push({ id: c.id, text: c.text, side, anchor: spot.anchor, dx: spot.dx, dy: spot.dy })
+  }
+  for (const c of ordered) {
+    const free = (spot: ReturnType<typeof placement>, avoidDots: boolean): boolean =>
+      inside(spot.rect, layout) &&
+      !taken.some((t) => overlaps(t, spot.rect)) &&
+      !(avoidDots && obstacles.some((o) => hitsDot(spot.rect, o)))
+    let done = false
     for (const side of SIDES) {
       const spot = placement(c, side, layout)
-      const inside =
-        spot.rect.left >= bounds.left &&
-        spot.rect.right <= bounds.right &&
-        spot.rect.top >= bounds.top &&
-        spot.rect.bottom <= bounds.bottom
-      if (!inside) continue
-      if (taken.some((t) => overlaps(t, spot.rect))) continue
-      if (obstacles.some((o) => hitsDot(spot.rect, o))) continue
-      taken.push(spot.rect)
-      placed.push({ id: c.id, text: c.text, side, anchor: spot.anchor, dx: spot.dx, dy: spot.dy })
+      if (!free(spot, true)) continue
+      accept(c, side, spot)
+      done = true
       break
     }
+    if (done || c.required !== true) continue
+    // Further out, and a line up or down beside the dot: the text slides clear of a neighbour's label.
+    const line = layout.lineHeight + 2
+    const lifts = [0, -line, line, -2 * line, 2 * line, -3 * line, 3 * line]
+    for (const reach of REACH) {
+      for (const lift of lifts) {
+        for (const side of SIDES) {
+          if (lift !== 0 && (side === 'above' || side === 'below')) continue
+          const spot = placement({ ...c, r: c.r + reach }, side, layout, lift)
+          if (!free(spot, false)) continue
+          accept(c, side, spot)
+          done = true
+          break
+        }
+        if (done) break
+      }
+      if (done) break
+    }
+    if (done) continue
+    // No clear spot: the right of the dot, pulled back inside the plot edge.
+    const spot = placement(c, 'right', layout)
+    const shift = Math.min(0, layout.width - spot.rect.right)
+    accept(c, 'right', { ...spot, dx: spot.dx + shift })
   }
-  return placed
+  return placed.toSorted(
+    (a, b) =>
+      candidates.findIndex((c) => c.id === a.id) - candidates.findIndex((c) => c.id === b.id),
+  )
 }

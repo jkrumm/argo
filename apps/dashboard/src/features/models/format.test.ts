@@ -7,12 +7,14 @@ import {
   fmtTokens,
   fmtUsd,
   logTicks,
+  timeTicks,
+  asUtc,
   shortLineage,
 } from './format'
 
 describe('format', () => {
   it('prints dollars at the precision the figure needs', () => {
-    expect([0.0051, 0.0713, 0.1688, 2.4511, 12.994].map(fmtUsd)).toEqual([
+    expect([0.0049, 0.0712, 0.1688, 2.4511, 12.51].map(fmtUsd)).toEqual([
       '$0.005',
       '$0.071',
       '$0.17',
@@ -67,5 +69,28 @@ describe('shortLineage', () => {
   it('leaves a name with no vendor prefix alone', () => {
     expect(shortLineage('Kimi K3.1 Pro')).toBe('Kimi K3.1 Pro')
     expect(shortLineage('DeepSeek V4.1 Flash 1017')).toBe('DeepSeek V4.1 Flash 1017')
+  })
+})
+
+describe('timeTicks', () => {
+  it('ticks at round steps and fills the gap between minutes and hours', () => {
+    expect(timeTicks(4, 1000, 12)).toEqual([5, 10, 15, 30, 60, 120, 240, 480, 960])
+  })
+
+  it('thins evenly for a narrow plot', () => {
+    expect(timeTicks(4, 1000, 4)).toEqual([5, 30, 240])
+  })
+
+  it('writes hours from an hour up, minutes below', () => {
+    expect(fmtMinuteTick(30).replace(/\s/g, ' ')).toBe('30 min')
+    expect(fmtMinuteTick(60).replace(/\s/g, ' ')).toBe('1 h')
+    expect(fmtMinuteTick(480).replace(/\s/g, ' ')).toBe('8 h')
+  })
+})
+
+describe('asUtc', () => {
+  it('reads a SQLite timestamp as UTC and leaves ISO alone', () => {
+    expect(asUtc('2026-11-06 07:17:10')).toBe('2026-11-06T07:17:10Z')
+    expect(asUtc('2026-11-06T07:17:10.000Z')).toBe('2026-11-06T07:17:10.000Z')
   })
 })

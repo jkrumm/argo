@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { placeLabels, type LabelCandidate } from './labels'
 
 const layout = { width: 400, height: 200, charWidth: 6, lineHeight: 12 }
-const at = (id: string, x: number, y: number, text = 'Terra medium'): LabelCandidate => ({
+const at = (id: string, x: number, y: number, text = 'Vega medium'): LabelCandidate => ({
   id,
   text,
   x,
@@ -22,7 +22,7 @@ describe('placeLabels', () => {
   })
 
   it('goes above or below when both sides are blocked', () => {
-    const [label] = placeLabels([at('a', 20, 100, 'Terra medium · 4 routes')], [], layout)
+    const [label] = placeLabels([at('a', 20, 100, 'Vega medium · 4 routes')], [], layout)
     expect(label?.side).toBe('right')
     const tight = placeLabels([at('a', 120, 100)], [{ x: 150, y: 100, r: 6 }], {
       ...layout,
@@ -56,5 +56,32 @@ describe('placeLabels', () => {
         expect(label.side).toBeDefined()
       }
     }
+  })
+
+  it('never drops a required label: it takes a spot over a dot, then further out, then the edge', () => {
+    const wall = [
+      { x: 160, y: 100, r: 60 },
+      { x: 40, y: 100, r: 60 },
+      { x: 100, y: 40, r: 60 },
+      { x: 100, y: 160, r: 60 },
+    ]
+    const must = { ...at('a', 100, 100, 'Vega medium · 4 routes'), required: true }
+    expect(placeLabels([{ ...must, required: false }], wall, layout)).toEqual([])
+    const [label] = placeLabels([must], wall, layout)
+    expect(label?.id).toBe('a')
+  })
+
+  it('places required labels first and keeps them clear of one another', () => {
+    const placed = placeLabels(
+      [
+        at('opt', 100, 100),
+        { ...at('req', 102, 101, 'Haiku 5.5 high · 12 routes'), required: true },
+      ],
+      [],
+      layout,
+    )
+    expect(placed.map((l) => l.id)).toEqual(['opt', 'req'])
+    const req = placed.find((l) => l.id === 'req')
+    expect(req?.side).toBe('right')
   })
 })

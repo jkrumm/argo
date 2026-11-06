@@ -77,7 +77,12 @@ export function SlotsList({
       header: 'Model',
       cell: (ctx) => (
         <Stack gap={0}>
-          <Text size="sm" fw={500}>
+          <Text
+            size="sm"
+            fw={500}
+            // A name breaks at its spaces; a raw model id has none and stays whole.
+            style={ctx.getValue().includes(' ') ? undefined : { whiteSpace: 'nowrap' }}
+          >
             {ctx.getValue()}
           </Text>
           <Text size="xs" c="dimmed">

@@ -20,8 +20,16 @@ import type { EfficiencyVariant } from './api/types'
 import { CatalogTable } from './catalog-table'
 import { COST_INFO, COST_NOTE, ESTIMATE_NOTE, TIME_INFO, TOKENS_INFO } from './copy'
 import { EfficiencyScatter } from './efficiency-scatter'
-import { shortLineage } from './format'
-import { intelligenceDomain, lineageRows, routeUse, scatterPoints, visibleVariants } from './model'
+import { asUtc, shortLineage } from './format'
+import {
+  intelligenceDomain,
+  lineageNames,
+  lineageRows,
+  routeUse,
+  scatterPoints,
+  variantLabel,
+  visibleVariants,
+} from './model'
 import { slotRows, slotSummary } from './slot-rows'
 import { SlotsList } from './slots-list'
 
@@ -40,9 +48,11 @@ export function ModelsPage() {
   const use = routeUse(routes)
 
   const lineages = [...new Set(variants.map((v) => v.lineage))]
-  // The tables, verdicts and tooltips say the API's lineage name as is; only the chart labels shorten it.
-  const variantName = (v: EfficiencyVariant) =>
-    `${v.lineage}${v.effort === 'default' ? '' : ` ${v.effort}`}`
+  // The tables, verdicts and tooltips say the readable lineage name (the API's `name` without its effort
+  // parenthetical); only the chart labels shorten it, one rule for every lineage.
+  const readable = lineageNames(variants)
+  const display = (lineage: string) => readable.get(lineage) ?? lineage
+  const variantName = (v: EfficiencyVariant) => variantLabel(v, display)
   const hover = useHoverLineage()
   const compact = useSizeClass() === 'compact'
 
@@ -51,14 +61,15 @@ export function ModelsPage() {
   const tokens = scatterPoints(visible, 'tokens')
   const time = scatterPoints(visible, 'time')
 
-  const slots = slotRows(routes, variants, visible, variantName)
+  const slots = slotRows(routes, variants, visible, display)
   const rows = lineageRows(visible, routes)
 
   const base = {
     yDomain,
     use,
     selected: hover || filters.pick,
-    names: shortLineage,
+    names: (lineage: string) => shortLineage(display(lineage)),
+    display,
     source: data?.source ?? null,
     height: HEIGHT,
   }
@@ -84,7 +95,7 @@ export function ModelsPage() {
       ? undefined
       : captured === null
         ? 'Artificial Analysis snapshot of unknown age'
-        : `Artificial Analysis data from ${formatRelative(captured, now)}`
+        : `Artificial Analysis data from ${formatRelative(asUtc(captured), now)}`
 
   return (
     <>
@@ -108,8 +119,8 @@ export function ModelsPage() {
               label="Highlight"
               clearable
               options={lineages
-                .toSorted((a, b) => a.localeCompare(b))
-                .map((lineage) => ({ value: lineage, label: lineage }))}
+                .toSorted((a, b) => display(a).localeCompare(display(b)))
+                .map((lineage) => ({ value: lineage, label: display(lineage) }))}
             />
           </FilterSet>
         }
@@ -153,7 +164,13 @@ export function ModelsPage() {
             cursorGroup="models-time"
           />
         </SimpleGrid>
-        <SimpleGrid type="container" cols={{ base: 1, [CONTAINER_KEYS.wide]: 2 }} spacing="md">
+        {/* Aligned to the top: the slots list is taller than a chart, and a stretched card is empty below its legend. */}
+        <SimpleGrid
+          type="container"
+          cols={{ base: 1, [CONTAINER_KEYS.wide]: 2 }}
+          spacing="md"
+          style={{ alignItems: 'start' }}
+        >
           <EfficiencyScatter
             {...base}
             axis="tokens"
@@ -171,7 +188,7 @@ export function ModelsPage() {
           lineages={rows}
           unscored={data?.unscored ?? []}
           slotsOf={(v) => use.get(v.slug)?.routes.length ?? 0}
-          names={(lineage) => lineage}
+          names={display}
         />
       </Stack>
     </>

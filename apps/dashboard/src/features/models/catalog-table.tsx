@@ -132,7 +132,7 @@ export function CatalogTable({
   const [pick, setPick] = modelsStore.field.pick.use()
   const [sort, setSort] = modelsStore.field.sort.use()
   const [dir, setDir] = modelsStore.field.dir.use()
-  const data = flatten(sortLineageRows(lineages, sort, dir), pick, slotsOf, names)
+  const data = flatten(sortLineageRows(lineages, sort, dir, names), pick, slotsOf, names)
 
   const columns = [
     columnHelper.accessor((row) => row.name, {
@@ -175,7 +175,12 @@ export function CatalogTable({
       id: 'released',
       meta: { priority: 8, numeral: false },
       header: 'Released',
-      cell: (ctx) => ctx.getValue() || '',
+      // A date is one token: never split at its hyphens.
+      cell: (ctx) => (
+        <Text size="sm" style={{ whiteSpace: 'nowrap' }}>
+          {ctx.getValue()}
+        </Text>
+      ),
     }),
     columnHelper.accessor((row) => row.variant.intelligence, {
       id: 'intelligence',
@@ -255,8 +260,6 @@ export function CatalogTable({
         // A phone gets one card per row: the column fold's disclosure would add a bare dot column.
         renderCard={(row) => <CatalogCard row={row} open={row.lineage === pick} />}
         emptyState="No model matches the filters"
-        stickyHeader
-        maxHeight={640}
       />
       {unscored.length === 0 ? null : (
         <Section

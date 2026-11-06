@@ -1,12 +1,19 @@
 /** The slots of the models page: the agw routes grouped by model and effort, each with its variant and verdict. */
 import type { EfficiencyRoute, EfficiencyVariant } from './api/types'
-import { groupSlots, verdictOf, type SlotGroup, type Verdict } from './model'
+import {
+  groupSlots,
+  lineageOfModel,
+  variantLabel,
+  verdictOf,
+  type SlotGroup,
+  type Verdict,
+} from './model'
 
 export interface SlotRow {
   key: string
   group: SlotGroup
   variant: EfficiencyVariant | null
-  /** `Terra medium`, or the raw model id when AA has no row. */
+  /** `GPT-9.1 Vega medium`; a slot with no variant takes the lineage's name, else the raw model id. */
   name: string
   verdict: Verdict | null
 }
@@ -16,7 +23,7 @@ export function slotRows(
   routes: readonly EfficiencyRoute[],
   variants: readonly EfficiencyVariant[],
   visible: readonly EfficiencyVariant[],
-  names: (variant: EfficiencyVariant) => string,
+  display: (lineage: string) => string,
 ): SlotRow[] {
   const bySlug = new Map(variants.map((v) => [v.slug, v]))
   return groupSlots(routes).map((group) => {
@@ -26,12 +33,20 @@ export function slotRows(
       group,
       variant,
       name:
-        variant === null
-          ? `${group.model}${group.effort === null ? '' : ` ${group.effort}`}`
-          : names(variant),
+        variant === null ? unmatchedName(group, variants, display) : variantLabel(variant, display),
       verdict: variant === null ? null : verdictOf(variant, visible),
     }
   })
+}
+
+function unmatchedName(
+  group: SlotGroup,
+  variants: readonly EfficiencyVariant[],
+  display: (lineage: string) => string,
+): string {
+  const lineage = lineageOfModel(group.model, variants)
+  const name = lineage === null ? group.model : display(lineage)
+  return `${name}${group.effort === null ? '' : ` ${group.effort}`}`
 }
 
 const clause = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`

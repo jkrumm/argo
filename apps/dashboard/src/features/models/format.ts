@@ -38,9 +38,9 @@ export function fmtSeconds(value: number | null, estimate = true): string {
   return `${mark}${Number((value / 3600).toFixed(1))}${NBSP}h`
 }
 
-/** An axis tick of the time chart (minutes): `0.5 min`, `10 min`, `2 h`. */
+/** An axis tick of the time chart (minutes): `0.5 min`, `10 min`, `1 h`, `8 h`. */
 export function fmtMinuteTick(minutes: number): string {
-  if (minutes >= 120) return `${Number((minutes / 60).toFixed(1))}${NBSP}h`
+  if (minutes >= 60) return `${Number((minutes / 60).toFixed(1))}${NBSP}h`
   return `${Number(minutes.toFixed(2))}${NBSP}min`
 }
 
@@ -91,3 +91,18 @@ export function logTicks(min: number, max: number, maxCount: number): number[] {
  */
 export const shortLineage = (lineage: string): string =>
   lineage.replace(/^(?:Claude|GPT-[\d.]+)\s+/, '')
+
+/** Round steps of a time axis, in minutes: seconds and minutes below an hour, then whole hours. */
+const TIME_STEPS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 240, 480, 960, 1440, 2880] as const
+
+/** Ticks of a log time axis at round steps inside `[min, max]` minutes, thinned evenly to `maxCount`. */
+export function timeTicks(min: number, max: number, maxCount: number): number[] {
+  const all = TIME_STEPS.filter((step) => step >= min * 0.9999 && step <= max * 1.0001)
+  if (all.length <= maxCount) return all
+  const every = Math.ceil(all.length / maxCount)
+  return all.filter((_, i) => i % every === 0)
+}
+
+/** A modelpick timestamp as an instant: SQLite `YYYY-MM-DD HH:MM:SS` is UTC with no zone marker. */
+export const asUtc = (stamp: string): string =>
+  /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(stamp) ? `${stamp.replace(' ', 'T')}Z` : stamp

@@ -41,10 +41,11 @@ import {
   fmtTokens,
   fmtUsd,
   logTicks,
+  timeTicks,
 } from './format'
 import { setHoverLineage } from './hover'
 import { captureRadius, nearestPoint, pointerInPlot, toPlotPixel } from './pointer'
-import { placeLabels, type LabelCandidate, type LabelObstacle } from './labels'
+import { dotRadius, labelPass, RING_GAP } from './scatter-labels'
 import {
   attractiveQuadrant,
   creatorKey,
@@ -65,17 +66,8 @@ const AXIS_TICK: Record<Axis, (value: number) => string> = {
 
 /** Log10 units added to each end of the x domain. */
 const X_PAD = 0.14
-const DOT_R = 3.4
-const ROUTED_R = 4.8
-const SELECTED_BUMP = 0.8
-const RING_GAP = 4.5
 const RING_SEGMENTS = 28
 const DIM_OPACITY = 0.2
-/** Estimated glyph width of the 12 px label font, px. */
-const CHAR_WIDTH = 6.3
-const LINE_HEIGHT = 14
-/** Under this plot width (px) labels shorten from `· 4 routes` to `· 4`. */
-const NARROW_PLOT_PX = 420
 
 type Vendor = 'openai' | 'anthropic' | 'google' | 'other'
 
@@ -113,6 +105,8 @@ export interface EfficiencyScatterProps {
   selected: string
   /** A lineage's short chart-label name (the same rule for every lineage). */
   names: (lineage: string) => string
+  /** A lineage's full readable name, for the tooltip. */
+  display: (lineage: string) => string
   source: EfficiencyResponse['source'] | null
   state: ChartState
   height: number | ResponsiveChartHeight
@@ -120,9 +114,6 @@ export interface EfficiencyScatterProps {
 }
 
 const effortWord = (effort: string): string => (effort === 'default' ? '' : ` ${effort}`)
-
-const variantName = (p: ScatterPoint, names: (lineage: string) => string): string =>
-  `${names(p.variant.lineage)}${effortWord(p.variant.effort)}`
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
 
@@ -189,6 +180,7 @@ function Scatter({
   use,
   selected,
   names,
+  display,
   height,
   cursorGroup,
   compact,
@@ -198,9 +190,11 @@ function Scatter({
   const [tip, setTip] = useState<TipAt | null>(null)
   const lxs = points.map((p) => p.lx)
   const xDomain: readonly [number, number] = [Math.min(...lxs) - X_PAD, Math.max(...lxs) + X_PAD]
-  const ticks = logTicks(10 ** xDomain[0], 10 ** xDomain[1], compact ? 4 : 6).map((t) =>
-    Math.log10(t),
-  )
+  const ticks = (axis === 'time' ? timeTicks : logTicks)(
+    10 ** xDomain[0],
+    10 ** xDomain[1],
+    compact ? 4 : 6,
+  ).map((t) => Math.log10(t))
   const [y0, y1] = yDomain
 
   const vendorsPresent = (['openai', 'anthropic', 'google', 'other'] as const).filter((v) =>
@@ -354,9 +348,7 @@ function Scatter({
     }
 
     // 4. Dots, grouped by look (a mark takes one fill). Dimmed first, the highlighted lineage last.
-    const radius = (p: ScatterPoint) =>
-      (use.has(p.variant.slug) ? ROUTED_R : DOT_R) +
-      (p.variant.lineage === selected ? SELECTED_BUMP : 0)
+    const radius = (p: ScatterPoint) => dotRadius(p, use, selected)
     const groups = new Map<string, DotGroup>()
     for (const p of shown) {
       const vendor = vendorOf(p.variant)
@@ -442,55 +434,15 @@ function Scatter({
       )
     }
 
-    // 6. Persistent labels: the highlighted lineage, then the routed variants, then the frontier.
-    const frontierSlugs = new Set(frontier.map((p) => p.variant.slug))
-    const narrow = W < NARROW_PLOT_PX
-    const labelText = (p: ScatterPoint): string => {
-      const routes = use.get(p.variant.slug)?.routes.length ?? 0
-      if (p.variant.lineage === selected && routes === 0)
-        return p.variant.effort === 'default' ? names(p.variant.lineage) : p.variant.effort
-      const name = variantName(p, names)
-      if (routes === 0) return name
-      return narrow ? `${name} · ${routes}` : `${name} · ${plural(routes, 'route')}`
-    }
-    const rank = (p: ScatterPoint): number =>
-      (p.variant.lineage === selected ? 0 : 3) +
-      (use.has(p.variant.slug) ? 0 : frontierSlugs.has(p.variant.slug) ? 1 : 9)
-    const labelled = shown
-      .filter((p) => rank(p) < 9)
-      .toSorted(
-        (a, b) =>
-          rank(a) - rank(b) ||
-          (use.get(b.variant.slug)?.routes.length ?? 0) -
-            (use.get(a.variant.slug)?.routes.length ?? 0) ||
-          b.y - a.y,
-      )
-    const pixel = (p: ScatterPoint) => ({
-      x: (plot.xFraction(p.lx) ?? Number.NaN) * W,
-      y: (1 - (p.y - y0) / (y1 - y0)) * H,
-    })
-    const candidates: LabelCandidate[] = labelled.flatMap((p) => {
-      const { x, y } = pixel(p)
-      if (Number.isNaN(x)) return []
-      return [
-        {
-          id: p.variant.slug,
-          text: labelText(p),
-          x,
-          y,
-          r: radius(p) + (use.has(p.variant.slug) ? RING_GAP : 0),
-        },
-      ]
-    })
-    const obstacles: LabelObstacle[] = shown.flatMap((p) => {
-      const { x, y } = pixel(p)
-      return Number.isNaN(x) ? [] : [{ x, y, r: radius(p) + 1.5 }]
-    })
-    const placed = placeLabels(candidates, obstacles, {
-      width: W,
-      height: H,
-      charWidth: CHAR_WIDTH,
-      lineHeight: LINE_HEIGHT,
+    // 6. Persistent labels.
+    const { placed } = labelPass({
+      points: shown,
+      use,
+      selected,
+      names,
+      plot: { width: W, height: H },
+      xDomain,
+      yDomain,
     })
     const bySlug = new Map(shown.map((p) => [p.variant.slug, p]))
     for (const [bold, dim] of [
@@ -529,29 +481,43 @@ function Scatter({
   const tooltipRows = (p: ScatterPoint): readonly ChartTooltipRow[] => {
     const v = p.variant
     const routes = use.get(v.slug)
-    const rows: ChartTooltipRow[] = [
-      { label: 'Cost per task', value: v.costPerTask === null ? EM_DASH : fmtUsd(v.costPerTask) },
-      { label: 'Tokens per task', value: fmtTokens(v.tokensPerTaskEst) },
-      { label: 'Time per task', value: fmtSeconds(v.timePerTaskEstSec) },
-      {
-        label: 'List price /1M',
-        value: `${fmtPrice(v.priceIn)} in · ${fmtPrice(v.priceOut)} out${v.priceCacheRead === null ? '' : ` · ${fmtPrice(v.priceCacheRead)} cached`}`,
-      },
+    const routeRow: ChartTooltipRow[] =
+      routes === undefined
+        ? []
+        : [
+            {
+              label: routes.access === 'subscription' ? 'Routes · quota' : 'Routes',
+              value: routeIds(routes.routes.map((r) => r.route)),
+            },
+          ]
+    const core: ChartTooltipRow[] = [
+      { label: 'Cost / task', value: v.costPerTask === null ? EM_DASH : fmtUsd(v.costPerTask) },
+      { label: 'Tokens / task', value: fmtTokens(v.tokensPerTaskEst) },
+      { label: 'Time / task', value: fmtSeconds(v.timePerTaskEstSec) },
+    ]
+    // A phone gets the figures that decide and the routes; the rest is on the desktop and in the catalog.
+    if (compact) return [...core, ...routeRow]
+    return [
+      ...core,
+      { label: 'Price /1M', value: `${fmtPrice(v.priceIn)} in · ${fmtPrice(v.priceOut)} out` },
+      ...(v.priceCacheRead === null
+        ? []
+        : [{ label: 'Cached /1M', value: fmtPrice(v.priceCacheRead) }]),
       { label: 'Speed', value: v.tps === null ? EM_DASH : `${Math.round(v.tps)} tok/s` },
       {
         label: 'IU',
         value: v.iu.accessible ? `callable · ${v.iu.legs.join(', ') || EM_DASH}` : 'not callable',
       },
+      ...routeRow,
+      ...(v.superseded
+        ? [
+            {
+              label: 'Superseded by',
+              value: v.supersededBy === null ? EM_DASH : display(v.supersededBy),
+            },
+          ]
+        : []),
     ]
-    if (routes !== undefined) {
-      const ids = routes.routes.map((r) => r.route)
-      rows.push({
-        label: routes.access === 'subscription' ? 'Routes (on quota)' : 'Routes',
-        value: ids.length > 3 ? `${ids.slice(0, 3).join(', ')} +${ids.length - 3}` : ids.join(', '),
-      })
-    }
-    if (v.superseded) rows.push({ label: 'Superseded by', value: v.supersededBy ?? EM_DASH })
-    return rows
   }
 
   /** The point nearest to the pointer in 2D pixel space, with where to draw its tooltip. */
@@ -587,7 +553,17 @@ function Scatter({
     const rootBox = root.getBoundingClientRect()
     const x = box.left - rootBox.left + (plot.x + hit.x) * scale
     const y = box.top - rootBox.top + (plot.y + hit.y) * scale
-    return { point: hit.p, x, y, width: rootBox.width, height: rootBox.height }
+    return {
+      point: hit.p,
+      x,
+      y,
+      plot: {
+        left: box.left - rootBox.left + plot.x * scale,
+        top: box.top - rootBox.top + plot.y * scale,
+        width: plot.width * scale,
+        height: plot.height * scale,
+      },
+    }
   }
 
   const show = (found: NonNullable<ReturnType<typeof locate>> | null) => {
@@ -598,8 +574,7 @@ function Scatter({
             slug: found.point.variant.slug,
             x: found.x,
             y: found.y,
-            width: found.width,
-            height: found.height,
+            plot: found.plot,
           },
     )
   }
@@ -645,7 +620,13 @@ function Scatter({
         tooltip={false}
       />
       {tip === null || tipPoint === undefined ? null : (
-        <PointTip point={tipPoint} tip={tip} rows={tooltipRows(tipPoint)} />
+        <PointTip
+          point={tipPoint}
+          title={`${display(tipPoint.variant.lineage)}${effortWord(tipPoint.variant.effort)}`}
+          tip={tip}
+          rows={tooltipRows(tipPoint)}
+          compact={compact}
+        />
       )}
     </Box>
   )
@@ -653,61 +634,79 @@ function Scatter({
 
 interface TipAt {
   slug: string
-  /** The dot, px inside the chart wrapper, and the wrapper's size. */
+  /** The dot, px inside the chart wrapper. */
   x: number
   y: number
-  width: number
-  height: number
+  /** The plot rectangle inside the wrapper. */
+  plot: { left: number; top: number; width: number; height: number }
 }
 
-const TIP_WIDTH = 240
-/** A tooltip's height with its usual ten rows; only used to keep it inside the chart. */
-const TIP_HEIGHT = 215
-const TIP_OFFSET = 12
-const clamp = (value: number, max: number): number => Math.max(0, Math.min(value, max))
+const TIP_WIDTH = 236
+const TIP_WIDTH_COMPACT = 196
+/** Room one row takes, and the title and padding, for placing the tooltip before it is measured. */
+const TIP_ROW_PX = 17
+const TIP_FRAME_PX = 40
+const TIP_MARGIN = 6
+const AXIS_PX = 26
 
-/** The tooltip of one variant, beside its dot; it never takes the pointer. */
+/** `a, b +9`: the first two route ids and how many more. */
+const routeIds = (ids: readonly string[]): string =>
+  ids.length > 2 ? `${ids.slice(0, 2).join(', ')} +${ids.length - 2}` : ids.join(', ')
+
+/**
+ * The tooltip of one variant. It sits in the corner of the plot farthest from the dot, so it never covers
+ * the dot or the ladder it belongs to, and it never takes the pointer.
+ */
 function PointTip({
   point,
+  title,
   tip,
   rows,
+  compact,
 }: {
   point: ScatterPoint
+  title: string
   tip: TipAt
   rows: readonly ChartTooltipRow[]
+  compact: boolean
 }) {
   const v = point.variant
-  // Right of the dot when it fits, else left; below when it fits, else above; always inside the chart.
-  const right = tip.x + TIP_OFFSET
-  const left = right + TIP_WIDTH <= tip.width ? right : tip.x - TIP_OFFSET - TIP_WIDTH
-  const below = tip.y + TIP_OFFSET
-  const top = below + TIP_HEIGHT <= tip.height ? below : tip.y - TIP_OFFSET - TIP_HEIGHT
+  const width = compact ? TIP_WIDTH_COMPACT : TIP_WIDTH
+  const height = TIP_FRAME_PX + (rows.length + 1) * TIP_ROW_PX
+  const { plot } = tip
+  const left =
+    tip.x < plot.left + plot.width / 2
+      ? plot.left + plot.width - width - TIP_MARGIN
+      : plot.left + TIP_MARGIN
+  const top =
+    tip.y < plot.top + plot.height / 2
+      ? plot.top + plot.height - height - AXIS_PX
+      : plot.top + TIP_MARGIN
   return (
     <Paper
-      w={TIP_WIDTH}
+      w={width}
       shadow="md"
       style={{
         position: 'absolute',
         zIndex: 5,
         pointerEvents: 'none',
-        left: clamp(left, tip.width - TIP_WIDTH),
-        top: clamp(top, tip.height - TIP_HEIGHT),
+        left: Math.max(0, left),
+        top: Math.max(0, top),
       }}
     >
       <Stack gap={2}>
         <Text size="sm" fw={600}>
-          {v.lineage}
-          {effortWord(v.effort)}
+          {title}
         </Text>
         <Group justify="space-between" gap="xs" wrap="nowrap">
           <Text size="xs" c="dimmed">
-            Intelligence index
+            Intelligence
           </Text>
           <Text size="xs">{v.intelligence.toFixed(1)}</Text>
         </Group>
         {rows.map((row) => (
           <Group key={row.label} justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
-            <Text size="xs" c="dimmed">
+            <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
               {row.label}
             </Text>
             <Text size="xs" ta="right">

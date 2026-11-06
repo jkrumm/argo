@@ -6,7 +6,7 @@
  * Money is dollars, time is seconds, prices are dollars per 1M tokens. `intelligence` is the
  * Artificial Analysis Intelligence Index and `costPerTask` what AA measured to run its index suite
  * once. `tokensPerTaskEst` (cost / output price) and `timePerTaskEstSec` (tokens / speed) are
- * ESTIMATES. `supersededBy` names the superseding lineage. A route's `variantSlug` is null when AA has
+ * ESTIMATES. `supersededBy` is the superseding lineage's slug. A route's `variantSlug` is null when AA has
  * no row for its model at its effort (`reason` says so).
  */
 export type Effort = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'default'

@@ -7,6 +7,10 @@ import {
   groupSlots,
   intelligenceDomain,
   isVisible,
+  lineageNameOf,
+  lineageNames,
+  lineageOfModel,
+  variantLabel,
   ladders,
   lineageRows,
   paretoFrontier,
@@ -177,8 +181,8 @@ describe('paretoFrontier', () => {
 
 describe('ladders', () => {
   it('orders a lineage none to max whatever the input order', () => {
-    const max = variant('t-max', 'GPT-6.1 Terra', 'max', 51.3, 0.9611)
-    const none = variant('t-none', 'GPT-6.1 Terra', 'none', 30.5, 0.2259)
+    const max = variant('t-max', 'GPT-6.1 Terra', 'max', 47, 0.88)
+    const none = variant('t-none', 'GPT-6.1 Terra', 'none', 27.5, 0.2)
     const { points } = scatterPoints([max, terraHigh, none, terraLow, terraMedium], 'cost')
     const [ladder] = ladders(points)
     expect(ladder?.points.map((p) => p.variant.effort)).toEqual([
@@ -231,20 +235,20 @@ describe('attractiveQuadrant', () => {
 })
 
 describe('visibility', () => {
-  const sol = EFFICIENCY_FIXTURE.variants.filter((v) => v.lineage === 'GPT-6.1 Sol')
-  const solOld = EFFICIENCY_FIXTURE.variants.filter((v) => v.lineage === 'GPT-6 Sol')
+  const sol = EFFICIENCY_FIXTURE.variants.filter((v) => v.lineage === 'gpt-9-1-sable')
+  const solOld = EFFICIENCY_FIXTURE.variants.filter((v) => v.lineage === 'gpt-9-sable')
   const defaults: ModelFilters = { callable: true, superseded: false, creators: [] }
 
   it('shows GPT-6.1 Sol and hides the GPT-6 Sol it replaced', () => {
     const visible = visibleVariants([...sol, ...solOld], defaults, [])
-    expect(visible.map((v) => v.lineage)).toContain('GPT-6.1 Sol')
-    expect(visible.map((v) => v.lineage)).not.toContain('GPT-6 Sol')
+    expect(visible.map((v) => v.lineage)).toContain('gpt-9-1-sable')
+    expect(visible.map((v) => v.lineage)).not.toContain('gpt-9-sable')
   })
 
   it('shows a superseded variant when a route uses it', () => {
     const [old] = solOld
-    if (old === undefined) throw new Error('fixture has no GPT-6 Sol')
-    const routes = [route('gpt-6-sol', null, { variantSlug: old.slug })]
+    if (old === undefined) throw new Error('fixture has no gpt-9-sable')
+    const routes = [route('gpt-9-sable', null, { variantSlug: old.slug })]
     expect(visibleVariants(solOld, defaults, routes)).toEqual(solOld)
     expect(isVisible(old, defaults, routedSlugs(routes))).toBe(true)
   })
@@ -258,7 +262,7 @@ describe('visibility', () => {
   })
 
   it('narrows to the chosen creators, routed or not', () => {
-    const routes = [route('claude-haiku-5-5', 'high', { variantSlug: 'claude-haiku-5-5-high' })]
+    const routes = [route('claude-marlow-4', 'high', { variantSlug: 'claude-marlow-4-high' })]
     const visible = visibleVariants(
       EFFICIENCY_FIXTURE.variants,
       { ...defaults, creators: ['openai'] },
@@ -276,9 +280,9 @@ describe('visibility', () => {
 
 describe('slots', () => {
   const routes = [
-    route('claude-haiku-5-5', 'high', { route: 'a', variantSlug: 'h', access: 'subscription' }),
-    route('claude-haiku-5-5', 'high', { route: 'b', variantSlug: 'h', access: 'subscription' }),
-    route('claude-haiku-5-5', 'none', { route: 'c', reason: 'No Artificial Analysis row' }),
+    route('claude-marlow-4', 'high', { route: 'a', variantSlug: 'h', access: 'subscription' }),
+    route('claude-marlow-4', 'high', { route: 'b', variantSlug: 'h', access: 'subscription' }),
+    route('claude-marlow-4', 'none', { route: 'c', reason: 'No Artificial Analysis row' }),
     route('gpt-6.1-terra', 'medium', { route: 'd', variantSlug: 'tm', access: 'metered' }),
     route('gpt-6.1-terra', 'medium', { route: 'e', variantSlug: 'tm', access: 'subscription' }),
   ]
@@ -286,9 +290,9 @@ describe('slots', () => {
   it('groups by model and effort and collapses the route ids, busiest first', () => {
     const groups = groupSlots(routes)
     expect(groups.map((g) => [g.model, g.effort, g.routes.length])).toEqual([
-      ['claude-haiku-5-5', 'high', 2],
+      ['claude-marlow-4', 'high', 2],
       ['gpt-6.1-terra', 'medium', 2],
-      ['claude-haiku-5-5', 'none', 1],
+      ['claude-marlow-4', 'none', 1],
     ])
   })
 
@@ -320,7 +324,7 @@ describe('catalog', () => {
 
   it('has one row per lineage, the ladder in effort order and the best variant', () => {
     expect(new Set(rows.map((r) => r.lineage)).size).toBe(rows.length)
-    const terra = rows.find((r) => r.lineage === 'GPT-6.1 Terra')
+    const terra = rows.find((r) => r.lineage === 'gpt-9-1-vega')
     expect(terra?.best.effort).toBe('max')
     const efforts = terra?.variants.map((v) => v.effort) ?? []
     expect(efforts.slice(0, 3)).toEqual(['none', 'low', 'medium'])
@@ -335,8 +339,62 @@ describe('catalog', () => {
   })
 })
 
+describe('sortLineageRows by name', () => {
+  it('sorts the Model column on the name it shows, the slug breaking ties', () => {
+    const [a, b, c] = ['gpt-6-1-sol', 'gpt-6-astra', 'gpt-6-sol'].map((lineage) => ({
+      lineage,
+      creator: 'OpenAI',
+      releaseDate: null,
+      variants: [],
+      best: variant(lineage, lineage, 'max', 40, 1),
+      callable: true,
+      legs: [],
+      slots: 0,
+      superseded: false,
+    }))
+    if (a === undefined || b === undefined || c === undefined) return
+    const display: Record<string, string> = {
+      'gpt-6-1-sol': 'GPT-6.1 Sol',
+      'gpt-6-astra': 'GPT-6 Astra',
+      'gpt-6-sol': 'GPT-6 Sol',
+    }
+    const shown = (l: string) => display[l] ?? l
+    const names = (rows: (typeof a)[]) =>
+      sortLineageRows(rows, 'lineage', 'asc', shown).map((r) => shown(r.lineage))
+    // By slug "gpt-6-1-sol" sorts first; by name "GPT-6 Astra" does.
+    expect(names([a, b, c])).toEqual(['GPT-6 Astra', 'GPT-6 Sol', 'GPT-6.1 Sol'])
+    expect(
+      sortLineageRows([a, b, c], 'lineage', 'desc', shown).map((r) => shown(r.lineage)),
+    ).toEqual(['GPT-6.1 Sol', 'GPT-6 Sol', 'GPT-6 Astra'])
+  })
+})
+
 describe('intelligenceDomain', () => {
   it('pads the visible range and snaps it to 5', () => {
     expect(intelligenceDomain(POOL)).toEqual([25, 55])
+  })
+})
+
+describe('names', () => {
+  it('strips the trailing effort parenthetical from a variant name', () => {
+    expect(lineageNameOf('GPT-9.1 Vega (Medium)')).toBe('GPT-9.1 Vega')
+    expect(lineageNameOf('Claude Ember 4.2 (Medium, Default Fallback)')).toBe('Claude Ember 4.2')
+    expect(lineageNameOf('Fathom 3')).toBe('Fathom 3')
+  })
+
+  it('names every lineage readably, never by its slug', () => {
+    const names = lineageNames(EFFICIENCY_FIXTURE.variants)
+    expect(names.get('gpt-9-1-vega')).toBe('GPT-9.1 Vega')
+    expect(names.get('claude-marlow-4')).toBe('Claude Marlow 4')
+    expect(names.get('gpt-9-1-sable')).toBe('GPT-9.1 Sable')
+    const terra = EFFICIENCY_FIXTURE.variants.find((v) => v.slug === 'gpt-9-1-vega-medium')
+    if (terra === undefined) throw new Error('fixture lacks terra medium')
+    expect(variantLabel(terra, (l) => names.get(l) ?? l)).toBe('GPT-9.1 Vega medium')
+  })
+
+  it('finds the lineage of a route model id through the IU id', () => {
+    expect(lineageOfModel('gpt-9.1-vega', EFFICIENCY_FIXTURE.variants)).toBe('gpt-9-1-vega')
+    expect(lineageOfModel('claude-marlow-4', EFFICIENCY_FIXTURE.variants)).toBe('claude-marlow-4')
+    expect(lineageOfModel('no-such-model', EFFICIENCY_FIXTURE.variants)).toBeNull()
   })
 })
