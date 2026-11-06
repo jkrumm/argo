@@ -14,7 +14,12 @@ const DATABASE_URL = env.DATABASE_URL.replace(/[?&](?:schema|search_path)=[^&]*/
   '',
 )
 
-export const client = postgres(DATABASE_URL)
+// No parallel plans on this connection: a dashboard page sends a burst of aggregates, and their parallel workers' dynamic
+// shared memory failed on macOS ("could not resize shared memory segment ... No space left on device"). The aggregates
+// measured no slower without them.
+export const client = postgres(DATABASE_URL, {
+  connection: { max_parallel_workers_per_gather: 0 },
+})
 // OTel-instrumented Drizzle — emits CLIENT spans per query with db.statement,
 // db.operation, durations. Idempotent; safe to wrap once at module load.
 export const db = instrumentDrizzleClient(drizzle(client, { schema }), {

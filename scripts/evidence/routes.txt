@@ -11,6 +11,7 @@
 /reading
 /strength-tracker
 /usage-tracking
+/usage-tracking?view=explore
 /walking-pad
 /warden
 /models
