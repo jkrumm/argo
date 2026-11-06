@@ -80,7 +80,7 @@ function OptionText({
       </Text>
       <Text size="xs" c="dimmed">
         {fmtPoints(option.points)} · {fmtIndex(option.indexRatio)} index ·{' '}
-        {fmtUsd(option.by.costPerTask)} / task
+        {fmtUsd(option.by.costPerTask)} / task · {fmtSeconds(option.by.timePerTaskEstSec)}
       </Text>
     </Stack>
   )
