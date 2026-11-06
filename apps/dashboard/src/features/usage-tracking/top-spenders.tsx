@@ -48,18 +48,18 @@ export default function TopSpenders({
     <Box data-shot="top-spenders" data-shot-states="empty">
       <ChartCard
         placeholderHeight="content"
-        title={`Where the tokens go: tool · model · ${periodNoun(range)}`}
+        title={`Where the tokens (incl. cache read) go: tool · model · ${periodNoun(range)}`}
         info={INFO}
         facts={
           spend
             ? { value: fmtUsdWhole(ranked.total), period: 'IU API spend' }
             : { value: fmtTokens(ranked.total), period: 'incl. cache-read' }
         }
-        {...(spend ? { subtitle: 'Muted figure: tokens' } : {})}
+        {...(spend ? { subtitle: 'Muted figure: tokens (incl. cache read)' } : {})}
         state={{ empty: (ranked.rows.length === 0 || ranked.total <= 0) && emptyText }}
       >
         <BarList
-          label={`Top tool and model pairs by ${spend ? 'spend' : 'tokens'}, ${periodNoun(range)}`}
+          label={`Top tool and model pairs by ${spend ? 'spend' : 'tokens incl. cache read'}, ${periodNoun(range)}`}
           format={format}
           variant="thin"
           items={ranked.rows.map((r) => ({

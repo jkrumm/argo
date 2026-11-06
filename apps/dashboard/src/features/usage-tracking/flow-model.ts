@@ -616,26 +616,45 @@ export const iuPerDay = (iu: RouterResponse['iu']): DayCounts[] =>
 
 const HOUR_MS = 3_600_000
 
+type SourceBucket = { bucket: string; groups: Record<string, number | null> }
+
+const agwCost = (b: SourceBucket): { has: boolean; usd: number } => {
+  const agw = Object.entries(b.groups).filter(([source]) => source.includes('agent-workflows'))
+  return {
+    has: agw.some(([, v]) => v === null || v > 0),
+    usd: agw.reduce((acc, [, v]) => acc + (v ?? 0), 0),
+  }
+}
+
 /**
  * agw's own rows on the Athena team key from an hourly cost timeseries of that key by source: what they
  * cost since `sinceMs` (the first gateway row, `pace.cutover`; the hour that holds it counts) and the hour
  * of the last one. The timeseries zero-fills empty hours, so a bucket is an agw row when its cost is above
  * zero or null (a row of unknown cost); a zero is no row. A key agw has left reads `$0` and the hour it
  * stopped; `lastRowAt` is null when no agw row is in the series at all.
+ *
+ * The API reads hourly series 30 days at most. When the cutover is older than the first hourly bucket,
+ * `daily` (an all-time day series of the same key by source) covers the days that end before that bucket,
+ * the cutover's day included whole (a day cannot be split at the cutover).
  */
 export function agwOnKey(
-  buckets: ReadonlyArray<{ bucket: string; groups: Record<string, number | null> }>,
+  buckets: ReadonlyArray<SourceBucket>,
   sinceMs: number,
+  daily: ReadonlyArray<SourceBucket> = [],
 ): { sinceUsd: number; lastRowAt: string | null } {
   let sinceUsd = 0
   let lastRowAt: string | null = null
+  const firstHourMs = buckets.length > 0 ? new Date(buckets[0]!.bucket).getTime() : Infinity
+  for (const b of daily) {
+    const endMs = new Date(b.bucket).getTime() + DAY_MS
+    if (endMs <= sinceMs || endMs > firstHourMs) continue
+    sinceUsd += agwCost(b).usd
+  }
   for (const b of buckets) {
-    const agw = Object.entries(b.groups).filter(([source]) => source.includes('agent-workflows'))
-    if (!agw.some(([, v]) => v === null || v > 0)) continue
+    const { has, usd } = agwCost(b)
+    if (!has) continue
     lastRowAt = b.bucket
-    if (new Date(b.bucket).getTime() + HOUR_MS > sinceMs) {
-      sinceUsd += agw.reduce((acc, [, v]) => acc + (v ?? 0), 0)
-    }
+    if (new Date(b.bucket).getTime() + HOUR_MS > sinceMs) sinceUsd += usd
   }
   return { sinceUsd, lastRowAt }
 }

@@ -43,7 +43,6 @@ function UsageTrackingPage() {
             {explore ? (
               <>
                 <SelectFilter field={usageStore.field.lens} label="Measure" />
-                <SelectFilter field={usageStore.field.grain} label="Grain" />
                 <MultiSelectFilter
                   field={usageStore.field.workspace}
                   label="All workspaces"

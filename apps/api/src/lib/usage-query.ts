@@ -2,15 +2,11 @@ import { sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 
 /**
- * Earliest timestamp the usage endpoints will surface. Rows before this
- * instant exist in `usage.records` but never reach a chart — they predate
- * the project-normalize + workspace-classification cleanup that landed on
- * 2026-05-28 (collectors at usage-tracker 3bcc107 ~10:21 UTC, argo ingest at
- * 48ba358 ~10:22 UTC) and carry stale labels we don't want to backfill.
- * Buffered to 11:00 UTC to cover the next 15-min collector sync. Bump this
- * when a future data-quality reset lands.
+ * Earliest timestamp the usage endpoints will surface: the start of `usage.records_unique`
+ * (usage-tracker's repaired history, 2026-06-15). Earlier rows may exist in `usage.records` but
+ * never reach a chart. Bump this when a future data-quality reset lands.
  */
-export const USAGE_DATA_FLOOR_ISO = '2026-05-28T11:00:00Z'
+export const USAGE_DATA_FLOOR_ISO = '2026-06-15T00:00:00Z'
 
 export const RangeEnum = z.enum(['7d', '30d', '90d', 'all'])
 export const GrainEnum = z.enum(['hour', 'day', 'week'])

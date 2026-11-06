@@ -56,6 +56,7 @@ export function ExploreTab({ range, grain, lens, groupBy, workspace, payer }: Ex
       </Suspense>
       <Suspense fallback={fallback(240)}>
         <WeeklyVolume
+          range={range}
           subs={exploreVolumePayers(scope.payers)}
           lens={lens}
           workspace={workspace}

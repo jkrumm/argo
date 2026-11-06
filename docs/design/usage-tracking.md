@@ -161,7 +161,7 @@ directly under it. The pace chart keeps its full height.
 
 v6's analysis blocks, across every payer at once, with a **Payer** multi-select (subscriptions, credit pools, IU keys)
 instead of one tab per wallet: Over time (group by payer, tool, model, project), Projects | Tools rows with their daily
-timelines, Rhythm, Weekly volume. Range, Measure, Workspace, Grain as in v6. Athena team is off by default and never in
+timelines, Rhythm, Weekly volume. Range, Measure, Workspace as in v6 reach every block; Grain sits on Over time and reaches only it (Weekly volume is always weeks, the row timelines always days). Athena team is off by default and never in
 an "all".
 
 ### Insights (owner addition at sign-off)

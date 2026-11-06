@@ -225,7 +225,7 @@ export const usageStore = createSearchStore({
   grain: { hour: 'Hour', day: 'Day', week: 'Week' },
   workspace: { work: 'Work', private: 'Private' },
   payer: PAYER_LABELS,
-  lens: { cost: '$', tokens: 'Tokens' },
+  lens: { cost: '$', tokens: 'Tokens (fresh)' },
   groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project', payer: 'Payer' },
   routingRange: { '1d': '1d', '3d': '3d', '7d': '7d', '14d': '14d', '21d': '21d' },
 })

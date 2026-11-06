@@ -6,9 +6,9 @@
  * no total of its own.
  */
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Box } from '@mantine/core'
+import { Box, Group } from '@mantine/core'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { ViewTabs } from 'basalt-ui/controls'
+import { SelectFilter, ViewTabs } from 'basalt-ui/controls'
 import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
@@ -42,7 +42,7 @@ const GROUP_NOUN: Record<UsageGroupBy, string> = {
 }
 
 const INFO =
-  'Dollars at API prices ($: list value for a subscription, spend for the API) or fresh tokens (Tokens) per bucket, stacked by the grouping on the right. A subscription is never charged these dollars. Fresh tokens leave out the tokens re-read from the cache. The hour grain reads at most 30 days.'
+  'Dollars at API prices ($: list value for a subscription, spend for the API) or fresh tokens (Tokens (fresh)) per bucket, stacked by the grouping on the right. A subscription is never charged these dollars. Fresh tokens leave out the tokens re-read from the cache. The hour grain reads at most 30 days.'
 
 const PARTIAL_NOTE =
   'The shaded stretch ends in the bucket still running, which is not complete yet.'
@@ -114,7 +114,12 @@ export function OverTime({
       <ChartCard
         title={`${what} per ${grain} · by ${noun} · ${periodNoun(shown)}`}
         info={partial === null ? INFO : `${INFO} ${PARTIAL_NOTE}`}
-        actions={<ViewTabs field={usageStore.field.groupBy} options={options} label="Group by" />}
+        actions={
+          <Group gap="sm">
+            <SelectFilter field={usageStore.field.grain} label="Grain" />
+            <ViewTabs field={usageStore.field.groupBy} options={options} label="Group by" />
+          </Group>
+        }
         state={{ empty: (keys.length === 0 || total <= 0 || points.length === 0) && emptyText }}
       >
         <StackedArea

@@ -94,7 +94,27 @@ describe('USAGE_ROWS projection', () => {
     })
   })
 
-  it('takes the project from repo (iu/ prefix dropped), then a bare project_raw, never a path', async () => {
+  it('labels a worker row with its factory role, plain worker stays', async () => {
+    await seedUsageRecords([
+      base('reviewer', { lane: 'worker', lane_detail: { role: 'reviewer' } }),
+      base('mech', { lane: 'worker', lane_detail: { role: 'mechanical' } }),
+      base('plain', { lane: 'worker', lane_detail: { role: 'worker' } }),
+      base('norole', { lane: 'worker', lane_detail: {} }),
+      base('empty-role', { lane: 'worker', lane_detail: { role: '' } }),
+      base('other-lane', { lane: 'interactive', lane_detail: { role: 'reviewer' } }),
+    ])
+    const r = await project()
+    expect(Object.fromEntries(Object.entries(r).map(([id, row]) => [id, row.sub_tool]))).toEqual({
+      reviewer: 'reviewer',
+      mech: 'mechanical',
+      plain: 'worker',
+      norole: 'worker',
+      'empty-role': 'worker',
+      'other-lane': 'interactive',
+    })
+  })
+
+  it('takes the project from repo (iu/ prefix dropped), else NULL, never project_raw', async () => {
     await seedUsageRecords([
       base('repo', { repo: 'argo', project_raw: '/Users/x/SourceRoot/argo/apps/api' }),
       base('iu-repo', { repo: 'iu/portal', project_raw: '/Users/x/IuRoot/portal' }),
@@ -103,12 +123,14 @@ describe('USAGE_ROWS projection', () => {
       base('rel-path', { repo: null, project_raw: 'a/b' }),
       base('empty', { repo: null, project_raw: '' }),
       base('nothing', { repo: null, project_raw: null }),
+      base('raw-eval', { repo: null, project_raw: 'eval' }),
     ])
     const r = await project()
     expect(Object.fromEntries(Object.entries(r).map(([id, row]) => [id, row.project]))).toEqual({
+      'raw-eval': null,
       repo: 'argo',
       'iu-repo': 'portal',
-      bare: 'hermes-agent',
+      bare: null,
       path: null,
       'rel-path': null,
       empty: null,

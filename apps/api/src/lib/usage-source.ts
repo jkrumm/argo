@@ -9,10 +9,10 @@ import { sql } from 'drizzle-orm'
  * Mapping from the v2 columns:
  * - `model_norm` = `model`, `model` = `model_raw`
  * - `project` = `repo` without the `iu/` namespace prefix (the pages never split by namespace; `workspace` carries
- *   work vs private), else a bare name in `project_raw` (`hermes-agent`, `audio-gateway`: real
- *   SourceRoot names the repo normaliser leaves NULL), else NULL; a path never leaks through
+ *   work vs private), else NULL; `project_raw` is never read (raw values like `eval` or `host` leak through it)
  * - `sub_tool` = the lane's tool label: workflow (+ `:step`) for `agw_workflow`, the subagent type, the
- *   raw collector string for `other`, otherwise the lane itself
+ *   raw collector string for `other`, the factory role for a `worker` row that carries one
+ *   (`lane_detail.role`: reviewer, deep, mechanical; plain `worker` stays), otherwise the lane itself
  * - `lane_detail` = the lane's jsonb as stored (the gateway's `caller`, `pool`, `fallback`, `costEstimatedUsd`)
  * - `billing` = `api_key` rows are the IU metered API (`iu`) when they carry an IU key, `openrouter`
  *   (personal pay-per-token) when they do not; `max`, `api_credit` (a request paid from a subscription's API credit) and `unknown` as stored
@@ -28,12 +28,13 @@ export const USAGE_ROWS = sql.raw(`(
     r.ts,
     r.model_raw AS model,
     r.model AS model_norm,
-    COALESCE(regexp_replace(r.repo, '^iu/', ''), CASE WHEN r.project_raw ~ '^[^/]+$' THEN r.project_raw END) AS project,
+    regexp_replace(r.repo, '^iu/', '') AS project,
     r.workspace,
     (CASE
       WHEN r.lane = 'agw_workflow'
         THEN COALESCE(NULLIF(concat_ws(':', r.lane_detail->>'workflow', r.lane_detail->>'step'), ''), r.lane)
       WHEN r.lane = 'subagent' THEN COALESCE(r.lane_detail->>'subagent_type', r.lane)
+      WHEN r.lane = 'worker' THEN COALESCE(NULLIF(r.lane_detail->>'role', ''), r.lane)
       WHEN r.lane = 'other' THEN COALESCE(r.lane_detail->>'raw', r.lane)
       ELSE r.lane
     END) AS sub_tool,

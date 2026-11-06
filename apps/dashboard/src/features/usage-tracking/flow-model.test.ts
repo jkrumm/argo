@@ -463,3 +463,28 @@ describe('agwReading', () => {
     expect(agwReading(null, NOW)).toEqual({ state: 'none' })
   })
 })
+
+describe('agwOnKey past the hourly window', () => {
+  const hour = (iso: string, usd: number) => ({
+    bucket: iso,
+    groups: { 'agent-workflows': usd },
+  })
+  const day = (iso: string, usd: number) => ({
+    bucket: iso,
+    groups: { 'agent-workflows': usd },
+  })
+  it('adds the whole days before the first hourly bucket, from the cutover day on', () => {
+    const r = agwOnKey(
+      [hour('2026-10-10T00:00:00Z', 1), hour('2026-10-10T01:00:00Z', 2)],
+      Date.parse('2026-10-05T12:00:00Z'),
+      [
+        day('2026-10-04', 100),
+        day('2026-10-05', 10),
+        day('2026-10-09', 20),
+        day('2026-10-10', 999),
+      ],
+    )
+    expect(r.sinceUsd).toBe(33)
+    expect(r.lastRowAt).toBe('2026-10-10T01:00:00Z')
+  })
+})

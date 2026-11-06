@@ -80,13 +80,26 @@ function AgwCard() {
       payer: ['iu-team-api'],
     }),
   )
+  const { data: daily } = useSuspenseQuery(
+    usageQueries.timeseries({
+      range: 'all',
+      grain: 'day',
+      metric: 'cost',
+      groupBy: 'source',
+      payer: ['iu-team-api'],
+    }),
+  )
   const now = useNow()
-  const { sinceUsd, lastRowAt } = agwOnKey(data.buckets, new Date(pace.cutover).getTime())
+  const { sinceUsd, lastRowAt } = agwOnKey(
+    data.buckets,
+    new Date(pace.cutover).getTime(),
+    daily.buckets,
+  )
   const bills = agwReading(lastRowAt, now).state === 'bills'
   return (
     <ChartCard
       title="agw on this key since the cutover"
-      info="Whether agent-workflows still bills this key since the gateway's first row: its calls pay on our own key, so anything here is a call that bypassed the gateway. Hourly buckets, the hour of the cutover included."
+      info="Whether agent-workflows still bills this key since the gateway's first row: its calls pay on our own key, so anything here is a call that bypassed the gateway. Hourly buckets for the last 30 days, whole days before that; the hour (or, past 30 days, the day) of the cutover included."
       placeholderHeight="content"
     >
       <Stack gap={2} data-shot="flow-athena-agw">
