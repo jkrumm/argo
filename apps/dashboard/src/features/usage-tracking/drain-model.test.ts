@@ -55,10 +55,10 @@ describe('subDrain', () => {
     ])
   })
 
-  it('dedupes resets within 2 h and always ends with the next reset', () => {
+  it('dedupes resets within a day keeping the latest, and always ends with the next reset', () => {
     const prev = START - 10 * HOUR
     const m = subDrain(
-      sub({ resets: [iso(prev), iso(prev + HOUR), iso(NEXT - 30 * 60_000), iso(NEXT)] }),
+      sub({ resets: [iso(prev - 7 * HOUR), iso(prev), iso(NEXT - 30 * 60_000), iso(NEXT)] }),
     )
     expect(m.resets.map((r) => r.at)).toEqual([prev, NEXT])
     expect(m.resets.at(-1)?.label).toBe(`resets ${whenText(NEXT)}`)

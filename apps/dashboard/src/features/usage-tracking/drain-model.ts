@@ -20,8 +20,12 @@ const SUB_SPAN_MS = 2 * WEEK_MS
 /** A burn read over less than this is noise. */
 const MIN_ELAPSED_MS = 2 * HOUR_MS
 
-/** Resets of one account closer than this are one reset. */
-const RESET_DEDUPE_MS = 2 * HOUR_MS
+/**
+ * Resets of one account closer than this are one reset: a weekly window cannot reset twice in a day.
+ * The API can hold both the scheduled instant and the actual one; the LATEST of a cluster wins, since
+ * the actual reset happens after the scheduled one is reported.
+ */
+const RESET_DEDUPE_MS = DAY_MS
 
 /** How far past the newest portal day the key's projection runs. */
 const KEY_AHEAD_DAYS = 14
@@ -144,6 +148,7 @@ function subResets(input: SubDrainInput, from: number, next: number): number[] {
   for (const t of inside) {
     const last = deduped[deduped.length - 1]
     if (last === undefined || t - last >= RESET_DEDUPE_MS) deduped.push(t)
+    else deduped[deduped.length - 1] = t
   }
   if (deduped.length === 0) deduped.push(next - WEEK_MS)
   return [...deduped, next]

@@ -27,9 +27,6 @@ import { shortDay, shortHour } from './model'
 /** Under this plot width (px) captions stack instead of sitting side by side. */
 const NARROW_PLOT_PX = 320
 
-/** A rule past this share of the plot width labels to its left: no room to its right. */
-const LEFTWARD_FROM = 0.55
-
 const DOTTED = '2 3'
 
 const pctTick = (v: number): string => withUnit(v, '%')
@@ -110,6 +107,7 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
     }
 
     const now = new Date(model.now)
+    const nowLeftwards = (plot.xFraction(now) ?? 0) > 0.5
     out.push(
       decorative(
         ruleX([{ at: now }], {
@@ -129,16 +127,21 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
           text: () => 'now',
           fill: VX.ink2,
           fontSize: VX.text.xs,
-          anchor: 'start',
-          dx: 4,
+          anchor: nowLeftwards ? 'end' : 'start',
+          dx: nowLeftwards ? -4 : 4,
           dy: 10,
         }),
       ),
     )
 
+    // Past resets label short at the bottom (the new week is at 100 % there); the window end labels at
+    // the top with the short word (its date is the subtitle's); a key's under-cap day is no window end.
+    const endWord = model.kind === 'pool' ? 'renews' : 'resets'
     for (const [i, reset] of model.resets.entries()) {
       const at = new Date(reset.at)
-      const leftwards = (plot.xFraction(at) ?? 0) > LEFTWARD_FROM
+      const underCap = model.kind === 'key'
+      const windowEnd = !underCap && i === model.resets.length - 1
+      const label = underCap ? reset.label.replace(/^back /, '') : windowEnd ? endWord : 'reset'
       out.push(
         decorative(
           ruleX([{ at }], {
@@ -154,14 +157,13 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
           text([{ at }], {
             id: `reset-label-${i}`,
             x: (d) => d.at,
-            y: () => bottom,
-            text: () => reset.label,
+            y: () => (windowEnd || underCap ? top : bottom),
+            text: () => label,
             fill: VX.ink2,
             fontSize: VX.text.xs,
-            anchor: leftwards ? 'end' : 'start',
-            dx: leftwards ? -4 : 4,
-            // Stacked on a phone, where two captions would meet.
-            dy: narrow ? -6 - i * 14 : -6,
+            anchor: windowEnd ? 'end' : 'start',
+            dx: windowEnd ? -4 : 4,
+            dy: windowEnd || underCap ? 10 : -6,
           }),
         ),
       )
@@ -170,7 +172,6 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
     const runOut = model.runOut
     if (runOut !== null) {
       const point = { at: new Date(runOut.at), left: 0 }
-      const leftwards = (plot.xFraction(point.at) ?? 0) > LEFTWARD_FROM
       out.push(
         dot([point], {
           id: 'run-out',
@@ -189,9 +190,9 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
             text: () => (narrow ? 'empty' : runOut.label),
             fill: VX.ink2,
             fontSize: VX.text.xs,
-            anchor: leftwards ? 'end' : 'start',
-            dx: leftwards ? -8 : 8,
-            dy: -22,
+            anchor: 'end',
+            dx: -8,
+            dy: -10,
           }),
         ),
       )
