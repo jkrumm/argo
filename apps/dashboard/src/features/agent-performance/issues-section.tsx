@@ -130,7 +130,7 @@ export function IssuesSection({ query, issues, costBasis }: Props) {
         )}
         <SourceLine>
           usage.records_unique by issue_id (lead-&lt;n&gt;-&lt;k&gt; sessions; subagents inherit the
-          lead&apos;s Issue) · {costBasis}
+          lead&apos;s Issue; cost and span count only the selected weeks) · {costBasis}
         </SourceLine>
       </Stack>
     </Section>

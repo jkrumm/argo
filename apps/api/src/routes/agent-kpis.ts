@@ -93,7 +93,9 @@ const IssueSchema = z.object({
   requests: z.number().int(),
   costUsd: z
     .number()
-    .describe('All lanes of the Issue; a subagent inherits the issue_id of its lead'),
+    .describe(
+      'All lanes of the Issue within the window (an Issue that began earlier is clipped to it, as are firstTs and runs); a subagent inherits the issue_id of its lead',
+    ),
   lanes: z.array(IssueLaneSchema).describe('Cost desc'),
 })
 
