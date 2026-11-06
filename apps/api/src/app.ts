@@ -40,6 +40,7 @@ import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { agentRoutes } from './routes/agents.js'
+import { agentKpiRoutes } from './routes/agent-kpis.js'
 import { wardenRoutes } from './routes/warden.js'
 import { financeRoutes } from './routes/finance.js'
 import { modelsRoutes } from './routes/models.js'
@@ -158,7 +159,7 @@ export function buildApp() {
               {
                 name: 'Agents',
                 description:
-                  'Agent observation surface. agent-workflows (the `agw` overview workflow) on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. Argo stores and serves; it derives nothing — the producer owns the semantics.',
+                  'Agent observation surface. agent-workflows (the `agw` overview workflow) on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. agent-workflows also pushes `agw review stats` (weekly review-quality groups) to POST /agents/review-stats, read back with GET /agents/review-stats; GET /agents/kpis/usage reads subagent, worker and per-Issue cost from the usage schema. Argo stores and serves; it derives nothing — the producer owns the semantics.',
               },
               {
                 name: 'Warden',
@@ -291,6 +292,7 @@ export function buildApp() {
       .use(usageRoutes)
       .use(readingRoutes)
       .use(agentRoutes)
+      .use(agentKpiRoutes)
       .use(wardenRoutes)
       .use(financeRoutes)
       .use(modelsRoutes)

@@ -38,18 +38,6 @@ const SPLIT_COLUMN = {
   lane: 'lane',
 } as const
 
-/**
- * `USAGE_ROWS` plus the stored `lane` (interactive, wave_mother, lead, worker, fan_worker, subagent, hermes, iris,
- * agw_workflow, other), which the projection folds into `sub_tool`. Joined on the row's unique key
- * (`source`, `source_id`), so no row repeats and none is lost.
- */
-const LANE_ROWS = sql`(
-  SELECT usage_record.*, lane_row.lane
-  FROM ${USAGE_ROWS}
-  JOIN usage.records_unique lane_row
-    ON lane_row.source = usage_record.source AND lane_row.source_id = usage_record.source_id
-) AS usage_record`
-
 const FRESH_SQL = sql.raw(
   'input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint',
 )
@@ -115,7 +103,7 @@ export const usageSplitRoutes = new Elysia()
             (COUNT(*) FILTER (WHERE ${cur}))::int AS calls,
             COALESCE(SUM(cost_usd) FILTER (WHERE ts < ${current.fromIso}), 0)::float AS prior_cost,
             COALESCE(SUM(${FRESH_SQL}) FILTER (WHERE ts < ${current.fromIso}), 0)::float AS prior_fresh
-          FROM ${query.by === 'lane' ? LANE_ROWS : USAGE_ROWS}
+          FROM ${USAGE_ROWS}
           WHERE ts >= ${from} AND ts <= ${current.toIso}
             ${filterSql}
           GROUP BY 1, 2

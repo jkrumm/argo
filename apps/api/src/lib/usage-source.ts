@@ -19,6 +19,8 @@ import { sql } from 'drizzle-orm'
  * - `iu_key` = `api_key` on IU rows only
  * - `cache_write_tokens` = the 5 min and 1 h writes summed (the dashboard shows one write figure)
  * - `cost_usd` as float8 (the column is numeric; the queries sum and `Number()` it)
+ * - `session_id` (bigint FK to `usage.sessions`; a subagent / worker is its own session), `issue_id` (bare factory
+ *   issue number, a subagent inherits its lead's) and `lane` (the raw record lane) pass through; the agent KPIs read them
  */
 export const USAGE_ROWS = sql.raw(`(
   SELECT
@@ -55,6 +57,9 @@ export const USAGE_ROWS = sql.raw(`(
     r.reasoning_tokens,
     r.duration_ms,
     r.cost_usd::float8 AS cost_usd,
-    r.cost_source
+    r.cost_source,
+    r.session_id,
+    r.issue_id,
+    r.lane
   FROM usage.records_unique r
 ) AS usage_record`)

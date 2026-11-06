@@ -535,6 +535,21 @@ export const wardenSnapshot = argoSchema.table(
   (t) => [index('idx_warden_machine_received').on(t.machine, t.received_at.desc())],
 )
 
+// Review stats pushed by agent-workflows (`agw review stats`), raw jsonb like warden_snapshots.
+export const agentReviewStatsSnapshot = argoSchema.table(
+  'agent_review_stats_snapshots',
+  {
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+    machine: text('machine').notNull(),
+    generated_at: timestamp('generated_at', { withTimezone: true, mode: 'string' }).notNull(),
+    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    raw: jsonb('raw').notNull(),
+  },
+  (t) => [index('idx_agent_review_stats_machine_received').on(t.machine, t.received_at.desc())],
+)
+
 // ── Warden owner action queue ─────────────────────────────────────────────
 //
 // Warden is loopback-only on the mini and pulls rather than being pushed to

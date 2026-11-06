@@ -1,7 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'bun:test'
 import { app } from '../app.js'
-import { db } from '../db/index.js'
-import { agentNarrative, agentOverviewSnapshot } from '../db/schema.js'
+import { db, runMigrations } from '../db/index.js'
+import { agentNarrative, agentOverviewSnapshot, agentReviewStatsSnapshot } from '../db/schema.js'
+
+beforeAll(async () => {
+  await runMigrations()
+})
 
 const AUTH = { Authorization: `Bearer ${process.env['API_SECRET']}` }
 const JSON_HEADERS = { ...AUTH, 'Content-Type': 'application/json' }
@@ -286,5 +290,116 @@ describe('/agents/narratives', () => {
       revisedAt: -1e17,
     })
     expect(outOfRange.status).toBe(400)
+  })
+})
+
+describe('/agents/review-stats', () => {
+  const stats = (overrides: Record<string, unknown> = {}) => ({
+    machine: 'mini',
+    generatedAt: NOW,
+    source: 'agw review stats',
+    weeks: [
+      {
+        weekStart: '2026-11-02',
+        groups: [
+          {
+            key: 'all',
+            jobs: 12,
+            abandoned: 1,
+            prepared: 0,
+            wallS: { p50: 80, max: 400 },
+            round1: { jobs: 12, clean: 5, cleanRate: 0.42 },
+            findings: { important: 3, nit: 9, preExisting: 1 },
+            dispositions: {
+              important: { open: 0, fixed: 2, wrong: 1, intentional: 0, irrelevant: 0 },
+            },
+            precision: { important: 0.66, nit: null },
+            anchoredShare: 0.9,
+            lineValidShare: 1,
+            deepRound2: { count: 2, share: 0.17 },
+            futureField: 'kept',
+          },
+        ],
+      },
+    ],
+    byPrompt: [{ key: 'v4' }],
+    ...overrides,
+  })
+
+  beforeEach(async () => {
+    await db.delete(agentReviewStatsSnapshot)
+  })
+  afterEach(async () => {
+    await db.delete(agentReviewStatsSnapshot)
+  })
+
+  it('rejects a missing bearer with 401', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/agents/review-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stats()),
+      }),
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('returns latest: null before the first ingest', async () => {
+    const res = await get('/agents/review-stats')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ latest: null })
+  })
+
+  it('stores the stats verbatim, unknown fields included, and serves them back', async () => {
+    const created = await post('/agents/review-stats', stats())
+    expect(created.status).toBe(201)
+
+    const body = (await (await get('/agents/review-stats')).json()) as {
+      latest: { machine: string; generatedAt: string; snapshot: Record<string, unknown> }
+    }
+    expect(body.latest.machine).toBe('mini')
+    expect(body.latest.generatedAt).toBe(new Date(NOW).toISOString())
+    expect(body.latest.snapshot['generatedAt']).toBe(NOW)
+    expect(body.latest.snapshot['machine']).toBeUndefined()
+    expect(body.latest.snapshot['byPrompt']).toEqual([{ key: 'v4' }])
+    const group = (body.latest.snapshot['weeks'] as { groups: Record<string, unknown>[] }[])[0]!
+      .groups[0]!
+    expect(group['futureField']).toBe('kept')
+    expect(group['precision']).toEqual({ important: 0.66, nit: null })
+  })
+
+  it('accepts an ISO generatedAt and a minimal group', async () => {
+    const iso = new Date(NOW).toISOString()
+    const res = await post(
+      '/agents/review-stats',
+      stats({
+        generatedAt: iso,
+        byPrompt: undefined,
+        weeks: [{ weekStart: '2026-11-02', groups: [{ key: 'x' }] }],
+      }),
+    )
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects an unparseable generatedAt with 400 and a missing machine with 422', async () => {
+    expect((await post('/agents/review-stats', stats({ generatedAt: 'nope' }))).status).toBe(400)
+    expect((await post('/agents/review-stats', stats({ machine: undefined }))).status).toBe(422)
+  })
+
+  it('keeps the newest per machine and ?machine= pins one', async () => {
+    await post('/agents/review-stats', stats({ machine: 'mini' }))
+    await post('/agents/review-stats', stats({ machine: 'macbook' }))
+    const pinned = (await (await get('/agents/review-stats?machine=mini')).json()) as {
+      latest: { machine: string }
+    }
+    expect(pinned.latest.machine).toBe('mini')
+  })
+
+  it('strips NUL bytes instead of failing the ingest', async () => {
+    const res = await post(
+      '/agents/review-stats',
+      stats({ weeks: [{ weekStart: '2026-11-02', groups: [{ key: 'a\u0000b' }] }] }),
+    )
+    expect(res.status).toBe(201)
   })
 })

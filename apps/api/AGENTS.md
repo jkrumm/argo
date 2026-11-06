@@ -211,6 +211,7 @@ Tests live alongside source files as `*.test.ts`:
 - `src/env.test.ts` — env schema validation
 - `src/routes/finance.test.ts` — `/finance/*` relay against a fake `fin serve` (no DB; in `make check`): status passthrough, 423/401/429/409, 503 on a dead service, and that the vault key never reaches logs or span attributes
 - `src/routes/models.test.ts` — `GET /models/efficiency` relay against a fake modelpick server (no DB; in `make check`): bearer guard, no bearer forwarded, status passthrough, 503 on a dead service
+- `src/lib/agent-kpis.test.ts` — week math and the SQL-row fold of the agent KPIs (no DB; covered by the `src/lib/` glob in `make check`)
 - `src/serve-dashboard.test.ts`, `src/otlp-headers.test.ts` — native runtime serving + OTLP auth (no DB)
 - `src/routes/workouts.summary.test.ts` — integration: strength summary endpoint
 - `src/routes/daily-metrics.summary.test.ts` — integration: health summary endpoint
@@ -288,6 +289,11 @@ The Claude API credit pools the inference gateway pays from (agent-workflows `do
 Dashboard: the **Flow** tab reads `pace`, `router`, `demand`, `split?by=lane`, `quota-latest`, `iu-budget` (both keys); **Explore** reads the kept analytics endpoints (`timeseries`, `split`, `rhythm`, `flow`).
 
 Tests: `src/lib/usage-pace.test.ts` (DB-free, fixtures of 2 Nov 2026), `src/routes/usage.pace.test.ts`, `usage.router.test.ts`, `usage.demand.test.ts` (scratch Postgres: a cycle crossing a month end with a pinned clock, a null `cycle_end`, a missing `platform_cost`, picks grouping, causes, cache per caller), `usage.payer.test.ts` (credit payers over seeded rows).
+
+## Agent performance (KPIs + review stats)
+
+- `GET /agents/kpis/usage?weeks=` (`src/routes/agent-kpis.ts`, pure shaping in `src/lib/agent-kpis.ts`, tag `Agents`): reads `FROM ${USAGE_ROWS}`, which passes `session_id`, `issue_id` and `lane` through. Window = the last N ISO weeks (1..26, default 8) from Monday 00:00 UTC incl. the current partial week; `since` is returned. `subagents` (lane `subagent` by `lane_detail.subagent_type`, `unknown` when unset; lane `worker` by `lane_detail.role`, `worker` when unset; runs = distinct `session_id`), `byWeek` (UTC Monday by row `ts`, empty weeks omitted) and `issues` (per non-null `issue_id`, newest `lastTs` first, 50 max, top-cost `repo`, per-lane breakdown; a subagent inherits its lead's `issue_id`). `cost_usd` is as stored: Max rows carry list value, not billed money (`costBasis` says so). Tests: `src/lib/agent-kpis.test.ts` (DB-free), `src/routes/agent-kpis.test.ts` (scratch Postgres; `SeedRecord.session` creates the `usage.sessions` row, `issue_id` sets the column).
+- `POST`/`GET /agents/review-stats[?machine=]` (in `src/routes/agents.ts`): agent-workflows pushes `agw review stats` (`weeks[{weekStart, groups[]}]`, optional `byPrompt[]`); stored as raw jsonb in `agent_review_stats_snapshots` (owner: `src/db/schema.ts`, migration `0030`) through `lib/snapshot-store.ts` (latest per machine, 7-day prune, 1 MB cap). Group fields are typed optional/nullable inside `looseObject`s, unknown fields ride through. Tests: `src/routes/agents.test.ts`.
 
 ## Finance (`fin serve` relay)
 

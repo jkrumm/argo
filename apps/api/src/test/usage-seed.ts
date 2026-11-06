@@ -65,6 +65,10 @@ export interface SeedRecord {
   lane_detail?: Record<string, unknown> | null
   /** The stored `run_id` column (agent-workflows rows keep their run here, not in lane_detail). */
   run_id?: string | null
+  /** Source-local id of the `usage.sessions` row the record belongs to (created on first use, one per id). */
+  session?: string | null
+  /** The stored `issue_id` column (a bare factory issue number). */
+  issue_id?: string | null
 }
 
 const iso = (v: string | Date) => (v instanceof Date ? v.toISOString() : v)
@@ -88,17 +92,33 @@ function ingestedAt(v: SeedRecord['ingested_at']): SQL {
   return Number.isNaN(parsed.getTime()) ? sql`now()` : sql`${parsed.toISOString()}::timestamptz`
 }
 
+/** Finds or creates the `usage.sessions` row `records.session_id` references; returns its id. */
+async function ensureSession(
+  source: string,
+  sourceSessionId: string,
+  lane: string,
+): Promise<number> {
+  const rows = (await db.execute(sql`
+    INSERT INTO usage.sessions (source, source_session_id, lane)
+    VALUES (${source}, ${sourceSessionId}, ${lane})
+    ON CONFLICT (source, source_session_id) DO UPDATE SET lane = EXCLUDED.lane
+    RETURNING id
+  `)) as unknown as Array<{ id: number | string }>
+  return Number(rows[0]?.id)
+}
+
 /** Inserts usage.records rows. Returns the generated ids in input order. */
 export async function seedUsageRecords(records: SeedRecord | SeedRecord[]): Promise<number[]> {
   const ids: number[] = []
   for (const r of Array.isArray(records) ? records : [records]) {
     const { lane, detail } = laneOf(r)
     const billing = r.billing ?? 'unknown'
+    const sessionId = r.session ? await ensureSession(r.source, r.session, lane) : null
     const apiKey = billing === 'iu' ? (r.iu_key ?? null) : null
     const rows = (await db.execute(sql`
       INSERT INTO usage.records (
         source, source_id, grain, ts, model_raw, model, repo, project_raw, workspace, billing, account,
-        api_key, machine, outcome, lane, lane_detail, run_id, input_tokens, output_tokens, cache_read_tokens,
+        api_key, machine, outcome, lane, lane_detail, run_id, session_id, issue_id, input_tokens, output_tokens, cache_read_tokens,
         cache_write_5m_tokens, cache_write_1h_tokens, reasoning_tokens, duration_ms, cost_usd, cost_source,
         raw, ingested_at
       ) VALUES (
@@ -109,7 +129,7 @@ export async function seedUsageRecords(records: SeedRecord | SeedRecord[]): Prom
         ${r.workspace ?? null},
         ${billing === 'max' || billing === 'unknown' || billing === 'api_credit' ? billing : 'api_key'},
         ${r.account ?? null}, ${apiKey}, ${r.machine ?? null}, ${r.outcome ?? 'ok'},
-        ${lane}, ${detail ? json(detail) : null}, ${r.run_id ?? null},
+        ${lane}, ${detail ? json(detail) : null}, ${r.run_id ?? null}, ${sessionId}, ${r.issue_id ?? null},
         ${r.input_tokens ?? 0}, ${r.output_tokens ?? 0}, ${r.cache_read_tokens ?? 0},
         ${r.cache_write_tokens ?? 0}, ${r.cache_write_1h_tokens ?? 0}, ${r.reasoning_tokens ?? 0},
         ${r.duration_ms ?? null}, ${r.cost_usd ?? null}, ${r.cost_source ?? 'none'},
@@ -130,11 +150,13 @@ export async function markUsageDuplicate(recordId: number, duplicateOf: number):
 
 export async function deleteUsageBySource(source: string): Promise<void> {
   await db.execute(sql`DELETE FROM usage.records WHERE source = ${source}`)
+  await db.execute(sql`DELETE FROM usage.sessions WHERE source = ${source}`)
 }
 
 /** Empties usage.records (and, by cascade, record_duplicates). Scratch databases only. */
 export async function deleteAllUsageRecords(): Promise<void> {
   await db.execute(sql`DELETE FROM usage.records`)
+  await db.execute(sql`DELETE FROM usage.sessions`)
 }
 
 export interface SeedQuotaSample {

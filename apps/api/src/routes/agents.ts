@@ -2,7 +2,7 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { desc, gte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { agentNarrative, agentOverviewSnapshot } from '../db/schema.js'
+import { agentNarrative, agentOverviewSnapshot, agentReviewStatsSnapshot } from '../db/schema.js'
 import {
   exceedsSnapshotBytes,
   HISTORY_DAYS,
@@ -10,6 +10,7 @@ import {
   latestSnapshotRow,
   MAX_SNAPSHOT_BYTES,
   pgIso,
+  stripNulBytes,
   toIso,
 } from '../lib/snapshot-store.js'
 
@@ -185,6 +186,97 @@ function toNarrative(row: typeof agentNarrative.$inferSelect) {
   }
 }
 
+// ── Review stats ──────────────────────────────────────────────────────────
+// agent-workflows pushes the output of `agw review stats` (review quality per ISO week and per prompt).
+// Known fields are typed so Eden gives the dashboard types; everything is optional/nullable and every
+// object is loose, so a field agw adds or drops never 422s the ingest.
+
+const nullableNumber = z.number().nullable().optional()
+
+const DispositionCountsSchema = z.looseObject({
+  open: nullableNumber,
+  fixed: nullableNumber,
+  wrong: nullableNumber,
+  intentional: nullableNumber,
+  irrelevant: nullableNumber,
+})
+
+/** One `agw review stats` group (a bucket of review jobs: a week and a prompt version, a model, ...). */
+const ReviewStatsGroupSchema = z.looseObject({
+  key: z.string().describe('Group label as agw prints it'),
+  jobs: nullableNumber.describe('Review jobs in the group'),
+  abandoned: nullableNumber.describe('Jobs that never finished'),
+  prepared: nullableNumber.describe('Jobs prepared but not submitted'),
+  wallS: z
+    .looseObject({ p50: nullableNumber, max: nullableNumber })
+    .nullable()
+    .optional()
+    .describe('Wall-clock seconds per job'),
+  round1: z
+    .looseObject({ jobs: nullableNumber, clean: nullableNumber, cleanRate: nullableNumber })
+    .nullable()
+    .optional()
+    .describe('First-round jobs and how many came back clean (cleanRate 0..1)'),
+  findings: z
+    .looseObject({ important: nullableNumber, nit: nullableNumber, preExisting: nullableNumber })
+    .nullable()
+    .optional(),
+  dispositions: z
+    .looseObject({
+      important: DispositionCountsSchema.nullable().optional(),
+      nit: DispositionCountsSchema.nullable().optional(),
+    })
+    .nullable()
+    .optional()
+    .describe('What happened to the findings, per severity'),
+  precision: z
+    .looseObject({ important: nullableNumber, nit: nullableNumber })
+    .nullable()
+    .optional()
+    .describe('Share of findings that were acted on (0..1), null when none were judged'),
+  anchoredShare: nullableNumber.describe('Share of findings anchored to a diff line (0..1)'),
+  lineValidShare: nullableNumber.describe('Share of anchored findings whose line is valid (0..1)'),
+  deepRound2: z
+    .looseObject({ count: nullableNumber, share: nullableNumber })
+    .nullable()
+    .optional()
+    .describe('Jobs that went to a deep second round'),
+})
+
+const ReviewStatsWeekSchema = z.looseObject({
+  weekStart: z.string().describe('Monday of the UTC week, YYYY-MM-DD'),
+  groups: z.array(ReviewStatsGroupSchema),
+})
+
+const ReviewStatsSnapshotSchema = z.looseObject({
+  generatedAt: z.number().describe('Epoch ms the stats were computed'),
+  source: z.string().optional().describe('Producing command, e.g. "agw review stats"'),
+  weeks: z.array(ReviewStatsWeekSchema),
+  byPrompt: z
+    .array(ReviewStatsGroupSchema)
+    .optional()
+    .describe('Groups per reviewer prompt, all weeks'),
+})
+
+const ReviewStatsIngestSchema = ReviewStatsSnapshotSchema.extend({
+  machine: z.string().min(1).max(64).describe('Producer host, e.g. "mini"'),
+  generatedAt: TimestampInput,
+})
+
+const ReviewStatsRecordSchema = z.object({
+  id: z.number().int(),
+  machine: z.string(),
+  generatedAt: z.string().describe('ISO 8601'),
+  receivedAt: z.string().describe('ISO 8601'),
+  snapshot: ReviewStatsSnapshotSchema,
+})
+
+const ReviewStatsColumns = {
+  id: agentReviewStatsSnapshot.id,
+  machine: agentReviewStatsSnapshot.machine,
+  received_at: agentReviewStatsSnapshot.received_at,
+}
+
 export const agentRoutes = new Elysia({ prefix: '/agents' })
   .post(
     '/overview',
@@ -339,6 +431,73 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
         summary: 'List project narratives',
         description:
           'Returns every project narrative, most recently revised first. One row per project — the latest POST /agents/narratives for that project wins. Pair with GET /agents/overview to show prose next to the live agent state.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .post(
+    '/review-stats',
+    async ({ body, status }) => {
+      const generatedAt = toIso(body.generatedAt)
+      if (!generatedAt) return status(400, 'generatedAt is not a valid timestamp')
+
+      const { machine, ...snapshot } = body
+      if (exceedsSnapshotBytes(snapshot)) {
+        return status(413, `Snapshot exceeds ${MAX_SNAPSHOT_BYTES} bytes`)
+      }
+      const inserted = await insertAndPruneSnapshot(agentReviewStatsSnapshot, ReviewStatsColumns, {
+        machine,
+        generated_at: generatedAt,
+        raw: stripNulBytes({ ...snapshot, generatedAt: Date.parse(generatedAt) }),
+      })
+      return status(201, inserted)
+    },
+    {
+      body: ReviewStatsIngestSchema,
+      response: {
+        201: z.object({ id: z.number().int(), receivedAt: z.string() }),
+        400: z.string(),
+        413: z.string(),
+      },
+      detail: {
+        tags: ['Agents'],
+        summary: 'Ingest agent review stats',
+        description:
+          'Stores one `agw review stats` result pushed by agent-workflows, tagged with the producing `machine`: `weeks[]` (Monday `weekStart`, `groups[]`) and optional `byPrompt[]`. A group is one bucket of review jobs: `jobs`, `abandoned`, `prepared`, `wallS` {p50,max}, `round1` {jobs,clean,cleanRate}, `findings` {important,nit,preExisting}, `dispositions` per severity {open,fixed,wrong,intentional,irrelevant}, `precision` {important,nit} (acted-on share), `anchoredShare`, `lineValidShare`, `deepRound2` {count,share}. All stats fields are optional; unknown fields are kept verbatim. `generatedAt` is epoch ms or ISO. Every ingest prunes snapshots older than 7 days, keeping the newest per machine; snapshots over 1 MB are rejected with 413. Read it back with GET /agents/review-stats.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/review-stats',
+    async ({ query }) => {
+      const row = await latestSnapshotRow<typeof agentReviewStatsSnapshot.$inferSelect>(
+        agentReviewStatsSnapshot,
+        ReviewStatsColumns,
+        query.machine,
+      )
+      return {
+        latest: row
+          ? {
+              id: row.id,
+              machine: row.machine,
+              generatedAt: pgIso(row.generated_at),
+              receivedAt: pgIso(row.received_at),
+              snapshot: row.raw as z.infer<typeof ReviewStatsSnapshotSchema>,
+            }
+          : null,
+      }
+    },
+    {
+      query: z.object({
+        machine: z.string().optional().describe('Restrict to one producer host'),
+      }),
+      response: z.object({ latest: ReviewStatsRecordSchema.nullable() }),
+      detail: {
+        tags: ['Agents'],
+        summary: 'Latest agent review stats',
+        description:
+          'Returns the most recently received `agw review stats` snapshot (`latest` is null before the first ingest) with `receivedAt` so a consumer can flag a stale feed. `snapshot.weeks[]` holds the per-week groups, `snapshot.byPrompt[]` the per-prompt groups; see POST /agents/review-stats for the group fields. Pass ?machine= to pin one host. For what the agents cost use GET /agents/kpis/usage.',
         security: [{ BearerAuth: [] }],
       },
     },

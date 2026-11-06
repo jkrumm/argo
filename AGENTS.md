@@ -34,7 +34,15 @@ upserts from `hermes-agent`'s `project-narratives.py`. The dashboard's **System 
 strip, Needs-you decision cards (copy-only, no writes), one card per active project, a 24 h activity
 strip, day-grouped narratives, a 30-minute stale banner; polls Argo every 60s
 (`docs/design/agents.md`). Table owner: `apps/api/src/db/schema.ts` (`agent_overview_snapshots`,
-`agent_narratives`).
+`agent_narratives`, `agent_review_stats_snapshots`).
+
+**Agent performance.** `GET /agents/kpis/usage?weeks=` (1..26, default 8; Monday 00:00 UTC window incl. the
+current week) reads the `usage` schema (`USAGE_ROWS`, `session_id`/`issue_id`/`lane` pass through): cost per
+subagent type and factory role, the same per week, and per factory Issue with a per-lane breakdown; cost is
+`cost_usd` as stored (list value on Max rows, not billed money). `POST`/`GET /agents/review-stats[?machine=]`
+stores the latest `agw review stats` result (weekly groups + per prompt) that agent-workflows pushes, raw
+jsonb, loosely validated, same snapshot store as the overview (`agent_review_stats_snapshots`). Code:
+`apps/api/src/routes/agent-kpis.ts`, `src/lib/agent-kpis.ts`; the dashboard page reads both through Eden.
 
 ## Warden — the control-plane board
 
