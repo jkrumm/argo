@@ -63,6 +63,7 @@ function IssueItem({ row }: { row: IssueRow }) {
           label={`Cost of ${row.title} by lane`}
           size="row"
           max={row.costUsd}
+          format={fmtUsd}
           segments={row.lanes
             .filter((l) => l.costUsd > 0)
             .map((l) => ({ value: l.costUsd, label: l.lane, color: LANE_COLOR[l.lane] }))}

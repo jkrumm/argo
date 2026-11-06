@@ -1,5 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query'
-import { Stack, Text } from '@mantine/core'
+import { Group, Stack, Text } from '@mantine/core'
 import { BarList, Section } from 'basalt-ui'
 import type { UsageKpis } from '../../lib/queries/agent-performance'
 import { SUBAGENT_SOURCE, fmtUsd, runsLabel, splitSubagents, type SubagentInput } from './model'
@@ -22,7 +22,19 @@ function RankedGroup({ title, rows }: { title: string; rows: readonly SubagentIn
           key: `${r.kind}:${r.name}`,
           label: r.name,
           value: r.costUsd,
-          secondary: `${runsLabel(r.runs)} · ${r.requests} requests · avg ${fmtUsd(r.avgCostUsd)}`,
+          secondary: (
+            <Group gap="xs" justify="flex-end" wrap="wrap">
+              <Text span size="xs" inherit>
+                {runsLabel(r.runs)} ·
+              </Text>
+              <Text span size="xs" inherit>
+                {r.requests} requests ·
+              </Text>
+              <Text span size="xs" inherit>
+                avg {fmtUsd(r.avgCostUsd)}
+              </Text>
+            </Group>
+          ),
         }))}
       />
     </Stack>
