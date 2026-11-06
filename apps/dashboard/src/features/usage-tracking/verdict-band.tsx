@@ -1,6 +1,6 @@
 /**
  * The Flow tab's verdict: one sentence (will the credit be spent before it expires, and did Claude work
- * land on IU), a facts strip and the pace chart. It is state, not a range: "now" and the billing cycle,
+ * land on IU), a facts strip and the drain cards (one chart per payer). It is state, not a range: "now" and the billing cycle,
  * so it ignores the page Range and says so in its first line. Everything is `flow-model.ts`'s words over
  * `/usage/pace`, the IU clause and its facts cell included (`claudeOnIuUsd`, since the cutover).
  */
@@ -8,18 +8,11 @@ import { Fragment } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Badge, Box, Stack, Text } from '@mantine/core'
 import { PageSummary, StatGroup, type StatStripCell } from 'basalt-ui'
-import { ChartCard } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { usageQueries } from '../../lib/queries/usage'
 import { useNow } from '../../lib/use-now'
+import { DrainSection } from './drain-section'
 import { factsOf, verdictOf, type SentencePart } from './flow-model'
-import { PaceChart } from './pace-chart'
-import { paceModel } from './pace-model'
-
-const CHART_HEIGHT = 260
-
-const CHART_INFO =
-  'Credit left per pool over its billing cycle. Solid: what happened (our meter against the provider’s report, the larger per day). Dashed: the projection at today’s production rate, flat until the router starts drawing on the pool. Dotted: the even pace that would spend the grant exactly at expiry. A shaded band is the stretch with no pool left, when Claude seats fall back to GPT on the IU personal key.'
 
 const VERDICT_INFO = {
   left: 'The grant minus the larger of our meter and the provider’s report, summed over the enabled pools.',
@@ -59,7 +52,6 @@ export function VerdictBand() {
     info: VERDICT_INFO[f.key as keyof typeof VERDICT_INFO],
     ...(f.tone === undefined ? {} : { tone: f.tone }),
   }))
-  const model = paceModel(pace)
 
   return (
     <Stack gap="md">
@@ -90,23 +82,7 @@ export function VerdictBand() {
       <Box data-shot="flow-facts">
         <StatGroup variant="strip" label="Claude API credit" cols={5} cells={cells} />
       </Box>
-      <Box data-shot="flow-pace">
-        <ChartCard
-          title="Credit left per pool"
-          subtitle="state now · the billing cycle, not the page range"
-          info={CHART_INFO}
-          placeholderHeight={CHART_HEIGHT}
-          state={{ empty: model.lines.length === 0 && 'No credit pool enabled' }}
-        >
-          <PaceChart
-            pace={pace}
-            model={model}
-            height={CHART_HEIGHT}
-            cursorGroup="usage-flow-pace"
-            ariaLabel="Credit left per pool over its billing cycle: actual, even pace to expiry and the projection at today’s rate"
-          />
-        </ChartCard>
-      </Box>
+      <DrainSection />
     </Stack>
   )
 }
