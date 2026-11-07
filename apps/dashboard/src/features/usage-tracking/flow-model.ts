@@ -384,7 +384,7 @@ export function cacheShare(row: DemandRow): number | null {
 
 export const UNSET_KEYS = ['(unset)', '(unknown)', '(unknown model)', '(other)']
 
-/** A lane key as a name: `wave_mother` reads `wave mother`. */
+/** A lane key as a name: `agw_workflow` reads `agw workflow`. */
 export const laneLabel = (key: string): string => key.replaceAll('_', ' ')
 
 export interface LaneRow {
@@ -393,11 +393,19 @@ export interface LaneRow {
   listUsd: number
 }
 
+/** Retired lanes under the name their work has now, as usage.tool_of folds them. */
+const LANE_NOW: Readonly<Record<string, string>> = { wave_mother: 'lead', fan_worker: 'worker' }
+
 /** The Claude Code lanes with list value on the subscriptions, most first; lanes with none are dropped. */
 export function laneRows(split: LaneSplitResponse): LaneRow[] {
-  return split.rows
-    .filter((r) => r.cost > 0)
-    .map((r) => ({ key: r.key, label: laneLabel(r.key), listUsd: r.cost }))
+  const usd = new Map<string, number>()
+  for (const r of split.rows) {
+    if (r.cost <= 0) continue
+    const key = LANE_NOW[r.key] ?? r.key
+    usd.set(key, (usd.get(key) ?? 0) + r.cost)
+  }
+  return [...usd]
+    .map(([key, listUsd]) => ({ key, label: laneLabel(key), listUsd }))
     .toSorted((a, b) => b.listUsd - a.listUsd)
 }
 

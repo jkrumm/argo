@@ -479,11 +479,13 @@ export function creditDrain(pace: PaceResponse, now: number): CreditView {
   const claim =
     first === undefined
       ? `Every pool lasts to its renewal, ≈${fmtUsd(unspent)} unspent`
-      : `${dryPools.length === 1 ? `${first.account} runs dry` : `${dryPools.length} of ${pools.length} pools run dry, first ${first.account}`} ${fmtDay(first.projection.dryAt ?? '')}${
-          first.cycle.end === null
-            ? ''
-            : `, ${formatDuration(Date.parse(first.cycle.end) - Date.parse(first.projection.dryAt ?? ''))} before it renews`
-        }`
+      : dryPools.length === 1
+        ? `${first.account} runs dry ${fmtDay(first.projection.dryAt ?? '')}${
+            first.cycle.end === null
+              ? ''
+              : `, ${formatDuration(Date.parse(first.cycle.end) - Date.parse(first.projection.dryAt ?? ''))} before it renews`
+          }`
+        : `Pools empty in turn: ${dryPools.map((p) => `${p.account} ${fmtDay(p.projection.dryAt ?? '')}`).join(', ')}`
   const verdict = [
     claim,
     `projected at ${fmtRate(pace.rate.productionUsdPerDay)} production`,

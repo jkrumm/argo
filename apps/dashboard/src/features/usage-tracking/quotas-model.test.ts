@@ -159,6 +159,27 @@ describe('creditDrain', () => {
     expect(model.actual.at(-1)).toEqual(at(now, 88.43 + (PACE.pools[1]?.leftUsd ?? 0)))
   })
 
+  it('names every pool that runs dry with its own day, or one with its gap to the renewal', () => {
+    const dry = (account: string, dryAt: string): PacePool =>
+      pool(account, {
+        cycle: {
+          start: '2026-10-21T00:00:00.000Z',
+          end: '2026-11-21T00:00:00.000Z',
+          status: 'open',
+        },
+        projection: { drawsFrom: null, dryAt, unspentAtEndUsd: null },
+      })
+    const two = creditDrain(
+      pace([dry('me', '2026-11-14T00:00:00.000Z'), dry('iu', '2026-11-09T00:00:00.000Z')]),
+      now,
+    )
+    expect(two.model.verdict).toContain('Pools empty in turn: iu 9 Nov, me 14 Nov')
+    const one = creditDrain(pace([dry('iu', '2026-11-11T00:00:00.000Z')]), now)
+    expect(one.model.verdict.replaceAll('\u00A0', ' ')).toContain(
+      'iu runs dry 11 Nov, 10 d before it renews',
+    )
+  })
+
   it('draws a renewal as a jump back up and ticks it per pool', () => {
     const { model } = creditDrain(PACE, now)
     const iuEnd = Date.parse(PACE.pools[0]?.cycle.end ?? '')

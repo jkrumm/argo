@@ -17,6 +17,7 @@ import {
   insightsView,
   iuByCause,
   laneLabel,
+  laneRows,
   originKnown,
   PURPOSES,
   purposeSegments,
@@ -212,7 +213,21 @@ describe('demand node totals', () => {
   })
 
   it('a lane key reads as words', () => {
-    expect(laneLabel('wave_mother')).toBe('wave mother')
+    expect(laneLabel('agw_workflow')).toBe('agw workflow')
+  })
+
+  it('retired lanes count under the name their work has now', () => {
+    const rows = [
+      { key: 'lead', cost: 10 },
+      { key: 'wave_mother', cost: 5 },
+      { key: 'worker', cost: 4 },
+      { key: 'fan_worker', cost: 2 },
+      { key: 'other', cost: 0 },
+    ]
+    expect(laneRows({ rows } as unknown as Parameters<typeof laneRows>[0])).toEqual([
+      { key: 'lead', label: 'lead', listUsd: 15 },
+      { key: 'worker', label: 'worker', listUsd: 6 },
+    ])
   })
 })
 
