@@ -15,7 +15,7 @@ Health/training core, plus a growing set of personal-agent surfaces, grouped in 
 - **System** — Usage Tracking (Claude Code spend), and Agents (the agent-workflows dev-agent overview).
 - **Other** — M365 Explorer (IU Teams).
 
-The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — Slack read/write lives behind the same bearer as the dashboard's own endpoints.
+The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents.
 
 ## Stack
 
@@ -90,4 +90,3 @@ apps/dashboard/   — Vite + React 19 frontend, themed by basalt-ui
 - `docs/STRENGTH-ANALYTICS.md` — Strength metric formulas (analytics reference)
 - `docs/ASTRO-WINDOW.md` — The astro + marine window planner: status, decisions, what is not verified
 - `docs/ASTRO-MAP-RESEARCH.md` / `docs/ASTRO-HORIZON-RESEARCH.md` — The map and terrain-horizon research/decision records the window planner is built on
-- `slack/README.md` — The two-Slack-app split (posting vs reading) and where each token lives

@@ -7,7 +7,7 @@ Personal dashboard + agent-backbone API for Johannes Krumm, running natively on 
 stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
 ACWR, PR detection, body weight) — Argo pulls health data every 6 hours straight from the official Garmin Connect Personal API (a personal API key, `GARMIN_API_KEY`), strength
 data is logged manually. Alongside them: a general
-an in-process `aiComplete` (`lib/ai-complete.ts`, no HTTP route; backs classification and the astro/marine verdict sentences), **Slack** (read + post, split across two app identities — see "Slack" below),
+an in-process `aiComplete` (`lib/ai-complete.ts`, no HTTP route; backs classification and the astro/marine verdict sentences),
 **Usage Tracking** (Claude Code and gateway spend, read from the `usage` schema in the shared database: `usage-tracker` and `agw` write it directly, Argo has no ingest endpoint and reads `usage.records_unique` through the projection `src/lib/usage-source.ts`; each record carries the Claude `account` — `iu`/`me`/`me2`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension; IU API rows also carry the IU key `iu_key` — `personal`/`athena-team`, each with its own $500 cap, `iuKey` filter and `iu_key` dimension on the records endpoints, `?iuKey` on `iu-budget`/`iu-reconcile`; the **payer** — `iu-sub` (Ultra)/`me-sub`/`me2-sub`, the API credit those subscriptions grant `iu-credit`/`me-credit`/`me2-credit` (billing `api_credit` + account, written by the inference gateway), `iu-api`/`iu-team-api`/`me-api`/`unknown`, derived from billing + account + iu_key in the query layer — is the usage page's default split and filter); also Claude account quota samples (`GET /usage/quota`, `GET /usage/quota-latest`, from `usage.quota_samples`) and picker decisions (`GET /usage/account-picks/summary`, from `usage.account_picks`), IU's portal cost report (`usage.iu_portal_cost`, read by `GET /usage/{iu-budget,iu-reconcile}`) plus the `flow` and `movers` aggregates (apps/api/AGENTS.md §Usage page data), shown on the usage page (two tabs, spec `docs/design/usage-tracking.md` v7: **Quotas** (default, `?view=flow`) — a verdict sentence (credit, subscriptions, IU clause) and four cards in one chart form: Claude subscriptions (one chart: a thin weekly-% line per account and a thick combined line weighted by capacity units iu 2 / me 1 / me2 1), Claude API credit (the three pools summed in dollars with the even pace, projection and renewal ticks), the IU personal key and the Athena team key (each a rolling 30 d $500 cap); below them a closed "Routing and demand" disclosure (Router and Demand columns, the selected node's detail via `?node=router|demand:<workflow>`, Athena's spend by producer; follows Range, mounts on open, `?node=` opens it); the Athena team key stays out of every total; the Insights strip is not on this tab; **Explore** — the analysis blocks across every payer at once with a Payer multi-select (over time, projects / tools rows, rhythm, weekly volume). The v6 tabs Overview, Claude Max, IU API and Credits are deleted; their `?view=` values still open Quotas. Range (default 7 d) drives only the Routing and demand disclosure, the verdict and the cards are state; data from `GET /usage/{pace,router,demand}`, `/usage/split?by=lane`, `/usage/quota-latest`, `/usage/iu-budget`; `GET /usage/credits/*` is gone, `pace` and `router` replaced it), **Reading**
 (Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
 and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
@@ -47,12 +47,6 @@ jsonb, loosely validated, same snapshot store as the overview (`agent_review_sta
 until agent-workflows pushes review stats.
 
 Warden was switched off 2026-10-27 and its API is gone; the `warden_snapshots` and `warden_actions` tables are left in the `argo` schema, unused, pending a cleanup migration.
-
-## Slack
-
-Argo posts under its own app identity but reads through HomeLab's — `slack/README.md` has the
-full split and the token-scope story. The three refs: `SLACK_BOT_TOKEN` (posts as Argo),
-`SLACK_READ_TOKEN` (reads as HomeLab), `SLACK_USER_TOKEN` (search only) — all `op://common/slack/*`.
 
 ## Workspace Layout
 

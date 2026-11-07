@@ -10,7 +10,6 @@ import { ticktickRoutes } from './routes/ticktick.js'
 import { uptimeKumaRoutes } from './routes/uptime-kuma.js'
 import { dockerHomelabRoutes, dockerVpsRoutes } from './routes/docker.js'
 import { summaryRoute } from './routes/summary.js'
-import { slackRoutes } from './routes/slack.js'
 import { oauthRoutes } from './routes/oauth.js'
 import { gmailRoutes } from './routes/gmail.js'
 import { calendarRoutes } from './routes/calendar.js'
@@ -110,7 +109,7 @@ export function buildApp() {
               {
                 name: 'Productivity',
                 description:
-                  'Personal comms and task management: TickTick projects/tasks, Slack channels/messages/threads, Gmail inbox, Google Calendar events.',
+                  'Personal comms and task management: TickTick projects/tasks, Gmail inbox, Google Calendar events.',
               },
               {
                 name: 'M365',
@@ -255,7 +254,6 @@ export function buildApp() {
       .use(uptimeKumaRoutes)
       .use(dockerHomelabRoutes)
       .use(dockerVpsRoutes)
-      .use(slackRoutes)
       .use(gmailRoutes)
       .use(calendarRoutes)
       .use(m365Routes)
