@@ -20,8 +20,7 @@ export const withUnit = (value: string | number, unit: string): string => `${val
  * The one duration spelling: `21 d 4 h`, `5 h 12 min`, `42 min`, `< 1 min`. A whole larger unit
  * drops its zero tail (`21 d`, `5 h`) and minutes are `min`. A value, its unit and a compound's two
  * parts are joined with no-break spaces and never split; a caller's `ago` / `in` stays breakable. A
- * non-finite or negative value is `—`. Warden's day-fraction span (`formatSpan`)
- * keeps its own decimal spelling.
+ * non-finite or negative value is `—`.
  */
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '—'

@@ -11,7 +11,6 @@ import {
   weekdayTime,
   noMeetingsLabel,
   activityStream,
-  wardenEvents,
   nextMeeting,
   recoveryReading,
   recoveryWindow,
@@ -55,7 +54,7 @@ const event = (over: Partial<RawCalendarEvent> = {}): RawCalendarEvent => ({
 })
 
 const decision = (ageMs: number | null): Decision => ({
-  source: 'warden',
+  source: 'queue',
   id: `d-${ageMs}`,
   headline: '{q}',
   entity: null,
@@ -63,9 +62,8 @@ const decision = (ageMs: number | null): Decision => ({
   evidenceLine: null,
   detail: null,
   ageMs,
-  href: '/warden',
+  href: '/agents',
   evidence: null,
-  history: [],
   abandoned: false,
 })
 
@@ -205,16 +203,10 @@ describe('countdownLabel', () => {
 })
 
 describe('needsYouEmptyTitle', () => {
-  it('says Nothing needs you only when every source settled OK', () => {
+  it('says Nothing needs you only when the source settled OK', () => {
     expect(needsYouEmptyTitle({ unavailable: [], loading: [] })).toBe('Nothing needs you')
-    expect(needsYouEmptyTitle({ unavailable: [], loading: ['Warden'] })).toBe(
-      'Nothing from Agents needs you',
-    )
-    expect(needsYouEmptyTitle({ unavailable: ['Agents'], loading: [] })).toBe(
-      'Nothing from Warden needs you',
-    )
-    expect(needsYouEmptyTitle({ unavailable: [], loading: ['Warden', 'Agents'] })).toBe('Loading')
-    expect(needsYouEmptyTitle({ unavailable: ['Warden'], loading: ['Agents'] })).toBe("Can't tell")
+    expect(needsYouEmptyTitle({ unavailable: [], loading: ['Agents'] })).toBe('Loading')
+    expect(needsYouEmptyTitle({ unavailable: ['Agents'], loading: [] })).toBe("Can't tell")
   })
 })
 
@@ -227,28 +219,25 @@ describe('source classification', () => {
     expect(sourceStatus(false, 'success')).toBe('no-snapshot')
   })
   it('splits the states into disjoint lists', () => {
-    expect(classifySources({ Warden: 'failed', Agents: 'no-snapshot' })).toEqual({
-      unavailable: ['Warden'],
+    expect(classifySources({ Agents: 'no-snapshot' })).toEqual({
+      unavailable: [],
       loading: [],
       noSnapshot: ['Agents'],
     })
-    expect(classifySources({ Warden: 'ready', Agents: 'ready' })).toEqual({
+    expect(classifySources({ Agents: 'failed' })).toEqual({
+      unavailable: ['Agents'],
+      loading: [],
+      noSnapshot: [],
+    })
+    expect(classifySources({ Agents: 'ready' })).toEqual({
       unavailable: [],
       loading: [],
       noSnapshot: [],
     })
   })
   it('a source that settled with no snapshot is never an all-clear', () => {
-    const settledEmpty = classifySources({
-      Warden: sourceStatus(false, 'success'),
-      Agents: sourceStatus(false, 'success'),
-    })
+    const settledEmpty = classifySources({ Agents: sourceStatus(false, 'success') })
     expect(needsYouEmptyTitle(settledEmpty)).not.toBe('Nothing needs you')
-    const partial = classifySources({
-      Warden: sourceStatus(true, 'success'),
-      Agents: sourceStatus(false, 'success'),
-    })
-    expect(needsYouEmptyTitle(partial)).not.toBe('Nothing needs you')
     expect(unknownSentence(unknownPhrase([], [], ['Agents']))).toBe('No snapshot yet from Agents')
   })
 })
@@ -259,32 +248,13 @@ describe('needsYouEmptyTitle with sources that have no snapshot', () => {
     expect(needsYouEmptyTitle({ ...ok, noSnapshot: [] })).toBe('Nothing needs you')
     expect(needsYouEmptyTitle(ok)).toBe('Nothing needs you')
   })
-  it('names the gap when no source has a snapshot', () => {
-    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Warden', 'Agents'] })).toBe('No snapshot yet')
-  })
-  it('never claims all-clear for a partial: one known-empty, one without a snapshot', () => {
-    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Agents'] })).toBe(
-      'Nothing from Warden needs you',
-    )
-    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Warden'] })).toBe(
-      'Nothing from Agents needs you',
-    )
-  })
-  it('a mix of causes can only say it cannot tell', () => {
-    expect(
-      needsYouEmptyTitle({ unavailable: ['Warden'], loading: [], noSnapshot: ['Agents'] }),
-    ).toBe("Can't tell")
-    expect(
-      needsYouEmptyTitle({ unavailable: [], loading: ['Warden'], noSnapshot: ['Agents'] }),
-    ).toBe("Can't tell")
+  it('names the gap when the source has no snapshot', () => {
+    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Agents'] })).toBe('No snapshot yet')
   })
   it('words the phrase and the summary with the short form', () => {
     expect(unknownPhrase([], [], ['Agents'])).toBe('no snapshot yet from Agents')
-    expect(
-      homeSummaryParts({ decisions: [], ...ok, noSnapshot: ['Warden', 'Agents'] }).sentence,
-    ).toBe('No snapshot yet from Warden and Agents.')
     expect(homeSummaryParts({ decisions: [], ...ok, noSnapshot: ['Agents'] }).sentence).toBe(
-      'Nothing from Warden needs you; no snapshot yet from Agents.',
+      'No snapshot yet from Agents.',
     )
   })
 })
@@ -292,11 +262,11 @@ describe('needsYouEmptyTitle with sources that have no snapshot', () => {
 describe('feedEmptyLine', () => {
   const none = { failed: [], pending: [], now: NOW }
   it('names every unknown source after the empty window, with the retry only for a failure', () => {
-    const line = feedEmptyLine({ loaded: true, ...none, failed: ['Agents'], pending: ['Warden'] })
+    const line = feedEmptyLine({ loaded: true, ...none, failed: ['Agents'] })
     expect(line).toStartWith('No events since ')
-    expect(line).toEndWith('Agents failed to load, Warden loading — reload to retry.')
-    expect(feedEmptyLine({ loaded: true, ...none, pending: ['Warden'] })).toEndWith(
-      ' Warden loading.',
+    expect(line).toEndWith('Agents failed to load — reload to retry.')
+    expect(feedEmptyLine({ loaded: true, ...none, pending: ['Agents'] })).toEndWith(
+      ' Agents loading.',
     )
   })
   it("with no feed and no cause known, says the feed's own gap", () => {
@@ -304,14 +274,12 @@ describe('feedEmptyLine', () => {
       decisions: [],
       unavailable: [],
       loading: [],
-      noSnapshot: ['Warden', 'Agents'],
+      noSnapshot: ['Agents'],
     }).sentence
     const line = feedEmptyLine({ loaded: false, ...none })
-    expect(line).toBe('No snapshot yet from Warden and Agents.')
+    expect(line).toBe('No snapshot yet from Agents.')
     expect(line).toBe(needsYou)
-    expect(feedEmptyLine({ loaded: false, ...none, pending: ['Warden', 'Agents'] })).toBe(
-      'Warden and Agents loading.',
-    )
+    expect(feedEmptyLine({ loaded: false, ...none, pending: ['Agents'] })).toBe('Agents loading.')
   })
 })
 
@@ -429,7 +397,7 @@ describe('readings', () => {
 const ev = (key: string, ms: number): ActivityEvent => ({
   key,
   ms,
-  actor: 'warden',
+  actor: 'narrator',
   title: '{t}',
 })
 
@@ -464,16 +432,11 @@ describe('homeSummaryParts', () => {
     expect(
       homeSummaryParts({
         ...base,
-        decisions: [
-          decision(2 * 60 * MIN),
-          decision(30 * MIN),
-          agentDecision(),
-          { ...agentDecision(), source: 'queue' },
-        ],
+        decisions: [decision(2 * 60 * MIN), decision(30 * MIN), agentDecision()],
       }),
     ).toEqual({
       sentence: 'Oldest wait on you 2\u00a0h.',
-      facts: ['2 in Warden', '1 with agents', '1 in the human queue'],
+      facts: ['1 with agents', '2 in the human queue'],
     })
   })
 
@@ -490,30 +453,17 @@ describe('homeSummaryParts', () => {
   })
 
   it('names an unavailable source instead of implying an empty inbox', () => {
-    expect(homeSummaryParts({ unavailable: ['Warden'], loading: [], decisions: [] }).sentence).toBe(
-      'Nothing from Agents needs you; Warden failed to load.',
-    )
-  })
-
-  it('states nothing else when neither source loaded', () => {
-    expect(
-      homeSummaryParts({ unavailable: ['Warden', 'Agents'], loading: [], decisions: [] }),
-    ).toEqual({
-      sentence: "Can't tell — Warden and Agents failed to load.",
+    expect(homeSummaryParts({ unavailable: ['Agents'], loading: [], decisions: [] })).toEqual({
+      sentence: "Can't tell — Agents failed to load.",
       facts: [],
     })
   })
 
-  it('says loading, never an empty inbox, while a source is pending', () => {
-    expect(homeSummaryParts({ unavailable: [], loading: ['Warden'], decisions: [] }).sentence).toBe(
-      'Nothing from Agents needs you; Warden loading.',
-    )
-    expect(
-      homeSummaryParts({ unavailable: [], loading: ['Warden', 'Agents'], decisions: [] }),
-    ).toEqual({ sentence: 'Loading Warden and Agents.', facts: [] })
-    expect(
-      homeSummaryParts({ unavailable: ['Agents'], loading: ['Warden'], decisions: [] }).sentence,
-    ).toBe("Can't tell — Agents failed to load, Warden loading.")
+  it('says loading, never an empty inbox, while the source is pending', () => {
+    expect(homeSummaryParts({ unavailable: [], loading: ['Agents'], decisions: [] })).toEqual({
+      sentence: 'Loading Agents.',
+      facts: [],
+    })
   })
 
   it('omits an unknown age rather than printing a figure it lacks', () => {
@@ -531,89 +481,13 @@ describe('homeSummaryParts', () => {
 
 const ago = (min: number) => new Date(NOW - min * MIN).toISOString()
 
-describe('wardenEvents', () => {
-  const raw = {
-    board: { items: [{ event_id: 7, repo: '{repo}', title: '{item title}' }] },
-    items: {
-      '7': {
-        transitions: [
-          { from_state: null, to_state: 'new', at: ago(60), synthetic: true },
-          { from_state: 'new', to_state: 'triaged', at: ago(58) },
-          { from_state: 'triaged', to_state: 'working', at: ago(57) },
-          { from_state: 'working', to_state: 'needs_decision', at: ago(5) },
-        ],
-        dispatches: [{ tier: 'investigate', status: 'done', created_at: ago(57.5) }],
-      },
-    },
-  } as unknown as Parameters<typeof wardenEvents>[0]
-
-  it('collapses a burst on one item into one row with its path and dispatch', () => {
-    const rows = wardenEvents(raw)
-    expect(rows).toHaveLength(2)
-    const burst = rows.find((r) => r.ms === NOW - 57 * MIN)
-    expect(burst?.title).toBe('moved {item title}')
-    expect(burst?.chip).toBe('{repo}')
-    expect(burst?.outcome).toBe('new\u00a0→\u00a0working\u00a0· investigate\u00a0done')
-  })
-
-  it("drops a monitor's [prefix] from the item title, as the Warden cards do", () => {
-    const monitored = {
-      board: { items: [{ event_id: 7, repo: '{repo}', title: '[{monitor}] Down {reason}' }] },
-      items: { '7': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
-    } as unknown as Parameters<typeof wardenEvents>[0]
-    expect(wardenEvents(monitored)[0]?.title).toBe('moved {monitor} Down {reason}')
-  })
-
-  it("drops a commit-style label from the item title (the cards' subject rule)", () => {
-    const commit = {
-      board: { items: [{ event_id: 7, repo: '{repo}', title: 'fix({scope}): {change}' }] },
-      items: { '7': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
-    } as unknown as Parameters<typeof wardenEvents>[0]
-    expect(wardenEvents(commit)[0]?.title).toBe('moved {change}')
-  })
-
-  it('words the show-more buttons as the remainder, per page', () => {
-    expect(restLabel('/warden', 3)).toBe('3 more in Warden')
+describe('restLabel', () => {
+  it('words the show-more button as the remainder', () => {
     expect(restLabel('/agents', 1)).toBe('1 more on Agents')
-  })
-
-  it('starts a new row after a gap and times each row at its last step', () => {
-    const later = wardenEvents(raw).find((r) => r.ms === NOW - 5 * MIN)
-    expect(later?.title).toBe('moved {item title}')
-    expect(later?.outcome).toBe('working\u00a0→\u00a0needs\u00a0decision')
   })
 })
 
 describe('names in the feed', () => {
-  it('keeps a long repo whole: the row wraps at its spaces, a name is never cut', () => {
-    const repo = 'a-very-long-repository-name-indeed'
-    const long = {
-      board: { items: [{ event_id: 9, repo, title: '{t}' }] },
-      items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
-    } as unknown as Parameters<typeof wardenEvents>[0]
-    const [row] = wardenEvents(long)
-    expect(row?.title).toBe('moved {t}')
-    expect(row?.chip).toBe(repo)
-  })
-
-  it('strips a shortcode from the repo and the item title', () => {
-    const [row] = wardenEvents({
-      board: { items: [{ event_id: 9, repo: ':warning: service', title: ':fire: {t}' }] },
-      items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
-    } as unknown as Parameters<typeof wardenEvents>[0])
-    expect(row?.title).toBe('moved {t}')
-    expect(row?.chip).toBe('service')
-  })
-
-  it('names a short repo whole', () => {
-    const [row] = wardenEvents({
-      board: { items: [{ event_id: 9, repo: '{repo}', title: '{t}' }] },
-      items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
-    } as unknown as Parameters<typeof wardenEvents>[0])
-    expect(row?.title).toBe('moved {t}')
-    expect(row?.chip).toBe('{repo}')
-  })
-
   it('keeps a long project chip whole', () => {
     const [row] = narrativeEvents([
       { project: 'an-extremely-long-project-name', summary: '{s}', revisedAt: ago(5) },
@@ -623,52 +497,6 @@ describe('names in the feed', () => {
 })
 
 describe('activity row parts per actor', () => {
-  const one = (item: Record<string, unknown>, timeline: Record<string, unknown>) =>
-    wardenEvents({
-      board: { items: [{ event_id: 3, ...item }] },
-      items: { '3': timeline },
-    } as unknown as Parameters<typeof wardenEvents>[0])[0]
-
-  it('warden with an item title: the title is line 1, the path and step line 2, the repo the chip', () => {
-    const row = one(
-      { repo: '{repo}', title: '{item title}' },
-      {
-        transitions: [{ from_state: 'new', to_state: 'needs_decision', at: ago(5) }],
-        dispatches: [{ tier: 'implement', status: 'queued', created_at: ago(5) }],
-      },
-    )
-    expect(row?.title).toBe('moved {item title}')
-    expect(row?.outcome).toBe('new\u00a0→\u00a0needs\u00a0decision\u00a0· implement\u00a0queued')
-    expect(row?.chip).toBe('{repo}')
-  })
-
-  it('warden without an item title: the repo names the item in the sentence, no chip', () => {
-    const row = one(
-      { repo: '{repo}' },
-      { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] },
-    )
-    expect(row?.title).toBe('moved {repo} item')
-    expect(row?.chip).toBeUndefined()
-    expect(row?.outcome).toBe('new\u00a0→\u00a0triaged')
-  })
-
-  it('warden with a dispatch only: dispatched, the step is the whole outcome', () => {
-    const row = one(
-      { repo: '{repo}', title: '{item title}' },
-      { dispatches: [{ tier: 'investigate', status: 'done', created_at: ago(5) }] },
-    )
-    expect(row?.title).toBe('dispatched {item title}')
-    expect(row?.outcome).toBe('investigate\u00a0done')
-  })
-
-  it('warden without a dispatch carries the path alone', () => {
-    const row = one(
-      { repo: '{repo}', title: '{item title}' },
-      { transitions: [{ from_state: 'working', to_state: 'done', at: ago(5) }] },
-    )
-    expect(row?.outcome).toBe('working\u00a0→\u00a0done')
-  })
-
   it('narrator: the headline is line 1, the project the chip, no outcome', () => {
     const [row] = narrativeEvents([
       { project: '{project}', summary: '{summary}', revisedAt: ago(5) },
@@ -758,49 +586,21 @@ describe('staleFeeds and unavailable sources', () => {
     expect(
       staleFeeds(
         [
-          { name: 'Warden', receivedAt: agoIso(5) },
+          { name: 'Narrator', receivedAt: agoIso(5) },
           { name: 'Agents', receivedAt: agoIso(45) },
         ],
         NOW,
       ),
     ).toEqual(['Agents 45\u00a0min old'])
-    expect(staleFeeds([{ name: 'Warden', receivedAt: agoIso(29) }], NOW)).toEqual([])
+    expect(staleFeeds([{ name: 'Agents', receivedAt: agoIso(29) }], NOW)).toEqual([])
   })
 
   const base = { decisions: [], loading: [], fleet: null, meetings: null, recovery: null, now: NOW }
 
-  it('does not say nothing needs you when neither source loaded', () => {
-    expect(homeSummaryParts({ ...base, unavailable: ['Warden', 'Agents'] }).sentence).toBe(
-      "Can't tell — Warden and Agents failed to load.",
-    )
-  })
-
-  it('names the one source that is down', () => {
+  it('does not say nothing needs you when the source failed', () => {
     expect(homeSummaryParts({ ...base, unavailable: ['Agents'] }).sentence).toBe(
-      'Nothing from Warden needs you; Agents failed to load.',
+      "Can't tell — Agents failed to load.",
     )
-  })
-})
-
-const timeline = (gapMin: number) =>
-  ({
-    board: { items: [{ event_id: 1, repo: '{repo}' }] },
-    items: {
-      '1': {
-        transitions: [
-          { from_state: 'new', to_state: 'triaged', at: agoIso(60) },
-          { from_state: 'triaged', to_state: 'working', at: agoIso(60 - gapMin) },
-        ],
-      },
-    },
-  }) as unknown as Parameters<typeof wardenEvents>[0]
-
-describe('wardenEvents burst boundary', () => {
-  it('joins steps exactly 10 minutes apart and splits at 10 minutes 1 s', () => {
-    expect(wardenEvents(timeline(10))).toHaveLength(1)
-    const split = timeline(10) as { items: { '1': { transitions: { at: string }[] } } }
-    split.items['1'].transitions[1]!.at = new Date(NOW - 60 * MIN + 10 * MIN + 1000).toISOString()
-    expect(wardenEvents(split as unknown as Parameters<typeof wardenEvents>[0])).toHaveLength(2)
   })
 })
 
@@ -885,32 +685,16 @@ describe('laterMeeting', () => {
 
 describe('needsYouEmptyBody', () => {
   const ok = { unavailable: [], loading: [] }
-  it('is null only when every source answered', () => {
+  it('is null only when the source answered', () => {
     expect(needsYouEmptyBody(ok)).toBeNull()
   })
-  it('names the sources when all are unknown, which no title does', () => {
-    expect(needsYouEmptyBody({ unavailable: [], loading: ['Warden', 'Agents'] })).toBe(
-      'Warden and Agents loading.',
-    )
-    expect(needsYouEmptyBody({ ...ok, noSnapshot: ['Warden', 'Agents'] })).toBe(
-      'No snapshot yet from Warden and Agents.',
-    )
-    expect(needsYouEmptyBody({ unavailable: ['Warden', 'Agents'], loading: [] })).toBe(
-      'Warden and Agents failed to load.',
-    )
-  })
-  it('names the sources a partial list is missing', () => {
+  it('names the source when it is unknown, which no title does', () => {
     expect(needsYouEmptyBody({ unavailable: ['Agents'], loading: [] })).toBe(
       'Agents failed to load.',
     )
-    expect(needsYouEmptyBody({ unavailable: [], loading: ['Warden'] })).toBe('Warden loading.')
+    expect(needsYouEmptyBody({ unavailable: [], loading: ['Agents'] })).toBe('Agents loading.')
     expect(needsYouEmptyBody({ ...ok, noSnapshot: ['Agents'] })).toBe(
       'No snapshot yet from Agents.',
-    )
-  })
-  it('spells out a mix the "Can\'t tell" title cannot', () => {
-    expect(needsYouEmptyBody({ unavailable: ['Warden'], loading: ['Agents'] })).toBe(
-      'Warden failed to load, Agents loading.',
     )
   })
 })

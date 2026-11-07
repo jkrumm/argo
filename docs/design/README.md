@@ -11,12 +11,11 @@ Shots live only in the gitignored `.design-shots/` (`make design-shot`); the bas
 ## Ranking — distance from the bar
 
 The score is 1–5, where 5 is furthest from Keel. Rows are sorted by score. Within a score the order is
-editorial: the owner's named examples (Garmin Health, Agents, Warden, Calendar) and the pages they
+editorial: the owner's named examples (Garmin Health, Agents, Calendar) and the pages they
 feed (Home) first.
 
 | Rank | Page                                    | Distance | Why                                                                                                                                                 | Wave |
 | ---- | --------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| 1    | [Warden](warden.md)                     | 5        | Rows of four or five stacked buttons, tile footers that dump raw keys (`numerator: {n} …`), and every item listed twice across seven stacked tables | 20   |
 | 2    | [Home `/`](home.md)                     | 5        | It does not exist: `/` redirects to Garmin Health                                                                                                   | 21   |
 | 3    | [Calendar](calendar.md)                 | 5        | A 1,500 px week grid that is almost all empty hours. No summary, and attendees and video links are dropped                                          | 21   |
 | 4    | [WalkingPad](walking-pad.md)            | 5        | The default 30-day window is empty (the last walk is more than 30 days old): nine zero or dash tiles and five empty chart cards                     | 22   |

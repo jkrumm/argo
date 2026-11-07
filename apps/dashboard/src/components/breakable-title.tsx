@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
-import { titleSegments } from './page-model'
+import { titleSegments } from '../lib/text-breaks'
 
 /** A title whose long identifier tokens may break after `.` `/` `_` `-` `::` (`<wbr>`); copy and search see the plain text. */
 export function BreakableTitle({ text }: { text: string }): ReactNode {

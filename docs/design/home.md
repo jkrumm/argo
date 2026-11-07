@@ -1,5 +1,7 @@
 # Home (Today) — concept
 
+> **2026-11-07:** Warden was removed from Argo (switched off 2026-10-27). Home now reads Agents, Calendar and Garmin only: no Warden decision cards, activity rows or dispatch-budget cell. The Warden mentions below are wave history.
+
 Route `/` (shipped Wave 20; replaced the redirect in `apps/dashboard/src/routes/index.tsx`), source files to create: `apps/dashboard/src/routes/index.tsx`, `apps/dashboard/src/features/home/`. Reads existing endpoints only: Warden snapshot, Agents overview + history + narratives, Calendar (Google, M365, TickTick), Garmin recovery / training load, Warden item timelines.
 
 ## Baseline verdict

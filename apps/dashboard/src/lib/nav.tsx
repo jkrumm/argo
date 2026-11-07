@@ -233,13 +233,6 @@ export const NAV = defineNav({
         link: linkOptions({ to: '/agent-performance', search: agentPerfStore.linkSearch }),
       },
       {
-        id: 'warden',
-        label: 'Warden',
-        short: 'Warden',
-        icon: <IconShieldCheck size={ICON} />,
-        link: linkOptions({ to: '/warden' }),
-      },
-      {
         id: 'models',
         label: 'Models',
         short: 'Models',

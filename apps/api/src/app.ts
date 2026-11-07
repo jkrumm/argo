@@ -41,7 +41,6 @@ import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { agentRoutes } from './routes/agents.js'
 import { agentKpiRoutes } from './routes/agent-kpis.js'
-import { wardenRoutes } from './routes/warden.js'
 import { financeRoutes } from './routes/finance.js'
 import { modelsRoutes } from './routes/models.js'
 import { authGuard } from './lib/auth-guard.js'
@@ -162,11 +161,6 @@ export function buildApp() {
                   'Agent observation surface. agent-workflows (the `agw` overview workflow) on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. agent-workflows also pushes `agw review stats` (weekly review-quality groups) to POST /agents/review-stats, read back with GET /agents/review-stats; GET /agents/kpis/usage reads subagent, worker and per-Issue cost from the usage schema. Argo stores and serves; it derives nothing — the producer owns the semantics.',
               },
               {
-                name: 'Warden',
-                description:
-                  "The Warden control plane's board — a deterministic loop over its own SQLite ledger on the mini, pushing one JSON snapshot after every tick (POST /warden/snapshot): health/poller liveness, the six funnel metrics, the board (state counts + open items), the dispatch budget, and per-item timelines. Argo cannot reach the ledger directly and derives nothing — GET /warden/snapshot reads the latest push back verbatim. The owner queues actions (implement/merge/dismiss/reinvestigate/retry/note) against a board item with POST /warden/items/{eventId}/actions; warden's loop pulls its pending queue (GET /warden/actions) and reports outcomes back (POST /warden/actions/{id}/ack) — Argo never applies an action itself.",
-              },
-              {
                 name: 'Finance',
                 description:
                   "Johannes's encrypted finance vault (bank transactions, categories, recurring costs, net worth, tax tags), relayed to the loopback `fin serve` service on the mini. The vault is LOCKED by default and only a human can unlock it (the key never passes through an agent): every data call answers 423 while locked, so read `GET /finance/status` first and, if locked, tell the user to unlock it in the Argo dashboard under /finance — never ask for or handle the key. Unlocked, `GET /finance/api/*` serves read-only views (amounts in integer cents, months YYYY-MM), `POST /finance/sync` starts a bank sync, `POST /finance/lock` closes the vault. The vault re-locks itself after 30 idle minutes. Status codes and bodies are the service's own: 423 locked, 401 wrong key, 429 unlock throttled, 409 sync already running, 503 service down.",
@@ -220,7 +214,6 @@ export function buildApp() {
             'Astro & Marine',
             'Reading',
             'Agents',
-            'Warden',
             'Finance',
             'Models',
             'System',
@@ -293,7 +286,6 @@ export function buildApp() {
       .use(readingRoutes)
       .use(agentRoutes)
       .use(agentKpiRoutes)
-      .use(wardenRoutes)
       .use(financeRoutes)
       .use(modelsRoutes)
   )

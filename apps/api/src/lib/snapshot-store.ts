@@ -3,11 +3,11 @@ import type { AnyPgTable, PgColumn, PgTransaction } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 
 // Shared push/pull contract for a "raw JSON snapshot per machine" table.
-// `agent_overview_snapshots` and `warden_snapshots` are both shaped
+// `agent_overview_snapshots` and `agent_review_stats_snapshots` are both shaped
 // { id, machine, generated_at, received_at, raw } and both keep the latest
 // row per machine plus a rolling 7-day history, pruned on every ingest — this
 // module is the one place that owns the prune query, the byte cap and the
-// epoch-ms-or-ISO timestamp parsing so the two routes can't drift apart.
+// epoch-ms-or-ISO timestamp parsing so the routes can't drift apart.
 
 export const HISTORY_DAYS = 7
 // The global maxRequestBodySize (8 MB, index.ts) is the only other bound.

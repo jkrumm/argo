@@ -2,8 +2,6 @@ import { describe, expect, it } from 'bun:test'
 import { deriveDecisions } from './decisions'
 import { glue } from './format'
 import { needsYouCards } from '../features/agents/model'
-import { deriveAwaitingOwner } from '../features/warden/model'
-import { needsCards, resolveQueueAsks } from '../features/warden/page-model'
 import {
   ENTITY_MAX,
   EVIDENCE_LINE_MAX,
@@ -18,19 +16,14 @@ import {
   subjectLead,
   subjectOf,
   surfaceCopies,
-  wardenQuestionForms,
-  withoutRepeatedEvidence,
   type QuestionInput,
 } from './question-copy'
-import { APART_ROWS, ASK_ROWS, WARDEN_ROWS } from './__fixtures__/question-rung'
-import type { WardenRaw } from './queries/warden'
+import { ASK_ROWS } from './__fixtures__/question-rung'
 import type { OverviewSnapshot } from './queries/agents'
 
 const MERGE = questionForms('Merge', 'PR', '{r}')
 const IMPLEMENT = questionForms('Implement', 'change', 'project-a')
 
-const home = (primary: Parameters<typeof wardenQuestionForms>[0]['primary'], alert = false) =>
-  wardenQuestionForms({ failed: primary === 'retry', repo: '{r}', primary, alert, surface: 'home' })
 const input = (subject: string | null, over: Partial<QuestionInput> = {}): QuestionInput => ({
   ...IMPLEMENT,
   key: subject ?? '',
@@ -311,60 +304,6 @@ describe('the plain question (no subject)', () => {
   })
 })
 
-describe('wardenQuestionForms', () => {
-  const forms = (
-    primary: Parameters<typeof wardenQuestionForms>[0]['primary'],
-    { failed = false, repo = '{r}' as string | null, alert = false } = {},
-  ) => wardenQuestionForms({ failed, repo, primary, alert })
-
-  it('takes the verb the card offers first; with no subject the plain form names the repo', () => {
-    expect(forms('merge')).toEqual({ plain: 'Merge {r} PR', stem: 'Merge PR', terse: 'Merge' })
-    expect(forms('implement')).toMatchObject({
-      plain: 'Implement {r} change',
-      stem: 'Implement change',
-    })
-    expect(forms('reinvestigate').stem).toBe('Re-investigate item')
-    expect(forms('merge', { repo: null }).plain).toBe('Merge this PR')
-  })
-
-  it('says Retry failed run only for a failed item whose primary is retry', () => {
-    expect(forms('retry', { failed: true })).toMatchObject({
-      plain: 'Retry failed {r} run',
-      stem: 'Retry failed run',
-    })
-    expect(forms('retry', { failed: true, repo: null }).plain).toBe('Retry failed run')
-    expect(forms('retry').stem).toBe('Retry item')
-  })
-
-  it('is neutral when the primary is not a verb that names a question', () => {
-    expect(forms('dismiss', { failed: true }).stem).toBe('Decide on item')
-    expect(forms(null, { failed: true, repo: null })).toEqual({
-      plain: 'Decide on this item',
-      stem: 'Decide on item',
-      terse: 'Decide',
-    })
-  })
-
-  it('asks about an alert in the verb its button carries, never as a change', () => {
-    expect(forms('implement', { alert: true })).toEqual({
-      plain: 'Implement fix for {r} alert',
-      stem: 'Implement fix for alert',
-      terse: 'Implement fix',
-    })
-    expect(forms('dismiss', { alert: true }).stem).toBe('Dismiss alert')
-    expect(forms('note', { alert: true }).stem).toBe('Add a note to alert')
-    expect(forms(null, { alert: true }).stem).toBe('Decide on alert')
-  })
-
-  it('asks every Home question as `Decide on`, the only thing its Open-in-Warden button leads to', () => {
-    expect(home('implement').stem).toBe('Decide on change')
-    expect(home('retry').stem).toBe('Decide on failed run')
-    expect(home('merge').stem).toBe('Decide on PR')
-    expect(home('implement', true).stem).toBe('Decide on alert')
-    expect(home('implement').terse).toBe('Decide')
-  })
-})
-
 describe('questionTitles: the rule', () => {
   it('1. uses a producer question verbatim', () => {
     expect(questionTitle(input('Disk full', { fixed: '  Ship   it now? ' }))).toBe('Ship it now?')
@@ -469,7 +408,7 @@ describe('questionTitles: the rule', () => {
   })
 
   it('4. gives a commit label back only when it is all that tells two titles apart', () => {
-    const forms = wardenQuestionForms({ failed: false, repo: 'r', primary: 'implement' })
+    const forms = questionForms('Implement', 'change', 'r')
     const copies = surfaceCopies(
       ['fix(scope-a): export drops rows', 'fix(scope-b): export drops rows', 'ci: cache key'].map(
         (title, i) => ({ key: String(i), title, forms }),
@@ -567,39 +506,6 @@ describe('subjectOf: title noise', () => {
   })
 })
 
-describe('one retry shape', () => {
-  const retry = (alert: boolean, surface: 'warden' | 'home' = 'warden') =>
-    wardenQuestionForms({ failed: true, repo: '{r}', primary: 'retry', alert, surface })
-  it('asks `Retry failed run: …` and `Retry failed alert: …` alike', () => {
-    expect(questionTitle(input('{subject} here', retry(false)))).toBe(
-      'Retry failed run: {subject} here?',
-    )
-    expect(questionTitle(input('{monitor} Down timeout', retry(true)))).toBe(
-      'Retry failed alert: {monitor} Down timeout?',
-    )
-    expect(questionTitle(input(null, retry(true)))).toBe('Retry failed {r} alert?')
-    expect(questionTitle(input(null, retry(false)))).toBe('Retry failed {r} run?')
-    expect(questionTitle(input('{monitor} Down', retry(true, 'home')))).toBe(
-      'Decide on failed alert: {monitor} Down?',
-    )
-  })
-  it('never says `failed` twice when the subject opens with it', () => {
-    expect(questionTitle(input('failed to build the {x} image', retry(false)))).toBe(
-      'Retry: failed to build the {x} image?',
-    )
-    expect(questionTitle(input('Failing probe on {host}', retry(true)))).toBe(
-      'Retry: Failing probe on {host}?',
-    )
-    expect(questionTitle(input('failed to build the {x} image', retry(false, 'home')))).toBe(
-      'Decide: failed to build the {x} image?',
-    )
-    // A subject that does not open with it keeps the whole stem.
-    expect(questionTitle(input('rebuild {x} after failure', retry(false)))).toBe(
-      'Retry failed run: rebuild {x} after failure?',
-    )
-  })
-})
-
 describe('rule 5: the evidence line never restates the title', () => {
   it('takes the next sentence when the title said the first one whole', () => {
     const copy = cardCopy({
@@ -659,29 +565,6 @@ describe('rule 5: the evidence line never restates the title', () => {
   })
 })
 
-describe('withoutRepeatedEvidence', () => {
-  it('keeps a shared line on the first card in display order only, the rest behind the disclosure', () => {
-    const cards: { evidenceLine: string | null; detail: string | null }[] = [
-      { evidenceLine: 'Same note.', detail: null },
-      { evidenceLine: 'Own fact.', detail: null },
-      { evidenceLine: 'same note.', detail: 'same note. More.' },
-    ]
-    expect(withoutRepeatedEvidence(cards, [2, 0, 1])).toEqual([
-      { evidenceLine: null, detail: 'Same note.' },
-      { evidenceLine: 'Own fact.', detail: null },
-      { evidenceLine: 'same note.', detail: 'same note. More.' },
-    ])
-  })
-
-  it('leaves a card outside the order alone', () => {
-    const cards = [
-      { evidenceLine: 'No blocker reported.', detail: null },
-      { evidenceLine: 'No blocker reported.', detail: null },
-    ]
-    expect(withoutRepeatedEvidence(cards, [0])).toEqual(cards)
-  })
-})
-
 describe('isAlert', () => {
   it('prefers the explicit kind field over the title', () => {
     expect(isAlert({ kinds: ['alert'], title: 'Disk full' })).toBe(true)
@@ -708,40 +591,15 @@ describe('isAlert', () => {
   })
 })
 
-// ── The table: every card of a live snapshot, anonymised (__fixtures__/question-rung.ts) ──────
+// ── The table: every ask of a live snapshot, anonymised (__fixtures__/question-rung.ts) ──────
 
 const NOW = Date.parse('2026-10-18T12:00:00Z')
-const raw = {
-  board: {
-    awaiting_owner: WARDEN_ROWS.map((row, i) => ({
-      event_id: row.id,
-      state: row.state,
-      repo: row.repo,
-      title: row.title,
-      reason: row.reason,
-      availableActions: row.actions,
-      age_days: (WARDEN_ROWS.length - i) / 4,
-    })),
-    items: WARDEN_ROWS.map((row) => ({ event_id: row.id, state: row.state, origin: row.origin })),
-  },
-  items: {},
-} as unknown as WardenRaw
 const asks = ASK_ROWS.map((ask, i) => ({
   ...ask,
   askedAt: new Date(NOW - (i + 1) * 3_600_000).toISOString(),
 }))
 
-const view = deriveAwaitingOwner(raw.board, raw.items)
-const entries = [
-  ...needsCards(view).map((row) => ({ row, kind: 'decision' as const })),
-  ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
-]
-const wardenCards = resolveQueueAsks(entries).map((ask, i) => ({
-  id: entries[i]!.row.eventId,
-  copy: ask.copy,
-}))
 const homeCards = deriveDecisions({
-  warden: raw,
   agents: { humanQueue: asks } as unknown as OverviewSnapshot,
   now: NOW,
 })
@@ -753,26 +611,6 @@ const titleOf = <T>(list: readonly T[], find: (item: T) => boolean, read: (item:
 }
 
 describe('the question table (live snapshot, anonymised)', () => {
-  for (const row of WARDEN_ROWS) {
-    it(`warden #${row.id}: ${row.expected.warden}`, () => {
-      expect(
-        titleOf(
-          wardenCards,
-          (c) => c.id === row.id,
-          (c) => c.copy.question,
-        ),
-      ).toBe(row.expected.warden)
-    })
-    it(`home #${row.id}: ${row.expected.home}`, () => {
-      expect(
-        titleOf(
-          homeCards,
-          (d) => d.id === `warden-${row.id}`,
-          (d) => d.headline,
-        ),
-      ).toBe(row.expected.home)
-    })
-  }
   for (const ask of ASK_ROWS) {
     it(`agents ${ask.id}: ${ask.expected.agents}`, () => {
       expect(
@@ -795,7 +633,6 @@ describe('the question table (live snapshot, anonymised)', () => {
   }
 
   const surfaces = {
-    warden: wardenCards.map((c) => ({ question: c.copy.question, evidence: c.copy.evidenceLine })),
     home: homeCards.map((d) => ({ question: d.headline, evidence: d.evidenceLine })),
     agents: agentCards.map((c) => ({ question: c.question, evidence: c.evidenceLine })),
   }
@@ -822,55 +659,6 @@ describe('the question table (live snapshot, anonymised)', () => {
 
   it('home: a question never promises a verb its Open button does not do', () => {
     for (const d of homeCards) expect(d.headline).not.toMatch(/^(?:Implement|Retry|Merge|Answer)\b/)
-  })
-
-  it('home: a reason that is one long question is the card’s evidence line; a repeat of it is printed once', () => {
-    const lineOf = (id: number) => homeCards.find((d) => d.id === `warden-${id}`)?.evidenceLine
-    // #2's whole reason is one over-long question: it is the evidence, not only the disclosure.
-    expect(lineOf(2)).toStartWith('Reclaim space by pruning')
-    expect(lineOf(3)).toStartWith('Kezub lezub make logs/verify')
-    // Alerts that share one reason word for word: only the first in display order keeps the line.
-    const reason = WARDEN_ROWS.find((r) => r.id === 21)!.reason
-    const shared = WARDEN_ROWS.filter((r) => r.reason === reason)
-    expect(shared.length).toBeGreaterThan(1)
-    expect(shared.map((r) => lineOf(r.id)).filter((line) => line !== null)).toHaveLength(1)
-  })
-
-  it('warden: a CI-failed card never offers Merge, and its evidence reads as clauses', () => {
-    const ci = resolveQueueAsks(entries).find((_, i) => entries[i]!.row.eventId === 32)!
-    expect(ci.plan).toMatchObject({ primary: 'retry', secondary: 'dismiss' })
-    expect(ci.plan.menu).not.toContain('merge')
-    expect(ci.copy.evidenceLine).toEndWith('; PR\u00a0left\u00a0open')
-    expect(ci.copy.evidenceLine).not.toContain('— ')
-  })
-
-  it('warden: shared evidence lines are printed once', () => {
-    const lines = surfaces.warden.flatMap((c) => (c.evidence === null ? [] : [c.evidence]))
-    expect(new Set(lines).size).toBe(lines.length)
-  })
-})
-
-describe('the apart table (synthetic siblings)', () => {
-  const asks = resolveQueueAsks(
-    APART_ROWS.map((row) => ({
-      kind: 'decision' as const,
-      row: {
-        eventId: row.id,
-        repo: 'repo-x',
-        title: row.title,
-        origin: row.origin,
-        reason: 'Evidence.',
-        question: null,
-        availableActions: ['implement', 'dismiss'],
-        failedFrom: null,
-      } as unknown as Parameters<typeof resolveQueueAsks>[0][number]['row'],
-    })),
-  )
-  APART_ROWS.forEach((row, i) => {
-    it(`#${row.id}: ${row.expected}`, () => {
-      expect(asks[i]!.copy.question).toBe(row.expected)
-      expect(asks[i]!.copy.question).not.toMatch(/\(\d+\)\?$/)
-    })
   })
 })
 
@@ -900,7 +688,7 @@ describe('named regressions', () => {
       ].map((title, i) => ({
         key: String(i),
         title,
-        forms: wardenQuestionForms({ failed: false, repo: 'repo-a', primary: 'implement' }),
+        forms: questionForms('Implement', 'change', 'repo-a'),
       })),
     ).map((c) => c.question)
     for (const q of changes) {

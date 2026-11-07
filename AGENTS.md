@@ -46,20 +46,7 @@ jsonb, loosely validated, same snapshot store as the overview (`agent_review_sta
 (`/agent-performance`, `docs/design/agent-performance.md`) reads both through Eden and shows an honest "not pushed yet" state
 until agent-workflows pushes review stats.
 
-## Warden — the control-plane board
-
-`POST /warden/snapshot` ingests a JSON snapshot pushed by Warden (the mini's deterministic loop
-over its own SQLite ledger) after every loop tick, roughly every 10 minutes — Argo
-holds only the pushed copy of that ledger. `GET /warden/snapshot[?machine=]` reads the latest push back.
-Same contract as Agents: raw jsonb, validated loosely, 7-day retention pruned on ingest, Argo
-derives nothing. The payload carries health/poller liveness, the six funnel metrics (each leaf a
-`{value, unavailable}` pair — `value: null` always pairs with a non-empty `unavailable` reason,
-**never** rendered as 0), the board (state counts + open items), the dispatch budget, per-item
-timelines (transitions, dispatches, operations). The dashboard's **System → Warden** page
-(`/warden`) is the one surface for all of it: a summary sentence and health strip, "Needs you"
-(`needs_decision`) and "Failed" decision cards (one primary, one secondary, the other verbs in a
-menu), then one board where every other item appears exactly once (`docs/design/warden.md`). Table owner:
-`apps/api/src/db/schema.ts` (`warden_snapshots`).
+Warden was switched off 2026-10-27 and its API is gone; the `warden_snapshots` and `warden_actions` tables are left in the `argo` schema, unused, pending a cleanup migration.
 
 ## Slack
 
@@ -211,7 +198,7 @@ printed or written; the run aborts unless it authenticates), then runs the bundl
 lighthouse (median of 3) lanes. Output: `docs/waves/evidence/<l>.md`; raw screenshots and Lighthouse
 JSON land in the gitignored `docs/waves/evidence/.raw/<l>/`. Needs `secrets-run` and a locally installed Google Chrome. Code: `scripts/evidence/`.
 
-`make design-shot [ROUTES="/agents /warden"] [LABEL=<l>] [SKIP_BUILD=1]` is the redesign loop's shot harness: same
+`make design-shot [ROUTES="/agents /usage-tracking"] [LABEL=<l>] [SKIP_BUILD=1]` is the redesign loop's shot harness: same
 GET-only production proxy as `make evidence` (the guarantee assumes dashboard GET endpoints are side-effect-free), every
 route (default `scripts/evidence/routes.txt`) × dark/light × desktop 1440 / mobile 390 at DPR 2, plus one crop per
 desktop card/table, into `.design-shots/<label>/` with an `index.html` board and `manifest.json`. The shots show real

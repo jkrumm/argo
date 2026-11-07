@@ -1,11 +1,10 @@
 import { NBSP, glue, withUnit } from '../../lib/format'
-import { Box, Text } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { DayAxis } from './strip-visuals'
 import { Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { OverviewSummary } from '../../lib/queries/agents'
-import type { WardenBudget } from '../../lib/queries/warden'
 import { clockOf, noSnapshotText, type FleetPart } from '../agents/model'
 import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
@@ -24,12 +23,6 @@ import {
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
 import {
-  BUDGET_MISSING,
-  BUDGET_NO_SNAPSHOT,
-  deriveBudget,
-  pollerAgeText,
-} from '../warden/page-model'
-import {
   countdownLabel,
   localKey,
   meetingState,
@@ -45,8 +38,6 @@ import {
 } from './model'
 import classes from './home.module.css'
 
-/** The budget track runs past the cap so an overrun is visible; the tick marks the cap itself. */
-const BUDGET_HEADROOM = 1.25
 /** The recovery sparkline's ink: a trend, not a verdict (`Meter` has `tone="muted"` for its own fill). */
 const MUTED_FILL = alpha(VX.muted, 0.35)
 
@@ -92,95 +83,6 @@ export function agentsCell(
         startCaption={null}
       />
     ),
-  }
-}
-
-// ── Dispatch budget ──────────────────────────────────────────────────────────────────────────
-
-/** The Warden read as the cell sees it: a snapshot, or why there is none (`sourceStatus`). */
-export type WardenFeed = 'ready' | 'loading' | 'failed' | 'no-snapshot'
-
-/** What the budget meter's slot says when there is no meter: the feed's own gap, else the budget's. */
-const budgetGap = (feed: WardenFeed): string =>
-  feed === 'no-snapshot'
-    ? BUDGET_NO_SNAPSHOT
-    : feed === 'failed'
-      ? 'Warden failed to load — reload to retry'
-      : feed === 'loading'
-        ? 'Loading'
-        : BUDGET_MISSING.short
-
-type Poller = { name: string; ageMin: number; stale: boolean } | undefined
-
-/** The cell shows its worded reason in the value's place: no count to show and the feed is not still loading. */
-const budgetIsEmpty = (budget: WardenBudget | undefined, feed: WardenFeed): boolean =>
-  (deriveBudget(budget)[0]?.used ?? null) === null && feed !== 'loading'
-
-const pollerFact = (poller: Poller) => (
-  <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
-    {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
-  </Text>
-)
-
-export function budgetCell(
-  budget: WardenBudget | undefined,
-  poller: Poller,
-  feed: WardenFeed,
-): StatStripCell {
-  const dispatch = deriveBudget(budget)[0]
-  const used = dispatch?.used ?? null
-  const max = dispatch?.max ?? null
-  return {
-    key: 'budget',
-    caption: 'Dispatch · today',
-    value: used === null ? null : String(used),
-    ...(max !== null && { unit: `/ ${max}` }),
-    visual:
-      used !== null && max !== null && max > 0 ? (
-        <Meter
-          label="Dispatches today against the daily cap"
-          value={used}
-          max={max * BUDGET_HEADROOM}
-          target={max}
-          format={(v) => String(Math.round(v))}
-          startCaption={null}
-          endCaption={`cap ${max}`}
-          {...(dispatch?.warn ? { color: VX.warn } : { tone: 'muted' as const })}
-        />
-      ) : used === null && feed === 'loading' ? (
-        <Text size="sm" c="dimmed">
-          {budgetGap(feed)}
-        </Text>
-      ) : undefined,
-    // A cell with no count keeps the figure slot (`—`, like the Warden strip's not-reported cells) and
-    // the reason rides its footer, so the strip's rows align. With no budget and no poller there is no
-    // snapshot: the reason alone says what to wait for. A known count with no usable cap keeps its
-    // value and says the cap is missing.
-    ...(budgetIsEmpty(budget, feed)
-      ? {
-          footer: (
-            <>
-              <Text span size="sm" c="dimmed">
-                {budgetGap(feed)}
-              </Text>
-              {feed !== 'no-snapshot' && (poller !== undefined || budget !== undefined) ? (
-                <> {pollerFact(poller)}</>
-              ) : null}
-            </>
-          ),
-        }
-      : (poller !== undefined || budget !== undefined) && {
-          footer: (
-            <>
-              {used !== null && !(max !== null && max > 0) ? (
-                <Text span size="sm" c="dimmed">
-                  {BUDGET_MISSING.short}{' '}
-                </Text>
-              ) : null}
-              {pollerFact(poller)}
-            </>
-          ),
-        }),
   }
 }
 

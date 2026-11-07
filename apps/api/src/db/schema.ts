@@ -515,48 +515,22 @@ export const agentNarrative = argoSchema.table('agent_narratives', {
     .defaultNow(),
 })
 
-// ── Warden (control-plane board) ──────────────────────────────────────────
-//
-// warden (the mini's deterministic loop over its own SQLite ledger) pushes a
-// full JSON snapshot after every loop tick — health, the six funnel metrics,
-// the board (counts + open items), the dispatch budget, and per-item
-// timelines. Argo stores it raw and derives nothing, same
-// contract as `agentOverviewSnapshot` above: latest snapshot per machine plus
-// a 7-day history, pruned on ingest.
+// Warden was switched off 2026-10-27. No route reads or writes `warden_snapshots` or
+// `warden_actions` below; the tables stay (with their stored rows) until a later cleanup
+// migration drops them.
 
 export const wardenSnapshot = argoSchema.table('warden_snapshots', snapshotColumns(), (t) => [
   index('idx_warden_machine_received').on(t.machine, t.received_at.desc()),
 ])
 
-// Review stats pushed by agent-workflows (`agw review stats`), raw jsonb like warden_snapshots.
+// Review stats pushed by agent-workflows (`agw review stats`), raw jsonb like agentOverviewSnapshot.
 export const agentReviewStatsSnapshot = argoSchema.table(
   'agent_review_stats_snapshots',
   snapshotColumns(),
   (t) => [index('idx_agent_review_stats_machine_received').on(t.machine, t.received_at.desc())],
 )
 
-// ── Warden owner action queue ─────────────────────────────────────────────
-//
-// Warden is loopback-only on the mini and pulls rather than being pushed to
-// (same reason it pushes its own board snapshot above instead of Argo
-// reaching in). The owner clicks an action against a board item on Argo's
-// /warden page; that queues a row here. Warden's loop polls
-// GET /warden/actions for its machine's pending rows before every tick's own
-// snapshot push, applies each one against its ledger (verb-level validation
-// and every state transition are entirely warden's — this table only carries
-// the request and its eventual outcome), and reports back via
-// POST /warden/actions/:id/ack. See warden/docs/api.md § Argo push and
-// scripts/clients/argo.py's fetch_actions()/ack_action().
-//
-// `status` includes 'pulled' — an internal-only transient value never
-// returned by any route response. GET /warden/actions atomically flips
-// pending rows to 'pulled' (an UPDATE...RETURNING, not a plain SELECT) so
-// two overlapping warden polls can never both fetch the same row and
-// double-apply a non-idempotent verb; `pulled_at` past PULL_CLAIM_LEASE_MS
-// (warden.ts) is treated as an abandoned claim and reclaimed. Rows are kept
-// forever, not pruned like wardenSnapshot above — this is a low-volume,
-// owner-triggered queue, not a 10-minutes-forever feed, and the acked
-// history doubles as an audit trail.
+// Unused since Warden was switched off 2026-10-27; see the note above wardenSnapshot.
 
 export const wardenAction = argoSchema.table(
   'warden_actions',

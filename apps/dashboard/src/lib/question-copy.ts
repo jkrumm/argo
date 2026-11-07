@@ -7,9 +7,8 @@ import {
   stripShortcodes,
 } from './text'
 import { glue, unglue } from './format'
-import type { WardenActionVerb } from './queries/warden'
 
-// THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
+// THE question rule for every decision surface (Agents, Home): one ladder, one place.
 // Pure and React-free. The card's presentational model stays in components/upstream.
 
 /** A question longer than this reads as prose, not a title. */
@@ -128,7 +127,7 @@ function withoutEchoTail(sentence: string): string {
   return subject?.toLowerCase() === word.toLowerCase() ? `${head}${end}` : sentence
 }
 
-/** The one short phrase Warden appends to a failure; glued so a wrap never strands `open`. */
+/** A short closing phrase of a failure reason; glued so a wrap never strands `open`. */
 const PR_LEFT_OPEN = 'PR left open'
 
 /**
@@ -239,8 +238,6 @@ export type QuestionForms = {
   stem: string
   /** The shortest honest head, for siblings that need the room: `Implement`. */
   terse: string
-  /** The stem already says `failed` (`Retry failed run`): a subject that opens with `fail…` takes the terse head. */
-  stemSaysFailed?: boolean
 }
 
 export type QuestionInput = QuestionForms & {
@@ -268,9 +265,7 @@ function compose(
   ordinal: number | null,
 ): QuestionTitle {
   const tail = ordinal === null ? '' : ` (${ordinal})`
-  // `Retry failed run: failed to build …` says the word twice: the terse head carries the verb alone.
-  const doubled = input.stemSaysFailed === true && /^fail/i.test(input.subject ?? '')
-  const stem = flatten(head === 'stem' && !doubled ? input.stem : input.terse)
+  const stem = flatten(head === 'stem' ? input.stem : input.terse)
   // The tail's room is reserved first, so an ordinal is never the part that goes.
   const room = QUESTION_MAX - 1 - tail.length - stem.length - 2
   const lead = input.subject === null ? null : subjectLead(input.subject, room)
@@ -602,7 +597,7 @@ function finishCopy(input: CardInput, source: CardCopySource, title: QuestionTit
 }
 
 /**
- * The copy of every card on ONE surface (Home's inbox, the Warden page, Agents needs-you — never
+ * The copy of every card on ONE surface (Home's inbox, Agents needs-you — never
  * app-wide), in input order: the question by {@link questionTitles}, then the entity, the evidence
  * line and the detail around it. Whatever did not become the question (`body`, a statement `ask`,
  * a long authored question) is the evidence line / detail.
@@ -626,55 +621,6 @@ export function cardCopy(input: Omit<CardInput, 'key'> & { key?: string }): Card
   return surfaceCopies([{ key: '', ...input }])[0]!
 }
 
-/** What a card shows of its reason: the line, and the whole text behind the disclosure. */
-type Evidence = { evidenceLine: string | null; detail: string | null }
-
-/**
- * Cards whose evidence lines read the same word for word tell nothing apart: only the first in
- * `order` (display order, indices into `cards`; default input order) keeps the line, the others drop
- * it and keep the whole text behind their disclosure. A `null` line is never a group; a card outside
- * `order` is left as it is.
- */
-export function withoutRepeatedEvidence<T extends Evidence>(
-  cards: readonly T[],
-  order: readonly number[] = cards.map((_, i) => i),
-): T[] {
-  const seen = new Set<string>()
-  const result = [...cards]
-  for (const i of order) {
-    const card = cards[i]!
-    const line = card.evidenceLine
-    if (line === null) continue
-    const key = line.toLowerCase()
-    if (!seen.has(key)) {
-      seen.add(key)
-      continue
-    }
-    result[i] = { ...card, evidenceLine: null, detail: card.detail ?? line }
-  }
-  return result
-}
-
-// ── Warden ───────────────────────────────────────────────────────────────────────────────────
-
-/** The noun a Warden card asks about per primary verb: `<verb> <noun>: <subject>?`. */
-const WARDEN_ASK: Partial<Record<WardenActionVerb, readonly [verb: string, noun: string]>> = {
-  merge: ['Merge', 'PR'],
-  implement: ['Implement', 'change'],
-  reinvestigate: ['Re-investigate', 'item'],
-  retry: ['Retry', 'item'],
-}
-
-/** What an alert asks for per primary verb: the verb the card's button carries. */
-const ALERT_VERB: Record<WardenActionVerb, string> = {
-  implement: 'Implement fix for',
-  merge: 'Merge fix for',
-  reinvestigate: 'Re-investigate',
-  retry: 'Retry',
-  dismiss: 'Dismiss',
-  note: 'Add a note to',
-}
-
 /**
  * Whether an item is an alert, incident or outage. A title the producer tagged `[alert]` is one; else
  * the first explicit kind field (`origin`, `kind`, `type`) decides — a `github_issue` titled
@@ -694,60 +640,4 @@ export function isAlert({
   const explicit = kinds.map((k) => asText(k).trim()).find((k) => k !== '')
   if (explicit !== undefined) return ALERT_WORD.test(explicit)
   return ALERT_TITLE_PREFIX.test(text)
-}
-
-/** What a Warden question is about: one shape for a retry (`failed run` / `failed alert`), else the alert, else the verb's noun. */
-function askedNoun({
-  alert,
-  failedRun,
-  fallback,
-}: {
-  alert: boolean
-  failedRun: boolean
-  fallback: string
-}): string {
-  if (failedRun) return alert ? 'failed alert' : 'failed run'
-  return alert ? 'alert' : fallback
-}
-
-/**
- * The question forms of a Warden item from the verb its card offers first (`Merge PR: {subject}?`,
- * `Merge {repo} PR?` with no subject). `Retry failed run` only for a failed item whose primary is
- * retry; any other verb (or none) is neutral (`Decide on`), so a question never promises an action
- * the card does not carry. An `alert` is asked about as an alert in the verb its button carries
- * (`Implement fix for alert: {subject}?`), never as a change. On `home`, whose only button opens the
- * item in Warden, every question is `Decide on {noun}`: it names what to decide, never a verb the
- * card cannot do.
- */
-export function wardenQuestionForms({
-  failed,
-  repo,
-  primary,
-  alert = false,
-  surface = 'warden',
-}: {
-  failed: boolean
-  repo: string | null
-  primary: WardenActionVerb | null
-  alert?: boolean
-  surface?: 'warden' | 'home'
-}): QuestionForms {
-  const where = stripShortcodes(asText(repo))
-  const entry = primary === null ? undefined : WARDEN_ASK[primary]
-  const failedRun = failed && primary === 'retry'
-  const noun = askedNoun({ alert, failedRun, fallback: entry?.[1] ?? 'item' })
-  const verb =
-    surface === 'home' || primary === null
-      ? 'Decide on'
-      : alert
-        ? ALERT_VERB[primary]
-        : (entry?.[0] ?? 'Decide on')
-  const forms = questionForms(verb, noun, where)
-  return failedRun
-    ? {
-        ...forms,
-        plain: `${verb} failed ${where === '' ? '' : `${where} `}${alert ? 'alert' : 'run'}`,
-        stemSaysFailed: true,
-      }
-    : forms
 }

@@ -13,14 +13,10 @@ import {
   unknownPhrase,
 } from './model'
 import { StatusChip } from '../agents/status-chip'
-import { BreakableTitle } from '../warden/breakable-title'
-import { HistoryPreview } from '../warden/history-preview'
-import { historyView } from '../warden/page-model'
+import { BreakableTitle } from '../../components/breakable-title'
 
-/** Cards shown before the rest is left to the Agents and Warden pages. */
+/** Cards shown before the rest is left to the Agents page. */
 const CARD_LIMIT = 3
-
-const PAGE_LABEL = { '/agents': 'Agents', '/warden': 'Warden' } as const
 
 type Props = {
   decisions: readonly Decision[]
@@ -32,12 +28,12 @@ type Props = {
   noSnapshot: readonly string[]
 }
 
-const COPY_LABEL = { queue: 'Copy command', agent: 'Copy blocker', warden: 'Copy PR link' } as const
+const COPY_LABEL = { queue: 'Copy command', agent: 'Copy blocker' } as const
 
 /**
  * The card's two actions, explicit. A human-queue ask leads with the command it carries (copying is
  * the in-place verb) and opens its page second; an agent leads with opening and offers its blocker
- * to copy, a Warden item its PR link; with nothing to copy, opening is the one action.
+ * to copy; with nothing to copy, opening is the one action.
  */
 function actionsFor(
   source: Decision['source'],
@@ -52,20 +48,17 @@ function actionsFor(
 
 function Card({ decision }: { decision: Decision }) {
   const open: DecisionCardAction = {
-    label: `Open in ${PAGE_LABEL[decision.href]}`,
+    label: 'Open in Agents',
     href: decision.href,
   }
   const copy = useCopyAction(COPY_LABEL[decision.source], decision.evidence)
   const actions = actionsFor(decision.source, open, copy)
-  const view = historyView(decision.history, 'leading')
   return (
     <DecisionCard
       question={decision.headline}
       facts={decision.facts}
       evidenceLine={decision.evidenceLine}
       subject={decision.entity ? <BreakableTitle text={decision.entity} /> : null}
-      {...(view !== null && { preview: <HistoryPreview view={view} hanging /> })}
-      {...(view?.layout === 'inline' && { previewPlacement: 'inline' as const })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(decision.detail !== null && {
         disclosure: {
@@ -79,7 +72,7 @@ function Card({ decision }: { decision: Decision }) {
 }
 
 /**
- * The merged inbox: the first {@link CARD_LIMIT} decisions as cards, then one `{n} more on/in {page}` button
+ * The merged inbox: the first {@link CARD_LIMIT} decisions as cards, then one `{n} more on {page}` button
  * per page that owns each remaining item. The heading count is the whole list, not the cards shown.
  */
 export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props) {
@@ -89,7 +82,6 @@ export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props)
   const unknown = allUnknown(sources)
   const phrase = unknownPhrase(unavailable, loading, noSnapshot)
   const emptyBody = needsYouEmptyBody(sources)
-  const restBy = (href: Decision['href']) => rest.filter((d) => d.href === href).length
   return (
     <Section title="Needs you" {...(unknown ? { value: '—' } : { count: decisions.length })}>
       <Stack gap="sm" data-shot="needs-you" data-shot-states="empty">
@@ -110,20 +102,9 @@ export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props)
         )}
         {rest.length > 0 ? (
           <Group gap="xs" data-shot="show-more" data-shot-absent="empty">
-            {(['/agents', '/warden'] as const).map((href) =>
-              restBy(href) > 0 ? (
-                <Button
-                  key={href}
-                  component={Link}
-                  to={href}
-                  variant="subtle"
-                  color="gray"
-                  size="compact-sm"
-                >
-                  {restLabel(href, restBy(href))}
-                </Button>
-              ) : null,
-            )}
+            <Button component={Link} to="/agents" variant="subtle" color="gray" size="compact-sm">
+              {restLabel('/agents', rest.length)}
+            </Button>
           </Group>
         ) : null}
         {decisions.length > 0 && phrase !== '' ? (

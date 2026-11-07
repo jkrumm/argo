@@ -1,13 +1,12 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
 import { NO_SNAPSHOT_SHORT, clockTime, dayLabel, headlineOf } from '../agents/model'
 import type { Narrative } from '../../lib/queries/agents'
-import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
-import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
+import { NBSP, formatDuration, withUnit } from '../../lib/format'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { applyVisibilityFilter } from '../garmin-health/visibility'
-import { leadOf, subjectOf } from '../../lib/question-copy'
+import { leadOf } from '../../lib/question-copy'
 import { CANCELLED_PREFIX } from '../calendar/derive'
 import { FACT_SEPARATOR } from '../../lib/text-breaks'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
@@ -331,17 +330,17 @@ export function acwrReading(
 export type ActivityEvent = {
   key: string
   ms: number
-  actor: 'warden' | 'narrator' | 'calendar'
-  /** Line 1: the verb and its subject (a Warden row's own item title); wraps at its spaces, never cut. */
+  actor: 'narrator' | 'calendar'
+  /** Line 1: the verb and its subject; wraps at its spaces, never cut. */
   title: string
-  /** Line 2, muted: the end of the story (a transition path, a dispatch): always rendered whole, never clipped. */
+  /** Line 2, muted: the end of the story: always rendered whole, never clipped. */
   outcome?: string
-  /** The entity chip on line 2 (a project, a Warden item's repo): the one part that may ellipsize. */
+  /** The entity chip on line 2 (a project): the one part that may ellipsize. */
   chip?: string
 }
 
-/** Where a remaining decision waits: Agents holds the agents and the human queue, Warden its items. */
-const REST_PLACE = { '/agents': 'on Agents', '/warden': 'in Warden' } as const
+/** Where a remaining decision waits: Agents holds the agents and the human queue. */
+const REST_PLACE = { '/agents': 'on Agents' } as const
 
 /**
  * The show-more button for the `count` decisions beyond the cards, worded as the remainder (the
@@ -352,97 +351,6 @@ export const restLabel = (href: keyof typeof REST_PLACE, count: number): string 
 
 /** Rows older than the start of yesterday are history, not "today's stream". */
 const activityHorizon = (now: number) => addDays(startOfDayDate(now), -1).getTime()
-
-type Bag = Record<string, unknown>
-const bag = (v: unknown): Bag | undefined =>
-  v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Bag) : undefined
-const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
-
-/** Steps on one item closer together than this are one burst: one feed row, not one per step. */
-const BURST_GAP_MS = 10 * MIN_MS
-
-type Step = { ms: number; from: string | null; to: string | null; dispatch: string | null }
-
-/** A state as one unbreakable phrase: `needs decision` never splits across lines. */
-const stateLabel = (s: string) => s.replaceAll('_', NBSP)
-
-/** Words of one phrase joined by no-break spaces, so a narrow row wraps between phrases, never inside one. */
-const gluePhrase = (text: string): string => text.replace(/ +/g, NBSP)
-
-/** `new → working`: where a burst started and where it ended; the steps between sit in the item's timeline. */
-function pathOf(steps: readonly Step[]): string {
-  const states: string[] = []
-  const push = (s: string | null) => {
-    if (s !== null && states.at(-1) !== s) states.push(stateLabel(s))
-  }
-  const first = steps.find((s) => s.to !== null)
-  push(first?.from ?? null)
-  for (const step of steps) push(step.to)
-  const ends = states.length > 2 ? [states[0]!, states.at(-1)!] : states
-  return ends.join(ARROW)
-}
-
-/**
- * Warden's transitions and dispatches from the snapshot's per-event timelines, one row per burst
- * on an item (steps within {@link BURST_GAP_MS} of the previous one), timed at the last step.
- */
-export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[] {
-  const items = raw?.items
-  if (!items) return []
-  const boardItems = new Map((raw?.board?.items ?? []).map((i) => [String(i.event_id), i]))
-  const out: ActivityEvent[] = []
-  for (const [eventId, timeline] of Object.entries(items)) {
-    const board = boardItems.get(eventId)
-    const itemBag = bag(bag(timeline)?.['item'])
-    const rawRepo = board?.repo ?? str(itemBag?.['repo'])
-    const rawTitle = board?.title ?? str(itemBag?.['title'])
-    // Cleaned once, where the item is read, so every row built from it renders a clean string.
-    const repo = rawRepo === null ? null : stripShortcodes(rawRepo) || null
-    // The cards' subject rule (`subjectOf`): shortcodes, a commit label and a monitor's `[…]` prefix are dropped, as on the Warden cards.
-    const itemTitle = rawTitle === null ? null : subjectOf(rawTitle)
-    const steps: Step[] = []
-    for (const t of timeline.transitions ?? []) {
-      const row = bag(t)
-      const at = parseMs(str(row?.['at']))
-      const to = str(row?.['to_state'])
-      if (at === null || to === null || row?.['synthetic'] === true) continue
-      steps.push({ ms: at, from: str(row?.['from_state']), to, dispatch: null })
-    }
-    for (const d of timeline.dispatches ?? []) {
-      const row = bag(d)
-      const at = parseMs(str(row?.['created_at']))
-      if (at === null) continue
-      const label = [str(row?.['tier']), str(row?.['status'])].filter(Boolean).join(' ')
-      steps.push({ ms: at, from: null, to: null, dispatch: label || 'dispatch' })
-    }
-    steps.sort((a, b) => a.ms - b.ms)
-    const bursts: Step[][] = []
-    for (const step of steps) {
-      const last = bursts.at(-1)
-      if (last && step.ms - (last.at(-1)?.ms ?? 0) <= BURST_GAP_MS) last.push(step)
-      else bursts.push([step])
-    }
-    for (const [i, burst] of bursts.entries()) {
-      const path = pathOf(burst)
-      const dispatches = burst.flatMap((s) => (s.dispatch ? [s.dispatch] : []))
-      const verb = path ? 'moved' : 'dispatched'
-      // The item's own title is the subject; the repo is its chip. With no title the repo names the item in the sentence.
-      const title = itemTitle ? `${verb} ${itemTitle}` : `${verb}${repo ? ` ${repo}` : ''} item`
-      const outcome = [path, dispatches.map(gluePhrase).join(', ')]
-        .filter(Boolean)
-        .join(`${NBSP}· `)
-      out.push({
-        key: `w-${eventId}-b${i}`,
-        ms: burst.at(-1)?.ms ?? 0,
-        actor: 'warden',
-        title,
-        ...(outcome ? { outcome } : {}),
-        ...(itemTitle && repo ? { chip: repo } : {}),
-      })
-    }
-  }
-  return out
-}
 
 export function narrativeEvents(narratives: readonly Narrative[] | undefined): ActivityEvent[] {
   return (narratives ?? []).flatMap((n) => {
@@ -502,7 +410,7 @@ export function activityStream(
  * The sources behind the needs-you list, by the names every gap wording uses: the needs-you sentence,
  * the cells and the activity card's no-feed line all name these producers.
  */
-const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
+const NEEDS_YOU_SOURCE_NAMES = ['Agents'] as const
 type SourceName = (typeof NEEDS_YOU_SOURCE_NAMES)[number]
 
 /**
@@ -529,7 +437,7 @@ export function feedEmptyLine(input: {
 
 /** With a feed loaded and nothing in the window: the horizon, and where new events appear. */
 const emptyStreamLabel = (now: number) =>
-  `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday — Warden, narrator and calendar events appear here.`
+  `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday — narrator and calendar events appear here.`
 
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────
 
@@ -550,8 +458,8 @@ export function staleFeeds(
 
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
-/** Sources behind the needs-you list: Warden and the agent snapshot. With none of them loaded the list is unknown, not empty. */
-const NEEDS_YOU_SOURCES = 2
+/** Sources behind the needs-you list: the agent snapshot. With none of them loaded the list is unknown, not empty. */
+const NEEDS_YOU_SOURCES = NEEDS_YOU_SOURCE_NAMES.length
 
 /** One state per source, disjoint by construction: a source is exactly one of these. */
 type SourceStatus = 'ready' | 'loading' | 'failed' | 'no-snapshot'
@@ -595,7 +503,7 @@ export type HomeSummaryInput = {
 
 type SourceState = Pick<HomeSummaryInput, 'unavailable' | 'loading' | 'noSnapshot'>
 
-/** `Warden failed to load, Agents loading, no snapshot yet from Agents`: the one wording for sources the list cannot yet count. */
+/** `Agents failed to load`, `Agents loading`, `no snapshot yet from Agents`: the one wording for sources the list cannot yet count. */
 export function unknownPhrase(
   unavailable: readonly string[],
   loading: readonly string[],
@@ -696,7 +604,6 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
   const count = (source: Decision['source']) =>
     s.decisions.filter((d) => d.source === source).length
   const where = [
-    [count('warden'), 'in Warden'],
     [count('agent'), 'with agents'],
     [count('queue'), 'in the human queue'],
   ].flatMap(([n, label]) => (n === 0 ? [] : [`${n} ${label}`]))

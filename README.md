@@ -12,8 +12,7 @@ Health/training core, plus a growing set of personal-agent surfaces, grouped in 
   Composition, WalkingPad, Reading.
 - **Assistant** — Calendar.
 - **Outdoors** — Astro Window (is tonight worth a Milky Way shoot).
-- **System** — Usage Tracking (Claude Code spend), Agents (the agent-gateway dev-agent overview), and
-  Warden (the mini's control-plane board — funnel metrics, open items, dispatch budget).
+- **System** — Usage Tracking (Claude Code spend), and Agents (the agent-workflows dev-agent overview).
 - **Other** — M365 Explorer (IU Teams).
 
 The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — Slack read/write lives behind the same bearer as the dashboard's own endpoints.

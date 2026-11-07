@@ -7,14 +7,12 @@ import { calendarQueries } from '../../lib/queries/calendar'
 import { RECOVERY_DAYS, allocateForms, lastScored, windowCopyDays } from '../garmin-health/model'
 import { VISIBLE_DATE_MIN } from '../garmin-health/constants'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
-import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
 import { dayKey } from '../calendar/derive'
 import { taskFeedState, unanswered } from '../calendar/query-state'
 import { useNow } from '../../lib/use-now'
 import { shotState } from '../../lib/shot-state'
 import { countUnknownAgents, fleetParts, flattenAgents } from '../agents/model'
-import { derivePollers } from '../warden/page-model'
 import { ActivityFeed } from './activity-feed'
 import { Meetings } from './meetings'
 import {
@@ -32,7 +30,6 @@ import {
   sourceStatus,
   taskCounts,
   todayAgenda,
-  wardenEvents,
   type RawCalendarEvent,
 } from './model'
 import { NeedsYou } from './needs-you'
@@ -42,7 +39,6 @@ import {
   acwrCell,
   acwrCellGap,
   agentsCell,
-  budgetCell,
   meetingCell,
   recoveryCell,
   recoveryCellGap,
@@ -75,7 +71,6 @@ export function TodayPage() {
 
   const agentsQuery = useQuery(agentsQueries.latest())
   const narrativesQuery = useQuery(agentsQueries.narratives())
-  const wardenQuery = useQuery(wardenQueries.snapshot())
 
   // From local midnight, so this morning's meetings come back and render as ended.
   const todayKey = dayKey(new Date(now))
@@ -106,28 +101,16 @@ export function TodayPage() {
   // Under the shot's `empty` the overview feed holds no snapshot: the cell reads the real no-snapshot branch.
   const agentsRecord = shotEmpty ? null : (agentsQuery.data?.latest ?? null)
   const snapshot = agentsRecord?.snapshot
-  const warden = shotEmpty ? null : (wardenQuery.data ?? null)
-  const wardenRaw = warden?.raw
   // One state per source: failed, loading, or settled without a snapshot (unknown, never empty).
-  const wardenStatus = sourceStatus(warden !== null, wardenQuery.status)
   const { unavailable, loading, noSnapshot } = classifySources({
-    Warden: wardenStatus,
     Agents: sourceStatus(agentsRecord !== null, agentsQuery.status),
   })
 
-  const decisions = deriveDecisions({
-    // Warden was switched off 2026-10-27; its frozen board items can never be resolved, so the
-    // merged "needs you" inbox counts only the agent fleet now.
-    warden: null,
-    agents: snapshot,
-    wardenReceivedAt: null,
-    now,
-  })
+  const decisions = deriveDecisions({ agents: snapshot, now })
 
-  // ── Fleet and loop ─────────────────────────────────────────────────────────────────────────
+  // ── Fleet ─────────────────────────────────────────────────────────────────────────
   const agents = flattenAgents(snapshot)
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
-  const poller = derivePollers(wardenRaw?.metrics, wardenRaw?.health)[0]
 
   // ── Calendar ───────────────────────────────────────────────────────────────────────────────
   // Under the shot's `empty` the sources answered with nothing: the real empty agenda, not the unknown one.
@@ -190,21 +173,15 @@ export function TodayPage() {
     shotEmpty
       ? []
       : [
-          ...wardenEvents(wardenRaw),
           ...narrativeEvents(narrativesQuery.data?.data),
           ...(agenda === null ? [] : calendarEvents(agenda.meetings, now)),
         ],
     now,
   )
   const stale = staleFeeds(
-    shotEmpty
+    shotEmpty || agentsRecord === null
       ? []
-      : [
-          ...(warden === null ? [] : [{ name: 'Warden', receivedAt: warden.receivedAt }]),
-          ...(agentsRecord === null
-            ? []
-            : [{ name: 'Agents', receivedAt: agentsRecord.receivedAt }]),
-        ],
+      : [{ name: 'Agents', receivedAt: agentsRecord.receivedAt }],
     now,
   )
 
@@ -227,11 +204,8 @@ export function TodayPage() {
     <>
       <PageBar
         sync={{
-          syncing: agentsQuery.isFetching || wardenQuery.isFetching,
-          onSync: () => {
-            void agentsQuery.refetch()
-            void wardenQuery.refetch()
-          },
+          syncing: agentsQuery.isFetching,
+          onSync: () => void agentsQuery.refetch(),
           label: 'Refresh',
         }}
       />
@@ -245,14 +219,13 @@ export function TodayPage() {
         <StatGroup
           variant="strip"
           label="Today at a glance"
-          cols={5}
+          cols={4}
           cells={[
             agentsCell(
               snapshot?.summary,
               fleet,
               agentsRecord !== null ? null : agentsQuery.isError ? 'failed' : 'none',
             ),
-            budgetCell(wardenRaw?.budget, poller, wardenStatus),
             meetingCell(agenda, next, later, now),
             recoveryCell(recovery, recoveryNow.isPending, recoverySeriesState, recoveryForm),
             acwrCell(
@@ -279,7 +252,7 @@ export function TodayPage() {
               groups={stream.groups}
               total={stream.total}
               stale={stale}
-              loaded={warden !== null || agentsRecord !== null}
+              loaded={agentsRecord !== null}
               failed={unavailable}
               pending={loading}
               now={now}

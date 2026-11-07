@@ -39,7 +39,7 @@ evidence: ## Real-data baseline (bundle/screens/lighthouse): make evidence LABEL
 	@test -n "$(LABEL)" || { echo "usage: make evidence LABEL=<label>"; exit 2; }
 	@bun scripts/evidence/index.ts "$(LABEL)"
 
-design-shot: ## Live-data screenshots + crops board: make design-shot [ROUTES="/agents /warden"] [LABEL=<label>] [SKIP_BUILD=1]
+design-shot: ## Live-data screenshots + crops board: make design-shot [ROUTES="/agents /usage-tracking"] [LABEL=<label>] [SKIP_BUILD=1]
 	@DESIGN_SHOT_LABEL='$(LABEL)' DESIGN_SHOT_ROUTES='$(ROUTES)' DESIGN_SHOT_SKIP_BUILD='$(SKIP_BUILD)' bun scripts/design-shot/index.ts
 
 db-sync: ## Copy the live argo schema from the mini (read-only) into the local shared database, row counts + md5 proven (replaces local shared.argo; refuses the live copy)

@@ -3,7 +3,7 @@ import { Section } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
-import { isSafeHttpUrl } from '../warden/model'
+import { isSafeHttpUrl } from '../../lib/safe-url'
 import {
   classLabels,
   meetingState,
