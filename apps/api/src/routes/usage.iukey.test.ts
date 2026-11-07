@@ -177,7 +177,8 @@ describe('athena-teamchat rows without a model', () => {
         ts,
         model: null,
         model_norm: null,
-        sub_tool: 'chat-turn:chat',
+        lane: 'other',
+        lane_detail: { raw: 'chat-turn:chat' },
         cost_usd: 3.25,
         cost_source: 'reported',
         raw: { iuKey: 'athena-team' },
@@ -200,7 +201,7 @@ describe('athena-teamchat rows without a model', () => {
     expect(flow.rows).toEqual([
       expect.objectContaining({
         source: TEAMCHAT,
-        subTool: 'chat-turn:chat',
+        subTool: 'teamchat',
         model: '(unknown model)',
         cost: 3.25,
       }),

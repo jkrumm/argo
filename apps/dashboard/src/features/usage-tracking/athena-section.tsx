@@ -1,7 +1,7 @@
 /**
- * Athena Teamchat, apart: the team key's cap, its spend by producer and whether agw has touched it
- * lately. It is a different organization's key, so it sits under its own divider and enters no total,
- * no "all" and no node figure above it (spec pass criterion 5).
+ * Athena Teamchat, apart: the team key's spend by producer and whether agw has touched it lately (its
+ * cap is a card of the Quotas tab). It is a different organization's key, so it sits under its own
+ * divider and enters no total, no "all" and no node figure above it (spec pass criterion 5).
  */
 import { Suspense } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
@@ -12,40 +12,13 @@ import { CONTAINER_GRID_BREAKPOINTS, VX } from 'basalt-ui/tokens'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
-import { budgetReading } from './budget-model'
-import { CapMeter } from './limits'
 import { FlowBoundary } from './flow-boundary'
-import { agwOnKey, agwReading, fmtDay, fmtInstant, fmtUsd } from './flow-model'
+import { agwOnKey, agwReading, fmtInstant, fmtUsd } from './flow-model'
 import { periodNoun } from './model'
 
 const fallback = (height: number) => (
   <ChartCard state={{ pending: true }} placeholderHeight={height} />
 )
-
-function CapCard() {
-  const { data: budget } = useSuspenseQuery(usageQueries.iuBudget('athena-team'))
-  const now = useNow()
-  const reading = budgetReading(budget, now)
-  return (
-    <ChartCard
-      title="Athena team key"
-      info="Athena Teamchat's own IU key: a separate rolling 30-day $500 cap in IU's portal. Never summed with the personal key."
-      placeholderHeight="content"
-    >
-      <Stack gap={4} data-shot="flow-athena-cap" data-shot-states="empty">
-        <CapMeter budget={budget} now={now} title="Athena team" heading="window" />
-        {reading.state === null || reading.state === 'ok' ? null : (
-          <Text size="xs" c={reading.state === 'over' ? VX.status.bad : VX.status.warn}>
-            {reading.state}
-            {budget.underCapOn === null
-              ? ''
-              : ` · under the cap around ${fmtDay(budget.underCapOn)}`}
-          </Text>
-        )}
-      </Stack>
-    </ChartCard>
-  )
-}
 
 function ProducersCard({ range }: { range: Range }) {
   const { data } = useSuspenseQuery(
@@ -142,21 +115,14 @@ export function AthenaSection({ range }: { range: Range }) {
         }
       />
       <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-        <Grid.Col span={{ base: 12, lg: 4 }}>
-          <FlowBoundary noun="the Athena key cap" height={120}>
-            <Suspense fallback={fallback(120)}>
-              <CapCard />
-            </Suspense>
-          </FlowBoundary>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, lg: 4 }}>
+        <Grid.Col span={{ base: 12, lg: 6 }}>
           <FlowBoundary noun="Athena spend by producer" height={120}>
             <Suspense fallback={fallback(120)}>
               <ProducersCard range={range} />
             </Suspense>
           </FlowBoundary>
         </Grid.Col>
-        <Grid.Col span={{ base: 12, lg: 4 }}>
+        <Grid.Col span={{ base: 12, lg: 6 }}>
           <FlowBoundary noun="agw on the Athena key" height={120}>
             <Suspense fallback={fallback(120)}>
               <AgwCard />

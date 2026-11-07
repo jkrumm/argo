@@ -196,3 +196,40 @@ describe('GET /usage/split by lane', () => {
     expect(body.totals.reduce((s, t) => s + t.cost, 0)).toBe(17)
   })
 })
+
+describe('GET /usage/split model drill-down', () => {
+  const sub = (type: string, over: Partial<SeedRecord>) =>
+    row({ lane: 'subagent', lane_detail: { subagent_type: type }, ...over })
+  const seed = () =>
+    seedUsageRecords([
+      sub('Explore', { model_norm: 'haiku', project: 'argo', cost_usd: 4 }),
+      sub('Explore', { model_norm: 'sonnet', project: 'argo', cost_usd: 1 }),
+      sub('Explore', { model_norm: null, project: 'argo', cost_usd: 2 }),
+      sub('Plan', { model_norm: 'opus', project: 'basalt-ui', cost_usd: 8 }),
+    ])
+
+  it('narrows a model split to one tool', async () => {
+    await seed()
+    const body = await get<Split>('/split?by=model_norm&range=7d&subTool=Explore')
+    expect(body.rows.map((r) => [r.key, r.cost])).toEqual([
+      ['haiku', 4],
+      ['(unknown model)', 2],
+      ['sonnet', 1],
+    ])
+    expect(body.totals.reduce((s, t) => s + t.cost, 0)).toBe(7)
+  })
+
+  it('narrows a model split to one project and takes several tools', async () => {
+    await seed()
+    const byProject = await get<Split>('/split?by=model_norm&range=7d&project=basalt-ui')
+    expect(byProject.rows.map((r) => r.key)).toEqual(['opus'])
+    const both = await get<Split>('/split?by=model_norm&range=7d&subTool=Explore&subTool=Plan')
+    expect(both.rows).toHaveLength(4)
+  })
+
+  it('matches nothing for an unknown tool', async () => {
+    await seed()
+    const body = await get<Split>('/split?by=model_norm&range=7d&subTool=nope')
+    expect(body.rows).toEqual([])
+  })
+})

@@ -1,42 +1,20 @@
 /**
- * The Flow tab's drain cards: one small chart per payer, every one the same shape (share left on a
- * fixed window, the actual line, the projection from now at the current drain rate, the even pace and
- * the rules where the window resets). Three builders turn the plain data of a subscription's weekly
- * quota, a credit pool and the IU personal key into one `DrainModel`; `drain-chart.tsx` only draws it.
- * Pure: no React, no queries.
+ * The Quotas tab's drain chart: share (or dollars) left on a fixed window, the actual line, the
+ * projection from now at the current drain rate, the even pace and the marks where the window resets.
+ * `keyDrain` turns an IU key's rolling cap into one `DrainModel` and `quotas-model.ts` builds the
+ * credit model; `drain-chart.tsx` only draws it. Pure: no React, no queries.
  */
 import { formatDuration, withUnit } from '../../lib/format'
-import type { PaceResponse } from '../../lib/queries/usage'
 import { dayToDate } from './constants'
-import { DAY_MS, fmtDay, fmtUsd } from './flow-model'
+import { DAY_MS, fmtUsd } from './flow-model'
 import { shortDay } from './model'
-import { paceModel } from './pace-model'
-
-const HOUR_MS = 3_600_000
-const WEEK_MS = 7 * DAY_MS
-
-/** A weekly window shows last week and this one, so a reset is visible. */
-const SUB_SPAN_MS = 2 * WEEK_MS
-
-/** A burn read over less than this is noise. */
-const MIN_ELAPSED_MS = 2 * HOUR_MS
-
-/**
- * Resets of one account closer than this are one reset: a weekly window cannot reset twice in a day.
- * The API can hold both the scheduled instant and the actual one; the LATEST of a cluster wins, since
- * the actual reset happens after the scheduled one is reported.
- */
-const RESET_DEDUPE_MS = DAY_MS
 
 /** How far past the newest portal day the key's projection runs. */
 const KEY_AHEAD_DAYS = 14
 
-/** A pool whose cycle end is unknown still gets this much room to project into. */
-const POOL_OPEN_MS = 14 * DAY_MS
-
 export interface DrainPoint {
   at: number
-  /** Share left, 0–100. */
+  /** What is left in the model's unit: a share 0–100, or dollars when `yMax` is the total grant. */
   left: number
 }
 
@@ -45,12 +23,23 @@ export interface DrainMark {
   label: string
 }
 
+/** A short tick on the baseline in a payer's colour: one pool's renewal. */
+export interface DrainTick extends DrainMark {
+  payer: string
+}
+
 export interface DrainModel {
   id: string
-  kind: 'sub' | 'pool' | 'key'
+  kind: 'credit' | 'key'
   title: string
   /** The payer id `colorForPayer` takes. */
   payer: string
+  /** Draw the lines in the neutral ink instead of the payer's colour (a total over several payers). */
+  neutral?: boolean
+  /** The top of the y axis: 100 for a share, the total grant for dollars. */
+  yMax: number
+  /** The y axis tick text. */
+  yText: (v: number) => string
   /** The fixed x domain, epoch ms. */
   window: { from: number; to: number }
   now: number
@@ -59,9 +48,13 @@ export interface DrainModel {
   even: DrainPoint[]
   /** The vertical rules: resets, renewals, the day a key is back under its cap. */
   resets: DrainMark[]
+  /** Short per-payer ticks (renewals) that carry no full-height rule. */
+  ticks: DrainTick[]
   runOut: DrainMark | null
   /** The headline figure: `62 % left`, `$58 left`. */
   headline: string
+  /** The headline's ink: `warn` while a cap is exceeded. */
+  headlineTone?: 'warn'
   /** States the fixed window. */
   subtitle: string
   /** One plain-language line: when it runs out, or what is left unspent at the reset. */
@@ -73,8 +66,8 @@ export interface DrainModel {
   empty: string | null
 }
 
-const clamp = (n: number): number => Math.min(100, Math.max(0, n))
-const pctText = (n: number): string => withUnit(Math.round(n), '%')
+export const clamp = (n: number): number => Math.min(100, Math.max(0, n))
+export const pctText = (n: number): string => withUnit(Math.round(n), '%')
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const two = (n: number): string => String(n).padStart(2, '0')
@@ -85,12 +78,12 @@ export function whenText(ms: number): string {
   return `${WEEKDAYS[d.getDay()]} ${two(d.getHours())}:${two(d.getMinutes())}`
 }
 
-const inText = (ms: number): string => `in ${formatDuration(Math.max(0, ms))}`
+export const inText = (ms: number): string => `in ${formatDuration(Math.max(0, ms))}`
 
-function emptyModel(
+export function emptyModel(
   base: Pick<
     DrainModel,
-    'id' | 'kind' | 'title' | 'payer' | 'window' | 'now' | 'info' | 'subtitle'
+    'id' | 'kind' | 'title' | 'payer' | 'yMax' | 'yText' | 'window' | 'now' | 'info' | 'subtitle'
   >,
   empty: string,
   leftText: (left: number) => string,
@@ -101,231 +94,12 @@ function emptyModel(
     projection: [],
     even: [],
     resets: [],
+    ticks: [],
     runOut: null,
     headline: '—',
     verdict: empty,
     leftText,
     empty,
-  }
-}
-
-// ── Subscriptions ────────────────────────────────────────────────────────────────────────────
-
-export interface SubDrainInput {
-  id: string
-  title: string
-  payer: string
-  /** The account's hourly quota samples. */
-  points: ReadonlyArray<{ at: string; sevenDayPct: number | null }>
-  /** The account's `seven_day` reset instants from the API. */
-  resets: readonly string[]
-  /** The next reset reported by the latest reading; null when none. */
-  nextResetAt: string | null
-  /** The latest reading's weekly percent used; null without one. */
-  sevenDayPct: number | null
-  now: number
-}
-
-const SUB_INFO =
-  'Share of the weekly quota left: 100 % right after a reset, falling as you use it. Solid: what the collector sampled, last week and this week (it jumps back to 100 % at each reset). Dashed: where this week ends at the pace so far. Dotted: the even pace that would use it all exactly at the reset.'
-
-const subLeftText = (left: number): string => `${pctText(left)} left · ${pctText(100 - left)} used`
-
-/** API resets inside the domain, deduped, with the reported next reset; none inside → one week back. */
-function subResets(input: SubDrainInput, from: number, next: number): number[] {
-  const inside = input.resets
-    .map((r) => Date.parse(r))
-    .filter((t) => !Number.isNaN(t) && t >= from && t < next - RESET_DEDUPE_MS)
-    .toSorted((a, b) => a - b)
-  const deduped: number[] = []
-  for (const t of inside) {
-    const last = deduped[deduped.length - 1]
-    if (last === undefined || t - last >= RESET_DEDUPE_MS) deduped.push(t)
-    else deduped[deduped.length - 1] = t
-  }
-  if (deduped.length === 0) deduped.push(next - WEEK_MS)
-  return [...deduped, next]
-}
-
-export function subDrain(input: SubDrainInput): DrainModel {
-  const { now } = input
-  const next = input.nextResetAt === null ? NaN : Date.parse(input.nextResetAt)
-  const window = Number.isNaN(next)
-    ? { from: now - SUB_SPAN_MS, to: now }
-    : { from: next - SUB_SPAN_MS, to: next }
-  const base = {
-    id: input.id,
-    kind: 'sub' as const,
-    title: input.title,
-    payer: input.payer,
-    window,
-    now,
-    info: SUB_INFO,
-    subtitle: 'weekly window',
-  }
-  if (Number.isNaN(next) || next <= now) {
-    return emptyModel(base, 'No weekly window reported', subLeftText)
-  }
-  const subtitle = `7 d window, last week + this week · resets ${whenText(next)} (${inText(next - now)})`
-  const windowStart = next - WEEK_MS
-
-  const actual: DrainPoint[] = input.points
-    .map((p) => ({ at: Date.parse(p.at), pct: p.sevenDayPct }))
-    .filter((p) => !Number.isNaN(p.at) && p.at >= window.from && p.at <= window.to)
-    .toSorted((a, b) => a.at - b.at)
-    .flatMap((p) => (p.pct === null ? [] : [{ at: p.at, left: clamp(100 - p.pct) }]))
-  const pct = input.sevenDayPct
-  const lastAt = actual[actual.length - 1]?.at ?? -Infinity
-  if (pct !== null && now > lastAt) actual.push({ at: now, left: clamp(100 - pct) })
-  if (actual.length === 0) {
-    return emptyModel({ ...base, subtitle }, 'No quota samples yet', subLeftText)
-  }
-
-  const resets = subResets(input, window.from, next).map((at) => ({
-    at,
-    label: `resets ${whenText(at)}`,
-  }))
-  const even: DrainPoint[] = [
-    { at: windowStart, left: 100 },
-    { at: next, left: 0 },
-  ]
-  const model: DrainModel = {
-    ...base,
-    subtitle,
-    actual,
-    projection: [],
-    even,
-    resets,
-    runOut: null,
-    headline: pct === null ? '—' : `${pctText(100 - pct)} left`,
-    verdict: 'No reading yet',
-    leftText: subLeftText,
-    empty: null,
-  }
-  const elapsed = now - windowStart
-  if (pct === null) return model
-  if (pct >= 100) {
-    return {
-      ...model,
-      runOut: { at: now, label: `empty ${whenText(now)}` },
-      verdict: `Limit reached, resets ${inText(next - now)}`,
-    }
-  }
-  if (elapsed < MIN_ELAPSED_MS) {
-    return { ...model, verdict: `Window just started, resets ${inText(next - now)}` }
-  }
-
-  const left = 100 - pct
-  const burnPerMs = pct / elapsed
-  const emptyAt = burnPerMs > 0 ? now + left / burnPerMs : Infinity
-  if (emptyAt < next) {
-    return {
-      ...model,
-      projection: [
-        { at: now, left },
-        { at: emptyAt, left: 0 },
-      ],
-      runOut: { at: emptyAt, label: `empty ${whenText(emptyAt)}` },
-      verdict: `Runs out ${whenText(emptyAt)}, ${formatDuration(next - emptyAt)} before the reset`,
-    }
-  }
-  const spare = clamp(left - burnPerMs * (next - now))
-  return {
-    ...model,
-    projection: [
-      { at: now, left },
-      { at: next, left: spare },
-    ],
-    verdict: `Resets ${inText(next - now)} with ≈${pctText(spare)} unspent`,
-  }
-}
-
-// ── Credit pools ─────────────────────────────────────────────────────────────────────────────
-
-export interface PoolDrainInput {
-  id: string
-  title: string
-  payer: string
-  account: string
-  pace: PaceResponse
-  now: number
-}
-
-const POOL_INFO =
-  'Share of the credit grant left over its billing cycle (our meter against the provider’s report, the larger per day). Solid: what happened. Dashed: the projection at today’s production rate, flat until the router starts drawing on the pool. Dotted: the even pace that would spend the grant exactly at renewal.'
-
-export function poolDrain(input: PoolDrainInput): DrainModel {
-  const { now, pace, account } = input
-  const pool = pace.pools.find((p) => p.account === account)
-  const grant = pool?.grantUsd ?? 0
-  const leftText = (left: number): string =>
-    `${fmtUsd((left / 100) * grant)} of ${fmtUsd(grant)} left`
-  const dryIso = pool?.projection.dryAt ?? null
-  const dryAt = dryIso === null ? null : Date.parse(dryIso)
-  const endIso = pool?.cycle.end ?? null
-  const end = endIso === null ? null : Date.parse(endIso)
-  const start = pool === undefined ? now - POOL_OPEN_MS : Date.parse(pool.cycle.start)
-  const window = {
-    from: start,
-    to: end ?? Math.max(now + POOL_OPEN_MS, dryAt ?? 0),
-  }
-  const base = {
-    id: input.id,
-    kind: 'pool' as const,
-    title: input.title,
-    payer: input.payer,
-    window,
-    now,
-    info: POOL_INFO,
-    subtitle: 'billing cycle',
-  }
-  if (pool === undefined || !pool.enabled || grant <= 0) {
-    return emptyModel(base, 'Pool not enabled', leftText)
-  }
-  const cycle = `${fmtDay(pool.cycle.start)} – ${pool.cycle.end === null ? 'end unknown' : fmtDay(pool.cycle.end)}`
-  const subtitle = `billing cycle ${cycle}${end === null ? '' : ` · renews ${inText(end - now)}`}`
-  const lines = paceModel(pace, { account }).lines
-  const share = (kind: 'actual' | 'even' | 'projection'): DrainPoint[] =>
-    (lines.find((l) => l.kind === kind)?.points ?? []).map((p) => ({
-      at: p.at,
-      left: clamp((p.usd / grant) * 100),
-    }))
-  const actual = share('actual')
-  if (actual.length === 0)
-    return emptyModel({ ...base, subtitle }, 'No spend yet this cycle', leftText)
-
-  const leftUsd = pool.leftUsd
-  const projection = share('projection')
-  const model: DrainModel = {
-    ...base,
-    subtitle,
-    actual,
-    projection,
-    even: share('even'),
-    resets: end === null ? [] : [{ at: end, label: `renews ${whenText(end)}` }],
-    runOut: null,
-    headline: leftUsd === null ? '—' : `${fmtUsd(leftUsd)} left`,
-    verdict: 'No reading yet',
-    leftText,
-    empty: null,
-  }
-  if (leftUsd === null) return model
-  if (dryAt !== null) {
-    const gap = end === null ? '' : `, ${formatDuration(end - dryAt)} before the renewal`
-    return {
-      ...model,
-      runOut: { at: dryAt, label: `empty ${whenText(dryAt)}` },
-      verdict: `Runs out ${whenText(dryAt)}${gap}`,
-    }
-  }
-  const unspent = pool.projection.unspentAtEndUsd
-  if (end === null) return { ...model, verdict: 'Cycle end unknown' }
-  return {
-    ...model,
-    verdict:
-      unspent === null
-        ? `Renews ${inText(end - now)}, no draw projected`
-        : `Renews ${inText(end - now)} with ≈${fmtUsd(unspent)} unspent`,
   }
 }
 
@@ -349,7 +123,7 @@ export interface KeyDrainInput {
 }
 
 const KEY_INFO =
-  'Share of the personal key’s $500 rolling 30-day cap left. There is no reset: each day drops off 30 days after it was spent. Solid: the cap left after each day’s spend, counted from the start of the current window (earlier headroom is not known). Dashed: past the newest portal day, the old days dropping off and the last 7 days’ burn continuing.'
+  'Share of the key’s $500 rolling 30-day cap left. There is no reset: each day drops off 30 days after it was spent. Solid: the cap left after each day’s spend, counted from the start of the current window (earlier headroom is not known). Dashed: past the newest portal day, the old days dropping off and the last 7 days’ burn continuing.'
 
 export function keyDrain(input: KeyDrainInput): DrainModel {
   const { now, budget } = input
@@ -363,6 +137,8 @@ export function keyDrain(input: KeyDrainInput): DrainModel {
     kind: 'key' as const,
     title: input.title,
     payer: input.payer,
+    yMax: 100,
+    yText: pctText,
     window: { from, to: newestEnd + KEY_AHEAD_DAYS * DAY_MS },
     now,
     info: KEY_INFO,
@@ -408,6 +184,8 @@ export function keyDrain(input: KeyDrainInput): DrainModel {
   }
 
   const current = actual[actual.length - 1]?.left ?? 100
+  // The portal's own figure: the share left clamps at zero, the overshoot is what the card must say.
+  const over = budget.rolling30Usd - limit
   const resets: DrainMark[] = []
   const under = budget.underCapOn === null ? null : dayToDate(budget.underCapOn).getTime()
   if (under !== null && under >= from && under <= base.window.to) {
@@ -426,8 +204,11 @@ export function keyDrain(input: KeyDrainInput): DrainModel {
     projection,
     even: [],
     resets,
+    ticks: [],
     runOut,
-    headline: `${fmtUsd((current / 100) * limit)} left`,
+    ...(over > 0
+      ? { headline: `${fmtUsd(over)} over cap`, headlineTone: 'warn' as const }
+      : { headline: `${fmtUsd((current / 100) * limit)} left` }),
     verdict,
     leftText,
     empty: null,
@@ -476,4 +257,56 @@ export function drainTicks(window: { from: number; to: number }, max: number): D
   }
   const step = Math.max(1, Math.ceil(midnights.length / max))
   return midnights.filter((_, i) => i % step === 0)
+}
+
+// ── Label placement ──────────────────────────────────────────────────────────────────────────
+
+/** Approximate width of one chart-text character (px) and the gap between a label and its rule. */
+const CHAR_PX = 6.5
+const LABEL_GAP_PX = 4
+const NOW_CHARS = 3
+
+export interface ResetLabelPlacement {
+  text: string
+  anchor: 'start' | 'end'
+  /** 0 is the top row (shared with the "now" label), 1 the row under it. */
+  row: 0 | 1
+}
+
+/**
+ * Where a reset rule's label goes so it never collides with the "now" label or leaves the plot: right of
+ * its rule in full, right in short, left in full, left in short, and only then on the row under "now".
+ * Fractions are the rules' positions across the plot (0–1).
+ */
+export function placeResetLabel(input: {
+  plotWidth: number
+  nowFraction: number
+  resetFraction: number
+  full: string
+  short: string
+}): ResetLabelPlacement {
+  const { plotWidth: width } = input
+  const nowX = input.nowFraction * width
+  const resetX = input.resetFraction * width
+  const nowW = NOW_CHARS * CHAR_PX
+  // The "now" label sits left of its rule in the right half of the plot, right of it otherwise.
+  const nowBox =
+    input.nowFraction > 0.5
+      ? [nowX - LABEL_GAP_PX - nowW, nowX - LABEL_GAP_PX]
+      : [nowX + LABEL_GAP_PX, nowX + LABEL_GAP_PX + nowW]
+  const options: ResetLabelPlacement[] = [
+    { text: input.full, anchor: 'start', row: 0 },
+    { text: input.short, anchor: 'start', row: 0 },
+    { text: input.full, anchor: 'end', row: 0 },
+    { text: input.short, anchor: 'end', row: 0 },
+  ]
+  for (const option of options) {
+    const w = option.text.length * CHAR_PX
+    const from = option.anchor === 'start' ? resetX + LABEL_GAP_PX : resetX - LABEL_GAP_PX - w
+    const to = from + w
+    const inside = from >= 0 && to <= width
+    const clear = to <= (nowBox[0] ?? 0) || from >= (nowBox[1] ?? 0)
+    if (inside && clear) return option
+  }
+  return { text: input.short, anchor: 'end', row: 1 }
 }

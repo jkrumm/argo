@@ -87,6 +87,7 @@ export const usageSplitRoutes = new Elysia()
         iuKey: toArray(query.iuKey),
         payer: toArray(query.payer),
         project: toArray(query.project),
+        subTool: toArray(query.subTool),
       })
       // A model-less row (Athena teamchat reports cost without a model) reads like the flow's "(unknown model)".
       const emptyKey = query.by === 'model_norm' ? SPLIT_UNKNOWN_MODEL_KEY : SPLIT_UNSET_KEY
@@ -136,6 +137,7 @@ export const usageSplitRoutes = new Elysia()
         iuKey: iuKeyFilter,
         payer: payerFilter,
         project: stringFilter,
+        subTool: stringFilter,
       }),
       response: {
         200: z.object({
@@ -156,7 +158,7 @@ export const usageSplitRoutes = new Elysia()
         tags: ['Usage Tracking'],
         summary: 'Usage by project, tool, model or lane, split by payer',
         description:
-          'One row per ?by key (project | sub_tool | model_norm | lane; lane is the stored lane — interactive, wave_mother, lead, worker, fan_worker, subagent, hermes, iris, agw_workflow, other — so each Claude Code lane has its list value and fresh tokens split per payer, i.e. per account; empty or NULL reads "(unset)", a model-less model_norm row "(unknown model)") over the rolling ?range window, each with cost (USD; list value for the Max payers), fresh tokens (input + output + cache-write + reasoning), cache-read tokens, output tokens (incl. reasoning), call count, its per-payer split (iu-sub | me-sub | me2-sub | iu-credit | me-credit | me2-credit | iu-api | iu-team-api | me-api | unknown) and `prior` = {cost, fresh} over the equally long window before (null for range=all or when that window predates the data floor). Ranked by ?lens=cost|tokens (tokens = fresh); keys with nothing in the window are dropped; past ?top (default 12) the tail is one trailing "(other)" row; "(unset)" and "(unknown model)" are never folded, so it can follow the top rows out of rank order (up to top + 1 rows). `totals` is per payer over every key, so it is also the headline. Filter by workspace[], iuKey[] (IU API key: personal | athena-team), payer[] and project[] (normalized names).',
+          'One row per ?by key (project | sub_tool | model_norm | lane; sub_tool is the canonical tool name from usage-tracker (review, lead, worker, reviewer, deep, a subagent type, research, teamchat, agw, interactive, ...); lane is the stored lane — interactive, wave_mother, lead, worker, fan_worker, subagent, hermes, iris, agw_workflow, other — so each Claude Code lane has its list value and fresh tokens split per payer, i.e. per account; empty or NULL reads "(unset)", a model-less model_norm row "(unknown model)") over the rolling ?range window, each with cost (USD; list value for the Max payers), fresh tokens (input + output + cache-write + reasoning), cache-read tokens, output tokens (incl. reasoning), call count, its per-payer split (iu-sub | me-sub | me2-sub | iu-credit | me-credit | me2-credit | iu-api | iu-team-api | me-api | unknown) and `prior` = {cost, fresh} over the equally long window before (null for range=all or when that window predates the data floor). Ranked by ?lens=cost|tokens (tokens = fresh); keys with nothing in the window are dropped; past ?top (default 12) the tail is one trailing "(other)" row; "(unset)" and "(unknown model)" are never folded, so it can follow the top rows out of rank order (up to top + 1 rows). `totals` is per payer over every key, so it is also the headline. Filter by workspace[], iuKey[] (IU API key: personal | athena-team), payer[], project[] (normalized names) and subTool[] (exact tool names, the keys of by=sub_tool, e.g. review | lead | reviewer; the model drill-down of a tool row is by=model_norm with its subTool, the one of a project row is project[]).',
         security: [{ BearerAuth: [] }],
       },
     },

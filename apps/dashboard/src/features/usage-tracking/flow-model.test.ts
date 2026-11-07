@@ -9,13 +9,11 @@ import {
   coldCaller,
   costPerRun,
   demandTotals,
-  factsOf,
   fmtAxisUsd,
   fmtDay,
   fmtInstant,
   fmtRate,
   fmtUsd,
-  insightsPeriodOf,
   insightsView,
   iuByCause,
   laneLabel,
@@ -25,7 +23,6 @@ import {
   picksByReason,
   picksByTarget,
   picksPerDay,
-  poolReading,
   poolTitle,
   reportAgeNote,
   routerNotes,
@@ -112,100 +109,16 @@ describe('verdictOf', () => {
   })
 })
 
-describe('factsOf', () => {
-  const cells = Object.fromEntries(factsOf(PACE, NOW).map((c) => [c.key, c]))
-
-  it('credit left sums the enabled pools and names the pool that is not enabled', () => {
-    expect(cells['left']?.value).toBe('$182')
-    expect(cells['left']?.footer).toContain('of $300 enabled')
-    expect(cells['left']?.footer).toContain('me2 not enabled')
-  })
-
-  it('the pace to spend it all is the sum of the pools’ required rates', () => {
-    expect(cells['required']?.value).toBe('$8.65/d')
-    expect(cells['required']?.footer).toBe('iu $4.82 · me $3.83')
-  })
-
-  it('production on credit takes the warn ink when over pace, evals stay apart', () => {
-    expect(cells['production']?.value).toBe('$85/d')
-    expect(cells['production']?.tone).toBe('warn')
-    expect(cells['production']?.footer).toBe('evals $11/d apart')
-  })
-
-  it('Claude on IU since the cutover is the pace figure, all by design while none reached it', () => {
-    expect(cells['iu']?.caption).toBe('IU since the cutover')
-    expect(cells['iu']?.value).toBe('$0')
-    expect(cells['iu']?.footer).toBe('no fallback · all by design')
-    expect(cells['iu']?.tone).toBeUndefined()
-    const some = factsOf({ ...PACE, claudeOnIuUsd: 0.5 }, NOW).find((c) => c.key === 'iu')
-    expect(some?.value).toBe('<$1')
-    expect(some?.footer).toBe('fallback or Claude Code shaped')
-    expect(some?.tone).toBeUndefined()
-    const claude = factsOf({ ...PACE, claudeOnIuUsd: 5 }, NOW).find((c) => c.key === 'iu')
-    expect(claude?.value).toBe('$5.00')
-    expect(claude?.tone).toBe('warn')
-  })
-
-  it('the personal key states the cap and when it falls under, in the bad ink once over', () => {
-    expect(cells['key']?.value).toBe('$578')
-    expect(cells['key']?.tone).toBe('bad')
-    expect(cells['key']?.footer).toBe('of $500 cap · under it around 12 Nov')
-    const none = factsOf({ ...PACE, personalKey: { ...PACE.personalKey, fetchedAt: null } }, NOW)
-    expect(none.find((c) => c.key === 'key')?.value).toBe('—')
-    expect(none.find((c) => c.key === 'key')?.footer).toBe('no portal report yet')
-  })
-
-  it('a provider report older than six hours is named beside credit left', () => {
-    expect(reportAgeNote(PACE, NOW)).toBeNull()
-    const later = NOW + 8 * 3_600_000
-    expect(reportAgeNote(PACE, later)).toBe('provider report 9\u00a0h old')
-    expect(factsOf(PACE, later).find((c) => c.key === 'left')?.footer).toContain(
-      'provider report 9\u00a0h old',
-    )
-  })
-
-  it('no pool enabled reads a dash, not zero', () => {
-    const none = factsOf(
-      { ...PACE, verdict: 'no-pool', pools: PACE.pools.filter((p) => !p.enabled) },
-      NOW,
-    )
-    expect(none.find((c) => c.key === 'left')?.value).toBe('—')
-    expect(none.find((c) => c.key === 'required')?.value).toBe('—')
-  })
-})
-
-describe('poolReading', () => {
-  const [iu, me, me2] = PACE.pools
-
+describe('pools', () => {
   it('names a pool by its payer and plan', () => {
     expect(poolTitle('iu')).toBe('IU credit · Ultra')
     expect(poolTitle('me2')).toBe('Me2 credit · Max')
   })
 
-  it('reads expiry, pace needed, dry date and the lead on an even pace', () => {
-    const r = iu === undefined ? null : poolReading(iu, PACE.asOf)
-    expect(r?.line).toBe(
-      'expires 21 Nov · 18 d · needs $4.82/d · dry 3 Nov · $30 ahead of even pace',
-    )
-    expect(r?.leftUsd).toBe(88.43)
-    expect(r?.evenSpentUsd).toBe(82)
-    expect(r?.outsideUsd).toBe(56.11)
-    expect(r?.throughUsd).toBeCloseTo(55.46, 2)
-  })
-
-  it('a pool the router has not reached yet says when it starts drawing', () => {
-    const r = me === undefined ? null : poolReading(me, PACE.asOf)
-    expect(
-      r?.line.startsWith('expires 27 Nov · 24 d · needs $3.83/d · draws from 3 Nov · dry 4 Nov'),
-    ).toBe(true)
-    expect(r?.line.endsWith('behind even pace')).toBe(true)
-  })
-
-  it('a pool that is not enabled has no balance and says why', () => {
-    const r = me2 === undefined ? null : poolReading(me2, PACE.asOf)
-    expect(r?.enabled).toBe(false)
-    expect(r?.leftUsd).toBeNull()
-    expect(r?.note).toBe('not enabled · key not claimed · cycle unknown')
+  it('a provider report older than six hours is named', () => {
+    expect(reportAgeNote(PACE, NOW)).toBeNull()
+    const later = NOW + 8 * 3_600_000
+    expect(reportAgeNote(PACE, later)).toBe('provider report 9\u00a0h old')
   })
 })
 
@@ -391,15 +304,6 @@ describe('insights strip', () => {
     items: [],
     unavailable: [],
     ...over,
-  })
-
-  it('the page range maps onto the periods the endpoint offers', () => {
-    expect(insightsPeriodOf('7d')).toBe('7d')
-    expect(['30d', '90d', 'all'].map((r) => insightsPeriodOf(r as '30d'))).toEqual([
-      '30d',
-      '30d',
-      '30d',
-    ])
   })
 
   it('ranks the items, at most five, and has no note while items are shown and every source was read', () => {

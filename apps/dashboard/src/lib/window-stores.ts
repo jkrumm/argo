@@ -24,7 +24,7 @@ import { format, startOfYear, subMonths, subYears } from 'date-fns'
 import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
 // The one feature import: the usage registry is a dependency-free leaf (as `series.ts` also reads it).
 import { PAYER_LABELS, USAGE_PAYERS, type IuKeyId } from '../features/usage-tracking/accounts'
-import { legacyNode, type LegacyView } from '../features/usage-tracking/flow-node'
+import type { LegacyView } from '../features/usage-tracking/flow-node'
 // Dependency-free month helpers (a type-only import of the pinned finance contract).
 import { MONTH_UNIVERSE, YEAR_UNIVERSE, monthLabel } from '../features/finance/lib/months'
 // Pure, import-free of the app but for the pinned contract types: the models page's value sets.
@@ -159,9 +159,8 @@ export const walkingStore = createSearchStore({
 })
 
 /**
- * The page tabs, Flow (the default) and Explore. The rest are the v6 tab values: still accepted from an
- * old URL or stored value so they never read as unknown, then folded into Flow by `migrateUsageSearch`
- * (the subscription and key tabs select their node, Credits the IU pool). They are not offered as tabs.
+ * The page tabs, Flow (labelled Quotas; the default) and Explore. The rest are the v6 tab values: still accepted from an
+ * old URL or stored value so they never read as unknown, then folded into Flow (the Quotas tab) by `migrateUsageSearch`. They are not offered as tabs.
  */
 export const USAGE_VIEW_VALUES = [
   'flow',
@@ -181,21 +180,18 @@ export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
 export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
 /** Explore's Payer control: every payer the API derives, Athena team included (off by default, never in an "all"). */
 export const USAGE_PAYER_VALUES = [...USAGE_PAYERS.map((p) => p.id), 'unknown'] as const
-/** The subscription detail's Routing section's own range: how many days of picker decisions it reads, independent of the page Range. */
-export const USAGE_ROUTING_RANGE_VALUES = ['1d', '3d', '7d', '14d', '21d'] as const
 export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
 /** An IU API key id: the shared scope helpers still name it so. */
 export type UsageIuKey = IuKeyId
-export type UsageRoutingRange = (typeof USAGE_ROUTING_RANGE_VALUES)[number]
 
 export const usageStore = createSearchStore({
   key: 'usage-tracking',
   fields: {
-    // The page tab: the money flow (default) or the analytics.
+    // The page tab: Quotas (`flow`, the default) or the analytics.
     view: field.enum(USAGE_VIEW_VALUES, 'flow'),
-    // The Flow tab's selected node (`pool:iu`, `sub:me`, `key:personal`, `router`, `demand:review`);
+    // The Quotas tab's selected node (`router`, `demand:review`);
     // empty is none. A string, not an enum: workflow names come from the data.
     node: field.string({ fallback: '' }),
     // `field.enum`, not `field.range`: the API takes `range` verbatim and there is no custom
@@ -207,19 +203,17 @@ export const usageStore = createSearchStore({
     payer: field.multi(USAGE_PAYER_VALUES, []),
     lens: field.enum(USAGE_LENS_VALUES, 'cost'),
     groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'sub_tool'),
-    // The subscription detail's Routing section: picker decisions over 1–21 days, apart from `range`.
-    routingRange: field.enum(USAGE_ROUTING_RANGE_VALUES, '7d'),
   },
 }).labels({
   view: {
-    flow: 'Flow',
+    flow: 'Quotas',
     explore: 'Explore',
-    overview: 'Flow',
-    claude: 'Flow',
-    'iu-api': 'Flow',
-    credits: 'Flow',
-    'iu-sub': 'Flow',
-    'me-sub': 'Flow',
+    overview: 'Quotas',
+    claude: 'Quotas',
+    'iu-api': 'Quotas',
+    credits: 'Quotas',
+    'iu-sub': 'Quotas',
+    'me-sub': 'Quotas',
   },
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { hour: 'Hour', day: 'Day', week: 'Week' },
@@ -227,7 +221,6 @@ export const usageStore = createSearchStore({
   payer: PAYER_LABELS,
   lens: { cost: '$', tokens: 'Tokens (fresh)' },
   groupBy: { sub_tool: 'Tool', model_norm: 'Model', project: 'Project', payer: 'Payer' },
-  routingRange: { '1d': '1d', '3d': '3d', '7d': '7d', '14d': '14d', '21d': '21d' },
 })
 
 const LEGACY_VIEWS: readonly LegacyView[] = [
@@ -240,26 +233,17 @@ const LEGACY_VIEWS: readonly LegacyView[] = [
 ]
 
 /**
- * Folds a v6 tab into Flow: the tab becomes `flow` and, when no node is chosen yet, selects the node
- * the tab stood for (`legacy` carries the old `account` / `iuKey` URL params, which the store no longer
- * declares). Every other search passes through.
+ * Folds a v6 tab into Flow: the tab becomes `flow` (the Supply column those tabs once selected a node
+ * in is gone, so the node stays as given). Every other search passes through.
  */
-export function migrateUsageSearch<S extends { view: UsageView; node: string }>(
-  search: S,
-  legacy: { account?: unknown; iuKey?: unknown } = {},
-): S {
-  const old = LEGACY_VIEWS.find((v) => v === search.view)
-  if (old === undefined) return search
-  return {
-    ...search,
-    view: 'flow',
-    node: search.node === '' ? legacyNode(old, legacy) : search.node,
-  }
+export function migrateUsageSearch<S extends { view: UsageView }>(search: S): S {
+  if (!LEGACY_VIEWS.some((v) => v === search.view)) return search
+  return { ...search, view: 'flow' }
 }
 
 /** The route's `validateSearch`: the store's, then the old tab values migrated. */
 export const validateUsageSearch = (raw: Record<string, unknown>) =>
-  migrateUsageSearch(usageStore.validateSearch(raw), raw)
+  migrateUsageSearch(usageStore.validateSearch(raw))
 
 export const astroStore = createSearchStore({
   key: 'astro-window',

@@ -37,6 +37,7 @@ export function buildFilterSql({
   iuKey,
   payer,
   project,
+  subTool,
 }: {
   sources?: string[] | undefined
   machines?: string[] | undefined
@@ -46,6 +47,8 @@ export function buildFilterSql({
   iuKey?: string[] | undefined
   payer?: string[] | undefined
   project?: string[] | undefined
+  /** Exact tool names (the projected `sub_tool`, usage-tracker's `tool`): no normalization, they are not paths. */
+  subTool?: string[] | undefined
 }) {
   const parts: SQL[] = []
   if (sources && sources.length > 0) {
@@ -74,6 +77,9 @@ export function buildFilterSql({
     const names = project.flatMap((p) => normalizeProject(p) ?? [])
     // A filter was asked for: names that all normalize away match nothing, never every project.
     parts.push(names.length > 0 ? inList(sql`project`, names) : sql`FALSE`)
+  }
+  if (subTool && subTool.length > 0) {
+    parts.push(inList(sql`sub_tool`, subTool))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`

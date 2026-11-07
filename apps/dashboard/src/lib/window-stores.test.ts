@@ -125,27 +125,21 @@ describe('usageStore view, range, lens and groupBy', () => {
     expect('iuKey' in v).toBe(false)
   })
 
-  it('folds each v6 tab into Flow with the node it stood for', () => {
+  it('folds each v6 tab into Flow, leaving the node as given', () => {
     const at = (raw: Record<string, unknown>) => {
       const v = validateUsageSearch(raw)
       return [v.view, v.node]
     }
-    expect(at({ view: 'overview' })).toEqual(['flow', ''])
-    expect(at({ view: 'credits' })).toEqual(['flow', 'pool:iu'])
-    expect(at({ view: 'iu-sub' })).toEqual(['flow', 'sub:iu'])
-    expect(at({ view: 'me-sub' })).toEqual(['flow', 'sub:me'])
-    expect(at({ view: 'claude', account: 'me2' })).toEqual(['flow', 'sub:me2'])
-    expect(at({ view: 'claude', account: 'all' })).toEqual(['flow', 'sub:iu'])
-    expect(at({ view: 'iu-api', iuKey: 'athena-team' })).toEqual(['flow', 'key:athena-team'])
-    expect(at({ view: 'iu-api' })).toEqual(['flow', 'key:personal'])
+    for (const view of ['overview', 'credits', 'iu-sub', 'me-sub', 'claude', 'iu-api']) {
+      expect(at({ view })).toEqual(['flow', ''])
+    }
+    expect(at({ view: 'claude', node: 'router' })).toEqual(['flow', 'router'])
   })
 
-  it('migrates a stored v6 tab too, and leaves the live tabs and a chosen node alone', () => {
+  it('migrates a stored v6 tab too, and leaves the live tabs alone', () => {
     persist('usage-tracking', { view: 'credits' })
     const stored = validateUsageSearch({})
-    expect([stored.view, stored.node]).toEqual(['flow', 'pool:iu'])
-    const chosen = validateUsageSearch({ view: 'claude', node: 'router' })
-    expect([chosen.view, chosen.node]).toEqual(['flow', 'router'])
+    expect([stored.view, stored.node]).toEqual(['flow', ''])
     const live = validateUsageSearch({ view: 'explore' })
     expect([live.view, live.node]).toEqual(['explore', ''])
   })

@@ -28,10 +28,12 @@ import {
 import { isFoldKey, keyTotals, seriesLabel } from './over-time-model'
 import { pickOptions } from './pick-options'
 import type { Scope } from './scope'
-import { USAGE_TIME_GROUP } from './quota-model'
 import type { TimePoint, WorkspaceValue } from './types'
 
 /** Series the API keeps before folding the tail into `other`. */
+/** The shared time cursor of the time-axis charts. */
+const USAGE_TIME_GROUP = 'usage-time'
+
 const TOP_SERIES = 6
 
 const GROUP_NOUN: Record<UsageGroupBy, string> = {

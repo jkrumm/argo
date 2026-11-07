@@ -3,7 +3,7 @@
  * with one bar split into the wallets that fed it (payer hue, the amounts named under it), its total
  * in the measure, the change against the window before and an inline daily sparkline.
  * A row opens its timeline: daily bars by wallet for that project over the range (a tool has no
- * per-wallet series, so its bars are one neutral series). One row is open at a time, by click or
+ * per-wallet series, so its bars are one neutral series), beside the models that row used. One row is open at a time, by click or
  * keyboard. The tail is a text line, not a bar. The bars share one scale: the first row's total.
  */
 import { useState } from 'react'
@@ -30,7 +30,14 @@ import {
   tokensFormatterFor,
 } from './model'
 import { change } from './period-model'
-import { cutList, measureOf, mixSegments, priorMeasureOf, UNSET_KEY } from './split-model'
+import {
+  cutList,
+  measureOf,
+  mixSegments,
+  modelShares,
+  priorMeasureOf,
+  UNSET_KEY,
+} from './split-model'
 import type { TimePoint, WorkspaceValue } from './types'
 
 const ROWS = 8
@@ -57,7 +64,7 @@ const DIMENSIONS = {
     title: 'Tools',
     usage: 'tool usage',
     groupBy: 'sub_tool',
-    info: `The tools and lanes (interactive sessions, waves, reviews, workers) that account for the most. ${SHARED_INFO}`,
+    info: `The tools that account for the most: your own interactive sessions, the factory roles (lead, worker, reviewer, deep), Claude Code subagent types such as Explore, and the agw workflows folded to one name (review covers every review step and angle). A row opens its timeline and the models it used. ${SHARED_INFO}`,
     label: (key: string) => (key === UNSET_KEY ? '(no tool)' : key),
     hasTimeline: () => true,
   },
@@ -145,6 +152,69 @@ function Timeline({
         />
       )}
     </Box>
+  )
+}
+
+const MODEL_ROWS = 8
+
+/** The models one Tools or Projects row used, ranked by the lens, each with its share of the row. Fetched when the row opens. */
+function ModelMix({
+  dimension,
+  rowKey,
+  range,
+  lens,
+  workspace,
+  payers,
+}: {
+  dimension: SplitDimension
+  rowKey: string
+  range: Range
+  lens: UsageLens
+  workspace: WorkspaceValue[] | undefined
+  payers: PayerValue[] | undefined
+}) {
+  const cost = lens === 'cost'
+  const query = useQuery(
+    usageQueries.split({
+      by: 'model_norm',
+      range,
+      lens,
+      payer: payers,
+      workspace,
+      top: MODEL_ROWS,
+      ...(dimension === 'project' ? { project: [rowKey] } : { subTool: [rowKey] }),
+    }),
+  )
+  const models = modelShares(query.data?.rows ?? [], lens)
+  const peak = models.reduce((max, m) => Math.max(max, m.value), 0)
+  const format = cost ? fmtUsdWhole : tokensFormatterFor(Math.max(peak, 1))
+
+  return (
+    <Stack gap={4} data-shot-models>
+      <Text size="xs" c="dimmed">
+        Models
+      </Text>
+      {query.isPending ? (
+        <Text size="xs" c="dimmed">
+          loading
+        </Text>
+      ) : models.length === 0 ? (
+        <Text size="xs" c="dimmed">
+          Nothing in this window
+        </Text>
+      ) : (
+        models.map((m) => (
+          <Group key={m.key} justify="space-between" wrap="nowrap" gap="xs">
+            <Text size="xs" truncate>
+              {m.label}
+            </Text>
+            <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+              {format(m.value)} · {Math.round(m.share * 100)} %
+            </Text>
+          </Group>
+        ))
+      )}
+    </Stack>
   )
 }
 
@@ -271,24 +341,38 @@ export function SplitList({
                   body
                 )}
                 {isOpen ? (
-                  <Timeline
-                    id={timelineId}
-                    dimension={dimension}
-                    rowKey={row.key}
-                    tool={
-                      dimension === 'tool'
-                        ? dailyPoints.map((p) => ({
-                            date: p.date,
-                            groups: { [row.key]: p.groups[row.key] ?? 0 },
-                          }))
-                        : []
-                    }
-                    range={range}
-                    lens={lens}
-                    workspace={workspace}
-                    payers={payers}
-                    now={now}
-                  />
+                  <Group align="flex-start" gap="md" wrap="wrap">
+                    <Box flex="2 1 320px" miw={0}>
+                      <Timeline
+                        id={timelineId}
+                        dimension={dimension}
+                        rowKey={row.key}
+                        tool={
+                          dimension === 'tool'
+                            ? dailyPoints.map((p) => ({
+                                date: p.date,
+                                groups: { [row.key]: p.groups[row.key] ?? 0 },
+                              }))
+                            : []
+                        }
+                        range={range}
+                        lens={lens}
+                        workspace={workspace}
+                        payers={payers}
+                        now={now}
+                      />
+                    </Box>
+                    <Box flex="1 1 200px" miw={0}>
+                      <ModelMix
+                        dimension={dimension}
+                        rowKey={row.key}
+                        range={range}
+                        lens={lens}
+                        workspace={workspace}
+                        payers={payers}
+                      />
+                    </Box>
+                  </Group>
                 ) : null}
               </Stack>
             )

@@ -9,6 +9,7 @@ import type { SplitResponse, SplitRow, SplitTotal } from '../../lib/queries/usag
 import type { UsageLens } from '../../lib/window-stores'
 import { PAYER_LABELS, USAGE_PAYERS, type PayerValue } from './accounts'
 import { colorForPayer } from './constants'
+import { modelLabel } from './budget-model'
 import { OTHER_KEY } from './model'
 
 /** The key the API folds a list's tail into. */
@@ -190,11 +191,27 @@ export function mergeByLabel(
   return [...named.toSorted((a, b) => measureOf(b, lens) - measureOf(a, lens)), ...fold]
 }
 
-/** The head of a ranked list and its tail as one `Other` line (a text line, never a bar). */
+/** A model-less row under a model split; the API never folds it, so neither does a list. */
+export const UNKNOWN_MODEL_KEY = '(unknown model)'
+
+/** Keys that stay visible whatever their rank: how much has no project or no model is a reading of its own. */
+const PINNED_KEYS: ReadonlySet<string> = new Set([UNSET_KEY, UNKNOWN_MODEL_KEY])
+
+/**
+ * The head of a ranked list and its tail as one `Other` line (a text line, never a bar). A pinned row
+ * (`(unset)`, `(unknown model)`) out of rank takes the place of the last ranked row and follows the top
+ * rows, so `named` never exceeds `limit`.
+ */
 export function cutList(rows: readonly SplitRow[], limit: number): CutList {
   const ranked = rows.filter((r) => r.key !== FOLD_KEY)
-  const named = ranked.slice(0, limit)
-  const tail = [...ranked.slice(limit), ...rows.filter((r) => r.key === FOLD_KEY)]
+  const outOfRank = ranked.slice(limit).filter((r) => PINNED_KEYS.has(r.key))
+  const keep = Math.max(limit - outOfRank.length, 0)
+  const head = ranked.filter((r) => !outOfRank.includes(r)).slice(0, keep)
+  const named = [...head, ...outOfRank].slice(0, limit)
+  const tail = [
+    ...ranked.filter((r) => !named.includes(r)),
+    ...rows.filter((r) => r.key === FOLD_KEY),
+  ]
   if (tail.length === 0) return { named, rest: null }
   return {
     named,
@@ -206,6 +223,27 @@ export function cutList(rows: readonly SplitRow[], limit: number): CutList {
       rows: tail.length,
     },
   }
+}
+
+export type ModelShare = { key: string; label: string; value: number; share: number }
+
+/**
+ * The models of one Tools or Projects row (`/usage/split?by=model_norm` narrowed to it): each with its
+ * measure and its share of the row, ranked as the API ranked them. The folded tail reads `Other`, a
+ * model-less row `Unknown model`, a routed `vendor/name` the plain name. Rows with nothing are dropped;
+ * an empty list when the row has nothing in the measure.
+ */
+export function modelShares(rows: readonly SplitRow[], lens: UsageLens): ModelShare[] {
+  const total = rows.reduce((sum, r) => sum + measureOf(r, lens), 0)
+  if (total <= 0) return []
+  return rows
+    .filter((r) => measureOf(r, lens) > 0)
+    .map((r) => ({
+      key: r.key,
+      label: r.key === FOLD_KEY ? OTHER_KEY : modelLabel(r.key),
+      value: measureOf(r, lens),
+      share: measureOf(r, lens) / total,
+    }))
 }
 
 /** Keys the API keeps before folding the tail: wide enough that a wallet's own top row is in it. */

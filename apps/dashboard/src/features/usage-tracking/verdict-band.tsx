@@ -1,28 +1,20 @@
 /**
- * The Flow tab's verdict: one sentence (will the credit be spent before it expires, and did Claude work
- * land on IU), a facts strip and the drain cards (one chart per payer). It is state, not a range: "now" and the billing cycle,
- * so it ignores the page Range and says so in its first line. Everything is `flow-model.ts`'s words over
- * `/usage/pace`, the IU clause and its facts cell included (`claudeOnIuUsd`, since the cutover).
+ * The Quotas tab's verdict: one sentence over the four cards (will the Claude API credit be spent before
+ * it expires, do the subscriptions last to their resets, and did Claude work land on the IU key). It is
+ * state, not a range: "now" and the billing cycle, so it ignores the page Range and says so in its first
+ * line. The credit words are `flow-model.ts`'s over `/usage/pace`; the subscription clause is the card's.
  */
 import { Fragment } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { Badge, Box, Stack, Text } from '@mantine/core'
-import { PageSummary, StatGroup, type StatStripCell } from 'basalt-ui'
+import { useSuspenseQueries } from '@tanstack/react-query'
+import { Badge, Box, Text } from '@mantine/core'
+import { PageSummary } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { usageQueries } from '../../lib/queries/usage'
 import { useNow } from '../../lib/use-now'
-import { DrainSection } from './drain-section'
-import { factsOf, verdictOf, type SentencePart } from './flow-model'
+import { verdictOf, type SentencePart } from './flow-model'
+import { QUOTA_WINDOW_HOURS, quotaDrain, quotaInputs } from './quotas-model'
 
-const VERDICT_INFO = {
-  left: 'The grant minus the larger of our meter and the provider’s report, summed over the enabled pools.',
-  required:
-    'Credit left divided by the days to expiry, per pool: the daily spend that uses all of it.',
-  production:
-    'Credit-eligible Claude demand per day over the last 7 days (evals excluded; they run on the reserve and can stop), clipped to the first gateway row.',
-  iu: 'Everything the gateway billed to the IU personal key since its first row, and how much of it was fallback. Claude work on IU is drawn in the warn ink.',
-  key: 'The IU personal key’s rolling 30-day spend against its $500 cap, from the portal, and the day it drops back under at the last 7 days’ mean.',
-} as const
+const REFRESH_MS = 5 * 60_000
 
 const Sentence = ({ parts }: { parts: readonly SentencePart[] }) => (
   <>
@@ -41,48 +33,50 @@ const Sentence = ({ parts }: { parts: readonly SentencePart[] }) => (
 )
 
 export function VerdictBand() {
-  const { data: pace } = useSuspenseQuery({ ...usageQueries.pace(), refetchInterval: 5 * 60_000 })
   const now = useNow()
-  const verdict = verdictOf(pace)
-  const cells: StatStripCell[] = factsOf(pace, now).map((f) => ({
-    key: f.key,
-    caption: f.caption,
-    value: f.value,
-    footer: f.footer,
-    info: VERDICT_INFO[f.key as keyof typeof VERDICT_INFO],
-    ...(f.tone === undefined ? {} : { tone: f.tone }),
-  }))
+  const [pace, quota, latest] = useSuspenseQueries({
+    queries: [
+      { ...usageQueries.pace(), refetchInterval: REFRESH_MS },
+      { ...usageQueries.quota(QUOTA_WINDOW_HOURS), refetchInterval: REFRESH_MS },
+      { ...usageQueries.quotaLatest(), refetchInterval: REFRESH_MS },
+    ],
+  })
+  const verdict = verdictOf(pace.data)
+  const subs = quotaDrain(quotaInputs(quota.data, latest.data), now)
+  const atRisk = subs.accounts.some((a) => a.status === 'runs-out' || a.status === 'limit')
+  const risky = subs.accounts.filter((a) => a.status === 'runs-out' || a.status === 'limit')
+  const subClause: SentencePart = atRisk
+    ? {
+        text: `Subscriptions: ${risky.map((a) => a.label).join(', ')} ${risky.length === 1 ? 'runs' : 'run'} out before the reset.`,
+        tone: 'warn',
+      }
+    : { text: 'Subscriptions last to their resets.' }
 
   return (
-    <Stack gap="md">
-      <Box data-shot="flow-sentence">
-        <PageSummary
-          sentence={
-            <>
-              <Sentence parts={verdict.sentence} /> <Sentence parts={[verdict.iuClause]} />
-            </>
-          }
-          facts={[
-            `Claude API credit · ${verdict.asOf}`,
-            <Badge
-              key="state"
-              variant="outline"
-              color={verdict.state === 'over' ? VX.status.warn : VX.muted}
-            >
-              {verdict.badge}
-            </Badge>,
-            verdict.thin === null ? null : (
-              <Badge key="thin" variant="dot" color={VX.muted}>
-                Thin · {verdict.thin}
-              </Badge>
-            ),
-          ]}
-        />
-      </Box>
-      <Box data-shot="flow-facts">
-        <StatGroup variant="strip" label="Claude API credit" cols={5} cells={cells} />
-      </Box>
-      <DrainSection />
-    </Stack>
+    <Box data-shot="quotas-sentence">
+      <PageSummary
+        sentence={
+          <>
+            <Sentence parts={verdict.sentence} /> <Sentence parts={[subClause]} />{' '}
+            <Sentence parts={[verdict.iuClause]} />
+          </>
+        }
+        facts={[
+          `Quotas · ${verdict.asOf}`,
+          <Badge
+            key="state"
+            variant="outline"
+            color={verdict.state === 'over' ? VX.status.warn : VX.muted}
+          >
+            {verdict.badge}
+          </Badge>,
+          verdict.thin === null ? null : (
+            <Badge key="thin" variant="dot" color={VX.muted}>
+              Thin · {verdict.thin}
+            </Badge>
+          ),
+        ]}
+      />
+    </Box>
   )
 }

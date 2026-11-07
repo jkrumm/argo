@@ -11,9 +11,9 @@ import type { IuKey } from './iu-keys.js'
 // they are about and keeps the top five. A source that could not be read arrives as null: its detectors do not
 // fire, nothing throws.
 
-export const PERIODS = ['7d', '30d'] as const
+export const PERIODS = ['7d', '30d', '90d'] as const
 export type Period = (typeof PERIODS)[number]
-export const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '30d': 30 }
+export const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '30d': 30, '90d': 90 }
 
 export const MAX_INSIGHTS = 5
 

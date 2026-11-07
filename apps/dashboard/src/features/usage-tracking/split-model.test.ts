@@ -5,6 +5,7 @@ import {
   cutList,
   mergeByLabel,
   mixSegments,
+  modelShares,
   mostlyOf,
   priorMeasureOf,
   totalOf,
@@ -84,6 +85,27 @@ describe('cutList', () => {
 
   it('has no rest when everything fits', () => {
     expect(cutList(rows.slice(0, 2), 5).rest).toBeNull()
+  })
+
+  it('keeps an out-of-rank (unset) row after the top rows, within the limit, the rest summed', () => {
+    const ranked = ['a', 'b', 'c', 'd', '(unset)'].map((k, i) => row(k, [cell('iu-sub', 10 - i)]))
+    const cut = cutList(ranked, 3)
+    expect(cut.named.map((r) => r.key)).toEqual(['a', 'b', '(unset)'])
+    expect(cut.rest).toMatchObject({ cost: 8 + 7, rows: 2 })
+  })
+
+  it('keeps (unknown model) and (unset) together and leaves an in-rank one where it is', () => {
+    const ranked = ['a', '(unset)', 'b', 'c', '(unknown model)', 'd'].map((k, i) =>
+      row(k, [cell('iu-sub', 10 - i)]),
+    )
+    expect(cutList(ranked, 4).named.map((r) => r.key)).toEqual([
+      'a',
+      '(unset)',
+      'b',
+      '(unknown model)',
+    ])
+    expect(cutList(ranked, 3).named.map((r) => r.key)).toEqual(['a', '(unset)', '(unknown model)'])
+    expect(cutList(ranked.slice(0, 3), 3).named.map((r) => r.key)).toEqual(['a', '(unset)', 'b'])
   })
 })
 
@@ -190,5 +212,29 @@ describe('unsetShare', () => {
     expect(unsetShare([rows[0]!], { cost: 75 })).toEqual({ share: 0, cost: 0 })
     expect(unsetShare(rows, undefined)).toBeNull()
     expect(unsetShare(rows, { cost: 0 })).toBeNull()
+  })
+})
+
+describe('modelShares', () => {
+  const rows = [
+    row('anthropic/claude-haiku', [cell('iu-sub', 6)]),
+    row('(unknown model)', [cell('iu-sub', 3)]),
+    row('(other)', [cell('iu-sub', 1)]),
+    row('idle', [cell('iu-sub', 0)]),
+  ]
+
+  it('reads each model by its plain label with its share of the row', () => {
+    const shares = modelShares(rows, 'cost')
+    expect(shares.map((m) => [m.label, m.value, m.share])).toEqual([
+      ['claude-haiku', 6, 0.6],
+      ['Unknown model', 3, 0.3],
+      ['Other', 1, 0.1],
+    ])
+  })
+
+  it('follows the lens and is empty without anything in it', () => {
+    expect(modelShares(rows, 'tokens')[0]?.value).toBe(60)
+    expect(modelShares([], 'cost')).toEqual([])
+    expect(modelShares([row('x', [cell('iu-sub', 0)])], 'cost')).toEqual([])
   })
 })

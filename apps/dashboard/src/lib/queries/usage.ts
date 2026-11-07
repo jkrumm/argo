@@ -79,6 +79,10 @@ export type SplitParams = {
   lens: FlowLens
   payer?: PayerFilter[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  /** Normalized project names: a model split of one project row. */
+  project?: string[] | undefined
+  /** Exact tool names (the keys of `by=sub_tool`): a model split of one tool row. */
+  subTool?: string[] | undefined
   /** 2–50, the API default is 12: the rest folds into a trailing `other` row. */
   top?: number | undefined
 }
@@ -123,7 +127,7 @@ export type LaneSplitParams = {
   top?: number | undefined
 }
 
-export type InsightsPeriod = '7d' | '30d'
+export type InsightsPeriod = '7d' | '30d' | '90d'
 const fetchInsights = async (query: { period: InsightsPeriod }) =>
   unwrap(await api.usage.insights.get({ query }))
 

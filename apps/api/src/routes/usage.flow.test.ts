@@ -58,7 +58,7 @@ describe('GET /usage/flow', () => {
   const seed = () =>
     seedUsageRecords([
       row({
-        sub_tool: 'review_ocr',
+        sub_tool: 'review:ocr',
         model_norm: 'deepseek-v4.1-flash',
         cost_usd: 5,
         input_tokens: 10,
@@ -66,7 +66,7 @@ describe('GET /usage/flow', () => {
         cache_read_tokens: 1000,
       }),
       row({
-        sub_tool: 'review_ocr',
+        sub_tool: 'review:ocr',
         model_norm: 'deepseek-v4.1-flash',
         cost_usd: 3,
         input_tokens: 5,
@@ -74,7 +74,7 @@ describe('GET /usage/flow', () => {
         reasoning_tokens: 7,
       }),
       row({
-        sub_tool: 'review:adversary',
+        sub_tool: 'research:adversary',
         model_norm: 'gpt-5.6-terra',
         cost_usd: 6,
         input_tokens: 300,
@@ -94,7 +94,7 @@ describe('GET /usage/flow', () => {
     const f = await get<Flow>('/flow?payer=iu-api')
     expect(f.total).toBe(15)
     expect(f.rows[0]).toMatchObject({
-      subTool: 'review_ocr',
+      subTool: 'review',
       model: 'deepseek-v4.1-flash',
       cost: 8,
       input: 15,
@@ -104,14 +104,14 @@ describe('GET /usage/flow', () => {
       calls: 2,
     })
     // A record always has a lane, so a row without a tool reads as interactive.
-    expect(f.rows.map((r) => r.subTool)).toEqual(['review_ocr', 'review:adversary', 'interactive'])
+    expect(f.rows.map((r) => r.subTool)).toEqual(['review', 'research', 'interactive'])
     expect(f.rows[2]?.model).toBe('(unknown model)')
   })
 
   it('ranks the tokens lens by every class, cache-read included', async () => {
     await seed()
     const f = await get<Flow>('/flow?payer=iu-api&lens=tokens')
-    expect(f.rows[0]?.subTool).toBe('review_ocr')
+    expect(f.rows[0]?.subTool).toBe('review')
     expect(f.total).toBe(15 + 20 + 1500 + 7 + 300)
   })
 
@@ -131,10 +131,10 @@ describe('GET /usage/flow', () => {
 describe('GET /usage/movers', () => {
   const seed = () =>
     seedUsageRecords([
-      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
-      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
-      row({ sub_tool: 'research', model_norm: 'm-b', cost_usd: 1, ts: ago(2) }),
-      row({ sub_tool: 'research', model_norm: 'm-b', cost_usd: 25, ts: ago(10) }),
+      row({ sub_tool: 'review:ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
+      row({ sub_tool: 'review:ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
+      row({ sub_tool: 'research:web', model_norm: 'm-b', cost_usd: 1, ts: ago(2) }),
+      row({ sub_tool: 'research:web', model_norm: 'm-b', cost_usd: 25, ts: ago(10) }),
       row({ sub_tool: 'tiny', model_norm: 'm-c', cost_usd: 1.5, ts: ago(3) }),
       row({
         sub_tool: 'sub',
@@ -151,23 +151,29 @@ describe('GET /usage/movers', () => {
     const m = await get<{
       rows: Array<{ subTool: string; costUsd: number; priorCostUsd: number; deltaUsd: number }>
     }>('/movers')
-    expect(m.rows.map((r) => r.subTool)).toEqual(['research', 'review_ocr'])
+    expect(m.rows.map((r) => r.subTool)).toEqual(['research', 'review'])
     expect(m.rows[0]).toMatchObject({ costUsd: 1, priorCostUsd: 25, deltaUsd: -24 })
     expect(m.rows[1]).toMatchObject({ costUsd: 30, priorCostUsd: 10, deltaUsd: 20 })
   })
 
   it('counts the team key as API spend by default and narrows by iuKey', async () => {
     await seedUsageRecords([
-      row({ sub_tool: 'chat-turn:chat', iu_key: 'athena-team', cost_usd: 40, ts: ago(2) }),
-      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
-      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
-      row({ sub_tool: 'review_ocr', model_norm: 'm-a', cost_usd: 5, ts: ago(10) }),
+      row({
+        source: 'athena-teamchat',
+        lane: 'other',
+        iu_key: 'athena-team',
+        cost_usd: 40,
+        ts: ago(2),
+      }),
+      row({ sub_tool: 'review:ocr', model_norm: 'm-a', cost_usd: 30, ts: ago(2) }),
+      row({ sub_tool: 'review:ocr', model_norm: 'm-a', cost_usd: 10, ts: ago(9) }),
+      row({ sub_tool: 'review:ocr', model_norm: 'm-a', cost_usd: 5, ts: ago(10) }),
     ])
     const all = await get<{ rows: Array<{ subTool: string; model: string }> }>('/movers')
-    expect(all.rows.map((r) => r.subTool)).toEqual(['chat-turn:chat', 'review_ocr'])
+    expect(all.rows.map((r) => r.subTool)).toEqual(['teamchat', 'review'])
     expect(all.rows[0]?.model).toBe('(unknown model)')
     const team = await get<{ rows: Array<{ subTool: string }> }>('/movers?iuKey=athena-team')
-    expect(team.rows.map((r) => r.subTool)).toEqual(['chat-turn:chat'])
+    expect(team.rows.map((r) => r.subTool)).toEqual(['teamchat'])
   })
 
   it('is empty when nothing moved', async () => {

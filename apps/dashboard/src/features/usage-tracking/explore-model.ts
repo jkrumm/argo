@@ -2,6 +2,7 @@
  * What the Explore tab covers: the payers the Payer control selected, as the filter every block
  * sends and the `Scope` the shared sections (over time, rhythm) take. No React, no queries.
  */
+import type { InsightsPeriod, Range } from '../../lib/queries/usage'
 import { VX } from 'basalt-ui/tokens'
 import type { UsageGroupBy } from '../../lib/window-stores'
 import { PAYER_LABELS, USAGE_ACCOUNTS, USAGE_PAYERS, type PayerValue } from './accounts'
@@ -71,3 +72,12 @@ export function exploreScope(selected: readonly PayerValue[]): Scope & { payers:
 export const exploreVolumePayers = (
   payers: readonly PayerValue[],
 ): { id: PayerValue; title: string }[] => payers.map((id) => ({ id, title: PAYER_LABELS[id] }))
+
+/**
+ * The period "What stands out" reads for the page Range: 7, 30 and 90 days as they are (compared with the
+ * equally long window before), `all` has no prior window and reads 90 days. `title` always names the window used.
+ */
+export function insightsPeriodOf(range: Range): { period: InsightsPeriod; title: string } {
+  const period: InsightsPeriod = range === 'all' ? '90d' : range
+  return { period, title: `${period.slice(0, -1)} d` }
+}

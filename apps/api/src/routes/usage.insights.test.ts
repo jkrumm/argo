@@ -32,7 +32,7 @@ const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString()
 
 interface Insights {
   asOf: string
-  period: '7d' | '30d'
+  period: '7d' | '30d' | '90d'
   unavailable: string[]
   items: Array<{
     id: string
@@ -187,6 +187,36 @@ describe('GET /usage/insights', () => {
     expect(share?.sentence).toStartWith('review is 100 % of production credit in the last 30 days')
   })
 
+  it('reads a 90 day period with the 90 days before as the comparison', async () => {
+    await seedUsageRecords([
+      ...many(8, () =>
+        gw({ pool: 'iu', cost_usd: 3, ts: new Date(Date.now() - 60 * 86_400_000).toISOString() }),
+      ),
+    ])
+    const r = await get<Insights>('/insights?period=90d')
+    expect(r.period).toBe('90d')
+    expect(r.items.find((i) => i.id === 'claude-on-iu')?.sentence).toContain('in the last 90 days')
+  })
+
+  it('drops the prior-based detectors when the previous window predates the data floor', async () => {
+    const at = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString()
+    await seedUsageRecords([
+      ...many(8, () => gw({ pool: 'iu', cost_usd: 10, ts: at(5) })),
+      ...many(8, () => gw({ pool: 'iu', cost_usd: 1, ts: at(40) })),
+      ...many(8, () => gw({ pool: 'iu', cost_usd: 1, ts: at(100) })),
+    ])
+    // 30d: the previous window (30-60 days) is inside the data, the workflow's spend moved.
+    const thirty = await get<Insights>('/insights?period=30d')
+    expect(ids(thirty)).toContain('mover')
+    // 90d: the previous window starts before 2026-06-15, so nothing is compared against it.
+    const ninety = await get<Insights>('/insights?period=90d')
+    expect(ninety.unavailable).toEqual([])
+    expect(
+      ids(ninety).filter((id) => ['mover', 'cost-per-run', 'cache-drop'].includes(id)),
+    ).toEqual([])
+    expect(ids(ninety)).toContain('claude-on-iu')
+  })
+
   it('names an unreadable source instead of looking quiet', async () => {
     await seedUsageRecords(many(3, () => gw()))
     await portal()
@@ -204,6 +234,6 @@ describe('GET /usage/insights', () => {
   })
 
   it('rejects an unknown period', async () => {
-    await get('/insights?period=90d', 422)
+    await get('/insights?period=365d', 422)
   })
 })

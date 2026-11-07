@@ -1,6 +1,6 @@
 /**
- * One drain card's chart: share left (0–100 %) over the card's fixed window, the same form for every
- * payer. Actual solid with a faint fill, the projection dashed from "now", the even pace dotted, a
+ * One drain card's chart: what is left (a share, or dollars against the total grant) over the card's
+ * fixed window, the same form for every card. Actual solid with a faint fill, the projection dashed from "now", the even pace dotted, a
  * rule at "now" and at each reset, a hollow dot where the projection reaches zero. Composed on
  * `CartesianChart` because no shipped kind draws rules and markers over lines; `drain-model.ts` owns
  * the data, this file only draws it.
@@ -11,6 +11,7 @@ import { lineY } from '@tanstack/charts/line'
 import { decorative } from '@tanstack/charts/mark/decorative'
 import { ruleX } from '@tanstack/charts/rule'
 import { text } from '@tanstack/charts/text'
+import { tickX } from '@tanstack/charts/tick'
 import {
   CartesianChart,
   type ChartMarks,
@@ -19,9 +20,15 @@ import {
 } from 'basalt-ui/charts'
 import { useSizeClass } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { withUnit } from '../../lib/format'
 import { colorForPayer } from './constants'
-import { drainRows, drainTicks, type DrainKey, type DrainModel, type DrainRow } from './drain-model'
+import {
+  drainRows,
+  drainTicks,
+  placeResetLabel,
+  type DrainKey,
+  type DrainModel,
+  type DrainRow,
+} from './drain-model'
 import { shortDay, shortHour } from './model'
 
 /** Under this plot width (px) captions stack instead of sitting side by side. */
@@ -29,12 +36,13 @@ const NARROW_PLOT_PX = 320
 
 const DOTTED = '2 3'
 
-const pctTick = (v: number): string => withUnit(v, '%')
+/** The length of a renewal tick on the baseline, px. */
+const TICK_PX = 12
 
 export function DrainChart({ model, height }: { model: DrainModel; height: number }) {
   const compact = useSizeClass() === 'compact'
   const rows = drainRows(model)
-  const color = colorForPayer(model.payer)
+  const color = model.neutral === true ? VX.ink : colorForPayer(model.payer)
   const format = (v: number): string => model.leftText(v)
 
   const series: ChartSeries<DrainRow>[] = [
@@ -134,14 +142,17 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
       ),
     )
 
-    // Past resets label short at the bottom (the new week is at 100 % there); the window end labels at
-    // the top with the short word (its date is the subtitle's); a key's under-cap day is no window end.
-    const endWord = model.kind === 'pool' ? 'renews' : 'resets'
+    // The one reset a key has is the day it is back under its cap: labelled at the top, short.
     for (const [i, reset] of model.resets.entries()) {
       const at = new Date(reset.at)
-      const underCap = model.kind === 'key'
-      const windowEnd = !underCap && i === model.resets.length - 1
-      const label = underCap ? reset.label.replace(/^back /, '') : windowEnd ? endWord : 'reset'
+      const full = reset.label.replace(/^back /, '')
+      const place = placeResetLabel({
+        plotWidth: plot.plotWidth,
+        nowFraction: plot.xFraction(now) ?? 0,
+        resetFraction: plot.xFraction(at) ?? 0,
+        full,
+        short: full.replace(/^under cap /, ''),
+      })
       out.push(
         decorative(
           ruleX([{ at }], {
@@ -157,15 +168,28 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
           text([{ at }], {
             id: `reset-label-${i}`,
             x: (d) => d.at,
-            y: () => (windowEnd || underCap ? top : bottom),
-            text: () => label,
+            y: () => top,
+            text: () => place.text,
             fill: VX.ink2,
             fontSize: VX.text.xs,
-            anchor: windowEnd ? 'end' : 'start',
-            dx: windowEnd ? -4 : 4,
-            dy: windowEnd || underCap ? 10 : -6,
+            anchor: place.anchor,
+            dx: place.anchor === 'end' ? -4 : 4,
+            dy: place.row === 0 ? 10 : 24,
           }),
         ),
+      )
+    }
+
+    if (model.ticks.length > 0) {
+      out.push(
+        tickX(model.ticks, {
+          id: 'renewals',
+          x: (d) => new Date(d.at),
+          y: () => bottom + (top - bottom) * 0.04,
+          length: TICK_PX,
+          stroke: (d) => colorForPayer(d.payer),
+          strokeWidth: 2,
+        }),
       )
     }
 
@@ -190,8 +214,9 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
             text: () => (narrow ? 'empty' : runOut.label),
             fill: VX.ink2,
             fontSize: VX.text.xs,
-            anchor: 'end',
-            dx: -8,
+            // A run-out still to come labels to its right (the line arrives from the left).
+            anchor: runOut.at > model.now ? 'start' : 'end',
+            dx: runOut.at > model.now ? 8 : -8,
             dy: -10,
           }),
         ),
@@ -202,7 +227,7 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
 
   return (
     <CartesianChart<DrainRow, Date>
-      ariaLabel={`${model.title}: share left over its window, with the projection at the current rate`}
+      ariaLabel={`${model.title}: what is left over its window, with the projection at the current rate`}
       data={rows}
       height={height}
       x={(d) => d.at}
@@ -213,7 +238,7 @@ export function DrainChart({ model, height }: { model: DrainModel; height: numbe
       legend={false}
       series={series}
       marks={marks}
-      y={{ domain: [0, 100], ticks: [0, 50, 100], format: pctTick }}
+      y={{ domain: [0, model.yMax], ticks: [0, model.yMax / 2, model.yMax], format: model.yText }}
       tooltip={{ formatHeader: (d) => shortHour(d) }}
     />
   )

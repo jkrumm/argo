@@ -96,86 +96,6 @@ export function poolTitle(account: string): string {
 export const poolPayer = (account: string): PayerValue =>
   accountOf(account)?.creditPayer ?? 'unknown'
 
-export interface PoolReading {
-  account: string
-  title: string
-  enabled: boolean
-  /** The state words of a pool that cannot be drawn: `not enabled · …`, `cycle unknown · …`. */
-  note: string | null
-  leftUsd: number | null
-  grantUsd: number
-  outsideUsd: number
-  throughUsd: number
-  /** Where an even pace would have the spend by now (grant − eval reserve); null without a known cycle. */
-  evenSpentUsd: number | null
-  /** The one line under the meter: expiry, the pace needed, the dry date, the lead on an even pace. */
-  line: string
-  /** Spending faster than an even pace by this much (negative: slower). */
-  aheadUsd: number | null
-  dryAt: string | null
-}
-
-export function poolReading(pool: PacePool, asOf: string): PoolReading {
-  const title = poolTitle(pool.account)
-  const base = {
-    account: pool.account,
-    title,
-    enabled: pool.enabled,
-    grantUsd: pool.grantUsd,
-    dryAt: pool.projection.dryAt,
-  }
-  if (!pool.enabled) {
-    const awaiting = pool.note === 'awaiting reconcile'
-    return {
-      ...base,
-      note: awaiting ? 'awaiting reconcile' : 'not enabled · key not claimed · cycle unknown',
-      leftUsd: null,
-      outsideUsd: 0,
-      throughUsd: 0,
-      evenSpentUsd: null,
-      line: awaiting
-        ? 'cycle ended, awaiting the provider’s final figure'
-        : 'key not claimed · cycle unknown',
-      aheadUsd: null,
-    }
-  }
-  const throughUsd = Math.max(0, pool.spentUsd - pool.outsideUsd)
-  const evenSpentUsd = pool.evalReserveUsd === null ? null : pool.grantUsd - pool.evalReserveUsd
-  const aheadUsd =
-    pool.evalReserveUsd === null || pool.leftUsd === null
-      ? null
-      : pool.evalReserveUsd - pool.leftUsd
-  const parts: string[] = []
-  if (pool.cycle.end === null) {
-    parts.push('cycle unknown · last 31 d')
-  } else {
-    parts.push(`expires ${fmtDay(pool.cycle.end)}`)
-    if (pool.daysLeft !== null) parts.push(`${Math.round(pool.daysLeft)} d`)
-  }
-  if (pool.requiredUsdPerDay !== null) parts.push(`needs ${fmtRate(pool.requiredUsdPerDay)}`)
-  const { drawsFrom, dryAt } = pool.projection
-  if (drawsFrom !== null && new Date(drawsFrom).getTime() > new Date(asOf).getTime()) {
-    parts.push(`draws from ${fmtDay(drawsFrom)}`)
-  }
-  if (dryAt !== null) parts.push(`dry ${fmtDay(dryAt)}`)
-  else if (pool.projection.unspentAtEndUsd !== null && pool.projection.unspentAtEndUsd > 0.5) {
-    parts.push(`≈ ${fmtUsd(pool.projection.unspentAtEndUsd)} unspent at expiry`)
-  }
-  if (aheadUsd !== null && Math.abs(aheadUsd) >= 1) {
-    parts.push(`${fmtUsd(Math.abs(aheadUsd))} ${aheadUsd > 0 ? 'ahead of' : 'behind'} even pace`)
-  }
-  return {
-    ...base,
-    note: pool.cycle.status === 'unknown-end' ? 'cycle unknown · last 31 d' : null,
-    leftUsd: pool.leftUsd,
-    outsideUsd: pool.outsideUsd,
-    throughUsd,
-    evenSpentUsd,
-    line: parts.join(' · '),
-    aheadUsd,
-  }
-}
-
 // ── The verdict ──────────────────────────────────────────────────────────────────────────────
 
 export type VerdictState = PaceResponse['verdict']
@@ -279,15 +199,7 @@ export function verdictOf(pace: PaceResponse): Verdict {
   }
 }
 
-// ── The facts strip ──────────────────────────────────────────────────────────────────────────
-
-export interface FactCell {
-  key: string
-  caption: string
-  value: string
-  tone?: 'warn' | 'bad'
-  footer: string
-}
+// ── Report age ───────────────────────────────────────────────────────────────────────────────
 
 const sum = (values: readonly (number | null)[]): number =>
   values.reduce<number>((acc, v) => acc + (v ?? 0), 0)
@@ -310,77 +222,6 @@ export function lastRequestNote(lastRequestAt: string | null, now: number): stri
   if (lastRequestAt === null) return null
   const age = now - new Date(lastRequestAt).getTime()
   return age > GATEWAY_STALE_MS ? `last request ${formatAge(age)} ago` : null
-}
-
-export function factsOf(pace: PaceResponse, now: number): FactCell[] {
-  const enabled = enabledPools(pace)
-  const off = pace.pools.filter((p) => !p.enabled)
-  const left = sum(enabled.map((p) => p.leftUsd))
-  const grant = sum(enabled.map((p) => p.grantUsd))
-  const required = enabled.filter((p) => p.requiredUsdPerDay !== null)
-  const key = pace.personalKey
-  const stale = reportAgeNote(pace, now)
-
-  const leftFooter = [
-    enabled.length === 0 ? 'no pool enabled' : `of ${fmtUsd(grant)} enabled`,
-    ...off.map((p) => `${p.account} not enabled`),
-    ...(stale === null ? [] : [stale]),
-  ].join(' · ')
-
-  const keyFooter =
-    key.fetchedAt === null
-      ? 'no portal report yet'
-      : [
-          `of ${fmtUsd(key.capUsd)} cap`,
-          key.underCapOn === null ? null : `under it around ${fmtDay(key.underCapOn)}`,
-        ]
-          .filter((s) => s !== null)
-          .join(' · ')
-
-  const claude = pace.claudeOnIuUsd
-  const iuFooter = claude > 0.005 ? 'fallback or Claude Code shaped' : 'no fallback · all by design'
-
-  return [
-    {
-      key: 'left',
-      caption: 'Credit left',
-      value: enabled.length === 0 ? EM_DASH : fmtUsd(left),
-      footer: leftFooter,
-    },
-    {
-      key: 'required',
-      caption: 'Pace to spend it all',
-      value:
-        required.length === 0 ? EM_DASH : fmtRate(sum(required.map((p) => p.requiredUsdPerDay))),
-      footer:
-        required.map((p) => `${p.account} ${fmtUsd(p.requiredUsdPerDay)}`).join(' · ') || EM_DASH,
-    },
-    {
-      key: 'production',
-      caption: 'Production on credit',
-      value: fmtRate(pace.rate.productionUsdPerDay),
-      ...(pace.verdict === 'over' ? { tone: 'warn' as const } : {}),
-      footer: `evals ${fmtRate(pace.rate.evalUsdPerDay)} apart`,
-    },
-    {
-      key: 'iu',
-      caption: 'IU since the cutover',
-      value: fmtUsd(claude),
-      ...(claude > 1 ? { tone: 'warn' as const } : {}),
-      footer: iuFooter,
-    },
-    {
-      key: 'key',
-      caption: 'IU personal key',
-      value: key.fetchedAt === null ? EM_DASH : fmtUsd(key.rolling30Usd),
-      ...(key.state === 'over'
-        ? { tone: 'bad' as const }
-        : key.state === 'warn'
-          ? { tone: 'warn' as const }
-          : {}),
-      footer: keyFooter,
-    },
-  ]
 }
 
 // ── The router ───────────────────────────────────────────────────────────────────────────────
@@ -676,10 +517,6 @@ export function agwReading(
 }
 
 // ── Insights ─────────────────────────────────────────────────────────────────────────────────
-
-/** The periods `/usage/insights` reads; the page Range maps onto the nearest one it offers. */
-export const insightsPeriodOf = (range: '7d' | '30d' | '90d' | 'all'): '7d' | '30d' =>
-  range === '7d' ? '7d' : '30d'
 
 /** The sources `/usage/insights` names as unreadable, in words. */
 export function sourceLabel(source: string): string {

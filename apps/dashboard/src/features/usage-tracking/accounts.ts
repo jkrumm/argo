@@ -7,7 +7,8 @@ import { BP } from 'basalt-ui/tokens'
  * entry here and needs no layout change. The API accepts any account id; an id missing here still
  * reads as itself. `plan` is the tier, `payer` the payer id the API derives from (billing max, this
  * account) and `creditPayer` the one for the API credit the same subscription grants (billing
- * api_credit, this account).
+ * api_credit, this account). `weeklyUnits` is the weekly capacity in units (dotfiles
+ * `docs/claude-accounts.md` "Capacity units"): the weight of the account in a combined quota.
  */
 export const USAGE_ACCOUNTS = [
   {
@@ -16,6 +17,7 @@ export const USAGE_ACCOUNTS = [
     plan: 'ultra',
     payer: 'iu-sub',
     creditPayer: 'iu-credit',
+    weeklyUnits: 2,
     who: 'IU pays · flat',
   },
   {
@@ -24,6 +26,7 @@ export const USAGE_ACCOUNTS = [
     plan: '5x',
     payer: 'me-sub',
     creditPayer: 'me-credit',
+    weeklyUnits: 1,
     who: 'I pay · flat',
   },
   {
@@ -32,6 +35,7 @@ export const USAGE_ACCOUNTS = [
     plan: '5x',
     payer: 'me2-sub',
     creditPayer: 'me2-credit',
+    weeklyUnits: 1,
     who: 'I pay · flat',
   },
 ] as const

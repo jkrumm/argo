@@ -66,37 +66,42 @@ describe('USAGE_ROWS projection', () => {
     expect(r['unk']).toMatchObject({ billing: 'unknown', iu_key: null })
   })
 
-  it('maps the lane to the tool label', async () => {
+  it('projects usage.records_unique.tool as sub_tool: the canonical vocabulary, no step or angle suffix', async () => {
     await seedUsageRecords([
       base('step', { sub_tool: 'review:adversary' }),
-      base('deep-step', { sub_tool: 'agent-gateway:chat:turn' }),
-      base('nostep', { lane: 'agw_workflow', lane_detail: { workflow: 'research-gateway' } }),
+      base('angle', { sub_tool: 'review:angle:senior-dev' }),
+      base('ocr', { lane: 'agw_workflow', lane_detail: { workflow: 'review_ocr' } }),
+      base('research', { lane: 'agw_workflow', lane_detail: { workflow: 'research-gateway' } }),
       base('bare-agw', { lane: 'agw_workflow' }),
       base('sub', { lane: 'subagent', lane_detail: { subagent_type: 'Explore' } }),
       base('bare-sub', { lane: 'subagent' }),
       base('other', { sub_tool: 'headless' }),
       base('inter', { sub_tool: 'interactive' }),
-      base('worker', { sub_tool: 'fan_worker' }),
+      base('wave', { sub_tool: 'wave_mother' }),
+      base('fan', { sub_tool: 'fan_worker' }),
       base('none', { sub_tool: null }),
     ])
     const r = await project()
     expect(Object.fromEntries(Object.entries(r).map(([id, row]) => [id, row.sub_tool]))).toEqual({
-      step: 'review:adversary',
-      'deep-step': 'agent-gateway:chat:turn',
-      nostep: 'research-gateway',
-      'bare-agw': 'agw_workflow',
+      step: 'review',
+      angle: 'review',
+      ocr: 'review',
+      research: 'research',
+      'bare-agw': 'agw',
       sub: 'Explore',
       'bare-sub': 'subagent',
-      other: 'headless',
+      other: SOURCE,
       inter: 'interactive',
-      worker: 'fan_worker',
+      wave: 'lead',
+      fan: 'worker',
       none: 'interactive',
     })
   })
 
-  it('labels a worker row with its factory role, plain worker stays', async () => {
+  it('names a worker row by its factory role when that is reviewer or deep, else worker', async () => {
     await seedUsageRecords([
       base('reviewer', { lane: 'worker', lane_detail: { role: 'reviewer' } }),
+      base('deep', { lane: 'fan_worker', lane_detail: { role: 'deep' } }),
       base('mech', { lane: 'worker', lane_detail: { role: 'mechanical' } }),
       base('plain', { lane: 'worker', lane_detail: { role: 'worker' } }),
       base('norole', { lane: 'worker', lane_detail: {} }),
@@ -106,7 +111,8 @@ describe('USAGE_ROWS projection', () => {
     const r = await project()
     expect(Object.fromEntries(Object.entries(r).map(([id, row]) => [id, row.sub_tool]))).toEqual({
       reviewer: 'reviewer',
-      mech: 'mechanical',
+      deep: 'deep',
+      mech: 'worker',
       plain: 'worker',
       norole: 'worker',
       'empty-role': 'worker',

@@ -1,4 +1,4 @@
-# Usage Tracking — spec (v7, the money flow)
+# Usage Tracking — spec (v7, the money flow; the Flow tab is now Quotas, see §Page structure)
 
 > **Status: signed by the owner 2026-11-02** with decisions 1–4 as recommended, decision 5 deferred to 7 days of
 > post-hotfix data, and one addition: §Insights. Built in agent-workflows Wave 7b. It supersedes
@@ -124,42 +124,50 @@ The arithmetic behind H, S1 and S2. Pure functions in the API (`lib/usage-pace.t
 
 ## Page structure
 
-Two tabs: **Flow** (default) and **Explore**. The Account and Key controls and the per-wallet tabs are gone: selecting a
-node replaces them.
+Two tabs: **Quotas** (default; the `view=flow` value and store enum are unchanged so links stay valid) and **Explore**.
+The Account and Key controls and the per-wallet tabs are gone.
 
-### Flow
+### Quotas
+
+The tab answers one question: how much of each quota is left, and will it last. It is state ("now"), not a range.
 
 ```
-1 Verdict   one sentence (the verdict + the IU clause), a facts strip, then the drain cards: one small chart
-            per payer in ONE form — 3 subscriptions (two 7 d windows, last week + this week, reset rules),
-            3 credit pools (billing cycle), the IU personal key (rolling 30 d, no reset). Each is share left
-            (0–100 %) on a fixed x window the subtitle names: actual (solid, payer shade), projection at the
-            current drain rate (dashed), even pace (dotted neutral), now / reset / renew rules, a dot where it
-            runs empty. The IU spill (no pool left) is no longer drawn as a band: the sentence's IU clause
-            says it, and each pool card shows its own run-out
-2 Flow      three columns of node cards, columns joined by a thin chevron rule
-            Supply                        Router                           Demand
-            Credit pools  meter + tick    Picks by target  bar             agw workflows on credit  rows, purpose split
-            Subscriptions weekly %        IU spend by cause bar            Claude Code lanes  rows (list value)
-            IU key        cap meter       Cache hit  per caller            Other callers  Hermes, Iris, MacWhisper, oc
-3 Detail    the selected node at full width (?node=pool:iu, sub:me, key:personal, router, demand:review, …)
-4 Athena    apart, below a divider: the team key's cap, its spend by producer, "agw on this key since the cutover"
+1 Verdict   one sentence: the credit verdict, a subscriptions clause (who runs out before the reset), the IU clause
+2 Cards     four cards in a 2x2 grid (one column on a phone), one chart form: headline, fixed-window subtitle,
+            chart, one-line verdict
+              Claude subscriptions  ONE chart, last 14 d to the latest next reset: a thin line per account
+                                    (payer colour, weekly % left) and one thick neutral COMBINED line,
+                                    capacity-weighted by weekly units (iu 2, me 1, me2 1; USAGE_ACCOUNTS.weeklyUnits).
+                                    Each account's last reading is carried forward onto a common grid; no reading yet
+                                    = no combined value; an account with no samples at all is left out and the
+                                    subtitle says "n of 3 accounts". Reset ticks per account on the baseline. No
+                                    combined projection: the accounts reset at different times; each row says when
+                                    that account runs out. Rows: label, plan, % left, resets, warn tint when it runs
+                                    out before its reset.
+              Claude API credit     the enabled pools as ONE dollar chart: total left, even pace, projection at the
+                                    production rate, a renewal tick per pool (the total jumps back up). Starts where
+                                    every pool's cycle has begun (earlier cycles are not in /usage/pace). Rows: label,
+                                    $ left of grant, renews, needed $/d.
+              IU personal key       rolling 30 d cap, /usage/iu-budget?iuKey=personal
+              Athena team key       the same, iuKey=athena-team (its own cap, never summed)
+3 Routing   one closed-by-default disclosure "Routing and demand" (follows Range; queries mount on open;
+and demand  ?node= opens it): Router and Demand columns, the selected node's detail, Athena's spend by producer
+            and "agw on this key since the cutover"
 ```
 
-| Node         | Detail blocks                                                                                                                                                                                                             | Endpoint                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Pool         | burn-down (meter, report, even pace, projection, expiry), spent through vs outside the gateway, eval reserve and eval available, picks to this pool by reason, top workflows on it, previous cycle reconciled and unspent | `/usage/pace`, `/usage/router`, `/usage/demand?payer[]=<pool>-credit`                    |
-| Subscription | weekly quota sawtooth (v6 Weekly quota), the compared row (v6 Compared: list value, value multiple, tokens, active days), the account picker's routing (v6 Routing section, its own range)                                | `/usage/quota`, `/usage/split`, `/usage/account-picks*`, `/usage/routing/windows` (kept) |
-| IU key       | cap meter, can spend today, under-cap date, portal vs tracked (v6, one key), top spenders and cost per 1 M (v6)                                                                                                           | `/usage/iu-budget`, `/usage/iu-reconcile`, `/usage/flow` (kept)                          |
-| Router       | picks per day by target, reason mix, refusals by reason, IU spend per day by cause, cache per caller × target                                                                                                             | `/usage/router`                                                                          |
-| Workflow     | steps × model, purpose split per day, cost per run, cache hit per step                                                                                                                                                    | `/usage/demand?workflow=<w>&by=step`                                                     |
+| Node     | Detail blocks                                                                                                  | Endpoint                             |
+| -------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Router   | picks per day by target, reason mix, refusals by reason, IU spend per day by cause, cache per caller × target | `/usage/router`                      |
+| Workflow | steps × model, purpose split per day, cost per run, cache hit per step                                         | `/usage/demand?workflow=<w>&by=step` |
 
-**Controls.** Range (default 7 d) drives the Router and Demand columns and the detail lists; the verdict and the Supply
-column are state ("now", the cycle) and say so. Measure is `$` on Flow; tokens show in the node detail beside the
-dollars. No Workspace on Flow: supply has none.
+`?node=` is `router` or `demand:<workflow>`; the retired `pool:`, `sub:` and `key:` values (the old Supply column) are
+ignored. The Supply column, the per-pool, per-subscription and per-key details and the facts strip are gone: every fact
+is on a card or in the verdict. The Insights strip is on Explore, not on this tab.
 
-**Mobile 390.** One column: verdict, then Supply, Router, Demand as stacked node cards; a tapped node's detail opens
-directly under it. The drain cards stack one per row at full width.
+**Controls.** Range (default 7 d) is shown on the page but only drives the "Routing and demand" disclosure (its title
+says so); the verdict and the four cards are state. No Workspace here.
+
+**Mobile 390.** One column: verdict, the four cards stacked, then the disclosure.
 
 ### Explore
 
@@ -170,10 +178,10 @@ an "all".
 
 ### Insights (owner addition at sign-off)
 
-Under the verdict, before the flow: three to five ranked observations, each one sentence that names a number and links
+At the top of **Explore**, following Range (7, 30 or 90 days against the equally long period before; `All` reads 90 days and says so in the title): three to five ranked observations, each one sentence that names a number and links
 to the node it is about. Examples from today's data: "review is 98 % of production credit", "the review hotfix cut the
 cost per review from $0.78 to $0.16", "`me` carries every eval, `iu` every production call", "the Athena key has $35 of
-headroom until 12 Nov", "no Claude work fell back to IU today".
+headroom until 12 Nov", "no Claude work fell back to IU today". A node link switches to Flow with that node selected. When the previous window starts before the data floor (2026-06-15, as at 90 d), the detectors that compare against it (mover, cost per run, cache drop) stay silent.
 
 - **Facts by rules, never by a model.** Each insight is a deterministic detector over the same endpoints: the biggest
   share, the biggest mover against the previous period, a pace change, a seat or route change and its effect, a
