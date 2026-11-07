@@ -292,7 +292,7 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
         tags: ['Agents'],
         summary: 'Ingest an agent overview snapshot',
         description:
-          'Stores one agent-workflows overview payload (pushed by the `agw` overview workflow): summary counts, projects with their agents and per-agent recommendation, the overview job metadata, optional human-queue items) tagged with the producing `machine`. Unknown fields are kept verbatim — the snapshot is stored as raw JSON. Every ingest prunes snapshots older than 7 days, keeping the newest per machine. Snapshots over 1 MB are rejected with 413. Read it back with GET /agents/overview (latest) and GET /agents/overview/history (summary counts over time).',
+          'Stores one agent-workflows overview payload (pushed by the `agw` overview workflow; summary counts, projects with their agents and per-agent recommendation, the overview job metadata, optional human-queue items) tagged with the producing `machine`. Unknown fields are kept verbatim — the snapshot is stored as raw JSON. Every ingest prunes snapshots older than 7 days, keeping the newest per machine. Snapshots over 1 MB are rejected with 413. Read it back with GET /agents/overview (latest) and GET /agents/overview/history (summary counts over time).',
         security: [{ BearerAuth: [] }],
       },
     },
