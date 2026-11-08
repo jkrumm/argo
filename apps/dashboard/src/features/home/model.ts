@@ -1,5 +1,5 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
-import { NO_SNAPSHOT_SHORT, clockTime, dayLabel, headlineOf } from '../agents/model'
+import { NO_SNAPSHOT_SHORT, clockTime, headlineOf } from '../agents/model'
 import type { Narrative } from '../../lib/queries/agents'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
@@ -381,13 +381,11 @@ export function calendarEvents(meetings: readonly Meeting[], now: number): Activ
     }))
 }
 
-export type ActivityGroup = { label: string; events: ActivityEvent[] }
-
-/** Newest first, inside the horizon, day-grouped. `total` counts every row before the cap. */
+/** Newest first, inside the horizon, not in the future. `total` counts every row before the cap. */
 export function activityStream(
   events: readonly ActivityEvent[],
   now: number,
-): { groups: ActivityGroup[]; total: number } {
+): { events: ActivityEvent[]; total: number } {
   const horizon = activityHorizon(now)
   const live = events
     .filter((e) => e.ms >= horizon && e.ms <= now)
@@ -396,14 +394,7 @@ export function activityStream(
       title: stripShortcodes(e.title),
     }))
     .toSorted((a, b) => b.ms - a.ms)
-  const groups: ActivityGroup[] = []
-  for (const e of live) {
-    const label = dayLabel(e.ms, now)
-    const last = groups.at(-1)
-    if (last?.label === label) last.events.push(e)
-    else groups.push({ label, events: [e] })
-  }
-  return { groups, total: live.length }
+  return { events: live, total: live.length }
 }
 
 /**

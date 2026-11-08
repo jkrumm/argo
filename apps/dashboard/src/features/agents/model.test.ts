@@ -28,10 +28,8 @@ import {
   gapHours,
   feedAside,
   STALE_AFTER_MS,
-  dayLabel,
   needsYouCards,
   oldestAskMs,
-  groupByDay,
 } from './model'
 import type { AgentRow } from './model'
 import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
@@ -441,34 +439,6 @@ describe('gapHours', () => {
   })
 })
 
-// ── groupByDay ──────────────────────────────────────────────────────────────
-
-const at = (day: number, hour: number) => new Date(2026, 0, day, hour).toISOString()
-
-describe('groupByDay', () => {
-  const now = new Date(2026, 0, 10, 12, 0).getTime()
-
-  it('labels days and sorts newest first', () => {
-    expect(dayLabel(new Date(2026, 0, 10, 1).getTime(), now)).toBe('Today')
-    expect(dayLabel(new Date(2026, 0, 9, 23).getTime(), now)).toBe('Yesterday')
-    const groups = groupByDay(
-      [
-        { revisedAt: at(9, 8), id: 'b' },
-        { revisedAt: at(10, 9), id: 'a' },
-        { revisedAt: at(10, 11), id: 'c' },
-        { revisedAt: at(3, 8), id: 'd' },
-      ],
-      now,
-    )
-    expect(groups.map((g) => [g.label, g.items.map((i) => i.id)])).toEqual([
-      ['Today', ['c', 'a']],
-      ['Yesterday', ['b']],
-      [groups[2]!.label, ['d']],
-    ])
-    expect(groups[2]!.label).toMatch(/^Sat 3 Jan$/)
-  })
-})
-
 describe('peakWorking', () => {
   it('is null when no hour was measured, else the busiest measured hour', () => {
     expect(peakWorking([{ hourMs: 1, working: null }])).toBeNull()
@@ -736,16 +706,7 @@ describe('unreadable data never throws or becomes zero', () => {
     expect(buckets.map((b) => b.working)).toEqual([null, 3])
   })
 
-  it('puts unparseable narratives in a trailing dash group', () => {
-    const now = new Date(2026, 0, 10, 12).getTime()
-    const groups = groupByDay(
-      [
-        { revisedAt: 'garbage', id: 'x' },
-        { revisedAt: new Date(2026, 0, 10, 9).toISOString(), id: 'a' },
-      ],
-      now,
-    )
-    expect(groups.map((g) => g.label)).toEqual(['Today', '—'])
+  it('reads an unparseable timestamp as a dash', () => {
     expect(clockTime('garbage')).toBe('—')
   })
 

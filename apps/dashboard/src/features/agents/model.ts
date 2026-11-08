@@ -496,49 +496,6 @@ export function needsYouSplit(agentWaits: number, asks: number): string {
 
 // ── Narratives ───────────────────────────────────────────────────────────────────────────────
 
-export type NarrativeGroup<T> = { label: string; items: T[] }
-
-const DAY_MS = 86_400_000
-
-const localDay = (ms: number) => {
-  const d = new Date(ms)
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-}
-
-/** Day heading: Today / Yesterday / `Mon 12 Oct`. */
-export function dayLabel(ms: number, now: number): string {
-  const diff = Math.round((localDay(now) - localDay(ms)) / DAY_MS)
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Yesterday'
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-    .format(ms)
-    .replace(',', '')
-}
-
-/** Heading of the group for items whose timestamp cannot be read. */
-const UNDATED = '—'
-
-/** Newest first by `revisedAt`, grouped by local day; unreadable timestamps form a trailing `—` group. */
-export function groupByDay<T extends { revisedAt: string }>(
-  items: readonly T[],
-  now: number,
-): NarrativeGroup<T>[] {
-  const dated = items.flatMap((item) => {
-    const ms = parseMs(item.revisedAt)
-    return ms === null ? [] : [{ item, ms }]
-  })
-  const groups: NarrativeGroup<T>[] = []
-  for (const { item, ms } of dated.toSorted((a, b) => b.ms - a.ms)) {
-    const label = dayLabel(ms, now)
-    const last = groups.at(-1)
-    if (last?.label === label) last.items.push(item)
-    else groups.push({ label, items: [item] })
-  }
-  const undated = items.filter((item) => parseMs(item.revisedAt) === null)
-  if (undated.length > 0) groups.push({ label: UNDATED, items: undated })
-  return groups
-}
-
 /** `HH:MM` of an ISO timestamp, `—` when unreadable. */
 export function clockTime(iso: string): string {
   const ms = parseMs(iso)

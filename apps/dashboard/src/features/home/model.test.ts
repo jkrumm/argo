@@ -402,7 +402,7 @@ const ev = (key: string, ms: number): ActivityEvent => ({
 })
 
 describe('activityStream', () => {
-  it('sorts newest first, groups by day and drops what is outside the horizon or in the future', () => {
+  it('sorts newest first and drops what is outside the horizon or in the future', () => {
     const day = 24 * 60 * MIN
     const stream = activityStream(
       [
@@ -414,8 +414,7 @@ describe('activityStream', () => {
       ],
       NOW,
     )
-    expect(stream.groups.map((g) => g.label)).toEqual(['Today', 'Yesterday'])
-    expect(stream.groups[0]?.events.map((e) => e.key)).toEqual(['t2', 't1'])
+    expect(stream.events.map((e) => e.key)).toEqual(['t2', 't1', 'y'])
     expect(stream.total).toBe(3)
   })
 })
@@ -564,7 +563,7 @@ describe('day boundaries on a DST day', () => {
       ],
       dst,
     )
-    expect(stream.groups.flatMap((g) => g.events.map((e) => e.key))).toEqual(['yesterday-start'])
+    expect(stream.events.map((e) => e.key)).toEqual(['yesterday-start'])
   })
 
   it('counts a task due in 7 calendar days as due soon across the change', () => {

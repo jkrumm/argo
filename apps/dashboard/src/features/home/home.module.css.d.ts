@@ -12,20 +12,7 @@ declare const classes: {
   readonly tickPast: string
   readonly nowMark: string
   readonly axisLabels: string
-  readonly feed: string
   readonly balanced: string
-  readonly feedGroup: string
-  readonly feedHeading: string
-  readonly feedRow: string
-  readonly feedBody: string
-  readonly feedMeta: string
-  readonly feedLead: string
-  readonly feedOutcome: string
-  readonly feedPart: string
-  readonly chip: string
-  readonly chipLabel: string
-  readonly feedActor: string
-  readonly feedTime: string
   readonly live: string
   readonly pulse: string
   readonly pulseOff: string

@@ -249,7 +249,7 @@ export function TodayPage() {
           <Stack gap="md">
             <Meetings agenda={agenda} tasks={tasks} tasksFeed={tasksFeed} now={now} />
             <ActivityFeed
-              groups={stream.groups}
+              events={stream.events}
               total={stream.total}
               stale={stale}
               loaded={agentsRecord !== null}
