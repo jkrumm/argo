@@ -142,8 +142,8 @@ export function TodayPage() {
     now,
   )
   const summary = homeSummaryParts(agenda, now)
-  // Null on a host without an `argo.` sibling (localhost): no Console to link.
-  const consoleHref = consoleUrl(window.location, '/needs-you')
+  // Null when no Console origin is configured: no link.
+  const consoleHref = consoleUrl(import.meta.env.VITE_CONSOLE_URL, '/needs-you')
   // Neither calendar has answered yet: the sentence would read "unavailable" for what is only loading.
   const calendarPending = !shotEmpty && googleQuery.isPending && m365Query.isPending
 

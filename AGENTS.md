@@ -24,7 +24,7 @@ Argo is the frontend of Johannes's encrypted finance vault (repo `~/SourceRoot/f
 
 Warden was switched off 2026-10-27 and its API is gone; the `warden_snapshots` and `warden_actions` tables are left in the `argo` schema, unused, pending a cleanup migration.
 
-The factory's own pages (needs-you, flow, chain, improve) live in the Console, not in Argo; the Today page links to it (`apps/dashboard/src/lib/console-url.ts` derives the Console origin from the current one). Argo's `/agents/*` API and the Agents and Agent performance pages are gone; the `agent_overview_snapshots`, `agent_narratives` and `agent_review_stats_snapshots` tables stay in the `argo` schema, unused, pending a cleanup migration.
+The factory's own pages (needs-you, flow, chain, improve) live in the Console, not in Argo; the Today page links to it (`apps/dashboard/src/lib/console-url.ts` joins a path onto `VITE_CONSOLE_URL`, the Console's own door origin: `make deploy` bakes it from the mini-local one-line file `~/.argo/console-url`, `apps/dashboard/.env.development` points dev at the `.test` door; unset, there is no link). Argo's `/agents/*` API and the Agents and Agent performance pages are gone; the `agent_overview_snapshots`, `agent_narratives` and `agent_review_stats_snapshots` tables stay in the `argo` schema, unused, pending a cleanup migration.
 
 ## Workspace Layout
 
@@ -136,7 +136,7 @@ make logs                # last 200 lines of argo.out.log / argo.err.log
 `make deploy` deploys what is on **origin/master** (push first), re-executes the release's own `scripts/deploy.sh` (the deploy lock stays held across the re-exec, `ARGO_DEPLOY_LOCK_HELD`), refuses before
 anything is stopped if a `.env.tpl` ref does not resolve, and rolls back to the previous release when the new one is not healthy
 within 120 s (a first deploy is left booted out instead of crash-looping). Releases beyond the newest three (plus live and
-previous) are pruned. Dashboard bundle: `VITE_API_URL` empty (same-origin `/api`), `VITE_HYPERDX_ENDPOINT` empty (same-origin
+previous) are pruned. Dashboard bundle: `VITE_API_URL` empty (same-origin `/api`), `VITE_CONSOLE_URL` from `~/.argo/console-url` (the Console's origin, one line, machine-local, outside every release; a missing or invalid file builds a bundle without the Today page's Console link), `VITE_HYPERDX_ENDPOINT` empty (same-origin
 `/v1/traces` + `/v1/logs`), the public ingestion key read through `secrets-run`. Deploys run on the Mac mini only (they need
 `~/.local/bin/secrets-run` and `launchctl`). `make rollback` leaves `make verify` failing until the next deploy: the live sha is then,
 by intent, not origin/master. Never roll back to a release older than `5b0c8596e9c1` (the cutover): the plist is rendered from

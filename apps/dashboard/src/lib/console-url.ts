@@ -1,16 +1,16 @@
-/** The factory Console's origin sits beside Argo's: the first host label `argo` becomes `factory`. */
-const ARGO_LABEL = 'argo.'
-const CONSOLE_LABEL = 'factory.'
-
-type LocationLike = Pick<Location, 'protocol' | 'hostname'>
-
 /**
- * The Console URL for a path, derived from the current location so no host is written down:
- * `argo.test` -> `factory.test`, `argo.<domain>` -> `factory.<domain>`, same protocol. A host that
- * does not start with `argo.` (localhost, an IP) has no sibling, so there is no Console to link: null.
+ * The factory Console's URL for a path, from the configured origin (`VITE_CONSOLE_URL`, baked into the
+ * bundle by `make deploy` from the mini's own `~/.argo/console-url`; `.env.development` points dev at
+ * the `.test` door). No host is written in a tracked file. Unset, empty or not an http(s) origin: null,
+ * so the page renders no Console link.
  */
-export function consoleUrl(location: LocationLike, path = '/'): string | null {
-  if (!location.hostname.startsWith(ARGO_LABEL)) return null
-  const rest = location.hostname.slice(ARGO_LABEL.length)
-  return `${location.protocol}//${CONSOLE_LABEL}${rest}${path}`
+export function consoleUrl(origin: string | undefined, path = '/'): string | null {
+  if (!origin) return null
+  try {
+    const base = new URL(origin)
+    if (base.protocol !== 'https:' && base.protocol !== 'http:') return null
+    return new URL(path, base.origin).href
+  } catch {
+    return null
+  }
 }

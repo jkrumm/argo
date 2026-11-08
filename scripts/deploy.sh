@@ -42,6 +42,9 @@ ERR_LOG="$HOME/Library/Logs/argo.err.log"
 OUT_LOG="$HOME/Library/Logs/argo.out.log"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 HYPERDX_KEY_REF="op://vps/argo/HYPERDX_API_KEY_PROD"
+# The factory Console's origin, baked into the bundle as VITE_CONSOLE_URL (the Today page's Open Console link). Machine-local
+# config, one line, outside every release: no hostname in a tracked file. Missing or invalid: the bundle has no link.
+CONSOLE_URL_FILE="$ROOT/console-url"
 KEEP_RELEASES=3
 # A cold start applies pending migrations on the shared database before it listens: 120 s is generous.
 HEALTH_WAIT_SECS="${HEALTH_WAIT_SECS:-120}"
@@ -160,14 +163,24 @@ remove_release() {  # $1 sha
 # The dashboard bundle: same-origin API (VITE_API_URL empty -> `${origin}/api`, see apps/dashboard/src/lib/api-base.ts)
 # and same-origin browser telemetry (VITE_HYPERDX_ENDPOINT empty -> window.location.origin, posting /v1/traces and
 # /v1/logs). The HyperDX key is public by design (Sentry-DSN equivalent, baked into the static bundle), read through
-# secrets-run and never printed. Set explicitly so nothing inherited from the calling shell leaks into the bundle.
+# secrets-run and never printed. VITE_CONSOLE_URL comes from $CONSOLE_URL_FILE. Set explicitly so nothing inherited from the calling shell leaks into the bundle.
+# The configured Console origin (scheme://host[:port]), or empty with a note when the file is absent or not an origin.
+read_console_url() {
+  local url
+  [[ -f "$CONSOLE_URL_FILE" ]] || { print -u2 "[deploy] no $CONSOLE_URL_FILE: the Today page gets no Console link"; return 0; }
+  url=$(tr -d '[:space:]' < "$CONSOLE_URL_FILE"); url="${url%/}"
+  if [[ "$url" =~ '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$' ]]; then print -r -- "$url"
+  else print -u2 "[deploy] $CONSOLE_URL_FILE is not an http(s) origin: the Today page gets no Console link"; fi
+}
+
 build_dashboard() {  # $1 release dir
-  local key
+  local key console
+  console=$(read_console_url)
   key=$(secrets-run read "$HYPERDX_KEY_REF" 2>/dev/null)
   [[ -n "$key" ]] || { print -u2 "[deploy] cannot read $HYPERDX_KEY_REF through secrets-run"; return 1; }
   (
     cd "$1" || exit 1
-    env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY="$key" \
+    env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY="$key" VITE_CONSOLE_URL="$console" \
       bun run --cwd apps/dashboard build
   ) || return 1
   [[ -f "$1/apps/dashboard/dist/index.html" ]] || { print -u2 "[deploy] dashboard build left no dist/index.html"; return 1; }
@@ -326,7 +339,7 @@ main() {
     act git -C "$REPO_DIR" fetch --prune origin master
     act "git -C $REPO_DIR archive $sha | tar -x -C $release   (the live release is never written to)"
     act bun install --frozen-lockfile "(in $release)"
-    act "env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY=<redacted> bun run --cwd apps/dashboard build (in $release)"
+    act "env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY=<redacted> VITE_CONSOLE_URL=\"$(read_console_url)\" bun run --cwd apps/dashboard build (in $release)"
     act "touch $release/.complete (written last; a failed build removes the release)"
     act "re-exec $release/scripts/deploy.sh once, pinned to $sha"
     act "$release/scripts/launch.sh --check   (every .env.tpl ref resolves to a non-empty value; refuses before anything is stopped)"

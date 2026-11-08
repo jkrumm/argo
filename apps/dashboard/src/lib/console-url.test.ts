@@ -1,26 +1,25 @@
 import { describe, expect, it } from 'bun:test'
 import { consoleUrl } from './console-url'
 
-const at = (protocol: string, hostname: string, port = '') => ({
-  protocol,
-  hostname,
-  origin: `${protocol}//${hostname}${port === '' ? '' : `:${port}`}`,
-})
-
 describe('consoleUrl', () => {
-  it('swaps the first label of the dev host', () => {
-    expect(consoleUrl(at('https:', 'argo.test'))).toBe('https://factory.test/')
-  })
-  it('swaps the first label of a production host and keeps the path', () => {
-    expect(consoleUrl(at('https:', 'argo.example.com'), '/needs-you')).toBe(
+  it('joins the path onto the configured origin', () => {
+    expect(consoleUrl('https://factory.example.com', '/needs-you')).toBe(
       'https://factory.example.com/needs-you',
     )
   })
-  it('keeps the protocol', () => {
-    expect(consoleUrl(at('http:', 'argo.test'), '/needs-you')).toBe('http://factory.test/needs-you')
+  it('defaults to the root and ignores a trailing slash or path on the origin', () => {
+    expect(consoleUrl('https://factory.example.com/')).toBe('https://factory.example.com/')
+    expect(consoleUrl('https://factory.example.com/ignored', '/flow')).toBe(
+      'https://factory.example.com/flow',
+    )
   })
-  it('is null for a host that does not start with argo.', () => {
-    expect(consoleUrl(at('http:', 'localhost', '7715'), '/needs-you')).toBeNull()
-    expect(consoleUrl(at('https:', 'my-argo.example.com'))).toBeNull()
+  it('keeps protocol and port', () => {
+    expect(consoleUrl('http://factory.test:7795', '/flow')).toBe('http://factory.test:7795/flow')
+  })
+  it('is null when unset, empty, malformed or not http(s)', () => {
+    expect(consoleUrl(undefined)).toBeNull()
+    expect(consoleUrl('')).toBeNull()
+    expect(consoleUrl('factory.example.com')).toBeNull()
+    expect(consoleUrl('javascript:alert(1)')).toBeNull()
   })
 })

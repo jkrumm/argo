@@ -7,4 +7,6 @@ interface ImportMetaEnv {
    * Guarded by `import.meta.env.DEV` at the seed site — never consumed in a prod build.
    */
   readonly VITE_DEV_API_TOKEN?: string
+  /** The factory Console's origin (see `lib/console-url.ts`); unset renders no Console link. */
+  readonly VITE_CONSOLE_URL?: string
 }

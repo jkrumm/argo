@@ -154,4 +154,14 @@ check "prune: live and previous kept"     test -d "$RELEASES/$A" -a -d "$RELEASE
 check "prune: oldest of the rest removed" test ! -d "$RELEASES/$(printf '1%.0s' {1..40})"
 check "prune: non-sha entry untouched"    test -d "$RELEASES/not-a-sha"
 
+# 6. the Console origin the dashboard bundle is built with
+fresh
+check "console-url: absent file gives nothing"  test -z "$(read_console_url 2>/dev/null)"
+print 'https://factory.example.com/' > "$CONSOLE_URL_FILE"
+check "console-url: trailing slash stripped"    test "$(read_console_url)" = "https://factory.example.com"
+print 'http://factory.test:7795' > "$CONSOLE_URL_FILE"
+check "console-url: port kept"                  test "$(read_console_url)" = "http://factory.test:7795"
+print 'factory.example.com/needs-you' > "$CONSOLE_URL_FILE"
+check "console-url: a non-origin gives nothing" test -z "$(read_console_url 2>/dev/null)"
+
 (( fails == 0 )) && print "PASS" || { print "$fails FAILED"; exit 1; }

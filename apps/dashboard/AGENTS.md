@@ -18,7 +18,7 @@
 Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) is gitignored — regenerated automatically in dev and by `tsr generate`.
 
 - `__root.tsx` — AppShell sidebar layout + theme toggle + `<Outlet />`
-- `index.tsx` — Today (the home page: day strip, agenda, calendar activity, an external link to the Console for the factory's pages; `features/home/`, `lib/console-url.ts` derives the Console origin from the current one)
+- `index.tsx` — Today (the home page: day strip, agenda, calendar activity, an external link to the Console for the factory's pages; `features/home/`, `lib/console-url.ts` joins a path onto the configured `VITE_CONSOLE_URL`; null, no link, when it is unset)
 - `astro-window.tsx` — Astro Window page
 - `body-composition.tsx` — Body Composition page
 - `calendar.tsx` — Calendar page
