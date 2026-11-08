@@ -43,7 +43,7 @@ The Needs-you cards, their count and sort come from the shared merged-inbox deri
 2. Joined stat strip (`StatGroup variant="strip"`), 3 cells: Needs you (sparkline) · Oldest wait (meter) · Fleet by state (segmented meter). Replaces the three tiles.
 3. `Needs you {n}` — decision cards (human-queue and agent kinds), one column, hidden when 0 (no empty section).
 4. `Projects {n}` — entity cards in a 3-col grid, then the collapsed `BarList` of idle/done projects.
-5. `Last 24 h` BandStrip, then `Narratives {n}` EventList (collapsed to 8 rows with a `Show {n_more} more` row).
+5. `Last 24 h` BandStrip, then `Narratives {n}` EventList (timeline density without a rail, collapsed to 8 rows with a `Show earlier ({n_more})` control).
 
 Stays: the sync control in `PageBar`, `StaleBanner`. Changes: hero tiles, Needs you, roster. Goes: `AgentsTable` and its dash columns (`Next`, `Standing` return only when `recommendation`/`standing` are present on ≥1 agent).
 
@@ -120,9 +120,9 @@ Shots are the gitignored `.design-shots/w19-agents-r<N>/`. The reviewer is `basa
 ### PR review round 1
 
 - Null is never a measured zero: an absent or partial `summary` leaves the fleet, the summary clause and the oldest-wait cell as `—`; an all-null history leaves the activity peak as `—` (`fleetParts`, `peakWorking` return `null`). `unknown`-state agents ride as a sixth fleet part so the total matches the roster. The peak tie rule keeps the latest of equal peaks regardless of history order. Unexpected states count as `unknown`; `hourlyWorking` returns no buckets under one hour.
-- Headlines end at the first sentence, or at the last clause boundary that fits (before a parenthesis, colon, dash, semicolon, comma), and ellipsize at a word boundary only without one. Project-card run times are labelled (`longest <age>`), the source caption states how many agents it counts, narrative sentences and quiet rows stay on one line at 390 (a pressed narrative sentence expands).
-- Accessibility: the narratives list has real list/listitem roles with the `Show n more` button outside it, the command inset toggle is a button with `aria-expanded` / `aria-controls`, a failed copy reads `Copy failed`, strip cells carry explicit ids.
-- Design rules applied (from the orchestrator's landscape study): (1) every encoding was re-checked against "is it even a chart": the needs-you tile stays a value with a trend, the fleet stays a part-of-whole meter, the quiet projects are a list, not bars; (2) the needs-you sparkline has no reference line (basalt `Sparkline` has none), so it is paired with a visible `peak n in 24 h` figure, and the gap is filed as friction; (3) the page has no deltas; its hero numerals use the mono face the DESIGN.md identity assigns to all numerals, which is tabular, a conflict with the proportional-figures rule filed as friction; (4) no value is hover-only: the activity strip states its peak hour and latest hour in text under the band, and a truncated narrative sentence expands on press. Polling refetches keep the previous data on screen (no skeleton), so no reduced-opacity state was added.
+- Headlines end at the first sentence, or at the last clause boundary that fits (before a parenthesis, colon, dash, semicolon, comma), and ellipsize at a word boundary only without one. Project-card run times are labelled (`longest <age>`), the source caption states how many agents it counts, quiet rows stay on one line at 390; narrative sentences are shown in full (basalt `EventList` timeline density).
+- Accessibility: the narratives list has real list/listitem roles with the `Show earlier` button outside it, the command inset toggle is a button with `aria-expanded` / `aria-controls`, a failed copy reads `Copy failed`, strip cells carry explicit ids.
+- Design rules applied (from the orchestrator's landscape study): (1) every encoding was re-checked against "is it even a chart": the needs-you tile stays a value with a trend, the fleet stays a part-of-whole meter, the quiet projects are a list, not bars; (2) the needs-you sparkline has no reference line (basalt `Sparkline` has none), so it is paired with a visible `peak n in 24 h` figure, and the gap is filed as friction; (3) the page has no deltas; its hero numerals use the mono face the DESIGN.md identity assigns to all numerals, which is tabular, a conflict with the proportional-figures rule filed as friction; (4) no value is hover-only: the activity strip states its peak hour and latest hour in text under the band, and narrative sentences are never truncated. Polling refetches keep the previous data on screen (no skeleton), so no reduced-opacity state was added.
 
 ### Keel read (final)
 
@@ -144,7 +144,7 @@ Next to the crew card: the project cards carry the same anatomy (identity + stat
 - `apps/dashboard/src/features/agents/stat-strip.tsx`: `StatStrip { label: string; cells: { caption: string; value: string; unit?: string; tone?: string; visual?: ReactNode; footer?: ReactNode }[] }`. Joined cells divided by 1 px hairlines; stacks to one column below an 800 px container.
 - `apps/dashboard/src/features/agents/entity-card.tsx`: `EntityCard { identity: ReactNode; status: ReactNode; cells: [4 × { caption: string; value: string; unit?: string; small?: boolean; visual?: ReactNode }]; now?: ReactNode }`.
 - `apps/dashboard/src/features/agents/status-chip.tsx`: `StatusChip { tone: 'neutral' | 'warn' | 'bad'; label: string }` plus `Dot { color: string }`.
-- `apps/dashboard/src/features/agents/event-list.tsx`: `EventList { label: string; groups: { label: string; rows: { key; actor; title; chip?: ReactNode; time }[] }[]; limit?: number }` with a `Show n more` row past `limit`.
+- Adopted: basalt-ui 2.29.0's `EventList` (the local prototype `features/agents/event-list.tsx` is deleted).
 
 ### basalt friction
 
