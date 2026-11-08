@@ -576,7 +576,7 @@ export default function SiteMap({
     return () => {
       map.off('click', handleClick)
     }
-  }, [])
+  }, [forcedState, attempt])
 
   /*
    * Style swap, step by step — the one thing most likely to be silently broken:

@@ -21,12 +21,46 @@ export function useTimerEngine() {
   useEffect(() => {
     if (!restRunning && !intervalRunning) return
     let raf = 0
+    let backstop: ReturnType<typeof setTimeout> | undefined
+    // rAF stops in a hidden tab, so a timeout aimed at the next end keeps the alarm on time;
+    // visibilitychange catches up the moment the tab is shown again.
+    const arm = () => {
+      clearTimeout(backstop)
+      const {
+        restRunning: rest,
+        restEndAt,
+        intervalRunning: interval,
+        intervalEndAt,
+      } = useTimerStore.getState()
+      const ends = [rest ? restEndAt : null, interval ? intervalEndAt : null].filter(
+        (t): t is number => t !== null,
+      )
+      if (ends.length === 0) return
+      backstop = setTimeout(
+        () => {
+          tick()
+          arm()
+        },
+        Math.max(0, Math.min(...ends) - Date.now()),
+      )
+    }
     const frame = () => {
       tick()
       raf = requestAnimationFrame(frame)
     }
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      tick()
+      arm()
+    }
     raf = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(raf)
+    arm()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(backstop)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [restRunning, intervalRunning, tick])
 
   // Auto-start a fresh rest when the workout checklist checks a set.

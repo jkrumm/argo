@@ -39,9 +39,9 @@ if (typeof window !== 'undefined') {
       ],
       consoleCapture: true,
       advancedNetworkCapture: false,
-      // Session replay is heavy and noisy in dev (HMR causes lots of DOM churn).
-      // Keep it on in prod for incident investigation.
-      disableReplay: import.meta.env.DEV,
+      // Session replay would record chat, calendar and health content; traces and logs
+      // are enough for incident investigation.
+      disableReplay: true,
       // Skip Vite dev-server probes so they don't appear as spans/errors.
       // Finance fetches and DOM never leave the mini: see `hyperdx-options.ts`.
       blockClass: HYPERDX_BLOCK_CLASS,

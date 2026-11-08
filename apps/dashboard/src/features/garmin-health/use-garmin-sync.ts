@@ -4,7 +4,11 @@ import {
   dailyMetricsQueries,
   triggerSyncRefresh,
   activitiesQueries,
+  recoveryQueries,
+  fitnessDirectionQueries,
+  trainingLoadQueries,
 } from '../../lib/queries/daily-metrics'
+import { strengthQueries } from '../../lib/queries/strength'
 import { SYNC_POLL_INTERVAL_MS, SYNC_STALE_THRESHOLD_MS } from './constants'
 import { isStale } from './formulas'
 
@@ -35,7 +39,7 @@ export type GarminSync = {
 export function useGarminSync(): GarminSync {
   const queryClient = useQueryClient()
   const autoTriggered = useRef(false)
-  const wasInProgress = useRef(false)
+  const lastCompletedRef = useRef<string | null | undefined>(undefined)
 
   const query = useQuery({
     ...dailyMetricsQueries.syncStatus(),
@@ -68,22 +72,31 @@ export function useGarminSync(): GarminSync {
     }
   }, [status, refresh])
 
-  // When in_progress transitions false → invalidate all garmin-health caches.
+  // Every Garmin-derived query goes stale when a sync completes: the daily metrics plus the
+  // recovery, fitness-direction and training-load views, and the strength readiness / load
+  // views that read Garmin HRV and sleep.
   const invalidate = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: dailyMetricsQueries.all() })
-    void queryClient.invalidateQueries({ queryKey: activitiesQueries.all() })
+    for (const queryKey of [
+      dailyMetricsQueries.all(),
+      activitiesQueries.all(),
+      recoveryQueries.all(),
+      fitnessDirectionQueries.all(),
+      trainingLoadQueries.all(),
+      [...strengthQueries.all(), 'readiness'],
+      [...strengthQueries.all(), 'training-load'],
+    ]) {
+      void queryClient.invalidateQueries({ queryKey })
+    }
   }, [queryClient])
 
+  // Keyed on `last_completed_at`, not on seeing `in_progress`: a fast sync can go queued -> done
+  // between two polls, and the first status seen after mount is only the baseline.
   useEffect(() => {
     if (status === undefined) return
-    if (status.in_progress) {
-      wasInProgress.current = true
-      return
-    }
-    if (wasInProgress.current && !status.refresh_requested) {
-      wasInProgress.current = false
-      invalidate()
-    }
+    const previous = lastCompletedRef.current
+    lastCompletedRef.current = status.last_completed_at
+    if (previous === undefined || previous === status.last_completed_at) return
+    invalidate()
   }, [status, invalidate])
 
   const onSync = useCallback(() => {

@@ -27,6 +27,7 @@ import {
   type SoundConfig,
   type TimerMode,
 } from '../features/strength-tracker/components/timer-core'
+import { advanceInterval, displayRemaining } from './timer-tick'
 
 // Live timer state lives here (not in the timer-card component) so a running
 // timer survives route changes and can be shown in the app header. Config
@@ -212,9 +213,9 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
     const now = Date.now()
 
     if (s.restRunning && s.restEndAt !== null) {
-      const left = Math.max(0, (s.restEndAt - now) / 1000)
-      if (left > 0) {
-        set({ restRemaining: left })
+      if (now < s.restEndAt) {
+        const left = displayRemaining(s.restEndAt, now)
+        if (left !== s.restRemaining) set({ restRemaining: left })
       } else {
         set({ restRunning: false, restEndAt: null, restRemaining: 0 })
         playSound(s.restSound.sound, s.restSound.volume)
@@ -227,39 +228,40 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
     }
 
     if (s.intervalRunning && s.intervalEndAt !== null) {
-      const left = Math.max(0, (s.intervalEndAt - now) / 1000)
-      if (left > 0) {
-        set({ intervalRemaining: left })
-      } else {
-        const next = s.intervalPhaseIndex + 1
-        const nextPhase = s.intervalPhases[next]
-        if (!nextPhase) {
-          set({
-            intervalRunning: false,
-            intervalEndAt: null,
-            intervalActive: false,
-            intervalFinished: true,
-            intervalRemaining: 0,
-          })
-          playFinish(s.intervalSound.volume)
-          const rounds = s.intervalPhases.filter((p) => p.type === 'work').length
-          emit(
-            'timer:done',
-            { message: `${rounds} rounds complete.` },
-            { title: 'Interval done', autoClose: 5000 },
-          )
-        } else {
-          set({
-            intervalPhaseIndex: next,
-            intervalEndAt: now + nextPhase.dur * 1000,
-            intervalRemaining: nextPhase.dur,
-          })
-          playSound(
-            nextPhase.type === 'rest' ? s.intervalSound.rest : s.intervalSound.work,
-            s.intervalSound.volume,
-          )
-        }
+      if (now < s.intervalEndAt) {
+        const left = displayRemaining(s.intervalEndAt, now)
+        if (left !== s.intervalRemaining) set({ intervalRemaining: left })
+        return
       }
+      const step = advanceInterval(s.intervalPhases, s.intervalPhaseIndex, s.intervalEndAt, now)
+      if (step.finished) {
+        set({
+          intervalRunning: false,
+          intervalEndAt: null,
+          intervalActive: false,
+          intervalFinished: true,
+          intervalRemaining: 0,
+        })
+        playFinish(s.intervalSound.volume)
+        const rounds = s.intervalPhases.filter((p) => p.type === 'work').length
+        emit(
+          'timer:done',
+          { message: `${rounds} rounds complete.` },
+          { title: 'Interval done', autoClose: 5000 },
+        )
+        return
+      }
+      const entered = s.intervalPhases[step.phaseIndex]
+      set({
+        intervalPhaseIndex: step.phaseIndex,
+        intervalEndAt: step.endAt,
+        intervalRemaining: displayRemaining(step.endAt, now),
+      })
+      if (!entered) return
+      playSound(
+        entered.type === 'rest' ? s.intervalSound.rest : s.intervalSound.work,
+        s.intervalSound.volume,
+      )
     }
   },
 }))

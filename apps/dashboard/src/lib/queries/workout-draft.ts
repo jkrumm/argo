@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-query'
 import { api } from '../eden'
 import { unwrap } from 'basalt-ui'
+import { createDraftWriter, type DraftWriter } from './draft-writer'
 
 // The workout being ENTERED, synced across devices — start a session on the Mac,
 // finish it on the phone in the gym, come back. Backed by `/workout-draft`,
@@ -149,48 +150,36 @@ export function useWorkoutDrafts(): {
     onSuccess: (data) => qc.setQueryData(queryKey, data),
   })
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingRef = useRef<{ exerciseId: string; draft: DraftInput } | null>(null)
   const lastEditAtRef = useRef(0)
 
-  // `save.mutate` is stable, but reading it through a ref keeps the callbacks
-  // below out of the effect dependency lists, so the flush listeners register
-  // once rather than on every mutation state change.
-  const saveRef = useRef(save.mutate)
-  const savingRef = useRef(false)
-  const saving = save.isPending || remove.isPending
+  // The writer outlives renders and calls the latest mutation through refs, so its identity (and
+  // the callbacks below) stay stable and the flush listeners register once.
+  const saveRef = useRef(save.mutateAsync)
+  const removeRef = useRef(remove.mutateAsync)
   useEffect(() => {
-    saveRef.current = save.mutate
-    savingRef.current = saving
-  }, [save.mutate, saving])
+    saveRef.current = save.mutateAsync
+    removeRef.current = remove.mutateAsync
+  }, [save.mutateAsync, remove.mutateAsync])
+  const writerRef = useRef<DraftWriter<DraftInput> | null>(null)
+  writerRef.current ??= createDraftWriter<DraftInput>(
+    (exerciseId, draft) => saveRef.current({ exerciseId, draft }),
+    WRITE_DEBOUNCE_MS,
+  )
+  const writer = writerRef.current
 
-  const flush = useCallback(() => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-    const pending = pendingRef.current
-    pendingRef.current = null
-    if (pending !== null) saveRef.current(pending)
-  }, [])
+  const flush = useCallback(() => writer.flush(), [writer])
 
   const push = useCallback(
     (exerciseId: string, draft: DraftInput) => {
       lastEditAtRef.current = Date.now()
-      pendingRef.current = { exerciseId, draft }
-      if (timerRef.current !== null) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(flush, WRITE_DEBOUNCE_MS)
+      writer.push(exerciseId, draft)
     },
-    [flush],
+    [writer],
   )
 
   const clear = useCallback(
     (exerciseId: string) => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-      pendingRef.current = null
+      writer.cancel(exerciseId)
       lastEditAtRef.current = Date.now()
       // Dropped from the cache immediately, and deliberately never rolled back on
       // failure. `clear` is only called once the session has been LOGGED, so the
@@ -203,9 +192,9 @@ export function useWorkoutDrafts(): {
         const { [exerciseId]: _dropped, ...rest } = old.drafts
         return { ...old, drafts: rest }
       })
-      remove.mutate(exerciseId)
+      writer.run(() => removeRef.current(exerciseId))
     },
-    [qc, queryKey, remove],
+    [qc, queryKey, writer],
   )
 
   // A phone locking mid-session fires `visibilitychange`, not `beforeunload`, and
@@ -225,12 +214,8 @@ export function useWorkoutDrafts(): {
   }, [flush])
 
   const isSettled = useCallback(
-    () =>
-      timerRef.current === null &&
-      pendingRef.current === null &&
-      !savingRef.current &&
-      Date.now() - lastEditAtRef.current > SETTLE_MS,
-    [],
+    () => writer.isIdle() && Date.now() - lastEditAtRef.current > SETTLE_MS,
+    [writer],
   )
 
   return {
