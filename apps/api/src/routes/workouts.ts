@@ -6,7 +6,7 @@ import { workouts, workoutSets, exercises } from '../db/schema.js'
 import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 import { computeMetrics, loadBodyweightResolver } from '../lib/formulas.js'
 import { detectAchievements, type WorkoutWithSets } from '../lib/strength-formulas.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const AchievementSchema = z.object({
   type: z.enum([
@@ -66,9 +66,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/strength',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       const allWorkouts = await db
         .select({
@@ -175,9 +173,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/series',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       const allWorkouts = await db
         .select({

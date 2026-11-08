@@ -10,7 +10,7 @@ import {
   classifySkinfoldDirection,
 } from '../lib/skinfold-formulas.js'
 import { SKINFOLD_SITES, type SkinfoldSite } from '../lib/skinfold-sites.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const SkinfoldSiteEnum = z.enum(SKINFOLD_SITES)
 
@@ -75,9 +75,7 @@ export const skinfoldLogRoutes = new Elysia({ prefix: '/skinfold-log' })
   .get(
     '/summary',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       // Ascending for grouping + per-site latest lookup.
       const rows = await db
@@ -167,9 +165,7 @@ export const skinfoldLogRoutes = new Elysia({ prefix: '/skinfold-log' })
   .get(
     '/series',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       const rows = await db
         .select({ date: skinfoldLog.date, site: skinfoldLog.site, value_mm: skinfoldLog.value_mm })

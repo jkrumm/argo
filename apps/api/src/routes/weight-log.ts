@@ -5,7 +5,7 @@ import { db } from '../db/index.js'
 import { weightLog } from '../db/schema.js'
 import { computeStats, foldWeightByDate } from '../lib/formulas.js'
 import { trailingRateKgPerWeek, classifyWeightPhase } from '../lib/strength-formulas.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const WeightLogSchema = z.object({
   id: z.number(),
@@ -64,9 +64,7 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
   .get(
     '/summary',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       // Most-recent-first for computeStats
       const rawRows = await db
@@ -139,9 +137,7 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
   .get(
     '/series',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       const rawRows = await db
         .select({ date: weightLog.date, weight_kg: weightLog.weight_kg })

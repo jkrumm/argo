@@ -1,4 +1,5 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
+import { localDayKey } from '../../lib/local-day'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { NBSP, formatDuration, withUnit } from '../../lib/format'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
@@ -217,12 +218,7 @@ type RawTask = { status?: number | undefined; dueDate?: string | null | undefine
 
 const DUE_SOON_DAYS = 7
 
-const pad2 = (n: number) => String(n).padStart(2, '0')
-
-export const localKey = (ms: number) => {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-}
+export const localKey = (ms: number) => localDayKey(ms)
 
 /** Open TickTick tasks past due and due within the next 7 days, by local calendar day. */
 export function taskCounts(

@@ -12,6 +12,7 @@ import {
   listRecentPushEvents,
   searchUsers,
 } from '../clients/gitlab.js'
+import { daysAgo } from '../lib/local-date.js'
 import { QueryBool } from '../lib/query-bool.js'
 
 // --- Shared response schemas ----------------------------------------------
@@ -509,7 +510,5 @@ export const gitlabRoutes = new Elysia({ prefix: '/gitlab' })
   )
 
 function defaultAfter(daysBack: number): string {
-  const d = new Date()
-  d.setUTCDate(d.getUTCDate() - daysBack)
-  return d.toISOString().slice(0, 10)
+  return daysAgo(daysBack)
 }

@@ -3,6 +3,7 @@
  * once, so the summary line, the strip cells and the chart header read the same number.
  */
 import { NBSP, withUnit } from '../../lib/format'
+import { localDayKey } from '../../lib/local-day'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import {
   compareByDate,
@@ -36,10 +37,7 @@ const dayNumber = (key: string): number =>
 
 /** A timestamp as the LOCAL `YYYY-MM-DD` calendar day. */
 export function dayKey(ms: number): string {
-  const d = new Date(ms)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mm}-${dd}`
+  return localDayKey(ms)
 }
 
 /** Whole calendar days from `fromKey` to `toKey` (negative when `toKey` is earlier). */

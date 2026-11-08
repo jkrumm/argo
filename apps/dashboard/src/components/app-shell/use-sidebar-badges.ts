@@ -1,14 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { calendarQueries } from '../../lib/queries/calendar'
+import { localDayKey } from '../../lib/local-day'
 import { m365Queries } from '../../lib/queries/m365'
-
-/** Local YYYY-MM-DD key for "today" comparisons — matches the API's date-prefix wire format. */
-function todayKey(): string {
-  const now = new Date()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${month}-${day}`
-}
 
 /** True when an ISO timestamp or `YYYY-MM-DD` all-day string falls on `today`. */
 function startsOn(start: string | null | undefined, today: string): boolean {
@@ -29,7 +22,7 @@ export type SidebarBadges = { m365: number; calendar: number }
  *   an N+1 projects→tasks fetch, disproportionate for a sidebar number.
  */
 export function useSidebarBadges(): SidebarBadges {
-  const today = todayKey()
+  const today = localDayKey()
 
   const important = useQuery({ ...m365Queries.important({ top: 10 }), retry: false })
   const google = useQuery({ ...calendarQueries.google(1) })

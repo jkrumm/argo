@@ -7,6 +7,7 @@
  * Day bucketing runs on `YYYY-MM-DD` keys and calendar arithmetic on `new Date(y, m, d + n)`, never
  * on `+ 24 h`, so a DST day (23 or 25 h) lands in the right bucket; durations are real elapsed time.
  */
+import { localDayKey } from '../../lib/local-day'
 import type { ScheduleEventData } from '@mantine/schedule'
 import type { CalendarEventPayload, SourceClass } from '../../lib/queries/calendar'
 
@@ -39,7 +40,7 @@ function pad(n: number): string {
 }
 
 export function dayKey(date: Date): DayKey {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return localDayKey(date)
 }
 
 /** `Wed 14` — the label every day heading and strip row uses. */

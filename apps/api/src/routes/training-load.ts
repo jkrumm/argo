@@ -4,7 +4,7 @@ import { and, asc, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics } from '../db/schema.js'
 import { activityScore, trainingLoad } from '../lib/garmin-formulas.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const ZoneSchema = z.enum(['undertrained', 'optimal', 'caution', 'danger'])
 
@@ -23,9 +23,7 @@ const TrainingLoadPointSchema = z.object({
 export const trainingLoadRoutes = new Elysia({ prefix: '/training-load' }).get(
   '',
   async ({ query }) => {
-    const { from, to } = parseWindow(query)
-    const fromStr = from.toISOString().slice(0, 10)
-    const toStr = to.toISOString().slice(0, 10)
+    const { from: fromStr, to: toStr } = parseDateWindow(query)
 
     const rows = await db
       .select({

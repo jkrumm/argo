@@ -1,4 +1,5 @@
 import { APP_LOCALE } from '../../../lib/format'
+import { localDayKey } from '../../../lib/local-day'
 
 /** `3 Nov, 14:32` in the app's locale; the unlock throttle's "until" time. */
 export const dateTime = (iso: string): string =>
@@ -10,8 +11,7 @@ export const dateTime = (iso: string): string =>
   })
 
 /** `YYYY-MM-DD` of a date in the browser's local day. */
-export const isoDay = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+export const isoDay = (d: Date): string => localDayKey(d)
 
 /** `YYYY-MM-DD` plus `days`, in local days. */
 export function addDays(iso: string, days: number): string {

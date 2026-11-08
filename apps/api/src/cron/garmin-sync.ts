@@ -4,6 +4,7 @@ import { db } from '../db/index.js'
 import { dailyMetrics, garminActivities, syncControl } from '../db/schema.js'
 import { garmin, type ActivityRecord, type DailyMetric } from '../clients/garmin.js'
 import { env } from '../env.js'
+import { addDays, localDate } from '../lib/local-date.js'
 import { log } from '../telemetry.js'
 import { cronOptions, fireTick } from './traced-tick.js'
 
@@ -19,10 +20,6 @@ function isDayComplete(targetDate: string): boolean {
   const dayEnd = new Date(`${targetDate}T00:00:00Z`)
   dayEnd.setUTCDate(dayEnd.getUTCDate() + 1)
   return Date.now() - dayEnd.getTime() >= 6 * 60 * 60 * 1000
-}
-
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10)
 }
 
 async function pingHeartbeat(status: 'up' | 'down', msg: string): Promise<void> {
@@ -163,14 +160,12 @@ async function syncOnce(reason: string): Promise<GarminSyncResult> {
   let activitiesSynced = 0
   let activitiesMsg = ''
 
-  const today = new Date()
-  const fromDay = new Date(today)
-  fromDay.setUTCDate(fromDay.getUTCDate() - BACKFILL_DAYS)
+  const today = localDate()
 
   try {
     const metrics = await garmin.dailyMetrics({
-      from: ymd(fromDay),
-      to: ymd(today),
+      from: addDays(today, -BACKFILL_DAYS),
+      to: today,
     })
     for (const m of metrics) {
       try {
@@ -194,11 +189,9 @@ async function syncOnce(reason: string): Promise<GarminSyncResult> {
       .select({ total: count() })
       .from(garminActivities)
     const windowDays = total === 0 ? ACTIVITIES_INITIAL_BACKFILL_DAYS : BACKFILL_DAYS
-    const actFrom = new Date(today)
-    actFrom.setUTCDate(actFrom.getUTCDate() - windowDays)
     const records = await garmin.activities({
-      from: ymd(actFrom),
-      to: ymd(today),
+      from: addDays(today, -windowDays),
+      to: today,
     })
     activitiesSynced = await upsertActivities(records)
     activitiesMsg = `window=${windowDays}d records=${activitiesSynced}${total === 0 ? ' (initial)' : ''}`

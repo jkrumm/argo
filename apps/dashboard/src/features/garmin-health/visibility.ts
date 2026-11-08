@@ -1,3 +1,4 @@
+import { localDayKey } from '../../lib/local-day'
 import { HIDE_TODAY_BEFORE_HOUR, VISIBLE_DATE_MIN } from './constants'
 
 /**
@@ -6,10 +7,7 @@ import { HIDE_TODAY_BEFORE_HOUR, VISIBLE_DATE_MIN } from './constants'
  * the local date string).
  */
 function todayLocalIso(now: Date = new Date()): string {
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  return localDayKey(now)
 }
 
 /**

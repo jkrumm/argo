@@ -31,7 +31,8 @@ import {
   type DailyMetricRow,
   type WorkoutWithSets,
 } from '../lib/strength-formulas.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { daysAgo, localDate } from '../lib/local-date.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const DEFAULT_EXERCISES = ['bench_press', 'deadlift', 'squat', 'pull_ups']
 
@@ -260,7 +261,7 @@ function groupByExercise(rows: LoadedWorkout[]): Map<string, LoadedWorkout[]> {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  return localDate()
 }
 
 const METRIC_UNITS: Record<z.infer<typeof MetricKeyEnum>, z.infer<typeof MetricUnitEnum>> = {
@@ -278,9 +279,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/heroes',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const exIds = parseExercises(query.exercises)
 
       const rows = await loadWorkoutsRange(fromStr, toStr)
@@ -309,7 +308,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
           : null
 
       // Readiness: load up to 90d of daily metrics, only return when >= 7 rows.
-      const dmCutoff = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10)
+      const dmCutoff = daysAgo(90)
       const dailyRows = await db
         .select({
           date: dailyMetrics.date,
@@ -365,12 +364,9 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/series-detailed',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const exIds = parseExercises(query.exercises)
-      const rows = await loadWorkoutsRange(
-        from.toISOString().slice(0, 10),
-        to.toISOString().slice(0, 10),
-      )
+      const rows = await loadWorkoutsRange(fromStr, toStr)
       const byEx = groupByExercise(rows)
       const bwAt = await loadBodyweightResolver()
 
@@ -406,12 +402,9 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/weekly-volume',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const exIds = parseExercises(query.exercises)
-      const rows = await loadWorkoutsRange(
-        from.toISOString().slice(0, 10),
-        to.toISOString().slice(0, 10),
-      )
+      const rows = await loadWorkoutsRange(fromStr, toStr)
       const byEx = groupByExercise(rows)
       const bwAt = await loadBodyweightResolver()
 
@@ -451,12 +444,9 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/training-load',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const exIds = parseExercises(query.exercises)
-      const rows = await loadWorkoutsRange(
-        from.toISOString().slice(0, 10),
-        to.toISOString().slice(0, 10),
-      )
+      const rows = await loadWorkoutsRange(fromStr, toStr)
       const byEx = groupByExercise(rows)
 
       const byExercise = exIds.map((exId) => {
@@ -499,12 +489,9 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/records',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const exIds = parseExercises(query.exercises)
-      const rows = await loadWorkoutsRange(
-        from.toISOString().slice(0, 10),
-        to.toISOString().slice(0, 10),
-      )
+      const rows = await loadWorkoutsRange(fromStr, toStr)
       const byEx = groupByExercise(rows)
       const bwAt = await loadBodyweightResolver()
 
@@ -563,11 +550,8 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/composite/:exerciseId',
     async ({ params, query }) => {
-      const { from, to } = parseWindow(query)
-      const rows = await loadWorkoutsRange(
-        from.toISOString().slice(0, 10),
-        to.toISOString().slice(0, 10),
-      )
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
+      const rows = await loadWorkoutsRange(fromStr, toStr)
       const exRows = rows.filter((w) => w.exercise_id === params.exerciseId)
       const bwAt = await loadBodyweightResolver()
       const points = buildCompositeSeries(exRows, bwAt)
@@ -591,12 +575,9 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/relative-progression',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const exIds = parseExercises(query.exercises)
-      const rows = await loadWorkoutsRange(
-        from.toISOString().slice(0, 10),
-        to.toISOString().slice(0, 10),
-      )
+      const rows = await loadWorkoutsRange(fromStr, toStr)
       const byEx = groupByExercise(rows)
       const points = buildRelativeProgressionSeries(byEx, exIds)
       return { points }
@@ -623,12 +604,9 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/sparklines',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const exIds = parseExercises(query.exercises)
-      const rows = await loadWorkoutsRange(
-        from.toISOString().slice(0, 10),
-        to.toISOString().slice(0, 10),
-      )
+      const rows = await loadWorkoutsRange(fromStr, toStr)
       const byEx = groupByExercise(rows)
       const bwAt = await loadBodyweightResolver()
 
@@ -659,9 +637,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/summary/readiness',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
       const dailyRows = await db
         .select({
           date: dailyMetrics.date,
@@ -700,7 +676,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
     '/summary/alignment',
     async ({ query }) => {
       const today = todayStr()
-      const fromStr = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10)
+      const fromStr = daysAgo(90)
       const exIds = parseExercises(query.exercises)
 
       const dailyRows = await db
@@ -744,7 +720,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
     '/summary/deload-signal',
     async ({ query }) => {
       const today = todayStr()
-      const fromStr = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10)
+      const fromStr = daysAgo(90)
       const exIds = parseExercises(query.exercises)
 
       const rows = await loadWorkoutsRange(fromStr, today)

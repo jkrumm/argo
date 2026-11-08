@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { env } from '../env.js'
+import { addDays, localDate } from '../lib/local-date.js'
 import { uptimeKumaClient } from '../clients/uptime-kuma.js'
 import { ticktickOps } from '../clients/ticktick.js'
 import type { Project, Task } from '../generated/ticktick/types.gen.js'
@@ -126,10 +127,8 @@ async function fetchTickTickSummary() {
     if (Array.isArray(data.tasks)) allTasks.push(...data.tasks)
   }
 
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const in7 = new Date()
-  in7.setUTCDate(in7.getUTCDate() + 7)
-  const in7Str = in7.toISOString().slice(0, 10)
+  const todayStr = localDate()
+  const in7Str = addDays(todayStr, 7)
 
   const toItem = (task: Task): TickTaskItem => ({
     id: task.id ?? '',

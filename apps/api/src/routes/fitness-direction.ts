@@ -8,7 +8,7 @@ import {
   FITNESS_RHR_SLOPE_THRESHOLD,
   fitnessDirection,
 } from '../lib/garmin-formulas.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const FitnessDirectionResponseSchema = z.object({
   signal: z.enum(['improving', 'stable', 'declining']),
@@ -57,9 +57,7 @@ const FitnessDirectionResponseSchema = z.object({
 export const fitnessDirectionRoutes = new Elysia({ prefix: '/fitness-direction' }).get(
   '',
   async ({ query }) => {
-    const { from, to } = parseWindow(query)
-    const fromStr = from.toISOString().slice(0, 10)
-    const toStr = to.toISOString().slice(0, 10)
+    const { from: fromStr, to: toStr } = parseDateWindow(query)
 
     const rows = await db
       .select({

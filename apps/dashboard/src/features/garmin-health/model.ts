@@ -5,6 +5,7 @@
  */
 
 import { APP_LOCALE, NBSP, withUnit } from '../../lib/format'
+import { localDayKey } from '../../lib/local-day'
 import { WINDOW_DAYS, activitiesRange } from '../../lib/queries/activities-window'
 import type { WindowParams } from '../../lib/queries/daily-metrics'
 import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
@@ -180,10 +181,7 @@ export function fmtMinutes(min: number): string {
 
 /** A local `YYYY-MM-DD` key. */
 function dayKey(d: Date): string {
-  const y = d.getFullYear()
-  const mo = String(d.getMonth() + 1).padStart(2, '0')
-  const da = String(d.getDate()).padStart(2, '0')
-  return `${y}-${mo}-${da}`
+  return localDayKey(d)
 }
 
 /** Every `YYYY-MM-DD` key from `from` to `to`, inclusive; empty when `to` precedes `from`. */

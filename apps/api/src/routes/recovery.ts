@@ -10,7 +10,7 @@ import {
   percentile,
   STRAIN_DEBT_MIN_CEILING,
 } from '../lib/garmin-formulas.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const RecoveryComponentsSchema = z.object({
   hrv: z.number().nullable(),
@@ -39,9 +39,7 @@ export const recoveryRoutes = new Elysia({ prefix: '/recovery' })
   .get(
     '',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       const rows = await db
         .select({
@@ -129,9 +127,7 @@ export const recoveryRoutes = new Elysia({ prefix: '/recovery' })
   .get(
     '/series',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       const rows = await db
         .select({

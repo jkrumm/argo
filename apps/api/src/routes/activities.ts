@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { and, asc, count, desc, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { garminActivities } from '../db/schema.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { addDays } from '../lib/local-date.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const ActivitySchema = z.object({
   activity_id: z.number(),
@@ -53,12 +54,10 @@ export const activitiesRoutes = new Elysia({ prefix: '/activities' })
   .get(
     '/summary',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       // Last 7 days relative to window end for "weekly" breakdown
-      const sevenDaysAgo = new Date(to.getTime() - 7 * 86_400_000).toISOString().slice(0, 10)
+      const sevenDaysAgo = addDays(toStr, -6)
 
       const [windowRows, weeklyRows] = await Promise.all([
         db

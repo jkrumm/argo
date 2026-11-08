@@ -5,7 +5,7 @@ import { db } from '../db/index.js'
 import { dailyMetrics, syncControl } from '../db/schema.js'
 import { computeStats } from '../lib/formulas.js'
 import { activityScore } from '../lib/garmin-formulas.js'
-import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
 
 const DailyMetricSchema = z.object({
   date: z.string(),
@@ -131,9 +131,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
   .get(
     '/summary',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       // Ordered most-recent-first so slice(0, N) gives the N most recent values
       const rows = await db
@@ -173,9 +171,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
   .get(
     '/series',
     async ({ query }) => {
-      const { from, to } = parseWindow(query)
-      const fromStr = from.toISOString().slice(0, 10)
-      const toStr = to.toISOString().slice(0, 10)
+      const { from: fromStr, to: toStr } = parseDateWindow(query)
 
       const rows = await db
         .select({
