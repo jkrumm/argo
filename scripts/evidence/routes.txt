@@ -1,4 +1,4 @@
-# Non-dev dashboard routes (apps/dashboard/src/routes, minus charts-smoke). One path per line.
+# Non-dev dashboard routes (apps/dashboard/src/routes). One path per line.
 /
 /astro-window
 /astro-window?tab=forecast

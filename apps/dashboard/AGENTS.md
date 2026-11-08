@@ -10,7 +10,7 @@
   (basalt-ui 1.27.0) — typed fields, URL ⊳ localStorage ⊳ fallback. Zustand survives only for the
   two stores with no URL at all: the rest-timer engine (`lib/timer-store.ts`) and auth
   (`lib/auth.ts`)
-- **Charts:** `basalt-ui/charts` (TanStack Charts kinds; most chart files are placeholder stubs until Waves 7–9 of `docs/waves/PLAN.md`) + `src/lib/series.ts` (Argo's per-metric series identity)
+- **Charts:** `basalt-ui/charts` (TanStack Charts kinds; each feature keeps its charts under `features/<page>/charts/`) + `src/lib/series.ts` (Argo's per-metric series identity)
 - **Dates:** `date-fns` (frontend only; backend sends ISO strings)
 
 ## Route Structure
@@ -22,7 +22,6 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 - `astro-window.tsx` — Astro Window page
 - `body-composition.tsx` — Body Composition page
 - `calendar.tsx` — Calendar page
-- `charts-smoke.tsx` — chart smoke-test page
 - `garmin-health.tsx` — Garmin Health page
 - `m365-explorer.tsx` — M365 Explorer page
 - `models.tsx` — Models page (System → which model to use for what: one log-x scatter of AA intelligence against a weighted efficiency index (toggle to cost, ≈time or ≈tokens per task), your agw slots with the leanest alternative on Max and anywhere, a per-variant catalog table; `features/models/`, data from `GET /api/models/efficiency` via the modelpick relay, plain fetch, contract pinned in `api/types.ts`, logic pure in `model.ts`/`labels.ts`/`pointer.ts` (the scatter's own pointer overlay: nearest dot in 2D pixel space from the chart's clip rect and the page's own domains, since `CartesianChart` exposes no scales; hover shows the tooltip and lights the lineage, a click or tap toggles `pick`); filters and the highlighted lineage are `modelsStore`; fixture shots: `bun scripts/design-shot/models-fixture.ts [--live]` after a dashboard build; `--live` reads a gitignored local snapshot). **This repo is public and Artificial Analysis data is internal use only: fixtures stay synthetic (`features/models/__fixtures__/efficiency.ts`), and real numbers only ever come through the relay**
@@ -147,7 +146,7 @@ The dashboard uses `babel-plugin-react-compiler` via `vite-plugin-babel`. All co
 
 ## Observability (HyperDX)
 
-`import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4319` (unauthed receiver, no key needed in dev); in prod, Traefik routes the same paths on `argo.jkrumm.com` to `clickstack-otel@docker` → `clickstack:4318` (authed, key baked into the bundle via GHA build-arg).
+`import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4319` (unauthed receiver, no key needed in dev); in prod the API process on the mini relays the same paths itself (`POST /v1/traces` and `/v1/logs`, same-origin with `VITE_HYPERDX_ENDPOINT` empty; the upstream credential is the process's own `OTEL_EXPORTER_OTLP_HEADERS`, the public ingestion key baked into the bundle at `make deploy` via `secrets-run`).
 
 `VITE_HYPERDX_API_KEY` is a placeholder string locally (`local-dev-no-auth` in `.env.local.tpl`) — the SDK requires non-empty but `:4319` ignores the value. **Never set `VITE_HYPERDX_ENDPOINT` to a relative path** like `/` — the OTLP exporter requires absolute URLs and silently falls back to HyperDX Cloud.
 

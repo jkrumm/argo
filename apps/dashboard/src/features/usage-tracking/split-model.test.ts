@@ -116,7 +116,7 @@ describe('priorMeasureOf and totalOf', () => {
   })
 
   it('finds a payer total', () => {
-    const totals = [{ payer: 'iu-sub', ...cell('iu-sub', 1), prior: null }]
+    const totals = [{ ...cell('iu-sub', 1), prior: null }]
     expect(totalOf(totals, 'iu-sub')?.cost).toBe(1)
     expect(totalOf(totals, 'me-sub')).toBeUndefined()
   })

@@ -490,14 +490,14 @@ describe('one fixture, two live-review items', () => {
 
   test('the header 7 d mean is the chart line value at the newest date', () => {
     const line = toWeightChartPoints(pts, null).at(-1)!.ma
-    expect(weightWindowStats(pts, null).mean7).toBeCloseTo(line)
+    expect(weightWindowStats(pts, null).mean7).toBeCloseTo(line as number)
     expect(line).toBeCloseTo(100 - 0.5 * 35.5)
   })
 
   test('same on a noisy log', () => {
     const noisy = daily(40, 100, 0).map((p, i) => ({ ...p, weightKg: 100 + (i % 3) }))
     expect(weightWindowStats(noisy, null).mean7).toBeCloseTo(
-      toWeightChartPoints(noisy, null).at(-1)!.ma,
+      toWeightChartPoints(noisy, null).at(-1)!.ma as number,
     )
   })
 })

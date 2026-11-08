@@ -127,7 +127,7 @@ describe('startSync / lockVault', () => {
 
 describe('statusOptions polling', () => {
   const interval = (data: unknown) => {
-    const refetchInterval = mod.statusOptions.refetchInterval as (q: Query) => number
+    const refetchInterval = mod.statusOptions.refetchInterval as unknown as (q: Query) => number
     return refetchInterval({ state: { data } } as unknown as Query)
   }
 

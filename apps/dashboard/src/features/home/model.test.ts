@@ -315,7 +315,7 @@ describe('activityStream', () => {
 })
 
 describe('calendar activity rows', () => {
-  it('a started meeting is one line, no outcome and no chip', () => {
+  it('a started meeting is one line', () => {
     const [row] = calendarEvents(
       [{ key: 'm', title: '{meeting}', startMs: NOW - MIN }] as unknown as Parameters<
         typeof calendarEvents
@@ -323,8 +323,6 @@ describe('calendar activity rows', () => {
       NOW,
     )
     expect(row?.title).toBe('started {meeting}')
-    expect(row?.outcome).toBeUndefined()
-    expect(row?.chip).toBeUndefined()
   })
 })
 

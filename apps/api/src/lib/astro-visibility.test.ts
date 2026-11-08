@@ -10,6 +10,22 @@ function site(id: string) {
   return found
 }
 
+const cache = new Map<string, ReturnType<typeof annualVisibility>>()
+
+/** The committed site's full-year integration, computed once per site for the whole file. */
+function visibilityOf(id: string): ReturnType<typeof annualVisibility> {
+  const cached = cache.get(id)
+  if (cached) return cached
+  const found = site(id)
+  const result = annualVisibility({
+    observer: { lat: found.lat, lon: found.lon },
+    year: YEAR,
+    horizonDeg: found.horizonDeg,
+  })
+  cache.set(id, result)
+  return result
+}
+
 /** Minutes -> hours, one decimal, matching the doc's h/yr figures. */
 function hours(minutes: number): number {
   return Math.round((minutes / 60) * 10) / 10
@@ -22,12 +38,7 @@ function within1hr(actualMinutes: number, expectedHours: number): void {
 
 describe('annualVisibility — committed sites reproduce docs/ASTRO-HORIZON-RESEARCH.md §4', () => {
   it('Walchensee: flat 134.2, terrain 134.2, terrainMoon 163.8, dark 2794.7 h/yr', () => {
-    const walchensee = site('walchensee')
-    const result = annualVisibility({
-      observer: { lat: walchensee.lat, lon: walchensee.lon },
-      year: YEAR,
-      horizonDeg: walchensee.horizonDeg,
-    })
+    const result = visibilityOf('walchensee')
     within1hr(result.darkMinutes, 2794.7)
     within1hr(result.flat.minutes, 134.2)
     within1hr(result.terrain.minutes, 134.2)
@@ -35,23 +46,13 @@ describe('annualVisibility — committed sites reproduce docs/ASTRO-HORIZON-RESE
   })
 
   it('Munich: flat 113.8, terrainMoon 114.5 h/yr', () => {
-    const munich = site('munich')
-    const result = annualVisibility({
-      observer: { lat: munich.lat, lon: munich.lon },
-      year: YEAR,
-      horizonDeg: munich.horizonDeg,
-    })
+    const result = visibilityOf('munich')
     within1hr(result.flat.minutes, 113.8)
     within1hr(result.terrainMoon.minutes, 114.5)
   })
 
   it('Bayerischer Wald: flat 76.0, terrainMoon 81.3 h/yr', () => {
-    const wald = site('bayerischer-wald')
-    const result = annualVisibility({
-      observer: { lat: wald.lat, lon: wald.lon },
-      year: YEAR,
-      horizonDeg: wald.horizonDeg,
-    })
+    const result = visibilityOf('bayerischer-wald')
     within1hr(result.flat.minutes, 76.0)
     within1hr(result.terrainMoon.minutes, 81.3)
   })
@@ -91,12 +92,7 @@ describe('annualVisibility — a uniform wall (the Wallberg regime)', () => {
 
 describe('annualVisibility — byMonth shape', () => {
   it('is always length 12, sums to the total, and is zero Oct–Feb at these latitudes', () => {
-    const walchensee = site('walchensee')
-    const result = annualVisibility({
-      observer: { lat: walchensee.lat, lon: walchensee.lon },
-      year: YEAR,
-      horizonDeg: walchensee.horizonDeg,
-    })
+    const result = visibilityOf('walchensee')
     for (const gate of [result.flat, result.terrain, result.terrainMoon]) {
       expect(gate.byMonth).toHaveLength(12)
       expect(gate.byMonth.reduce((sum, m) => sum + m, 0)).toBe(gate.minutes)
@@ -111,12 +107,7 @@ describe('annualVisibility — byMonth shape', () => {
 describe('annualVisibility — structural ordering', () => {
   it('terrainMoon >= terrain and terrain <= flat, for every committed site', () => {
     for (const id of ['munich', 'alpenvorland', 'bayerischer-wald', 'walchensee']) {
-      const candidate = site(id)
-      const result = annualVisibility({
-        observer: { lat: candidate.lat, lon: candidate.lon },
-        year: YEAR,
-        horizonDeg: candidate.horizonDeg,
-      })
+      const result = visibilityOf(id)
       expect(result.terrain.minutes).toBeLessThanOrEqual(result.flat.minutes)
       expect(result.terrainMoon.minutes).toBeGreaterThanOrEqual(result.terrain.minutes)
     }
@@ -134,11 +125,7 @@ describe('peak clearance', () => {
       walchensee: 8.5,
     }
     for (const site of ASTRO_SITES) {
-      const result = annualVisibility({
-        observer: { lat: site.lat, lon: site.lon },
-        year: 2027,
-        horizonDeg: site.horizonDeg,
-      })
+      const result = visibilityOf(site.id)
       expect(result.peakClearanceDeg).toBeCloseTo(expected[site.id]!, 0)
     }
   })

@@ -209,6 +209,7 @@ describe('money and vocabulary lines', () => {
 
 describe('budgetReading', () => {
   const budget = (over: Partial<IuBudget> = {}): IuBudget => ({
+    iuKey: 'personal',
     limitUsd: 500,
     windowDays: 30,
     fetchedAt: ago(2 * H),
@@ -221,6 +222,7 @@ describe('budgetReading', () => {
     daily: [],
     dropoffNext7: [],
     topModels: [],
+    underCapOn: null,
     ...over,
   })
 

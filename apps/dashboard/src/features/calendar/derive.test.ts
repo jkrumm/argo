@@ -42,6 +42,7 @@ function ev(
     title: `{title ${id}}`,
     start,
     end,
+    color: 'gray',
     payload: { source: 'm365', sourceClass: 'work', ...payload },
   }
 }
@@ -104,7 +105,7 @@ describe('booked hours', () => {
   test('split attributes a shared minute once, so Work + Personal is the booked total', () => {
     const split = bookedBySourceClass(events, weekKeys(D))
     expect(split).toEqual({ work: 150, personal: 60 })
-    expect(split.work + split.personal).toBe(weekBookedMin(events, weekKeys(D)))
+    expect(split.work + split.personal).toBe(weekBookedMin(events, weekKeys(D)) as number)
   })
   test('an incomplete load is unknown, never zero', () => {
     const load = dayLoad(events, weekKeys(D), true)
@@ -341,7 +342,7 @@ describe('allDayEvents', () => {
   })
 })
 
-const task = (id: string, due: string, priority: number, project = '{project}') =>
+const task = (id: string, due: string, priority: number | undefined, project = '{project}') =>
   ev(id, `${due} 00:00:00`, `${addDays(due, 1)} 00:00:00`, {
     source: 'ticktick',
     sourceClass: undefined,
@@ -390,7 +391,9 @@ describe('DST day (Europe/Berlin)', () => {
     const elapsed = new Date(2026, 2, 29, 4, 0).getTime() - new Date(2026, 2, 29, 1, 0).getTime()
     const events = [ev('a', '2026-03-29 01:00:00', '2026-03-29 04:00:00')]
     expect(bookedMinOnDay(events, '2026-03-29')).toBe(elapsed / 60_000)
-    expect(dayLoad(events, weekKeys('2026-03-29')).filter((d) => d.count > 0)).toHaveLength(1)
+    expect(dayLoad(events, weekKeys('2026-03-29')).filter((d) => (d.count ?? 0) > 0)).toHaveLength(
+      1,
+    )
   })
 })
 

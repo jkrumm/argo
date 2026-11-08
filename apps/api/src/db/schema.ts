@@ -1,16 +1,11 @@
 import {
   pgSchema,
-  serial,
   text,
   integer,
   bigint,
   real,
-  doublePrecision,
   timestamp,
   jsonb,
-  boolean,
-  date,
-  primaryKey,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
@@ -260,128 +255,6 @@ export const walkingPadSessions = argoSchema.table(
     created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   },
   (t) => [index('idx_walking_pad_sessions_started_at').on(t.started_at)],
-)
-
-// Legacy: no code reads or writes it, superseded by `usage.records`, dropped at cutover.
-export const usageRecord = argoSchema.table(
-  'usage_record',
-  {
-    id: serial('id').primaryKey(),
-    source: text('source').notNull(),
-    source_id: text('source_id').notNull(),
-    grain: text('grain').notNull(),
-    ts: timestamp('ts', { withTimezone: true, mode: 'string' }).notNull(),
-    model: text('model'),
-    model_norm: text('model_norm'),
-    project: text('project'),
-    workspace: text('workspace'),
-    sub_tool: text('sub_tool'),
-    billing: text('billing').notNull(),
-    account: text('account'),
-    // IU API key that paid (billing='iu' only); NULL on an iu row = unknown key. See lib/iu-keys.ts.
-    iu_key: text('iu_key'),
-    machine: text('machine'),
-    outcome: text('outcome').notNull().default('ok'),
-    input_tokens: integer('input_tokens').notNull().default(0),
-    output_tokens: integer('output_tokens').notNull().default(0),
-    cache_read_tokens: integer('cache_read_tokens').notNull().default(0),
-    cache_write_tokens: integer('cache_write_tokens').notNull().default(0),
-    reasoning_tokens: integer('reasoning_tokens').notNull().default(0),
-    duration_ms: integer('duration_ms'),
-    cost_usd: real('cost_usd'),
-    cost_source: text('cost_source').notNull().default('none'),
-    raw: jsonb('raw'),
-    ingested_at: text('ingested_at').notNull(),
-    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-    updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-  },
-  (t) => [
-    uniqueIndex('uq_usage_source_sourceid_machine').on(t.source, t.source_id, t.machine),
-    index('idx_usage_ts').on(t.ts),
-    index('idx_usage_source').on(t.source),
-    index('idx_usage_model_norm').on(t.model_norm),
-    index('idx_usage_billing').on(t.billing),
-    index('idx_usage_machine').on(t.machine),
-    index('idx_usage_sub_tool').on(t.sub_tool),
-    index('idx_usage_workspace').on(t.workspace),
-    index('idx_usage_account').on(t.account),
-    index('idx_usage_iu_key').on(t.iu_key),
-  ],
-)
-
-// Legacy: no code reads or writes it, superseded by `usage.quota_samples`, dropped at cutover.
-export const quotaSample = argoSchema.table(
-  'quota_sample',
-  {
-    id: serial('id').primaryKey(),
-    account: text('account').notNull(),
-    sampled_at: timestamp('sampled_at', { withTimezone: true, mode: 'string' }).notNull(),
-    machine: text('machine').notNull(),
-    five_hour_pct: doublePrecision('five_hour_pct'),
-    seven_day_pct: doublePrecision('seven_day_pct'),
-    five_hour_resets_at: timestamp('five_hour_resets_at', { withTimezone: true, mode: 'string' }),
-    seven_day_resets_at: timestamp('seven_day_resets_at', { withTimezone: true, mode: 'string' }),
-    auth_ok: boolean('auth_ok').notNull(),
-    exhausted_until: timestamp('exhausted_until', { withTimezone: true, mode: 'string' }),
-    source: text('source'),
-    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [
-    uniqueIndex('uq_quota_sample_account_at_machine').on(t.account, t.sampled_at, t.machine),
-    index('idx_quota_sample_sampled_at').on(t.sampled_at),
-  ],
-)
-
-// Legacy: no code reads or writes it, superseded by `usage.account_picks`, dropped at cutover.
-export const accountPick = argoSchema.table(
-  'account_pick',
-  {
-    id: serial('id').primaryKey(),
-    ts: timestamp('ts', { withTimezone: true, mode: 'string' }).notNull(),
-    lane: text('lane').notNull(),
-    // Opaque: an account id, or `spill` when no Max account had headroom.
-    picked: text('picked').notNull(),
-    reason: text('reason').notNull(),
-    stale: boolean('stale').notNull(),
-    snapshot: jsonb('snapshot').notNull(),
-    machine: text('machine').notNull(),
-    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [uniqueIndex('uq_account_pick_ts_lane_machine').on(t.ts, t.lane, t.machine)],
-)
-
-// Legacy: no code reads or writes it, superseded by `usage.iu_portal_cost`, dropped at cutover.
-export const iuPortalCost = argoSchema.table(
-  'iu_portal_cost',
-  {
-    iu_key: text('iu_key').notNull().default('personal'),
-    day: date('day', { mode: 'string' }).notNull(),
-    label: text('label').notNull(),
-    row: integer('row').notNull(),
-    model: text('model'),
-    cost_usd: doublePrecision('cost_usd').notNull(),
-    fetched_at: timestamp('fetched_at', { withTimezone: true, mode: 'string' }).notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.iu_key, t.day, t.label, t.row] })],
-)
-
-// Legacy: no code reads or writes it, superseded by `usage.iu_portal_total`, dropped at cutover.
-export const iuPortalTotal = argoSchema.table(
-  'iu_portal_total',
-  {
-    iu_key: text('iu_key').notNull().default('personal'),
-    month: text('month').notNull(),
-    total_usd: doublePrecision('total_usd').notNull(),
-    fetched_at: timestamp('fetched_at', { withTimezone: true, mode: 'string' }).notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.iu_key, t.month] })],
 )
 
 // ── WalkingPad achievements (unlocked milestones, surfaced by the dashboard) ─

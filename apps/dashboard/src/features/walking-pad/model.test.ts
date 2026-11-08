@@ -284,7 +284,7 @@ describe('local-time hour grid', () => {
       { dow: 4, hour: 5, sessions: 1, distance_m: 0 },
       { dow: 1, hour: 9, sessions: 0, distance_m: 0 },
     ]
-    expect(busiestCell(cells)).toEqual(cells[0])
+    expect(busiestCell(cells)).toEqual(cells[0] as (typeof cells)[number])
     expect(busiestCell([cells[2] as (typeof cells)[number]])).toBeNull()
     expect(firstVisibleHour(cells)).toBe(5)
     expect(firstVisibleHour([cells[0] as (typeof cells)[number]])).toBe(6)

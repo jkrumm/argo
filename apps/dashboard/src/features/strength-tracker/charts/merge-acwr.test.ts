@@ -22,6 +22,6 @@ describe('mergePoints', () => {
     expect(merged).toHaveLength(2)
     expect(merged[0]?.day).toEqual(new Date(2026, 9, 5))
     expect(Object.keys(merged[0]?.per ?? {}).toSorted()).toEqual(['bench_press', 'squat'])
-    expect(merged[1]?.per.squat?.acwr).toBe(1.1)
+    expect(merged[1]?.per['squat']?.acwr).toBe(1.1)
   })
 })

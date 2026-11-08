@@ -10,7 +10,9 @@ import {
   recoveryScore,
   activityScore,
   fitnessDirection,
+  classifyAcwrZone,
   STRAIN_DEBT_MIN_CEILING,
+  type AcwrZone,
 } from './garmin-formulas.js'
 import {
   computeMetrics,
@@ -19,6 +21,7 @@ import {
   loadBodyweightResolver,
   E1RM_MAX_REPS,
 } from './formulas.js'
+import { addDays } from './local-date.js'
 import { weekStart } from './week.js'
 
 export {
@@ -47,7 +50,6 @@ export type WorkoutWithSets = {
   total_volume: number
 }
 
-export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
 export type StrengthDirection = 'improving' | 'stable' | 'declining'
 export type MetricKey =
   | 'max_weight'
@@ -77,16 +79,6 @@ function parseDate(yyyyMmDd: string): Date {
   // Use UTC midnight to keep arithmetic timezone-agnostic.
   const [y, m, d] = yyyyMmDd.split('-').map(Number)
   return new Date(Date.UTC(y!, m! - 1, d!))
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-
-function addDays(yyyyMmDd: string, n: number): string {
-  const d = parseDate(yyyyMmDd)
-  d.setUTCDate(d.getUTCDate() + n)
-  return formatDate(d)
 }
 
 function diffDays(a: string, b: string): number {
@@ -345,14 +337,6 @@ function ewmaSeries(values: number[], N: number): number[] {
     prev = next
   }
   return result
-}
-
-export function classifyAcwrZone(acwr: number | null): AcwrZone | null {
-  if (acwr === null) return null
-  if (acwr < 0.8) return 'undertrained'
-  if (acwr <= 1.3) return 'optimal'
-  if (acwr <= 1.5) return 'caution'
-  return 'danger'
 }
 
 /** §1.8 — Per-exercise ACWR via EWMA(4) / EWMA(16) of weekly tonnage. */

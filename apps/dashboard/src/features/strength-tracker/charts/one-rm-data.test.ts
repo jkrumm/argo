@@ -36,7 +36,7 @@ describe('buildMergedPoints', () => {
   })
 
   test('a lift missing on a date is null, not zero', () => {
-    expect(rows[0]!.e1rm.squat).toBeNull()
+    expect(rows[0]!.e1rm['squat']).toBeNull()
   })
 
   test('ignores lifts that are not active', () => {

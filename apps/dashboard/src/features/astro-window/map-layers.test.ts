@@ -239,8 +239,8 @@ describe('Open-Meteo domain catalogue', () => {
         ),
       ).searchParams.get('time_step')
       const match = step?.match(protocolGrammar)
-      expect(match?.groups?.capture).toBe('valid_times')
-      expect(Number(match?.groups?.amountAndUnit)).toBe(timeStep)
+      expect(match?.groups?.['capture']).toBe('valid_times')
+      expect(Number(match?.groups?.['amountAndUnit'])).toBe(timeStep)
     }
   })
 })
@@ -396,7 +396,12 @@ describe('lp param codec', () => {
   })
 
   it('falls back to the full range for a malformed range token, without touching the other fields', () => {
-    const fallback = { year: 2025, opacity: 0.6, resampling: 'linear', range: LP_RANGE_FULL }
+    const fallback = {
+      year: 2025,
+      opacity: 0.6,
+      resampling: 'linear',
+      range: LP_RANGE_FULL,
+    } as const
     expect(parseLpParam('2025:60:smooth:not-a-range')).toEqual(fallback)
     expect(parseLpParam('2025:60:smooth:2200-2100')).toEqual(fallback) // reversed
     expect(parseLpParam('2025:60:smooth:1000-3000')).toEqual(fallback) // outside LP_RANGE_MIN/MAX

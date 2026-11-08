@@ -7,6 +7,7 @@
     "start": "bun run src/index.ts",
     "dev": "bun run --hot src/index.ts",
     "test": "bun test",
+    "test:unit": "DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder bun test --timeout 30000 src/env.test.ts src/otlp-headers.test.ts src/serve-dashboard.test.ts src/telemetry.test.ts src/clients src/cron src/lib src/routes/astro.test.ts src/routes/calendar.test.ts src/routes/finance.test.ts src/routes/jira.test.ts src/routes/m365.test.ts src/routes/marine.test.ts src/routes/models.test.ts src/routes/openapi-auth.test.ts src/routes/usage.test.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

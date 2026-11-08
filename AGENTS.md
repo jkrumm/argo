@@ -58,19 +58,23 @@ see [Validate](#validate), [Deploy](#deploy) and [Verify & Monitor](#verify--mon
 
 `make check` runs exactly the gates CI runs on every PR and on push to `master`
 (`.github/workflows/check.yml`): basalt managed-file drift, then `oxlint` + `check-theme`, then
-`oxfmt --check`, then both workspace typechecks, then the DB-free unit tests. Non-zero on the first
-failure; no side effects.
+`oxfmt --check`, then the typechecks (API, dashboard incl. its test files via `tsconfig.test.json`, and `scripts/`),
+a dashboard `vite build`, the dashboard tests, and the DB-free API unit tests. Non-zero on the first
+failure; writes only the gitignored `apps/dashboard/dist`.
 
 ```bash
 ./node_modules/.bin/basalt-ui sync --check    # managed files match the installed basalt-ui
 bun run lint                                  # oxlint + basalt-ui check-theme
 bun run format:check                          # oxfmt
 bun run --cwd apps/api typecheck
-bun run --cwd apps/dashboard typecheck
+bun run --cwd apps/dashboard typecheck        # route tree, app, node and test files (tsconfig.test.json)
+bun run typecheck:scripts                     # scripts/
+bun run --cwd apps/dashboard build            # vite build
+bun run --cwd apps/dashboard test             # bun test src
 
-# Unit tests (pure logic, no DB connection) — placeholders satisfy the env schema for module init:
-DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder \
-  bun --cwd apps/api test src/env.test.ts src/routes/finance.test.ts src/routes/models.test.ts src/lib/
+# API unit tests (no DB connection): the DB-free set is listed once, in apps/api/package.json `test:unit`
+# (placeholder DATABASE_URL / API_SECRET included). A new DB-free test file goes into that list.
+bun run --cwd apps/api test:unit
 
 # Integration tests (src/routes/*.test.ts, src/db/*.test.ts) need the mini's Postgres up; NOT part of CI.
 # `bun test:api` creates a scratch database argo_test_<hex> as admin (secrets-run, apps/api/.env.test.tpl),
@@ -190,8 +194,8 @@ production cannot show) and forwards every other read to production, so its shot
 - **Never `op read`/`op run` on the Mac mini** — it hangs on a biometric prompt no one can answer.
   Use the `secrets-run` shim there (live `op` on the MacBook, headless cache on the mini).
 - **Prod OAuth tokens are per-grant runtime state**, not env or 1Password: local
-  `apps/api/data/oauth-tokens.json`, prod `/var/lib/argo/data/oauth-tokens.json` (survives
-  redeploys). Google features only work on prod or `bun dev:prod-api`.
+  `apps/api/data/oauth-tokens.json`, prod `~/.argo/state/oauth-tokens.json` on the mini (survives
+  deploys; see Mini layout). Google features only work on prod or `bun dev:prod-api`.
 - **`make verify` fails after `make rollback`** until the next deploy, by design (the live sha is not origin/master).
 
 ## Secrets

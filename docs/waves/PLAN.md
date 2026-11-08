@@ -95,7 +95,7 @@ Workers: Sonnet. Orchestrated.
   `src/db/usage-source.test.ts`. Quota percentages are integers in `usage.quota_samples` (were doubles). Real data through
   the app as role `argo`: summary 873,534 rows, headline 1.3 s (seq scan of 30 days over 840k rows; an index or a cache
   belongs to usage-tracker/Wave A2 if it hurts), the rest under 500 ms.
-- **Legacy tables stay.** `usageRecord`, `quotaSample`, `accountPick`, `iuPortalCost/Total` are still declared in
+- **Legacy tables stay.** (Dropped later by migration `0032`.) `usageRecord`, `quotaSample`, `accountPick`, `iuPortalCost/Total` are still declared in
   `db/schema.ts` (no reader, no writer) so `db:generate` never emits a DROP against the VPS; Wave 6 drops them with the
   cutover. The rehearsal leaves them out of the copy.
 - **Rehearsal.** `make db-rehearse` (`bun db:sync` is the same): one REPEATABLE READ snapshot on the VPS gives dump and

@@ -59,17 +59,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-/**
- * Attach user-identifying attributes to every subsequent span and log record.
- * Call after auth in multi-user apps; not used in the current single-user setup.
- */
-export function identifyUser(user: { id: string; email?: string; name?: string }): void {
-  if (typeof window === 'undefined') return
-  HyperDX.setGlobalAttributes({
-    userId: user.id,
-    ...(user.email ? { userEmail: user.email } : {}),
-    ...(user.name ? { userName: user.name } : {}),
-  })
-}
-
 export { HyperDX }

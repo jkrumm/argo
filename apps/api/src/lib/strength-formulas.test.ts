@@ -13,7 +13,6 @@ import {
   buildOneRmSeries,
   buildCompositeSeries,
   detectAchievements,
-  classifyAcwrZone,
   trailingRateKgPerWeek,
   classifyWeightPhase,
   type WorkoutWithSets,
@@ -182,16 +181,6 @@ describe('computeAcwrSeries', () => {
     const last = series[series.length - 1]!
     expect(last.acwr).not.toBeNull()
     expect(last.acwr!).toBeGreaterThan(1.0)
-  })
-})
-
-describe('classifyAcwrZone', () => {
-  it('maps thresholds correctly', () => {
-    expect(classifyAcwrZone(null)).toBeNull()
-    expect(classifyAcwrZone(0.5)).toBe('undertrained')
-    expect(classifyAcwrZone(1.0)).toBe('optimal')
-    expect(classifyAcwrZone(1.4)).toBe('caution')
-    expect(classifyAcwrZone(1.6)).toBe('danger')
   })
 })
 

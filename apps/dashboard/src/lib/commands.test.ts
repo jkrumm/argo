@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { validateHotkey } from '@tanstack/react-hotkeys'
 import { COMMANDS } from './commands'
 
-const entries = Object.entries(COMMANDS)
+const entries = Object.entries(COMMANDS) as [string, { shortcut?: string }][]
 
 describe('COMMANDS', () => {
   test('registers no nav commands: the provider lists NAV destinations itself', () => {

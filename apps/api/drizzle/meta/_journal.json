@@ -225,6 +225,13 @@
       "when": 1794179207499,
       "tag": "0031_weight_log_date_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794179706411,
+      "tag": "0032_drop_legacy_usage_tables",
+      "breakpoints": true
     }
   ]
 }

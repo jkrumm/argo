@@ -42,12 +42,12 @@ The SDK appends `/v1/traces` and `/v1/logs`. **Relative paths silently fail** �
 
 `window.location.origin` is the right fallback because the dashboard origin proxies the OTLP paths back to ClickStack (same-origin → no CORS):
 
-| Env  | How `/v1/traces` reaches ClickStack                                                                                                                                                         |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dev  | Vite proxy in `vite.config.ts` forwards `/v1/traces` + `/v1/logs` to `:4319` (unauthed). `VITE_HYPERDX_API_KEY` is a literal placeholder — SDK requires non-empty, receiver ignores it.     |
-| Prod | Traefik labels on `argo-dashboard` route those paths to `clickstack-otel@docker` (→ `clickstack:4318`, authed). Browser embeds the public ingestion key in the bundle (Sentry-DSN pattern). |
+| Env  | How `/v1/traces` reaches ClickStack                                                                                                                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dev  | Vite proxy in `vite.config.ts` forwards `/v1/traces` + `/v1/logs` to `:4319` (unauthed). `VITE_HYPERDX_API_KEY` is a literal placeholder — SDK requires non-empty, receiver ignores it.                                 |
+| Prod | The API process on the mini relays those paths to the authed ClickStack OTLP receiver (`serve-dashboard.ts`, same-origin). Browser embeds the public ingestion key in the bundle at `make deploy` (Sentry-DSN pattern). |
 
-The asymmetry is by design: backend services on both sides use the unauthed `:4319` (docker-bridge-only). Browser SDK uses `:4319` directly in dev (via Vite proxy on localhost) but must go through Traefik's authed `:4318` in prod, since `:4319` has no public route. See `~/SourceRoot/vps/docs/observability.md`.
+The asymmetry is by design: backend services on both sides use the unauthed `:4319` (docker-bridge-only). Browser SDK uses `:4319` directly in dev (via Vite proxy on localhost) but must go through the API's relay to the authed `:4318` in prod, since `:4319` has no public route. See `~/SourceRoot/vps/docs/observability.md`.
 
 Never set `VITE_HYPERDX_ENDPOINT=/` (relative path → silent cloud fallback). To override, use the absolute origin: `VITE_HYPERDX_ENDPOINT=https://otel.jkrumm.com`.
 

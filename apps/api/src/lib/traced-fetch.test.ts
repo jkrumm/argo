@@ -85,6 +85,14 @@ async function drain(stream: ReadableStream<Uint8Array>): Promise<void> {
   }
 }
 
+/** Polls until the condition holds (the watchdog fired), up to a generous bound, so a busy runner cannot flake a short real timer. */
+async function until(condition: () => boolean, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (!condition() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
 describe('tracedFetch', () => {
   it('non-streaming response (no body): span ends immediately, argo.stream.* not set', async () => {
     stubFetch(() => new Response(null, { status: 200 }))
@@ -229,7 +237,7 @@ describe('tracedFetch', () => {
       },
     })
     expect(captured?.isRecording()).toBe(true)
-    await new Promise((resolve) => setTimeout(resolve, 60))
+    await until(() => captured?.isRecording() === false)
 
     expect(captured?.isRecording()).toBe(false)
     const exported = findExported(captured!)
@@ -283,7 +291,7 @@ describe('tracedFetch', () => {
       },
     })
     const endSpy = spyEnd(captured!)
-    await new Promise((resolve) => setTimeout(resolve, 40)) // let the watchdog fire
+    await until(() => captured?.isRecording() === false) // let the watchdog fire
 
     // A late drain must not resurrect or double-end the span, nor flip its outcome.
     push(new Uint8Array([1, 2, 3]))

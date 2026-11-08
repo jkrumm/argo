@@ -4,21 +4,30 @@ on:
   push:
     branches: [master]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      # The local bin, never `bunx` — `bunx` resolves a CACHED copy from npm and does not
-      # re-resolve it, so it can answer for a different version than the one being built
-      # against (observed: a 1.20.0 cache answering for a 1.22.0 install).
-      - name: basalt drift gate (managed files match the installed basalt-ui)
-        run: ./node_modules/.bin/basalt-ui sync --check
-      # lint, theme guard, format, typechecks and unit tests: the same gates as local `make check`.
+      # basalt drift (local bin, never `bunx`: it can answer for a cached, different version),
+      # lint, theme guard, format, typechecks, dashboard build and unit tests: the same gates as local `make check`.
       - run: make check
       - name: fallow analysis (report-only)
         continue-on-error: true

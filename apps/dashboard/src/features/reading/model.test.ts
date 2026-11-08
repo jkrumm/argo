@@ -235,8 +235,8 @@ describe('ratingShape', () => {
       '3.5 to 4 stars',
       '4.5 to 5 stars',
     ]
-    expect(ratingShape([book({ rating: 3 })]).spans).toEqual(expected)
-    expect(ratingShape([book()]).spans).toEqual(expected)
+    expect(Array.from(ratingShape([book({ rating: 3 })]).spans)).toEqual(expected)
+    expect(Array.from(ratingShape([book()]).spans)).toEqual(expected)
   })
 
   test('each column is labelled by its star, and a whole-star rating sits in its own column', () => {

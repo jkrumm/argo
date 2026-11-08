@@ -11,6 +11,7 @@ const ev = (id: string, start: string, end: string): CalendarItem => ({
   title: `{title ${id}}`,
   start,
   end,
+  color: 'gray',
   payload: { source: 'm365', sourceClass: 'work' } satisfies CalendarEventPayload,
 })
 const now = new Date(2026, 9, 14, 11, 0, 0)
@@ -34,7 +35,7 @@ describe('summaryParts empty window', () => {
     const far = [ev('far', '2026-10-23 10:00:00', '2026-10-23 11:00:00')]
     const summary = agendaSummary(far, now)
     expect(summary.next).not.toBeNull()
-    expect(summaryParts(summary, null, EMPTY_WINDOW).facts).toEqual([countdown(summary)])
+    expect(summaryParts(summary, null, EMPTY_WINDOW).facts).toEqual([countdown(summary) as string])
   })
   test('an unanswered calendar is still the gap, never the empty window', () => {
     const loading = { state: 'loading' as const, text: 'Loading calendar', card: 'Loading' }

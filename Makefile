@@ -8,15 +8,16 @@
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-check: ## Run exactly the local validation CI runs (drift, lint, format, typecheck incl. scripts/, unit tests incl. dashboard)
+check: ## Run exactly the local validation CI runs (drift, lint, format, typecheck incl. scripts/ and dashboard tests, dashboard build, unit tests)
 	./node_modules/.bin/basalt-ui sync --check
 	bun run lint
 	bun run format:check
 	bun --cwd apps/api typecheck
 	bun --cwd apps/dashboard typecheck
 	bun run typecheck:scripts
+	bun run --cwd apps/dashboard build
 	bun --cwd apps/dashboard test
-	DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder bun --cwd apps/api test --timeout 30000 src/env.test.ts src/routes/finance.test.ts src/routes/models.test.ts src/lib/
+	bun run --cwd apps/api test:unit
 
 deploy: ## Deploy origin/master to the mini: release, LaunchAgent, health wait, rollback on failure (DRY_RUN=1 = plan only)
 	@zsh scripts/deploy.sh

@@ -9,7 +9,7 @@ type Recorded = {
   startTime: number | undefined
   attributes: Record<string, unknown> | undefined
   status?: { code: SpanStatusCode }
-  endTime?: number
+  endTime?: number | undefined
   ended?: boolean
 }
 
