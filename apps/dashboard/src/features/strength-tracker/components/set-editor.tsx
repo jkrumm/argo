@@ -168,13 +168,9 @@ export function SetEditor({
   const hasPrevious = previousSets !== undefined && previousSets.length > 0
 
   // Numbered labels: work sets get sequential numbers, others get a letter.
-  let workNum = 0
-  const labels = sets.map((s) => {
-    if (s.set_type === 'work') {
-      workNum++
-      return String(workNum)
-    }
-    return TYPE_ABBREV[s.set_type]
+  const labels = sets.map((s, i) => {
+    if (s.set_type !== 'work') return TYPE_ABBREV[s.set_type]
+    return String(sets.slice(0, i + 1).filter((p) => p.set_type === 'work').length)
   })
   const typeKeyText = typeKey(sets)
 
