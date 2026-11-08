@@ -1,5 +1,4 @@
 import { Cron } from 'croner'
-import { context, ROOT_CONTEXT, SpanKind, SpanStatusCode } from '@opentelemetry/api'
 import { and as drizzleAnd, eq as drizzleEq, isNotNull as drizzleIsNotNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { bookSyncMap, readingStat, userBook } from '../db/schema.js'
@@ -10,33 +9,16 @@ import {
 } from '../clients/hardcover.js'
 import { runReadingMatch } from '../lib/reading-match.js'
 import { env } from '../env.js'
-import { tracer } from '../telemetry.js'
+import { cronOptions, fireTick } from './traced-tick.js'
 
 let inProgress = false
 
 /**
- * Wrap a cron tick in a fresh root span. Detaches from any ambient context
- * via ROOT_CONTEXT so each tick stands alone in the trace tree.
+ * The start date is only ours to set while the shelf entry has not started reading yet
+ * (status below 2). Moving reading -> read must keep the real start date.
  */
-async function tracedTick(
-  name: string,
-  attributes: Record<string, string>,
-  fn: () => Promise<unknown>,
-): Promise<void> {
-  await context.with(ROOT_CONTEXT, () =>
-    tracer.startActiveSpan(name, { kind: SpanKind.INTERNAL, attributes }, async (span) => {
-      try {
-        await fn()
-        span.setStatus({ code: SpanStatusCode.OK })
-      } catch (err) {
-        span.recordException(err as Error)
-        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) })
-        throw err
-      } finally {
-        span.end()
-      }
-    }),
-  )
+export function shouldSetStartDate(currentStatus: number): boolean {
+  return currentStatus < 2
 }
 
 export async function runHardcoverReconcile(): Promise<{
@@ -112,14 +94,15 @@ export async function runHardcoverReconcile(): Promise<{
       if (desiredStatus <= currentStatus) continue
 
       const date = ((row.last_read_at as string | null) ?? new Date().toISOString()).slice(0, 10)
+      const setStartDate = shouldSetStartDate(currentStatus)
 
       try {
         if (row.hardcover_user_book_id !== null) {
           // Update existing user_book on Hardcover.
           const object: UserBookUpdateInput = {
             status_id: desiredStatus,
-            first_started_reading_date: date,
           }
+          if (setStartDate) object.first_started_reading_date = date
           if (desiredStatus === 3) object.last_read_date = date
 
           await hardcover.updateUserBook(row.hardcover_user_book_id, object)
@@ -129,7 +112,7 @@ export async function runHardcoverReconcile(): Promise<{
             .update(userBook)
             .set({
               status_id: desiredStatus,
-              first_started_reading_date: date,
+              ...(setStartDate ? { first_started_reading_date: date } : {}),
               ...(desiredStatus === 3 ? { last_read_date: date } : {}),
             })
             .where(drizzleEq(userBook.hardcover_user_book_id, row.hardcover_user_book_id))
@@ -189,13 +172,13 @@ export function registerHardcoverReconcileCron(): void {
     return
   }
 
-  // Daily at 05:30 UTC — after the 05:00 shelf sync so the mirror is fresh.
-  new Cron('30 5 * * *', () => {
-    void tracedTick('cron.hardcover-reconcile.scheduled', { 'cron.schedule': '30 5 * * *' }, () =>
+  // Daily at 05:30 Europe/Berlin — after the 05:00 shelf sync so the mirror is fresh.
+  new Cron('30 5 * * *', cronOptions('hardcover-reconcile'), () => {
+    fireTick('cron.hardcover-reconcile.scheduled', { 'cron.schedule': '30 5 * * *' }, () =>
       runHardcoverReconcile(),
     )
   })
 
   // eslint-disable-next-line no-console
-  console.log('[hardcover-reconcile] cron registered (daily at 05:30 UTC)')
+  console.log('[hardcover-reconcile] cron registered (daily at 05:30 Europe/Berlin)')
 }

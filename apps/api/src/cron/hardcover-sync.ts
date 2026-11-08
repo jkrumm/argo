@@ -1,5 +1,4 @@
 import { Cron } from 'croner'
-import { context, ROOT_CONTEXT, SpanKind, SpanStatusCode } from '@opentelemetry/api'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userBook } from '../db/schema.js'
@@ -7,34 +6,9 @@ import { hardcover, type HardcoverUserBook } from '../clients/hardcover.js'
 import { upsertBook } from '../lib/book-store.js'
 import { env } from '../env.js'
 import { pullReadingStatsShared, pushReadingShelf } from '../lib/reading-store.js'
-import { tracer } from '../telemetry.js'
+import { cronOptions, fireTick } from './traced-tick.js'
 
 let inProgress = false
-
-/**
- * Wrap a cron tick in a fresh root span. Detaches from any ambient context
- * via ROOT_CONTEXT so each tick stands alone in the trace tree.
- */
-async function tracedTick(
-  name: string,
-  attributes: Record<string, string>,
-  fn: () => Promise<unknown>,
-): Promise<void> {
-  await context.with(ROOT_CONTEXT, () =>
-    tracer.startActiveSpan(name, { kind: SpanKind.INTERNAL, attributes }, async (span) => {
-      try {
-        await fn()
-        span.setStatus({ code: SpanStatusCode.OK })
-      } catch (err) {
-        span.recordException(err as Error)
-        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) })
-        throw err
-      } finally {
-        span.end()
-      }
-    }),
-  )
-}
 
 async function upsertBooks(rows: HardcoverUserBook[]): Promise<void> {
   if (rows.length === 0) return
@@ -120,7 +94,7 @@ export async function runHardcoverSync(): Promise<{ upserted: number; errors: nu
     console.error('[hardcover-sync] failed:', e)
   } finally {
     inProgress = false
-    void pushReadingShelf()
+    pushReadingShelf() // fire-and-forget: the coalescer swallows push errors
   }
 
   return { upserted, errors }
@@ -133,13 +107,13 @@ export function registerHardcoverSyncCron(): void {
     return
   }
 
-  // Daily at 05:00 UTC — low-traffic hour, well clear of midnight crons.
-  new Cron('0 5 * * *', () => {
-    void tracedTick('cron.hardcover-sync.scheduled', { 'cron.schedule': '0 5 * * *' }, () =>
+  // Daily at 05:00 Europe/Berlin — low-traffic hour, well clear of midnight crons.
+  new Cron('0 5 * * *', cronOptions('hardcover-sync'), () => {
+    fireTick('cron.hardcover-sync.scheduled', { 'cron.schedule': '0 5 * * *' }, () =>
       runHardcoverSync(),
     )
   })
 
   // eslint-disable-next-line no-console
-  console.log('[hardcover-sync] cron registered (daily at 05:00 UTC)')
+  console.log('[hardcover-sync] cron registered (daily at 05:00 Europe/Berlin)')
 }

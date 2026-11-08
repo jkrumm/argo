@@ -4,10 +4,15 @@ import { uptimeKumaClient } from './clients/uptime-kuma.js'
 import { runMigrations } from './db/index.js'
 import { app, type App } from './app.js'
 import { createDashboardHandler } from './serve-dashboard.js'
+import { log } from './telemetry.js'
 
 export { app }
 export type { App }
 export type { HorizonResponse, VisibilityResponse } from './routes/astro.js'
+
+// A rejected promise nobody awaits must not take the process down (launchd would crash-loop it).
+process.on('unhandledRejection', (reason) => log.error('unhandled rejection', reason))
+process.on('uncaughtException', (err) => log.error('uncaught exception', err))
 
 await runMigrations()
 

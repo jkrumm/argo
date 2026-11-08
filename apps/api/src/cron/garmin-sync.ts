@@ -1,17 +1,15 @@
 import { Cron } from 'croner'
-import { context, ROOT_CONTEXT, SpanKind, SpanStatusCode } from '@opentelemetry/api'
-import { eq, sql } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics, garminActivities, syncControl } from '../db/schema.js'
 import { garmin, type ActivityRecord, type DailyMetric } from '../clients/garmin.js'
 import { env } from '../env.js'
-import { tracer } from '../telemetry.js'
+import { log } from '../telemetry.js'
+import { cronOptions, fireTick } from './traced-tick.js'
 
 const BACKFILL_DAYS = env.GARMIN_BACKFILL_DAYS
 const ACTIVITIES_INITIAL_BACKFILL_DAYS = env.GARMIN_ACTIVITIES_INITIAL_BACKFILL_DAYS
 const HEARTBEAT_URL = env.GARMIN_HEARTBEAT_URL
-
-let inProgress = false
 
 function isoNow(): string {
   return new Date().toISOString().replace(/\.\d+Z$/, 'Z')
@@ -87,20 +85,79 @@ export type GarminSyncResult = {
   activitiesSynced: number
 }
 
-export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
-  if (inProgress) {
-    return { errors: 0, message: 'already in progress', daysSynced: 0, activitiesSynced: 0 }
+type SyncGuardDeps = {
+  begin: () => Promise<void>
+  finish: (result: GarminSyncResult) => Promise<void>
+}
+
+/**
+ * Single-flight guard around one sync run. The in-memory flag and the DB `in_progress`
+ * flag are always reset (`finish` runs in `finally`), even when `begin` or `fn` throws.
+ */
+export function createSyncGuard(deps: SyncGuardDeps) {
+  let inProgress = false
+  return async (fn: () => Promise<GarminSyncResult>): Promise<GarminSyncResult> => {
+    if (inProgress) {
+      return { errors: 0, message: 'already in progress', daysSynced: 0, activitiesSynced: 0 }
+    }
+    inProgress = true
+    let result: GarminSyncResult = {
+      errors: 1,
+      message: 'failed before completion',
+      daysSynced: 0,
+      activitiesSynced: 0,
+    }
+    try {
+      await deps.begin()
+      result = await fn()
+      return result
+    } catch (e) {
+      result = { ...result, message: `failed: ${(e as Error).message}` }
+      throw e
+    } finally {
+      try {
+        await deps.finish(result)
+      } catch (e) {
+        log.error('[garmin-sync] closing sync_control update failed', e)
+      }
+      inProgress = false
+    }
   }
-  inProgress = true
+}
 
-  await db
-    .update(syncControl)
-    .set({ in_progress: 1, last_started_at: isoNow(), refresh_requested: 0 })
-    .where(eq(syncControl.id, 1))
+const guardedSync = createSyncGuard({
+  begin: async () => {
+    await db
+      .update(syncControl)
+      .set({ in_progress: 1, last_started_at: isoNow(), refresh_requested: 0 })
+      .where(eq(syncControl.id, 1))
+  },
+  finish: async (result) => {
+    await db
+      .update(syncControl)
+      .set({
+        in_progress: 0,
+        last_completed_at: isoNow(),
+        last_status: result.errors === 0 ? 'ok' : 'error',
+        last_message: result.message,
+      })
+      .where(eq(syncControl.id, 1))
+    await pingHeartbeat(result.errors === 0 ? 'up' : 'down', result.message)
+  },
+})
 
+/** A killed process leaves `in_progress=1` behind; nothing runs at boot, so clear it. */
+async function resetStaleInProgress(): Promise<void> {
+  await db.update(syncControl).set({ in_progress: 0 }).where(eq(syncControl.id, 1))
+}
+
+export function runGarminSync(reason: string): Promise<GarminSyncResult> {
+  return guardedSync(() => syncOnce(reason))
+}
+
+async function syncOnce(reason: string): Promise<GarminSyncResult> {
   // eslint-disable-next-line no-console
   console.log(`[garmin-sync] starting (reason=${reason}, backfill=${BACKFILL_DAYS}d)`)
-
   let errors = 0
   let daysSynced = 0
   let activitiesSynced = 0
@@ -133,10 +190,10 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
 
   // Activities — wider window if table is empty.
   try {
-    const [{ count = 0 } = { count: 0 }] = await db
-      .select({ count: sql<number>`count(*)` })
+    const [{ total = 0 } = { total: 0 }] = await db
+      .select({ total: count() })
       .from(garminActivities)
-    const windowDays = count === 0 ? ACTIVITIES_INITIAL_BACKFILL_DAYS : BACKFILL_DAYS
+    const windowDays = total === 0 ? ACTIVITIES_INITIAL_BACKFILL_DAYS : BACKFILL_DAYS
     const actFrom = new Date(today)
     actFrom.setUTCDate(actFrom.getUTCDate() - windowDays)
     const records = await garmin.activities({
@@ -144,7 +201,7 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
       to: ymd(today),
     })
     activitiesSynced = await upsertActivities(records)
-    activitiesMsg = `window=${windowDays}d records=${activitiesSynced}${count === 0 ? ' (initial)' : ''}`
+    activitiesMsg = `window=${windowDays}d records=${activitiesSynced}${total === 0 ? ' (initial)' : ''}`
   } catch (e) {
     errors += 1
     activitiesMsg = `error: ${(e as Error).message}`
@@ -156,44 +213,7 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
   // eslint-disable-next-line no-console
   console.log(`[garmin-sync] done: ${message}`)
 
-  await db
-    .update(syncControl)
-    .set({
-      in_progress: 0,
-      last_completed_at: isoNow(),
-      last_status: errors === 0 ? 'ok' : 'error',
-      last_message: message,
-    })
-    .where(eq(syncControl.id, 1))
-
-  await pingHeartbeat(errors === 0 ? 'up' : 'down', message)
-  inProgress = false
   return { errors, message, daysSynced, activitiesSynced }
-}
-
-/**
- * Wrap a cron tick in a fresh root span. Detaches from any ambient context
- * via ROOT_CONTEXT so each tick stands alone in the trace tree.
- */
-async function tracedTick(
-  name: string,
-  attributes: Record<string, string>,
-  fn: () => Promise<unknown>,
-): Promise<void> {
-  await context.with(ROOT_CONTEXT, () =>
-    tracer.startActiveSpan(name, { kind: SpanKind.INTERNAL, attributes }, async (span) => {
-      try {
-        await fn()
-        span.setStatus({ code: SpanStatusCode.OK })
-      } catch (err) {
-        span.recordException(err as Error)
-        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) })
-        throw err
-      } finally {
-        span.end()
-      }
-    }),
-  )
 }
 
 export function registerGarminSyncCron(): void {
@@ -203,22 +223,31 @@ export function registerGarminSyncCron(): void {
     return
   }
 
-  void ensureControlRow()
+  ensureControlRow()
+    .then(resetStaleInProgress)
+    .catch((e) => log.error('[garmin-sync] control row init failed', e))
 
   // Scheduled sync every 6h. Each tick is a fresh root trace via ROOT_CONTEXT —
   // without detachment, croner's timer-based scheduling could chain ticks together.
-  new Cron('0 */6 * * *', () => {
-    void tracedTick('cron.garmin-sync.scheduled', { 'cron.schedule': '0 */6 * * *' }, () =>
+  new Cron('0 */6 * * *', cronOptions('garmin-sync'), () => {
+    fireTick('cron.garmin-sync.scheduled', { 'cron.schedule': '0 */6 * * *' }, () =>
       runGarminSync('scheduled'),
     )
   })
 
   // Manual refresh poller — picks up dashboard-triggered refresh within 60s.
   // Only emit a span when work actually runs; the no-op DB check would be noise.
-  new Cron('* * * * *', async () => {
-    const [row] = await db.select().from(syncControl).where(eq(syncControl.id, 1))
+  new Cron('* * * * *', cronOptions('garmin-sync-poll'), async () => {
+    const [row] = await db
+      .select()
+      .from(syncControl)
+      .where(eq(syncControl.id, 1))
+      .catch((e) => {
+        log.error('[garmin-sync] refresh poll read failed', e)
+        return []
+      })
     if (row?.refresh_requested) {
-      void tracedTick('cron.garmin-sync.manual-refresh', { 'cron.schedule': '* * * * *' }, () =>
+      fireTick('cron.garmin-sync.manual-refresh', { 'cron.schedule': '* * * * *' }, () =>
         runGarminSync('manual-refresh'),
       )
     }
