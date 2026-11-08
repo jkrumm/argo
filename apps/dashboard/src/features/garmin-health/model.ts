@@ -6,7 +6,7 @@
 
 import { APP_LOCALE, NBSP, withUnit } from '../../lib/format'
 import { localDayKey } from '../../lib/local-day'
-import { WINDOW_DAYS, activitiesRange } from '../../lib/queries/activities-window'
+import { activitiesRange } from '../../lib/queries/activities-window'
 import type { WindowParams } from '../../lib/queries/daily-metrics'
 import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
 
@@ -255,21 +255,16 @@ export function windowSpan(
 }
 
 /**
- * The window's length as the selector names it, for copy: a `30d` preset is 30 days (its query
- * range starts 30 days back and so spans 31 calendar days), a custom range counts its days. Clipped
- * at the visible floor like `windowDayCount`.
+ * The window's length as the selector names it, for copy: a `30d` preset is 30 calendar days (its
+ * query range starts 29 days back), a custom range counts its days. Clipped at the visible floor
+ * like `windowDayCount`.
  */
 export function windowCopyDays(
   params: WindowParams,
   floor: string,
   today: Date = new Date(),
 ): number {
-  const counted = windowDayCount(activitiesRange(params, today), floor, today)
-  const preset =
-    !params.from && !params.to && params.window && params.window !== 'all'
-      ? WINDOW_DAYS[params.window]
-      : undefined
-  return preset === undefined ? counted : Math.min(preset, counted)
+  return windowDayCount(activitiesRange(params, today), floor, today)
 }
 
 /** One day-month order for every date the page prints: the page locale's, like basalt's chart ticks and tooltip (`4 Oct`). */

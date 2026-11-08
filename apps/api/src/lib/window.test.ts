@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'bun:test'
-import { WindowQuerySchema, parseDateWindow, parseWindow } from './window.js'
+import { WindowQuerySchema, parseDateWindow, parseWindow, windowEnd } from './window.js'
 
 // 2026-07-10 22:30 UTC is already 2026-07-11 00:30 in Berlin (CEST).
 const NOW = new Date('2026-07-10T22:30:00Z')
+
+describe('windowEnd', () => {
+  it('is the window end, capped at today', () => {
+    expect(windowEnd('2026-01-31', '2026-11-09')).toBe('2026-01-31')
+    expect(windowEnd('2026-12-31', '2026-11-09')).toBe('2026-11-09')
+  })
+})
 
 describe('parseDateWindow', () => {
   it('7d spans exactly 7 local dates ending today', () => {

@@ -184,6 +184,18 @@ describe('computeAcwrSeries', () => {
   })
 })
 
+describe('computeAcwrSeries zero-fill through', () => {
+  const w = [
+    mkWorkout(1, 'bench_press', '2026-01-05', [], 100, 1000),
+    mkWorkout(2, 'bench_press', '2026-01-12', [], 100, 1000),
+  ]
+
+  it('ends at the through week, not at today', () => {
+    expect(computeAcwrSeries(w, '2026-01-31').at(-1)!.date).toBe('2026-01-26')
+    expect(computeAcwrSeries(w, '2026-11-09').at(-1)!.date).toBe('2026-11-09')
+  })
+})
+
 describe('volumeLandmarks', () => {
   it('computes p25/p50/p90 via linear interpolation', () => {
     // 4 weeks with tonnage 100,200,300,400 → sorted [100,200,300,400].

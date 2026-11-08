@@ -32,7 +32,7 @@ import {
   type WorkoutWithSets,
 } from '../lib/strength-formulas.js'
 import { daysAgo, localDate } from '../lib/local-date.js'
-import { WindowQuerySchema, parseDateWindow } from '../lib/window.js'
+import { WindowQuerySchema, parseDateWindow, windowEnd } from '../lib/window.js'
 
 const DEFAULT_EXERCISES = ['bench_press', 'deadlift', 'squat', 'pull_ups']
 
@@ -294,7 +294,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       const gender: 'male' | 'female' = profile?.gender === 'female' ? 'female' : 'male'
 
       const strengthDirectionRes = computeStrengthDirectionHero(byEx, exIds)
-      const loadQualityRes = computeLoadQuality(byEx, exIds, bwAt, todayStr())
+      const loadQualityRes = computeLoadQuality(byEx, exIds, bwAt, windowEnd(toStr))
       const ratios = computeStrengthRatios(byEx, todayBw, gender)
       const balance = computeBalanceComposite(ratios)
       const worstPairOut =
@@ -454,7 +454,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         return {
           exercise_id: exId,
           exercise_name: list[0]?.exercise_name ?? exId,
-          points: computeAcwrSeries(list, todayStr()).map((p) => ({
+          points: computeAcwrSeries(list, windowEnd(toStr)).map((p) => ({
             date: p.date,
             acute: Math.round(p.acute * 10) / 10,
             chronic: Math.round(p.chronic * 10) / 10,

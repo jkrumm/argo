@@ -6,11 +6,11 @@ const now = new Date(2026, 9, 14, 12)
 describe('activitiesRange', () => {
   it('derives dateFrom from a preset window', () => {
     expect(activitiesRange({ window: '7d' }, now)).toEqual({
-      dateFrom: '2026-10-07',
+      dateFrom: '2026-10-08',
       dateTo: undefined,
     })
-    expect(activitiesRange({ window: '30d' }, now).dateFrom).toBe('2026-09-14')
-    expect(activitiesRange({ window: '90d' }, now).dateFrom).toBe('2026-07-16')
+    expect(activitiesRange({ window: '30d' }, now).dateFrom).toBe('2026-09-15')
+    expect(activitiesRange({ window: '90d' }, now).dateFrom).toBe('2026-07-17')
   })
 
   it('leaves "all" unbounded', () => {

@@ -42,6 +42,11 @@ export function parseDateWindow(
   return { from: addDays(to, -(days - 1)), to }
 }
 
+/** Zero-fill `through` date for a window ending `to`: the window end, never past today. */
+export function windowEnd(to: string, today: string = localDate()): string {
+  return to < today ? to : today
+}
+
 /**
  * Instant window for timestamped rows (walking-pad sessions): explicit dates are UTC midnights,
  * otherwise a rolling N x 24 h ending now. `to` defaults to now when only `from` is given.

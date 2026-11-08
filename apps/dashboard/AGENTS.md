@@ -142,7 +142,7 @@ pending screen / `CrashFallback`, so its anchors declare `empty` only. `shot` re
 
 ## React Compiler
 
-The dashboard uses `babel-plugin-react-compiler` via `vite-plugin-babel`. All components are automatically memoized where safe. Opt out with `'use no memo'` as the first statement in a component.
+The dashboard uses `babel-plugin-react-compiler` through `@vitejs/plugin-react`'s `reactCompilerPreset()` run by `@rolldown/plugin-babel`. All components are automatically memoized where safe. Opt out with `'use no memo'` as the first statement in a component. `bun run build` fails (`scripts/check-compiler.ts`) when no built chunk carries compiler output.
 
 ## Observability (HyperDX)
 

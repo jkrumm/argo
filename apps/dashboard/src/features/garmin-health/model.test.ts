@@ -386,7 +386,7 @@ describe('windows', () => {
     expect(windowDayCount({}, '2026-10-10', today)).toBe(8)
   })
 
-  test('windowCopyDays reads the selected preset length, not the inclusive day count', () => {
+  test('windowCopyDays counts the preset calendar dates, clipped at the floor', () => {
     expect(windowCopyDays({ window: '7d' }, '2026-04-15', today)).toBe(7)
     expect(windowCopyDays({ window: '30d' }, '2026-04-15', today)).toBe(30)
     expect(windowCopyDays({ from: '2026-10-01', to: '2026-10-10' }, '2026-04-15', today)).toBe(10)

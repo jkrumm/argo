@@ -8,7 +8,7 @@ export const WINDOW_DAYS = { '7d': 7, '30d': 30, '90d': 90 } as const
 
 /**
  * Project a page's window onto the list endpoint's `dateFrom`/`dateTo`. A preset window carries no
- * `from`/`to`, so the chart must derive them; `all` stays unbounded. Explicit dates win over a preset.
+ * `from`/`to`, so the chart must derive them; `all` stays unbounded. Explicit dates win over a preset. An N-day preset spans exactly N calendar dates ending today, like the API windows.
  */
 export function activitiesRange(
   params: WindowParams,
@@ -17,7 +17,7 @@ export function activitiesRange(
   if (params.from || params.to) return { dateFrom: params.from, dateTo: params.to }
   const days = params.window && params.window !== 'all' ? WINDOW_DAYS[params.window] : undefined
   return {
-    dateFrom: days === undefined ? undefined : format(subDays(now, days), 'yyyy-MM-dd'),
+    dateFrom: days === undefined ? undefined : format(subDays(now, days - 1), 'yyyy-MM-dd'),
     dateTo: undefined,
   }
 }

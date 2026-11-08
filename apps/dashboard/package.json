@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 7715 --strictPort",
-    "build": "vite build",
+    "build": "vite build && bun ../../scripts/check-compiler.ts",
     "preview": "vite preview --port 7715 --strictPort",
     "typecheck": "tsr generate && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.test.json",
     "test": "bun test src"
@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7",
-    "@rolldown/plugin-babel": "^0.3.0",
+    "@rolldown/plugin-babel": "^0.2.4",
     "@tanstack/router-cli": "^1.167.38",
     "@tanstack/router-plugin": "^1.168.40",
     "@types/canvas-confetti": "^1.9.0",
