@@ -1,7 +1,7 @@
 import { defineConfig, mergeConfig } from 'vite'
 import { basaltAppPlugin, basaltViteConfig } from 'basalt-ui/vite'
-import react from '@vitejs/plugin-react'
-import babel from 'vite-plugin-babel'
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
@@ -36,8 +36,8 @@ export default defineConfig(
   mergeConfig(basalt, {
     plugins: [
       TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
-      babel({ babelConfig: { plugins: ['babel-plugin-react-compiler'] } }),
       react(),
+      babel({ presets: [reactCompilerPreset()] }),
       // Owns the head metadata, site.webmanifest and service worker that used to be
       // hand-written in index.html / public/site.webmanifest / a local VitePWA block.
       // The theme-color pair and the manifest's theme_color/background_color are
