@@ -1,7 +1,6 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
-import { join } from 'path'
 import { env } from '../env.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
+import { tokenStore } from './oauth-token-store.js'
 
 const CLIENT_ID = env.GOOGLE_CLIENT_ID
 const CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET
@@ -16,27 +15,13 @@ const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
 ].join(' ')
 
-const DATA_DIR = env.DATA_DIR
-const TOKEN_FILE = join(DATA_DIR, 'oauth-tokens.json')
+const PROVIDER = 'google'
+const REFRESH_LEEWAY_MS = 5 * 60 * 1000
 
 interface GoogleTokens {
   accessToken: string
   refreshToken: string
   expiresAt: number // unix ms
-}
-
-interface TokenStore {
-  google?: GoogleTokens
-}
-
-function loadTokens(): TokenStore {
-  if (!existsSync(TOKEN_FILE)) return {}
-  return JSON.parse(readFileSync(TOKEN_FILE, 'utf-8')) as TokenStore
-}
-
-function saveTokens(store: TokenStore): void {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
-  writeFileSync(TOKEN_FILE, JSON.stringify(store, null, 2))
 }
 
 export function getAuthUrl(): string {
@@ -99,13 +84,11 @@ export async function exchangeCode(code: string): Promise<void> {
   // discovers the OAuth client_id and tries to overwrite our tokens with
   // their own grant.
   await assertEmailAllowed(data.access_token)
-  const store = loadTokens()
-  store.google = {
+  await tokenStore.update<GoogleTokens>(PROVIDER, () => ({
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresAt: Date.now() + data.expires_in * 1000,
-  }
-  saveTokens(store)
+  }))
 }
 
 async function refreshAccessToken(tokens: GoogleTokens): Promise<GoogleTokens> {
@@ -128,17 +111,19 @@ async function refreshAccessToken(tokens: GoogleTokens): Promise<GoogleTokens> {
   }
 }
 
+const isFresh = (t: GoogleTokens) => Date.now() < t.expiresAt - REFRESH_LEEWAY_MS
+
 async function getValidAccessToken(): Promise<string> {
-  const store = loadTokens()
-  if (!store.google)
-    throw new Error('Google not authenticated — visit /oauth/google/init in a browser')
-  let tokens = store.google
-  if (Date.now() >= tokens.expiresAt - 5 * 60 * 1000) {
-    tokens = await refreshAccessToken(tokens)
-    store.google = tokens
-    saveTokens(store)
-  }
-  return tokens.accessToken
+  const tokens = tokenStore.read<GoogleTokens>(PROVIDER)
+  if (!tokens) throw new Error('Google not authenticated — visit /oauth/google/init in a browser')
+  if (isFresh(tokens)) return tokens.accessToken
+  const next = await tokenStore.refresh<GoogleTokens>(PROVIDER, async (current) => {
+    if (!current)
+      throw new Error('Google not authenticated — visit /oauth/google/init in a browser')
+    if (isFresh(current)) return current
+    return refreshAccessToken(current)
+  })
+  return next.accessToken
 }
 
 // ---------- Gmail label cache ----------

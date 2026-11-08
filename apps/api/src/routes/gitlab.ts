@@ -12,6 +12,7 @@ import {
   listRecentPushEvents,
   searchUsers,
 } from '../clients/gitlab.js'
+import { QueryBool } from '../lib/query-bool.js'
 
 // --- Shared response schemas ----------------------------------------------
 
@@ -382,9 +383,7 @@ export const gitlabRoutes = new Elysia({ prefix: '/gitlab' })
         iid: z.coerce.number().int(),
       }),
       query: z.object({
-        includeSystem: z.coerce
-          .boolean()
-          .default(false)
+        includeSystem: QueryBool.default(false)
           .describe(
             'When false (default), drops auto-generated events (label/assignee changes, merge events)',
           )

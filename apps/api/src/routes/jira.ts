@@ -20,6 +20,7 @@ import {
   searchUsers,
   updateIssue,
 } from '../clients/jira.js'
+import { QueryBool } from '../lib/query-bool.js'
 
 const ISSUE_TYPE_ENUM = [
   'Story',
@@ -230,13 +231,16 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
       try {
         return await getIssue(params.key)
       } catch (error) {
-        set.status = error instanceof Error && error.message.includes('404') ? 404 : 503
+        set.status = error instanceof JiraHttpError && error.status === 404 ? 404 : 503
         return error instanceof Error ? error.message : 'Jira error'
       }
     },
     {
       params: z.object({
-        key: z.string().describe('Issue key — e.g. EP-17849, QET-1200'),
+        key: z
+          .string()
+          .regex(/^[A-Z]+-\d+$/)
+          .describe('Issue key — e.g. EP-17849, QET-1200'),
       }),
       response: { 200: IssueSchema, 404: z.string(), 503: z.string() },
       detail: {
@@ -268,9 +272,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           .default(DEFAULT_BOARD_ID)
           .describe('Board ID (defaults to JIRA_BOARD_ID — the "EPOS Team Prometheus" board)')
           .optional(),
-        onlyMine: z.coerce
-          .boolean()
-          .default(false)
+        onlyMine: QueryBool.default(false)
           .describe('When true, filter sprint issues to those assigned to the authenticated user')
           .optional(),
       }),

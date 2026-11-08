@@ -1,14 +1,12 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
-import { join } from 'path'
 import { env } from '../env.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
+import { tokenStore } from './oauth-token-store.js'
 
 const MCP_BASE = env.M365_MCP_BASE_URL
 const MCP_PROTOCOL_VERSION = '2024-11-05'
 const REFRESH_LEEWAY_MS = 5 * 60 * 1000
 
-const DATA_DIR = env.DATA_DIR
-const TOKEN_FILE = join(DATA_DIR, 'oauth-tokens.json')
+const PROVIDER = 'm365'
 
 export interface M365State {
   clientId?: string
@@ -26,28 +24,30 @@ export interface SeedTokens {
   scope: string
 }
 
-// Loose store type: each integration owns its slice and preserves unknown
-// keys (e.g. google) on write so they don't get clobbered.
-type TokenStore = Record<string, unknown> & { m365?: M365State }
-
-function loadTokens(): TokenStore {
-  if (!existsSync(TOKEN_FILE)) return {}
-  return JSON.parse(readFileSync(TOKEN_FILE, 'utf-8')) as TokenStore
-}
-
-function saveTokens(store: TokenStore): void {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
-  writeFileSync(TOKEN_FILE, JSON.stringify(store, null, 2))
-}
-
 function loadM365(): M365State {
-  return loadTokens().m365 ?? {}
+  return tokenStore.read<M365State>(PROVIDER) ?? {}
 }
 
-function patchM365(patch: M365State): void {
-  const store = loadTokens()
-  store.m365 = { ...store.m365, ...patch }
-  saveTokens(store)
+async function patchM365(patch: M365State): Promise<void> {
+  await tokenStore.update<M365State>(PROVIDER, (current) => ({ ...current, ...patch }))
+}
+
+/** An upstream failure with the HTTP-style status it carried; routes map `.status`, never the message text. */
+export class M365UpstreamError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'M365UpstreamError'
+    this.status = status
+  }
+}
+
+/** Status of a Graph failure reported inside an MCP tool result's text; undefined when it names none. */
+export function graphStatusFromText(text: string): number | undefined {
+  const explicit = /\b(?:HTTP|status(?:Code)?)\W{0,4}(\d{3})\b/i.exec(text)
+  if (explicit) return Number(explicit[1])
+  if (/\b(?:ResourceNotFound|ItemNotFound|NotFound)\b/.test(text)) return 404
+  return undefined
 }
 
 const NOT_AUTHENTICATED_MSG =
@@ -62,15 +62,16 @@ const REFRESH_FAILED_HINT =
  * the IU SSO dance; this module only persists the resulting grant and refreshes
  * the access token on demand.
  */
-export function seedTokens(tokens: SeedTokens): void {
-  patchM365(tokens)
+export async function seedTokens(tokens: SeedTokens): Promise<void> {
+  await patchM365(tokens)
   // Reset MCP session state so the next call re-initializes with new creds.
-  sessionId = undefined
-  initialized = false
+  resetSession()
 }
 
-async function refreshAccessToken(): Promise<string> {
-  const m = loadM365()
+const isFresh = (m: M365State) =>
+  !!m.accessToken && !!m.expiresAt && Date.now() < m.expiresAt - REFRESH_LEEWAY_MS
+
+async function doRefresh(m: M365State): Promise<M365State> {
   if (!m.refreshToken || !m.clientId) {
     throw new Error(NOT_AUTHENTICATED_MSG)
   }
@@ -94,20 +95,28 @@ async function refreshAccessToken(): Promise<string> {
     expires_in: number
     scope?: string
   }
-  patchM365({
+  return {
+    ...m,
     accessToken: data.access_token,
     refreshToken: data.refresh_token ?? m.refreshToken,
     expiresAt: Date.now() + data.expires_in * 1000,
     ...(data.scope !== undefined ? { scope: data.scope } : {}),
+  }
+}
+
+async function refreshAccessToken(force = false): Promise<string> {
+  const next = await tokenStore.refresh<M365State>(PROVIDER, async (current) => {
+    const m = current ?? {}
+    if (!force && isFresh(m)) return m
+    return doRefresh(m)
   })
-  return data.access_token
+  return next.accessToken as string
 }
 
 async function getValidAccessToken(): Promise<string> {
   const m = loadM365()
-  if (!m.accessToken || !m.expiresAt) return refreshAccessToken()
-  if (Date.now() >= m.expiresAt - REFRESH_LEEWAY_MS) return refreshAccessToken()
-  return m.accessToken
+  if (isFresh(m)) return m.accessToken as string
+  return refreshAccessToken()
 }
 
 // ---------- MCP transport (Streamable HTTP, JSON-RPC 2.0) ----------
@@ -148,7 +157,12 @@ async function mcpPost(body: unknown, token: string): Promise<Response> {
   return res
 }
 
-async function mcpRequest<T>(method: string, params: unknown = {}, retried = false): Promise<T> {
+async function mcpRequest<T>(
+  method: string,
+  params: unknown = {},
+  retried = false,
+  sessionRetried = false,
+): Promise<T> {
   const token = await getValidAccessToken()
   const id = nextRpcId++
   const res = await mcpPost({ jsonrpc: '2.0', id, method, params }, token)
@@ -156,8 +170,15 @@ async function mcpRequest<T>(method: string, params: unknown = {}, retried = fal
   // (manual revoke, clock skew, IT-side token wipe). Force a refresh once.
   if (res.status === 401 && !retried) {
     await res.text().catch(() => undefined)
-    await refreshAccessToken()
-    return mcpRequest<T>(method, params, true)
+    await refreshAccessToken(true)
+    return mcpRequest<T>(method, params, true, sessionRetried)
+  }
+  // The server expired the MCP session (HTTP 404 per spec): drop it, re-initialize, retry once.
+  if (res.status === 404 && sessionId && method !== 'initialize' && !sessionRetried) {
+    await res.text().catch(() => undefined)
+    resetSession()
+    await ensureInitialized()
+    return mcpRequest<T>(method, params, retried, true)
   }
   if (!res.ok) {
     throw new Error(`MCP ${method} failed: ${res.status} ${await res.text()}`)
@@ -172,8 +193,22 @@ async function mcpRequest<T>(method: string, params: unknown = {}, retried = fal
   return payload.result as T
 }
 
-async function ensureInitialized(): Promise<void> {
-  if (initialized) return
+let initializing: Promise<void> | undefined
+
+function resetSession(): void {
+  sessionId = undefined
+  initialized = false
+}
+
+function ensureInitialized(): Promise<void> {
+  if (initialized) return Promise.resolve()
+  initializing ??= initialize().finally(() => {
+    initializing = undefined
+  })
+  return initializing
+}
+
+async function initialize(): Promise<void> {
   await mcpRequest('initialize', {
     protocolVersion: MCP_PROTOCOL_VERSION,
     capabilities: {},
@@ -219,7 +254,9 @@ async function callMetaTool<T>(toolName: string, args: Record<string, unknown>):
   })
   if (result.isError) {
     const text = result.content?.find((c) => c.type === 'text')?.text ?? ''
-    throw new Error(`M365 ${toolName} failed: ${text}`)
+    const status = graphStatusFromText(text)
+    const message = `M365 ${toolName} failed: ${text}`
+    throw status === undefined ? new Error(message) : new M365UpstreamError(status, message)
   }
   if (result.structuredContent !== undefined) return result.structuredContent as T
   const text = result.content?.find((c) => c.type === 'text')?.text

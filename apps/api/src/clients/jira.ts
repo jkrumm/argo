@@ -51,8 +51,7 @@ async function jira<T>(path: string): Promise<T> {
   })
   const text = await res.text()
   if (!res.ok) {
-    const snippet = text.length > 300 ? text.slice(0, 300) + '…' : text
-    throw new Error(`Jira ${res.status} on ${path}: ${snippet}`)
+    throw new JiraHttpError(res.status, text, path)
   }
   return JSON.parse(text) as T
 }

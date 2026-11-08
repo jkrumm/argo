@@ -2,6 +2,7 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
   listTools,
+  M365UpstreamError,
   seedTokens,
   listUpcomingCalendarEvents,
   listJoinedTeams,
@@ -20,6 +21,7 @@ import {
 } from '../clients/m365-labels-store.js'
 import { readTeam } from '../clients/m365-team-store.js'
 import { CalendarFromSchema } from './calendar.js'
+import { QueryBool } from '../lib/query-bool.js'
 
 const ToolSchema = z.object({
   name: z.string(),
@@ -387,7 +389,7 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
         const channels = await listTeamChannels(params.teamId)
         return { channels }
       } catch (error) {
-        set.status = error instanceof Error && error.message.includes('404') ? 404 : 503
+        set.status = error instanceof M365UpstreamError && error.status === 404 ? 404 : 503
         return error instanceof Error ? error.message : 'M365 channels error'
       }
     },
@@ -439,9 +441,7 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
           .default(20)
           .describe('Number of messages to return, newest first (default 20, max 50)')
           .optional(),
-        includeSystem: z.coerce
-          .boolean()
-          .default(false)
+        includeSystem: QueryBool.default(false)
           .describe(
             'Include Graph system events (join/leave, meeting started/ended). Default false — these are usually noise.',
           )
@@ -513,9 +513,7 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
           .describe('Chat id from GET /m365/chats — URL-encode the colons if hitting via curl'),
       }),
       query: z.object({
-        includeSystem: z.coerce
-          .boolean()
-          .default(false)
+        includeSystem: QueryBool.default(false)
           .describe(
             'Include Graph system events (join/leave, meeting started/ended). Default false — these are usually noise.',
           )
@@ -556,14 +554,14 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
         tags: ['M365'],
         summary: 'List user-curated chat/channel importance labels',
         description:
-          'Returns every chat or channel the user has tagged via POST /m365/labels, optionally filtered to a single label. Backed by `apps/api/m365-labels.json` — committed to git, hand-editable, baked into the prod image at build time. Source of truth for the dashboard explorer and for GET /m365/important. Empty until the user starts labeling.',
+          'Returns every chat or channel the user has tagged via POST /m365/labels, optionally filtered to a single label. Stored in `m365-labels.json` under DATA_DIR (seeded from the committed `apps/api/m365-labels.json` on first use, so it survives deploys). Source of truth for the dashboard explorer and for GET /m365/important. Empty until the user starts labeling.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .post(
     '/labels',
-    ({ body }) =>
+    async ({ body }) =>
       storeUpsertLabel({
         sourceId: body.sourceId,
         kind: body.kind,
@@ -578,15 +576,15 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
         tags: ['M365'],
         summary: 'Upsert a chat/channel importance label',
         description:
-          'Create or update a label for a chat or channel. Idempotent on `sourceId`: re-posting with a different `label`/`notes` overwrites the existing entry. Persists to `apps/api/m365-labels.json`. Use the dashboard /m365-explorer page to label interactively; agents typically read labels via GET /m365/labels rather than creating them.',
+          'Create or update a label for a chat or channel. Idempotent on `sourceId`: re-posting with a different `label`/`notes` overwrites the existing entry. Persists to `m365-labels.json` under DATA_DIR. Use the dashboard /m365-explorer page to label interactively; agents typically read labels via GET /m365/labels rather than creating them.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .delete(
     '/labels/:sourceId',
-    ({ params, set }) => {
-      const ok = storeDeleteLabel(params.sourceId)
+    async ({ params, set }) => {
+      const ok = await storeDeleteLabel(params.sourceId)
       if (!ok) {
         set.status = 404
         return 'Label not found'
@@ -609,8 +607,8 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
   )
   .patch(
     '/tags/:tag',
-    ({ params, body, set }) => {
-      const renamed = storeRenameTag(params.tag, body.to)
+    async ({ params, body, set }) => {
+      const renamed = await storeRenameTag(params.tag, body.to)
       if (renamed === 0) {
         set.status = 404
         return 'Tag not found'
@@ -632,15 +630,15 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
         tags: ['M365'],
         summary: 'Rename a tag across all labeled sources',
         description:
-          'Bulk rename: every entry in apps/api/m365-labels.json carrying `tag` switches to `body.to`. Returns the number of records updated. 404 if no source currently uses `tag`. Idempotent on no-op renames (same `tag` → `to`).',
+          'Bulk rename: every stored label carrying `tag` switches to `body.to`. Returns the number of records updated. 404 if no source currently uses `tag`. Idempotent on no-op renames (same `tag` → `to`).',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .delete(
     '/tags/:tag',
-    ({ params, set }) => {
-      const removed = storeDeleteTag(params.tag)
+    async ({ params, set }) => {
+      const removed = await storeDeleteTag(params.tag)
       if (removed === 0) {
         set.status = 404
         return 'Tag not found'
@@ -743,9 +741,7 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
           .default(100)
           .describe('Final cap on the merged feed (default 100, max 200)')
           .optional(),
-        includeSystem: z.coerce
-          .boolean()
-          .default(false)
+        includeSystem: QueryBool.default(false)
           .describe('Include Graph system events. Default false — keeps the feed agent-friendly.')
           .optional(),
       }),
@@ -774,8 +770,8 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
   })
   .post(
     '/seed',
-    ({ body }) => {
-      seedTokens(body)
+    async ({ body }) => {
+      await seedTokens(body)
       return { ok: true }
     },
     {
