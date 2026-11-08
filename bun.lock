@@ -89,7 +89,7 @@
       },
       "devDependencies": {
         "@babel/core": "^7",
-        "@rolldown/plugin-babel": "0.2",
+        "@rolldown/plugin-babel": "^0.2.4",
         "@tanstack/router-cli": "^1.167.38",
         "@tanstack/router-plugin": "^1.168.40",
         "@types/canvas-confetti": "^1.9.0",
