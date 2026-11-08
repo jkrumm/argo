@@ -87,7 +87,9 @@ export function buildApp() {
               description:
                 'Personal stack API for Johannes Krumm. Powers the Argo dashboard (Garmin Health + Strength Tracker pages) and is consumed as an AI-agent endpoint by Hermes Agent and external tools. Start at `GET /` for discovery. All routes except `/`, `/health`, and `/oauth/*` require `Authorization: Bearer <API_SECRET>`. Served under the `/api` prefix on `argo.jkrumm.com`.',
             },
-            servers: [{ url: 'https://argo.jkrumm.com/api', description: 'Argo (VPS, Tailscale)' }],
+            servers: [
+              { url: 'https://argo.jkrumm.com/api', description: 'Argo (Mac mini, tailnet only)' },
+            ],
             components: {
               securitySchemes: {
                 BearerAuth: { type: 'http', scheme: 'bearer' },
@@ -117,7 +119,7 @@ export function buildApp() {
               {
                 name: 'Atlassian',
                 description:
-                  'IU Atlassian Cloud (careerpartner tenant), read-only. **Jira** — work board ("EPOS Team Prometheus", board 272 in project EP): list assigned issues, fetch a single ticket, current/past/future sprints, backlog, arbitrary JQL. **Confluence** — list spaces, CQL search across all content, fetch a page (rendered HTML / storage XHTML / ADF), list children, recently-updated feed. Both share a single Atlassian API token; HTTP Basic auth via Cloud REST APIs (Jira v3 + Agile v1, Confluence v2 + v1 search). No write endpoints.',
+                  'IU Atlassian Cloud (careerpartner tenant), read-only. **Jira** — work board ("EPOS Team Prometheus", board 272 in project EP): list assigned issues, fetch a single ticket, current/past/future sprints, backlog, arbitrary JQL. **Confluence** — list spaces, CQL search across all content, fetch a page (rendered HTML / storage XHTML / ADF), list children, recently-updated feed. Both share a single Atlassian API token; HTTP Basic auth via Cloud REST APIs (Jira v3 + Agile v1, Confluence v2 + v1 search). Confluence is read-only; Jira also writes: create an issue (POST /jira/issues), edit one (PATCH /jira/issues/{key}) and add a comment (POST /jira/issues/{key}/comments).',
               },
               {
                 name: 'GitLab',
@@ -131,12 +133,13 @@ export function buildApp() {
               },
               {
                 name: 'Usage Tracking',
-                description: 'Local AI token/cost telemetry ingested from the usage-tracker.',
+                description:
+                  'Local AI token/cost telemetry. Read-only here: usage-tracker and agw write the shared `usage` schema directly, Argo has no ingest endpoint.',
               },
               {
                 name: 'Infrastructure',
                 description:
-                  'Self-hosted ops: UptimeKuma monitors + status, Docker container state on HomeLab and VPS (containers, stats, logs, summary).',
+                  'Self-hosted ops: UptimeKuma monitors + status, Docker container state on HomeLab (and VPS when `DOCKER_VPS_URL` is set; unset it answers an error) (containers, stats, logs, summary).',
               },
               {
                 name: 'External Data',

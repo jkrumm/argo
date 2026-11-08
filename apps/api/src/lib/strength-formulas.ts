@@ -214,9 +214,10 @@ function linearSlope(pairs: Array<[number, number]>): number | null {
  * `workouts` should already be filtered to a single exercise.
  */
 export function velocityPctPerDay(workouts: WorkoutWithSets[], windowDays = 28): number | null {
-  const filtered = workouts
-    .filter((w) => w.estimated_1rm !== null)
-    .toSorted((a, b) => a.date.localeCompare(b.date))
+  // One point per date (see velocityAtDate): same-day sessions would double-weight that date.
+  const filtered = Array.from(
+    bestWorkoutPerDate(workouts.filter((w) => w.estimated_1rm !== null)).values(),
+  ).toSorted((a, b) => a.date.localeCompare(b.date))
   if (filtered.length < 2) return null
   const latest = filtered[filtered.length - 1]!
   const windowStart = addDays(latest.date, -windowDays)
@@ -269,9 +270,15 @@ export function strengthDirection(velocity: number | null): StrengthDirection {
   return 'stable'
 }
 
-/** §1.7 — Weekly tonnage with zero-filled missing weeks. Filtered exercise input. */
+/**
+ * §1.7 — Weekly tonnage with zero-filled missing weeks. Filtered exercise input. The series runs
+ * through the week of `through` when given, so weeks off after the last workout score zero
+ * instead of leaving the last training week as the "current" one. Without it the series ends at
+ * the last workout's week.
+ */
 export function weeklyTonnageSeries(
   workouts: WorkoutWithSets[],
+  through?: string,
 ): Array<{ date: string; tonnage: number }> {
   if (workouts.length === 0) return []
   const sorted = workouts.toSorted((a, b) => a.date.localeCompare(b.date))
@@ -282,7 +289,9 @@ export function weeklyTonnageSeries(
   }
   const sortedKeys = Array.from(byWeek.keys()).toSorted()
   const first = sortedKeys[0]!
-  const last = sortedKeys[sortedKeys.length - 1]!
+  const lastWorkoutWeek = sortedKeys[sortedKeys.length - 1]!
+  const throughWeek = through === undefined ? lastWorkoutWeek : weekStart(through)
+  const last = throughWeek > lastWorkoutWeek ? throughWeek : lastWorkoutWeek
   const result: Array<{ date: string; tonnage: number }> = []
   let cur = first
   while (cur <= last) {
@@ -347,14 +356,17 @@ export function classifyAcwrZone(acwr: number | null): AcwrZone | null {
 }
 
 /** §1.8 — Per-exercise ACWR via EWMA(4) / EWMA(16) of weekly tonnage. */
-export function computeAcwrSeries(workouts: WorkoutWithSets[]): Array<{
+export function computeAcwrSeries(
+  workouts: WorkoutWithSets[],
+  through?: string,
+): Array<{
   date: string
   acute: number
   chronic: number
   acwr: number | null
   zone: AcwrZone | null
 }> {
-  const series = weeklyTonnageSeries(workouts)
+  const series = weeklyTonnageSeries(workouts, through)
   if (series.length < 2) return []
   const tonnages = series.map((p) => p.tonnage)
   const acute = ewmaSeries(tonnages, 4)
@@ -940,6 +952,7 @@ export function computeLoadQuality(
   workoutsByExercise: Map<string, WorkoutWithSets[]>,
   exerciseIds: string[],
   bwAt: (date: string) => number,
+  through?: string,
 ): {
   score: number
   verdict: 'Quality' | 'Adequate' | 'Poor'
@@ -970,7 +983,7 @@ export function computeLoadQuality(
     }
 
     // ACWR: last value.
-    const acwrData = computeAcwrSeries(list)
+    const acwrData = computeAcwrSeries(list, through)
     if (acwrData.length > 0) {
       const lastAcwr = acwrData[acwrData.length - 1]!.acwr
       if (lastAcwr !== null) {
@@ -981,7 +994,7 @@ export function computeLoadQuality(
 
     // Volume: last weekly tonnage vs landmarks.
     const lm = volumeLandmarks(list)
-    const tonSeries = weeklyTonnageSeries(list)
+    const tonSeries = weeklyTonnageSeries(list, through)
     if (tonSeries.length > 0 && lm.mrv > 0) {
       const lastTon = tonSeries[tonSeries.length - 1]!.tonnage
       volScores.push(volLandmarkScore(lastTon, lm.mev, lm.mav, lm.mrv))
@@ -1308,7 +1321,7 @@ export function deloadSignal(
   let signaled = false
   for (const exId of exerciseIds) {
     if (signaled) break
-    const acwrData = computeAcwrSeries(workoutsByExercise.get(exId) ?? [])
+    const acwrData = computeAcwrSeries(workoutsByExercise.get(exId) ?? [], today)
     if (acwrData.length >= 2) {
       const last2 = acwrData.slice(-2)
       if (last2.every((p) => p.acwr !== null && p.acwr > 1.3)) {

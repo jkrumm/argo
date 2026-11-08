@@ -124,6 +124,24 @@ describe('scoreWindow', () => {
   })
 })
 
+describe('scoreWindow — NaN factor', () => {
+  it('treats a NaN factor as missing, not as a zero score with full coverage', () => {
+    const result = scoreWindow(
+      {
+        gates: [],
+        factors: [
+          { id: 'a', label: 'A', weight: 1, value: () => 1 },
+          { id: 'b', label: 'B', weight: 1, value: () => Number.NaN },
+        ],
+      },
+      {},
+    )
+    expect(result.factors[1]!.value).toBeNull()
+    expect(result.score).toBe(100)
+    expect(result.coverage).toBe(0.5)
+  })
+})
+
 describe('linearScore', () => {
   it('maps a less-is-better quantity onto 0..1', () => {
     expect(linearScore(0, { good: 0, bad: 100 })).toBe(1)

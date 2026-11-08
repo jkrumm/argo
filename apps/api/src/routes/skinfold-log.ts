@@ -272,27 +272,17 @@ export const skinfoldLogRoutes = new Elysia({ prefix: '/skinfold-log' })
   .post(
     '',
     async ({ body, set }) => {
-      for (const reading of body.readings) {
-        const [existing] = await db
-          .select({ id: skinfoldLog.id })
-          .from(skinfoldLog)
-          .where(and(eq(skinfoldLog.date, body.date), eq(skinfoldLog.site, reading.site)))
-          .orderBy(desc(skinfoldLog.id))
-          .limit(1)
-
-        if (existing) {
-          await db
-            .update(skinfoldLog)
-            .set({ value_mm: reading.value_mm })
-            .where(eq(skinfoldLog.id, existing.id))
-        } else {
-          await db.insert(skinfoldLog).values({
-            date: body.date,
-            site: reading.site,
-            value_mm: reading.value_mm,
-          })
+      await db.transaction(async (tx) => {
+        for (const reading of body.readings) {
+          await tx
+            .insert(skinfoldLog)
+            .values({ date: body.date, site: reading.site, value_mm: reading.value_mm })
+            .onConflictDoUpdate({
+              target: [skinfoldLog.date, skinfoldLog.site],
+              set: { value_mm: reading.value_mm },
+            })
         }
-      }
+      })
 
       set.status = 201
       return { date: body.date, upserted: body.readings.length }
@@ -337,7 +327,7 @@ export const skinfoldLogRoutes = new Elysia({ prefix: '/skinfold-log' })
       return { id: Number(params.id) }
     },
     {
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.coerce.number().int().positive() }),
       response: {
         200: z.object({ id: z.number() }),
         404: z.string(),

@@ -295,7 +295,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       const gender: 'male' | 'female' = profile?.gender === 'female' ? 'female' : 'male'
 
       const strengthDirectionRes = computeStrengthDirectionHero(byEx, exIds)
-      const loadQualityRes = computeLoadQuality(byEx, exIds, bwAt)
+      const loadQualityRes = computeLoadQuality(byEx, exIds, bwAt, todayStr())
       const ratios = computeStrengthRatios(byEx, todayBw, gender)
       const balance = computeBalanceComposite(ratios)
       const worstPairOut =
@@ -464,7 +464,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         return {
           exercise_id: exId,
           exercise_name: list[0]?.exercise_name ?? exId,
-          points: computeAcwrSeries(list).map((p) => ({
+          points: computeAcwrSeries(list, todayStr()).map((p) => ({
             date: p.date,
             acute: Math.round(p.acute * 10) / 10,
             chronic: Math.round(p.chronic * 10) / 10,

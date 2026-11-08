@@ -27,7 +27,7 @@ with `FORCE=1`. `SOURCE_SSH=local TARGET_DB=<scratch>` runs both sides on one ho
 
 ### Migrations
 
-Generated SQL files live in `apps/api/drizzle/`, committed to git, and applied automatically on boot via `runMigrations()` in `src/db/index.ts`. **There is no manual prod migrate step** — push to `master`, RollHook redeploys, the new container migrates before serving traffic.
+Generated SQL files live in `apps/api/drizzle/`, committed to git, and applied automatically on boot via `runMigrations()` in `src/db/index.ts`. **There is no manual prod migrate step** — `make deploy` (root `AGENTS.md` §Deploy) boots the new release, which migrates before serving traffic. Boot migrations hold a Postgres advisory lock, so overlapping boots serialise.
 
 The migration journal lives in `argo.__drizzle_migrations` (argo's own schema), not the default shared `drizzle` schema — set via `migrations.schema` in `drizzle.config.ts` and `migrationsSchema` in `runMigrations()`. A one-time `relocateDrizzleJournal()` copies the journal from the legacy `drizzle` schema on boot (idempotent; removable once every env has booted past it). See `~/SourceRoot/vps/AGENTS.md` → "Postgres Schema Model" for the cluster-wide convention.
 
@@ -331,7 +331,7 @@ Paste into a browser signed into one of the allowlisted Google accounts. On comp
 
 ### Local Google auth — intentionally disabled
 
-Google refresh tokens grant ~6 months of Gmail + Calendar read access. On prod they sit behind container isolation + VPS root, an acceptable risk. On a laptop they would sit in plain JSON owned by the user, readable by anything running as that user — other dev tooling, IDE extensions, stray transitive deps. The marginal benefit of `bun dev` reaching Google directly does not justify that attack surface.
+Google refresh tokens grant ~6 months of Gmail + Calendar read access. On prod they sit in the mini's `~/.argo/state` (mode 600), an acceptable risk. On a laptop they would sit in plain JSON owned by the user, readable by anything running as that user — other dev tooling, IDE extensions, stray transitive deps. The marginal benefit of `bun dev` reaching Google directly does not justify that attack surface.
 
 Therefore `apps/api/.env.local.tpl` does not wire `GOOGLE_*` env vars, and `data/oauth-tokens.json` should never contain a `google` slice on a developer laptop. For Google-backed features, use `bun dev:prod-api` — the local dashboard proxies `/api/*` to `argo.jkrumm.com`, which holds the prod tokens.
 
@@ -380,7 +380,9 @@ Both run `apps/api/scripts/m365-bootstrap.ts`, which spawns a one-shot HTTP serv
 - **Local:** `apps/api/data/oauth-tokens.json` — gitignored, on the laptop's disk, owned by the user.
 - **Prod:** `~/.argo/state/oauth-tokens.json` on the mini (`DATA_DIR`, mode 600), outside every release, so it survives `make deploy`. Copied from the VPS at the 2026-10-30 cutover.
 
-Tokens are NOT stored in 1Password or in env vars — they're per-grant, per-env runtime state. Both files coexist with the existing `google` OAuth tokens (each integration owns its slice of the JSON).
+Tokens are NOT stored in 1Password or in env vars — they're per-grant, per-env runtime state. Both files coexist with the existing `google` OAuth tokens (each integration owns its slice of the JSON; `clients/oauth-token-store.ts` is the only writer: in-process mutex, per-provider single-flight refresh, atomic tmp + rename).
+
+The M365 chat/channel labels live in `DATA_DIR/m365-labels.json` (seeded from the committed `apps/api/m365-labels.json` when absent), so they survive deploys and rollbacks; `clients/m365-labels-store.ts` serialises and atomically writes them.
 
 ### Refresh behavior
 

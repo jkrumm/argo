@@ -123,7 +123,7 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       return updated! as any
     },
     {
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.coerce.number().int().positive() }),
       body: z.object({
         set_number: z.number().min(1).optional(),
         set_type: SetTypeSchema.optional(),
@@ -160,7 +160,7 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       return { id: Number(params.id) }
     },
     {
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.coerce.number().int().positive() }),
       response: {
         200: z.object({ id: z.number() }),
         404: z.string(),

@@ -58,7 +58,9 @@ export async function geocodeCity(city: string): Promise<ResolvedLocation | null
     language: 'en',
     format: 'json',
   })
-  const res = await tracedFetch(`${OPEN_METEO_GEOCODING}?${params}`)
+  const res = await tracedFetch(`${OPEN_METEO_GEOCODING}?${params}`, undefined, {
+    timeoutMs: 10_000,
+  })
   if (!res.ok) throw new Error(`Open-Meteo geocoding error: ${res.status}`)
   const data = (await res.json()) as GeocodingResponse
   const hit = data.results?.[0]

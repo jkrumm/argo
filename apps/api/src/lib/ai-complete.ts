@@ -57,6 +57,9 @@ function bearer(key: string): Record<string, string> {
   return key ? { authorization: `Bearer ${key}` } : {}
 }
 
+/** Per-attempt bound: a reasoning model may think for a while, a hung gateway may not stall forever. */
+const AI_REQUEST_TIMEOUT_MS = 120_000
+
 /**
  * Default `max_completion_tokens` for callers that don't size their own
  * budget. `deepseekModel` is a reasoning model that spends this budget on
@@ -104,17 +107,21 @@ export async function aiComplete(
   for (let attempt = 0; attempt < 2; attempt++) {
     const startedAt = new Date().toISOString()
     const startMs = Date.now()
-    const res = await deps.fetchImpl(joinUrl(deps.deepseekBaseURL, '/chat/completions'), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', ...bearer(deps.deepseekApiKey) },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: false,
-        reasoning_effort: deps.deepseekReasoningEffort,
-        max_completion_tokens: maxTokens,
-      }),
-    })
+    const res = await deps.fetchImpl(
+      joinUrl(deps.deepseekBaseURL, '/chat/completions'),
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...bearer(deps.deepseekApiKey) },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          reasoning_effort: deps.deepseekReasoningEffort,
+          max_completion_tokens: maxTokens,
+        }),
+      },
+      { timeoutMs: AI_REQUEST_TIMEOUT_MS },
+    )
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
       // The upstream call was attempted (and billed, if it partially ran) — record

@@ -27,6 +27,9 @@ import { log } from '../telemetry.js'
  */
 export const SENTENCE_TOKENS = 16000
 
+/** Longest a window endpoint waits for the sentence before serving the verdict without it. */
+export const SENTENCE_TIMEOUT_MS = 20_000
+
 export type SentenceCompleter = (
   prompt: string,
   opts: { system?: string; maxTokens?: number; sub_tool?: string },
@@ -44,12 +47,22 @@ export async function completeSentence(
   prompt: string,
   opts: { system: string; subTool: string },
 ): Promise<string | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const text = await complete(prompt, {
-      system: opts.system,
-      maxTokens: SENTENCE_TOKENS,
-      sub_tool: opts.subTool,
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`timed out after ${SENTENCE_TIMEOUT_MS} ms`)),
+        SENTENCE_TIMEOUT_MS,
+      )
     })
+    const text = await Promise.race([
+      complete(prompt, {
+        system: opts.system,
+        maxTokens: SENTENCE_TOKENS,
+        sub_tool: opts.subTool,
+      }),
+      timeout,
+    ])
     const trimmed = text.trim()
     if (trimmed) return trimmed
     log.warn('one-sentence completion came back empty', { subTool: opts.subTool })
@@ -62,5 +75,7 @@ export async function completeSentence(
       error: error instanceof Error ? error.message : String(error),
     })
     return null
+  } finally {
+    clearTimeout(timer)
   }
 }

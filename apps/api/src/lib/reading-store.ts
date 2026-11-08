@@ -151,11 +151,13 @@ export async function buildReadingShelf() {
 export async function upsertReadingStats(stats: StatInput[]): Promise<number> {
   if (stats.length === 0) return 0
   const now = new Date().toISOString()
+  // One row per key (last wins): Postgres rejects an upsert that hits the same row twice.
+  const unique = [...new Map(stats.map((s) => [s.bookKey, s])).values()]
 
   await db
     .insert(readingStat)
     .values(
-      stats.map((s) => ({
+      unique.map((s) => ({
         book_key: s.bookKey,
         title: s.title ?? null,
         author: s.author ?? null,
@@ -183,7 +185,7 @@ export async function upsertReadingStats(stats: StatInput[]): Promise<number> {
       },
     })
 
-  return stats.length
+  return unique.length
 }
 
 // ── Homelab link: pull stats, push shelf ──────────────────────────────────────

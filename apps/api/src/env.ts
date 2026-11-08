@@ -46,7 +46,7 @@ const EnvShape = z.object({
   GARMIN_API_KEY: z.string().default(''),
   DOCKER_HOMELAB_URL: z.string().default(''),
   HOMELAB_TAILSCALE_IP: z.string().default(''),
-  DOCKER_VPS_URL: z.string().default('http://socket-proxy-monitoring:2375'),
+  DOCKER_VPS_URL: z.string().default(''),
   GARMIN_BACKFILL_DAYS: z.coerce.number().default(7),
   GARMIN_ACTIVITIES_INITIAL_BACKFILL_DAYS: z.coerce.number().default(60),
   GARMIN_HEARTBEAT_URL: z.string().default(''),

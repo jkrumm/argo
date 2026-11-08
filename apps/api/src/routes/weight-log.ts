@@ -226,26 +226,11 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
   .post(
     '',
     async ({ body, set }) => {
-      const [existing] = await db
-        .select({ id: weightLog.id })
-        .from(weightLog)
-        .where(eq(weightLog.date, body.date))
-        .orderBy(desc(weightLog.id))
-        .limit(1)
-
-      if (existing) {
-        await db
-          .update(weightLog)
-          .set({ weight_kg: body.weight_kg })
-          .where(eq(weightLog.id, existing.id))
-        set.status = 201
-        return { id: existing.id }
-      }
-
       const [result] = await db
         .insert(weightLog)
         .values({ date: body.date, weight_kg: body.weight_kg })
-        .returning()
+        .onConflictDoUpdate({ target: weightLog.date, set: { weight_kg: body.weight_kg } })
+        .returning({ id: weightLog.id })
       set.status = 201
       return { id: result!.id }
     },
@@ -282,7 +267,7 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       return { id: Number(params.id) }
     },
     {
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.coerce.number().int().positive() }),
       response: {
         200: z.object({ id: z.number() }),
         404: z.string(),

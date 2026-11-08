@@ -64,51 +64,60 @@ export async function relocateDrizzleJournal(sql: Sql): Promise<void> {
   }
 }
 
+/** Arbitrary constant key for the boot-migration advisory lock. */
+const MIGRATION_LOCK_KEY = 4_040_731
+
 export async function runMigrations(): Promise<void> {
   const migrationClient = postgres(DATABASE_URL, { max: 1 })
-  await relocateDrizzleJournal(migrationClient)
-  await migrate(drizzle(migrationClient), { migrationsFolder, migrationsSchema: 'argo' })
-  await migrationClient.end()
+  try {
+    // Serialise concurrent boots (deploy overlap, test workers): the second waits, then finds nothing to apply.
+    await migrationClient`SELECT pg_advisory_lock(${MIGRATION_LOCK_KEY})`
+    await relocateDrizzleJournal(migrationClient)
+    await migrate(drizzle(migrationClient), { migrationsFolder, migrationsSchema: 'argo' })
 
-  // Seed reference exercises (idempotent)
-  await db
-    .insert(schema.exercises)
-    .values([
-      {
-        id: 'bench_press',
-        name: 'Bench Press',
-        category: 'push',
-        muscle_group: 'chest',
-        is_bodyweight: 0,
-        display_order: 1,
-      },
-      {
-        id: 'squat',
-        name: 'Squat',
-        category: 'legs',
-        muscle_group: 'quads',
-        is_bodyweight: 0,
-        display_order: 2,
-      },
-      {
-        id: 'deadlift',
-        name: 'Deadlift',
-        category: 'hinge',
-        muscle_group: 'posterior',
-        is_bodyweight: 0,
-        display_order: 3,
-      },
-      {
-        id: 'pull_ups',
-        name: 'Pull-ups',
-        category: 'pull',
-        muscle_group: 'back',
-        is_bodyweight: 1,
-        display_order: 4,
-      },
-    ])
-    .onConflictDoNothing()
+    // Seed reference exercises (idempotent)
+    await db
+      .insert(schema.exercises)
+      .values([
+        {
+          id: 'bench_press',
+          name: 'Bench Press',
+          category: 'push',
+          muscle_group: 'chest',
+          is_bodyweight: 0,
+          display_order: 1,
+        },
+        {
+          id: 'squat',
+          name: 'Squat',
+          category: 'legs',
+          muscle_group: 'quads',
+          is_bodyweight: 0,
+          display_order: 2,
+        },
+        {
+          id: 'deadlift',
+          name: 'Deadlift',
+          category: 'hinge',
+          muscle_group: 'posterior',
+          is_bodyweight: 0,
+          display_order: 3,
+        },
+        {
+          id: 'pull_ups',
+          name: 'Pull-ups',
+          category: 'pull',
+          muscle_group: 'back',
+          is_bodyweight: 1,
+          display_order: 4,
+        },
+      ])
+      .onConflictDoNothing()
 
-  // Ensure sync_control singleton row exists
-  await db.insert(schema.syncControl).values({ id: 1 }).onConflictDoNothing()
+    // Ensure sync_control singleton row exists
+    await db.insert(schema.syncControl).values({ id: 1 }).onConflictDoNothing()
+  } finally {
+    await migrationClient`SELECT pg_advisory_unlock(${MIGRATION_LOCK_KEY})`.catch(() => undefined)
+    await migrationClient.end()
+  }
 }

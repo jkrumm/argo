@@ -344,8 +344,14 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         sort: z.enum(['date', 'id', 'exercise_id', 'created_at']).optional(),
         order: z.enum(['asc', 'desc']).default('desc').optional(),
         exercise: z.string().optional(),
-        dateFrom: z.string().optional(),
-        dateTo: z.string().optional(),
+        dateFrom: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        dateTo: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
       }),
       response: z.object({
         data: z.array(WorkoutWithSetsSchema),
@@ -388,7 +394,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       return { ...row, sets, ...metrics } as any
     },
     {
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.coerce.number().int().positive() }),
       response: {
         200: WorkoutWithSetsSchema,
         404: z.string(),
@@ -563,7 +569,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       return { id: existing.id }
     },
     {
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.coerce.number().int().positive() }),
       body: z.object({
         date: z
           .string()
@@ -617,7 +623,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       return { id: Number(params.id) }
     },
     {
-      params: z.object({ id: z.string() }),
+      params: z.object({ id: z.coerce.number().int().positive() }),
       response: {
         200: z.object({ id: z.number() }),
         404: z.string(),

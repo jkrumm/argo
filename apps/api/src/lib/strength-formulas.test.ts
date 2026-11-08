@@ -5,6 +5,7 @@ import {
   velocityAtDate,
   strengthDirection,
   computeAcwrSeries,
+  weeklyTonnageSeries,
   volumeLandmarks,
   dotsAdjusted,
   computeStrengthRatios,
@@ -533,5 +534,42 @@ describe('trailingRateKgPerWeek + classifyWeightPhase', () => {
 
   it('returns null rate for single entry', () => {
     expect(trailingRateKgPerWeek([{ date: '2025-01-01', weight_kg: 80 }])).toBeNull()
+  })
+})
+
+describe('velocityPctPerDay — same-date fold', () => {
+  it('regresses one point per DATE, so a duplicated day cannot double-weight the slope', () => {
+    const base = [
+      bench(1, '2026-01-01', 100),
+      bench(2, '2026-01-15', 110),
+      bench(3, '2026-01-20', 105),
+    ]
+    const withDuplicate = [...base, bench(4, '2026-01-15', 108)]
+    expect(velocityPctPerDay(withDuplicate)).toBe(velocityPctPerDay(base))
+  })
+})
+
+describe('weeklyTonnageSeries — weeks off', () => {
+  const w = [bench(1, '2026-01-05', 100), bench(2, '2026-01-12', 100)]
+
+  it('ends at the last workout week without a `through` date', () => {
+    expect(weeklyTonnageSeries(w).map((p) => p.date)).toEqual(['2026-01-05', '2026-01-12'])
+  })
+
+  it('zero-fills through the week of `through`', () => {
+    const series = weeklyTonnageSeries(w, '2026-01-29')
+    expect(series.map((p) => p.date)).toEqual([
+      '2026-01-05',
+      '2026-01-12',
+      '2026-01-19',
+      '2026-01-26',
+    ])
+    expect(series.slice(2).every((p) => p.tonnage === 0)).toBe(true)
+  })
+
+  it('lets ACWR decay after weeks off', () => {
+    const active = computeAcwrSeries(w)
+    const idle = computeAcwrSeries(w, '2026-01-29')
+    expect(idle.at(-1)!.acute).toBeLessThan(active.at(-1)!.acute)
   })
 })

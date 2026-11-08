@@ -136,12 +136,16 @@ export const syncControl = argoSchema.table('sync_control', {
 
 // ── Weight log (manual entries) ──────────────────────────────────────────────
 
-export const weightLog = argoSchema.table('weight_log', {
-  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
-  date: text('date').notNull(),
-  weight_kg: real('weight_kg').notNull(),
-  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-})
+export const weightLog = argoSchema.table(
+  'weight_log',
+  {
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+    date: text('date').notNull(),
+    weight_kg: real('weight_kg').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  },
+  (t) => [uniqueIndex('weight_log_date_uq').on(t.date)],
+)
 
 // ── Skinfold log (manual caliper measurements) ───────────────────────────────
 

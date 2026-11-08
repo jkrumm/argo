@@ -126,7 +126,6 @@ export const DEFAULT_BANDS: VerdictBand[] = [
 export const GATED_VERDICT = 'out'
 
 function clamp01(value: number): number {
-  if (Number.isNaN(value)) return 0
   if (value < 0) return 0
   if (value > 1) return 1
   return value
@@ -164,7 +163,8 @@ export function scoreWindow<TInput>(config: WindowConfig<TInput>, input: TInput)
   for (const factor of config.factors) {
     totalWeight += factor.weight
     const raw = factor.value(input)
-    const value = raw === null ? null : clamp01(raw)
+    // NaN is a missing factor, like null: scoring it 0 would count it as present and complete.
+    const value = raw === null || Number.isNaN(raw) ? null : clamp01(raw)
     const weighted = value === null ? null : factor.weight * value
     if (value !== null && weighted !== null) {
       weightedSum += weighted

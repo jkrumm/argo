@@ -67,6 +67,23 @@ export type TraceOptions = {
    * drive a short duration instead of waiting out the real default.
    */
   watchdogMs?: number
+  /**
+   * Total request timeout (ms), combined with a caller-supplied `init.signal`. Default 30 s; a
+   * `streamLifecycle` call has no default (its idle watchdog is the bound). `0` disables it.
+   */
+  timeoutMs?: number
+}
+
+const DEFAULT_TIMEOUT_MS = 30_000
+
+function withTimeout(
+  signal: AbortSignal | null | undefined,
+  traceOptions: TraceOptions | undefined,
+): AbortSignal | undefined {
+  const ms = traceOptions?.timeoutMs ?? (traceOptions?.streamLifecycle ? 0 : DEFAULT_TIMEOUT_MS)
+  if (ms <= 0) return signal ?? undefined
+  const timeout = AbortSignal.timeout(ms)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
 }
 
 const DEFAULT_WATCHDOG_MS = 10 * 60 * 1000
@@ -183,7 +200,15 @@ export async function tracedFetch(
           mergedHeaders.set(key, value)
         }
 
-        const response = await fetch(input, { ...init, headers: mergedHeaders })
+        const signal = withTimeout(
+          init?.signal ?? (input instanceof Request ? input.signal : null),
+          traceOptions,
+        )
+        const response = await fetch(input, {
+          ...init,
+          headers: mergedHeaders,
+          ...(signal ? { signal } : {}),
+        })
         span.setAttribute('http.response.status_code', response.status)
         if (response.status >= 400) {
           span.setStatus({ code: SpanStatusCode.ERROR, message: `HTTP ${response.status}` })

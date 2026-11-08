@@ -16,7 +16,7 @@ export const healthRoute = new Elysia().get(
       tags: ['System'],
       summary: 'Liveness probe',
       description:
-        'Returns `{ status: "ok", commit }` if the API process is up, where `commit` is the git SHA this image was built from ("unknown" outside CI). No auth required. Used by the Docker healthcheck, external uptime monitors, and as a deploy-landed probe — comparing `commit` against a merge SHA proves THIS change is serving, not merely that the container is running. Does not touch the database.',
+        'Returns `{ status: "ok", commit }` if the API process is up, where `commit` is the git SHA of the running release (`GIT_SHA` in the LaunchAgent plist; "unknown" when unset). No auth required. Used by `make verify`, external uptime monitors, and as a deploy-landed probe — comparing `commit` against a merge SHA proves THIS change is serving, not merely that the process is running. Does not touch the database.',
     },
   },
 )
