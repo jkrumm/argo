@@ -13,9 +13,6 @@ declare const classes: {
   readonly nowMark: string
   readonly axisLabels: string
   readonly balanced: string
-  readonly live: string
-  readonly pulse: string
-  readonly pulseOff: string
   readonly composite: string
 }
 export default classes

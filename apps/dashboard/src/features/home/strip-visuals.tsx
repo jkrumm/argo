@@ -1,6 +1,5 @@
 import { formatDuration } from '../../lib/format'
-import { clockOf } from '../agents/model'
-import { axisPosition, dayAxis, meetingState, type Meeting } from './model'
+import { axisPosition, clockOf, dayAxis, meetingState, type Meeting } from './model'
 import classes from './home.module.css'
 
 export function DayAxis({

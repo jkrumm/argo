@@ -29,7 +29,6 @@
 import { linkOptions } from '@tanstack/react-router'
 import { defineNav, navGroup } from 'basalt-ui'
 import {
-  agentPerfStore,
   astroStore,
   bodyCompStore,
   calendarStore,
@@ -51,10 +50,8 @@ import {
   IconChartHistogram,
   IconCoinEuro,
   IconCompass,
-  IconGauge,
   IconHeartbeat,
   IconMoonStars,
-  IconRobot,
   IconRulerMeasure,
   IconServer,
   IconShieldCheck,
@@ -217,20 +214,6 @@ export const NAV = defineNav({
         short: 'Usage',
         icon: <IconChartHistogram size={ICON} />,
         link: linkOptions({ to: '/usage-tracking', search: usageStore.linkSearch }),
-      },
-      {
-        id: 'agents',
-        label: 'Agents',
-        short: 'Agents',
-        icon: <IconRobot size={ICON} />,
-        link: linkOptions({ to: '/agents' }),
-      },
-      {
-        id: 'agent-performance',
-        label: 'Agent performance',
-        short: 'Perf',
-        icon: <IconGauge size={ICON} />,
-        link: linkOptions({ to: '/agent-performance', search: agentPerfStore.linkSearch }),
       },
       {
         id: 'models',

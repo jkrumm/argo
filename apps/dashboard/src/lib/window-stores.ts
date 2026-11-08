@@ -365,16 +365,3 @@ export const modelsStore = createSearchStore({
   creators: CREATOR_LABELS,
   metric: { index: 'Index', cost: 'Cost', time: 'Time', tokens: 'Tokens' },
 })
-
-/**
- * The agent performance page. `weeks` is the window in ISO weeks (Monday 00:00 UTC boundaries, the
- * current partial week included), the API's `?weeks=`; 4 / 8 / 12 are the offered steps, the field
- * bounds a hand-typed URL. URL only: a window is a property of the link.
- */
-export const AGENT_PERF_WEEKS = [4, 8, 12] as const
-export const agentPerfStore = createSearchStore({
-  key: 'agent-performance',
-  fields: {
-    weeks: field.number({ fallback: 8, int: true, min: 4, max: 12 }, { persist: false }),
-  },
-})

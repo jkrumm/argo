@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import {
-  authoredQuestion,
-  asText,
-  firstClause,
-  lastWhitespace,
-  leadClauses,
-  oldestWaitSentence,
-  firstSentence,
-  flatten,
-  restAfterFirstSentence,
-  stripShortcodes,
-} from './text'
+import { firstClause, lastWhitespace, leadClauses, flatten, stripShortcodes } from './text'
 
 describe('stripShortcodes', () => {
   it('keeps the text of a bracketed shortcode and drops bare ones', () => {
@@ -41,30 +30,9 @@ describe('stripShortcodes in feed rows', () => {
   })
 })
 
-describe('sentences', () => {
+describe('flatten whitespace', () => {
   it('flattens whitespace', () => {
     expect(flatten('  a \n b\t c ')).toBe('a b c')
-  })
-  it('splits the first sentence from the rest', () => {
-    expect(firstSentence('Ship it? Then reply.')).toBe('Ship it?')
-    expect(restAfterFirstSentence('Ship it? Then reply.')).toBe('Then reply.')
-    expect(firstSentence('no stop')).toBe('no stop')
-    expect(restAfterFirstSentence('One sentence.')).toBeNull()
-  })
-})
-
-describe('authoredQuestion', () => {
-  it('keeps a string, shortcodes stripped and whitespace flattened', () => {
-    expect(authoredQuestion('  :warning: Merge   the fix? ')).toBe('Merge the fix?')
-  })
-  it('reads blank as none', () => {
-    expect(authoredQuestion('')).toBeNull()
-    expect(authoredQuestion('   \n')).toBeNull()
-    expect(authoredQuestion(':rocket:')).toBeNull()
-  })
-  it('reads anything that is not a string as none, never throwing', () => {
-    for (const junk of [42, 0, true, {}, { text: 'x' }, ['Merge?'], null, undefined])
-      expect(authoredQuestion(junk)).toBeNull()
   })
 })
 
@@ -98,22 +66,6 @@ describe('leadClauses', () => {
     expect(leadClauses('. Disk full — host a', 1)).toBe('Disk full')
     expect(firstClause('— — —')).toBe('')
     expect(firstClause('')).toBe('')
-  })
-})
-
-describe('asText', () => {
-  it('keeps a string and reads anything else as none', () => {
-    expect(asText('x')).toBe('x')
-    for (const junk of [1, {}, [], null, undefined, true]) expect(asText(junk)).toBe('')
-  })
-})
-
-describe('oldestWaitSentence', () => {
-  it('states nothing waiting, the oldest wait, or that items wait when no age is reported', () => {
-    expect(oldestWaitSentence(0, null)).toBe('Nothing needs you')
-    expect(oldestWaitSentence(3, '5.1\u00a0d')).toBe('Oldest wait on you 5.1\u00a0d')
-    expect(oldestWaitSentence(1, null)).toBe('An item is waiting on you')
-    expect(oldestWaitSentence(2, null)).toBe('Items are waiting on you')
   })
 })
 

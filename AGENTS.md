@@ -10,7 +10,7 @@ data is logged manually. Alongside them: a general
 an in-process `aiComplete` (`lib/ai-complete.ts`, no HTTP route; backs classification and the astro/marine verdict sentences),
 **Usage Tracking** (Claude Code and gateway spend, read from the `usage` schema in the shared database: `usage-tracker` and `agw` write it directly, Argo has no ingest endpoint and reads `usage.records_unique` through the projection `src/lib/usage-source.ts`; each record carries the Claude `account` — `iu`/`me`/`me2`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension; IU API rows also carry the IU key `iu_key` — `personal`/`athena-team`, each with its own $500 cap, `iuKey` filter and `iu_key` dimension on the records endpoints, `?iuKey` on `iu-budget`/`iu-reconcile`; the **payer** — `iu-sub` (Ultra)/`me-sub`/`me2-sub`, the API credit those subscriptions grant `iu-credit`/`me-credit`/`me2-credit` (billing `api_credit` + account, written by the inference gateway), `iu-api`/`iu-team-api`/`me-api`/`unknown`, derived from billing + account + iu_key in the query layer — is the usage page's default split and filter); also Claude account quota samples (`GET /usage/quota`, `GET /usage/quota-latest`, from `usage.quota_samples`) and picker decisions (`GET /usage/account-picks/summary`, from `usage.account_picks`), IU's portal cost report (`usage.iu_portal_cost`, read by `GET /usage/{iu-budget,iu-reconcile}`) plus the `flow` and `movers` aggregates (apps/api/AGENTS.md §Usage page data), shown on the usage page (two tabs, spec `docs/design/usage-tracking.md` v7: **Quotas** (default, `?view=flow`) — a verdict sentence (credit, subscriptions, IU clause) and four cards in one chart form: Claude subscriptions (one chart: a thin weekly-% line per account and a thick combined line weighted by capacity units iu 2 / me 1 / me2 1), Claude API credit (the three pools summed in dollars with the even pace, projection and renewal ticks), the IU personal key and the Athena team key (each a rolling 30 d $500 cap); below them a closed "Routing and demand" disclosure (Router and Demand columns, the selected node's detail via `?node=router|demand:<workflow>`, Athena's spend by producer; follows Range, mounts on open, `?node=` opens it); the Athena team key stays out of every total; the Insights strip is not on this tab; **Explore** — the analysis blocks across every payer at once with a Payer multi-select (over time, projects / tools rows, rhythm, weekly volume). The v6 tabs Overview, Claude Max, IU API and Credits are deleted; their `?view=` values still open Quotas. Range (default 7 d) drives only the Routing and demand disclosure, the verdict and the cards are state; data from `GET /usage/{pace,router,demand}`, `/usage/split?by=lane`, `/usage/quota-latest`, `/usage/iu-budget`; `GET /usage/credits/*` is gone, `pace` and `router` replaced it), **Reading**
 (Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
-and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
+and **Atlassian** surfaces, **WalkingPad**.
 
 **Astro Window** answers "is tonight (or this week) worth going out for?" for Milky Way nightscapes. It is scored by a deterministic engine (`apps/api/src/lib/window-score.ts` — hard gates that name _why_ a night is out, plus weighted 0–1 factors) instantiated per domain (`astro-score.ts`). **The model never computes a number**: the ephemeris, the thresholds and the score are all deterministic, and `aiComplete()` only writes one sentence about an already-finished verdict — see `docs/ASTRO-WINDOW.md`.
 
@@ -22,31 +22,9 @@ The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `G
 
 Argo is the frontend of Johannes's encrypted finance vault (repo `~/SourceRoot/finances`; `docs/service.md` there is the contract). The vault stays encrypted on the mini; `fin serve` (loopback `127.0.0.1:${FIN_SERVICE_PORT:-4581}`) holds the key only in memory while unlocked. The API relays `/finance/*` to it (`apps/api/src/routes/finance.ts`, secret `FIN_SERVICE_TOKEN`, service status codes passed through, 503 when it is down; see `apps/api/AGENTS.md` §Finance). The dashboard's **Finance** section (`/finance/…`, `apps/dashboard/src/features/finance/`) shows one unlock screen while locked (a login form so 1Password fills the vault key), and when unlocked the six pages — This month, Spending, Recurring, Transactions, Net worth, Tax — with a page-bar sync control (last sync, "syncing…", **Sync now**) and **Lock**; the status is polled every 30 s only while a finance page is open, and a 423 from any data call drops back to the unlock screen. The response types are a pinned copy of the finances repo's `ui/src/api/types.ts` (`features/finance/api/types.ts`, source commit in its header); the pages also curate the books (category, tax tag, recurring override, merchant rule: the four typed writes the relay allows): re-copy them when that file changes. Agents never unlock the vault or handle its key; `POST /finance/unlock` is human-only.
 
-## Agents — the agent-workflows overview surface
-
-`POST /agents/overview` ingests the overview payload (machine, generatedAt, optional
-`humanQueue`) pushed every 10 minutes from every dev host by agent-workflows (the `agw` overview
-workflow); `GET /agents/overview[?machine=]` and
-`/agents/overview/history?hours=` (max 168) read it back — raw jsonb, loosely validated, 7-day
-retention pruned on ingest. `POST`/`GET /agents/narratives` stores the per-project narrative
-upserts from `hermes-agent`'s `project-narratives.py`. The dashboard's **System → Agents** page
-(`/agents`) is the one surface for all of it: a summary sentence, a needs-you / oldest-wait / fleet
-strip, Needs-you decision cards (copy-only, no writes), one card per active project, a 24 h activity
-strip, day-grouped narratives, a 30-minute stale banner; polls Argo every 60s
-(`docs/design/agents.md`). Table owner: `apps/api/src/db/schema.ts` (`agent_overview_snapshots`,
-`agent_narratives`, `agent_review_stats_snapshots`).
-
-**Agent performance.** `GET /agents/kpis/usage?weeks=` (1..26, default 8; Monday 00:00 UTC window incl. the
-current week) reads the `usage` schema (`USAGE_ROWS`, `session_id`/`issue_id`/`lane` pass through): cost per
-subagent type and factory role, the same per week, and per factory Issue with a per-lane breakdown; cost is
-`cost_usd` as stored (list value on Max rows, not billed money). `POST`/`GET /agents/review-stats[?machine=]`
-stores the latest `agw review stats` result (weekly groups + per prompt) that agent-workflows pushes, raw
-jsonb, loosely validated, same snapshot store as the overview (`agent_review_stats_snapshots`). Code:
-`apps/api/src/routes/agent-kpis.ts`, `src/lib/agent-kpis.ts`; the dashboard's **System → Agent performance** page
-(`/agent-performance`, `docs/design/agent-performance.md`) reads both through Eden and shows an honest "not pushed yet" state
-until agent-workflows pushes review stats.
-
 Warden was switched off 2026-10-27 and its API is gone; the `warden_snapshots` and `warden_actions` tables are left in the `argo` schema, unused, pending a cleanup migration.
+
+The factory's own pages (needs-you, flow, chain, improve) live in the Console, not in Argo; the Today page links to it (`apps/dashboard/src/lib/console-url.ts` derives the Console origin from the current one). Argo's `/agents/*` API and the Agents and Agent performance pages are gone; the `agent_overview_snapshots`, `agent_narratives` and `agent_review_stats_snapshots` tables stay in the `argo` schema, unused, pending a cleanup migration.
 
 ## Workspace Layout
 
@@ -192,7 +170,7 @@ printed or written; the run aborts unless it authenticates), then runs the bundl
 lighthouse (median of 3) lanes. Output: `docs/waves/evidence/<l>.md`; raw screenshots and Lighthouse
 JSON land in the gitignored `docs/waves/evidence/.raw/<l>/`. Needs `secrets-run` and a locally installed Google Chrome. Code: `scripts/evidence/`.
 
-`make design-shot [ROUTES="/agents /usage-tracking"] [LABEL=<l>] [SKIP_BUILD=1]` is the redesign loop's shot harness: same
+`make design-shot [ROUTES="/models /usage-tracking"] [LABEL=<l>] [SKIP_BUILD=1]` is the redesign loop's shot harness: same
 GET-only production proxy as `make evidence` (the guarantee assumes dashboard GET endpoints are side-effect-free), every
 route (default `scripts/evidence/routes.txt`) × dark/light × desktop 1440 / mobile 390 at DPR 2, plus one crop per
 desktop card/table, into `.design-shots/<label>/` with an `index.html` board and `manifest.json`. The shots show real

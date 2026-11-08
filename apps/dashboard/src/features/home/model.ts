@@ -1,15 +1,11 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
-import { NO_SNAPSHOT_SHORT, clockTime, headlineOf } from '../agents/model'
-import type { Narrative } from '../../lib/queries/agents'
-import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { NBSP, formatDuration, withUnit } from '../../lib/format'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { applyVisibilityFilter } from '../garmin-health/visibility'
-import { leadOf } from '../../lib/question-copy'
 import { CANCELLED_PREFIX } from '../calendar/derive'
 import { FACT_SEPARATOR } from '../../lib/text-breaks'
-import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
+import { firstClause, flatten, lastWhitespace, stripShortcodes } from '../../lib/text'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
 // and the summary sentence. No React, no queries. A reading that is absent stays `null` (rendered
@@ -27,7 +23,21 @@ const parseMs = (iso: string | null | undefined): number | null => {
   return Number.isFinite(ms) ? ms : null
 }
 
-/** `09:30` for an epoch ms: the one clock format of the Today page. */
+/** `09:30` for an epoch ms: the one clock format of the Today page. Built per call: a formatter cached at import would freeze the zone the tests switch at runtime. */
+export const clockOf = (ms: number): string =>
+  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
+
+/** `text` cut at the last word boundary within `max` characters, with an ellipsis; whole if it fits. */
+function leadOf(text: string, max: number): string {
+  const flat = flatten(text)
+  if (flat.length <= max) return flat
+  const head = flat.slice(0, max)
+  const lastSpace = lastWhitespace(head)
+  const atWord = lastSpace > max / 2
+  const kept = atWord ? head.slice(0, lastSpace) : head.slice(0, max - 1)
+  const withoutTail = kept.replace(/[\s,;:.\-–—]+$/, '')
+  return `${withoutTail}…`
+}
 
 // ── Meetings ─────────────────────────────────────────────────────────────────────────────────
 
@@ -100,7 +110,7 @@ export function laterMeeting(feeds: readonly CalendarFeed[], now: number): Later
 
 /** `Mon 09:30`: when a meeting outside today starts. */
 export const weekdayTime = (ms: number): string =>
-  `${new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(ms)} ${clockTime(new Date(ms).toISOString())}`
+  `${new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(ms)} ${clockOf(ms)}`
 
 const isDateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
 
@@ -330,44 +340,13 @@ export function acwrReading(
 export type ActivityEvent = {
   key: string
   ms: number
-  actor: 'narrator' | 'calendar'
-  /** Line 1: the verb and its subject; wraps at its spaces, never cut. */
+  actor: 'calendar'
+  /** The verb and its subject; wraps at its spaces, never cut. */
   title: string
-  /** Line 2, muted: the end of the story: always rendered whole, never clipped. */
-  outcome?: string
-  /** The entity chip on line 2 (a project): the one part that may ellipsize. */
-  chip?: string
 }
-
-/** Where a remaining decision waits: Agents holds the agents and the human queue. */
-const REST_PLACE = { '/agents': 'on Agents' } as const
-
-/**
- * The show-more button for the `count` decisions beyond the cards, worded as the remainder (the
- * summary's facts count the whole list).
- */
-export const restLabel = (href: keyof typeof REST_PLACE, count: number): string =>
-  `${count} more ${REST_PLACE[href]}`
 
 /** Rows older than the start of yesterday are history, not "today's stream". */
 const activityHorizon = (now: number) => addDays(startOfDayDate(now), -1).getTime()
-
-export function narrativeEvents(narratives: readonly Narrative[] | undefined): ActivityEvent[] {
-  return (narratives ?? []).flatMap((n) => {
-    const ms = parseMs(n.revisedAt)
-    if (ms === null) return []
-    const title = headlineOf(n.summary)
-    return [
-      {
-        key: `n-${n.project}`,
-        ms,
-        actor: 'narrator' as const,
-        title,
-        chip: n.project,
-      },
-    ]
-  })
-}
 
 /** Today's meetings that have already started: the calendar's contribution to the stream. */
 export function calendarEvents(meetings: readonly Meeting[], now: number): ActivityEvent[] {
@@ -397,209 +376,32 @@ export function activityStream(
   return { events: live, total: live.length }
 }
 
-/**
- * The sources behind the needs-you list, by the names every gap wording uses: the needs-you sentence,
- * the cells and the activity card's no-feed line all name these producers.
- */
-const NEEDS_YOU_SOURCE_NAMES = ['Agents'] as const
-type SourceName = (typeof NEEDS_YOU_SOURCE_NAMES)[number]
-
-/**
- * The activity card's line with nothing to count: the empty window when a feed loaded, then every
- * source that is unknown (`— reload to retry` only when one failed); with no feed and no cause
- * known, the feed's own gap in its short form.
- */
-export function feedEmptyLine(input: {
-  loaded: boolean
-  failed: readonly string[]
-  pending: readonly string[]
-  now: number
-}): string {
-  const { loaded, failed, pending, now } = input
-  const unknown = unknownPhrase(failed, pending)
-  if (!loaded && unknown === '') {
-    return `${noFeedYet}.`
-  }
-  const retry = failed.length > 0 ? ' — reload to retry' : ''
-  return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]
-    .filter(Boolean)
-    .join(' ')
-}
-
-/** With a feed loaded and nothing in the window: the horizon, and where new events appear. */
-const emptyStreamLabel = (now: number) =>
-  `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday — narrator and calendar events appear here.`
-
-// ── Freshness ────────────────────────────────────────────────────────────────────────────────
-
-/** The `Live` pulse shows only while the newest push is younger than this. */
-const LIVE_WITHIN_MS = 30 * MIN_MS
-
-/** The loaded feeds older than {@link LIVE_WITHIN_MS}, each as `Name 45m old`; empty when every one is fresh. */
-export function staleFeeds(
-  feeds: readonly { name: string; receivedAt: string | null | undefined }[],
-  now: number,
-): string[] {
-  return feeds.flatMap((f) => {
-    const ms = parseMs(f.receivedAt)
-    if (ms === null || now - ms < LIVE_WITHIN_MS) return []
-    return [`${f.name} ${formatDuration(now - ms)} old`]
-  })
-}
+/** With nothing in the window: the horizon, and where new events appear. */
+export const emptyStreamLabel = (now: number) =>
+  `No events since ${clockOf(activityHorizon(now))} yesterday — calendar events appear here.`
 
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
-/** Sources behind the needs-you list: the agent snapshot. With none of them loaded the list is unknown, not empty. */
-const NEEDS_YOU_SOURCES = NEEDS_YOU_SOURCE_NAMES.length
-
-/** One state per source, disjoint by construction: a source is exactly one of these. */
-type SourceStatus = 'ready' | 'loading' | 'failed' | 'no-snapshot'
-
-/**
- * A source with a snapshot is ready; without one its read decides: still pending is loading, failed
- * is failed, and a read that settled with nothing is `no-snapshot`: unknown, never an empty inbox.
- */
-export function sourceStatus(
-  hasSnapshot: boolean,
-  read: 'pending' | 'error' | 'success',
-): SourceStatus {
-  if (hasSnapshot) return 'ready'
-  if (read === 'pending') return 'loading'
-  return read === 'error' ? 'failed' : 'no-snapshot'
-}
-
-/** The per-source states as the three name lists the needs-you wording reads. */
-export function classifySources(status: Record<SourceName, SourceStatus>): {
-  unavailable: SourceName[]
-  loading: SourceName[]
-  noSnapshot: SourceName[]
-} {
-  const named = (want: SourceStatus) => NEEDS_YOU_SOURCE_NAMES.filter((n) => status[n] === want)
-  return {
-    unavailable: named('failed'),
-    loading: named('loading'),
-    noSnapshot: named('no-snapshot'),
-  }
-}
-
-export type HomeSummaryInput = {
-  decisions: readonly Decision[]
-  /** Sources whose read failed: the count then covers the rest, and the sentence says so. */
-  unavailable: readonly string[]
-  /** Sources still being read: unknown for now, never an empty inbox. */
-  loading: readonly string[]
-  /** Sources whose read settled without a snapshot: unknown, not empty (the cells say `No snapshot yet`). */
-  noSnapshot?: readonly string[]
-}
-
-type SourceState = Pick<HomeSummaryInput, 'unavailable' | 'loading' | 'noSnapshot'>
-
-/** `Agents failed to load`, `Agents loading`, `no snapshot yet from Agents`: the one wording for sources the list cannot yet count. */
-export function unknownPhrase(
-  unavailable: readonly string[],
-  loading: readonly string[],
-  noSnapshot: readonly string[] = [],
-): string {
-  return [
-    ...(unavailable.length > 0 ? [`${unavailable.join(' and ')} failed to load`] : []),
-    ...(loading.length > 0 ? [`${loading.join(' and ')} loading`] : []),
-    ...(noSnapshot.length > 0
-      ? [`${NO_SNAPSHOT_SHORT.toLowerCase()} from ${noSnapshot.join(' and ')}`]
-      : []),
-  ].join(', ')
-}
-
-const unknownCount = (s: SourceState): number =>
-  s.unavailable.length + s.loading.length + (s.noSnapshot?.length ?? 0)
-
-/** Every source behind the needs-you list is unknown (failed, loading or without a snapshot): the list can't be counted. */
-export const allUnknown = (s: SourceState): boolean => unknownCount(s) >= NEEDS_YOU_SOURCES
-
-/** Why the whole list is unknown: one cause names itself, a mix can only say it can't tell. */
-type UnknownKind = 'loading' | 'no-snapshot' | 'cant-tell'
-
-function unknownKind(s: SourceState): UnknownKind {
-  const noSnapshot = s.noSnapshot?.length ?? 0
-  if (s.unavailable.length === 0 && noSnapshot === 0) return 'loading'
-  if (s.unavailable.length === 0 && s.loading.length === 0) return 'no-snapshot'
-  return 'cant-tell'
-}
-
-const UNKNOWN_TITLE: Record<UnknownKind, string> = {
-  loading: 'Loading',
-  'no-snapshot': NO_SNAPSHOT_SHORT,
-  'cant-tell': "Can't tell",
-}
-
-/** `unknownPhrase` opens a sentence: the one place its casing is decided. */
-export function unknownSentence(phrase: string): string {
-  return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`
-}
-
-/**
- * The activity card's feed gap: the needs-you sentence's leading clause, verbatim. The source names
- * are fixed, so it is derived from that same list; each cadence is stated once on the cells.
- */
-const noFeedYet = unknownSentence(unknownPhrase([], [], NEEDS_YOU_SOURCE_NAMES))
-
 export type HomeSummaryParts = { sentence: string; facts: string[] }
 
-/** The sources that answered: neither failed nor still loading. */
-const knownSources = (s: SourceState): string[] =>
-  NEEDS_YOU_SOURCE_NAMES.filter(
-    (n) => !s.unavailable.includes(n) && !s.loading.includes(n) && !s.noSnapshot?.includes(n),
-  )
-
-/**
- * The empty needs-you list's title: `Nothing needs you` only when every source has a snapshot; with one
- * unknown it speaks only for the source that answered, and with all unknown it can't tell.
- */
-export function needsYouEmptyTitle(s: SourceState): string {
-  if (allUnknown(s)) return UNKNOWN_TITLE[unknownKind(s)]
-  const known = knownSources(s)
-  return known.length === NEEDS_YOU_SOURCE_NAMES.length
-    ? 'Nothing needs you'
-    : `Nothing from ${known.join(' and ')} needs you`
-}
-
-/**
- * The empty needs-you body: which sources failed, are loading or have no snapshot, since no title
- * names them. `null` only when every source answered (the all-clear title says it whole).
- */
-export function needsYouEmptyBody(s: SourceState): string | null {
-  const phrase = unknownPhrase(s.unavailable, s.loading, s.noSnapshot)
-  return phrase === '' ? null : `${unknownSentence(phrase)}.`
-}
-
-/**
- * The headline (count + oldest wait, or why it can't be told) and one fact under it: where the
- * waiting items sit. The fleet, the next meeting and recovery each have a strip cell of their own,
- * so the summary does not print them a second time.
- */
-export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
-  const phrase = unknownPhrase(s.unavailable, s.loading, s.noSnapshot)
-  if (allUnknown(s)) {
-    const sentence: Record<UnknownKind, string> = {
-      loading: `Loading ${s.loading.join(' and ')}.`,
-      'no-snapshot': `${unknownSentence(phrase)}.`,
-      'cant-tell': `Can't tell — ${phrase}.`,
-    }
-    return { sentence: sentence[unknownKind(s)], facts: [] }
-  }
-  if (s.decisions.length === 0 && phrase !== '')
-    return { sentence: `${needsYouEmptyTitle(s)}; ${phrase}.`, facts: [] }
-  const gap = phrase === '' ? '' : ` (${phrase})`
-  const ages = s.decisions.flatMap((d) => (d.ageMs === null ? [] : [d.ageMs]))
-  const oldest = ages.length === 0 ? null : formatDuration(Math.max(...ages))
-  const sentence = `${oldestWaitSentence(s.decisions.length, oldest)}${gap}.`
-  const count = (source: Decision['source']) =>
-    s.decisions.filter((d) => d.source === source).length
-  const where = [
-    [count('agent'), 'with agents'],
-    [count('queue'), 'in the human queue'],
-  ].flatMap(([n, label]) => (n === 0 ? [] : [`${n} ${label}`]))
-  // One source alone is the heading count already; the split only says something across two.
-  return { sentence, facts: where.length < 2 ? [] : where }
+/** The headline of the day's meetings, and which calendar could not be read. `null` agenda: no calendar answered. */
+export function homeSummaryParts(
+  agenda: Pick<Agenda, 'meetings' | 'unavailable'> | null,
+  now: number,
+): HomeSummaryParts {
+  if (agenda === null) return { sentence: 'Calendar unavailable.', facts: [] }
+  const facts =
+    agenda.unavailable.length === 0 ? [] : [`${classLabels(agenda.unavailable)} unavailable`]
+  const total = agenda.meetings.length
+  const ahead = agenda.meetings.filter((m) => m.startMs > now).length
+  const noun = total === 1 ? 'meeting' : 'meetings'
+  const sentence =
+    total === 0
+      ? 'No meetings today.'
+      : ahead === 0
+        ? `${total} ${noun} today, none left.`
+        : `${ahead} of ${total} ${noun} still ahead today.`
+  return { sentence, facts }
 }
 
 export type TaskFeed = 'loading' | 'error' | 'ready'

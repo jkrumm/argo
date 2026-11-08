@@ -23,44 +23,8 @@ export function stripShortcodes(text: string): string {
 /** Whitespace collapsed to single spaces (a no-break space survives), ends trimmed. */
 export const flatten = (text: string): string => text.replace(WHITESPACE, ' ').trim()
 
-/** The first sentence of a text (up to `.`, `!` or `?` followed by a space or the end), flattened. */
-export function firstSentence(text: string): string {
-  const flat = flatten(text)
-  const stop = flat.search(/[.!?](\s|$)/)
-  return stop === -1 ? flat : flat.slice(0, stop + 1)
-}
-
-/** What follows {@link firstSentence}; `null` when nothing does. */
-export function restAfterFirstSentence(text: string): string | null {
-  const flat = flatten(text)
-  const rest = flat.slice(firstSentence(flat).length).trim()
-  return rest === '' ? null : rest
-}
-
-/**
- * A question a producer authored, read defensively off a loose wire object: only a non-blank string
- * counts (a number, object or array is a producer bug, not a question), shortcodes stripped,
- * whitespace flattened. Every path that reads a producer `question` goes through this.
- */
-export function authoredQuestion(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const clean = stripShortcodes(value)
-  return clean === '' ? null : clean
-}
-
-/** The bracket tags a producer prefixes a title with (`[alert] `, `[blocker] `), as one run. */
-export const LEADING_BRACKET_TAGS = /^\s*(?:\[[^\]]{1,40}\]\s*)+/
-
-/** The text of a title's first leading bracket tag (`alert` for `[Alert] {key}`), `null` with none. */
-export function firstBracketTag(title: string): string | null {
-  return /^\s*\[([^\]]{1,40})\]/.exec(title)?.[1]?.trim() ?? null
-}
-
 /** Index of the last whitespace character of `text` (not only a plain space), `-1` when it has none. */
 export const lastWhitespace = (text: string): number => text.search(/\s\S*$/)
-
-/** A wire value read as text: anything that is not a string is none. */
-export const asText = (value: unknown): string => (typeof value === 'string' ? value : '')
 
 /** Where a title's clause ends: a dash between words, a sentence stop, a semicolon or an opening bracket. */
 const CLAUSE_STOP = /\s[—–-]\s|[.;!?](?=\s|$)|\s[([]/g
@@ -87,14 +51,3 @@ export function leadClauses(text: string, count: number): string {
 
 /** The first clause of a title; `''` when the text has no words. */
 export const firstClause = (text: string): string => leadClauses(text, 1)
-
-/**
- * The shared opening of a waiting-on-the-owner headline: `Nothing needs you`, the oldest wait, or —
- * when no age is reported — that items wait, never a figure the source did not send. The counts
- * live in the sections, so the headline repeats none.
- */
-export function oldestWaitSentence(count: number, oldest: string | null): string {
-  if (count === 0) return 'Nothing needs you'
-  if (oldest === null) return count === 1 ? 'An item is waiting on you' : 'Items are waiting on you'
-  return `Oldest wait on you ${oldest}`
-}

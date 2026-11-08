@@ -36,12 +36,12 @@ describe('requireToken', () => {
 
   it('passes once a token is set', () => {
     useAuthStore.getState().setToken('t')
-    expect(() => requireToken(at('/agents'))).not.toThrow()
+    expect(() => requireToken(at('/models'))).not.toThrow()
   })
 })
 
 describe('safeRedirect', () => {
-  it.each(['/', '/agents', '/strength?range=30d', '/a/b?x=1#h', '/a//b', '/a?next=//evil.example'])(
+  it.each(['/', '/models', '/strength?range=30d', '/a/b?x=1#h', '/a//b', '/a?next=//evil.example'])(
     'accepts %s',
     (p) => expect(safeRedirect(p)).toBe(p),
   )
@@ -56,7 +56,7 @@ describe('safeRedirect', () => {
     'http://evil.example/',
     'javascript:alert(1)',
     'evil.example',
-    'agents',
+    'models',
     '',
     '/\tevil',
     '/\n/evil.example',

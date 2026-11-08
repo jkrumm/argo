@@ -12,7 +12,7 @@ Health/training core, plus a growing set of personal-agent surfaces, grouped in 
   Composition, WalkingPad, Reading.
 - **Assistant** — Calendar.
 - **Outdoors** — Astro Window (is tonight worth a Milky Way shoot).
-- **System** — Usage Tracking (Claude Code spend), and Agents (the agent-workflows dev-agent overview).
+- **System** — Usage Tracking (Claude Code spend).
 - **Other** — M365 Explorer (IU Teams).
 
 The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents.

@@ -12,27 +12,17 @@ import {
   noMeetingsLabel,
   activityStream,
   nextMeeting,
+  homeSummaryParts,
   recoveryReading,
   recoveryWindow,
-  restLabel,
-  staleFeeds,
-  feedEmptyLine,
-  homeSummaryParts,
-  classifySources,
-  needsYouEmptyBody,
-  needsYouEmptyTitle,
-  sourceStatus,
-  unknownSentence,
-  unknownPhrase,
   taskCounts,
   tasksLine,
   todayAgenda,
   type ActivityEvent,
+  type Meeting,
   type RawCalendarEvent,
-  narrativeEvents,
   calendarEvents,
 } from './model'
-import type { Decision } from '../../lib/decisions'
 import { meetingCell } from './strip-cells'
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
@@ -51,20 +41,6 @@ const event = (over: Partial<RawCalendarEvent> = {}): RawCalendarEvent => ({
   start: at(14),
   end: at(15),
   ...over,
-})
-
-const decision = (ageMs: number | null): Decision => ({
-  source: 'queue',
-  id: `d-${ageMs}`,
-  headline: '{q}',
-  entity: null,
-  facts: [],
-  evidenceLine: null,
-  detail: null,
-  ageMs,
-  href: '/agents',
-  evidence: null,
-  abandoned: false,
 })
 
 describe('todayAgenda cancelled meetings', () => {
@@ -202,87 +178,6 @@ describe('countdownLabel', () => {
   })
 })
 
-describe('needsYouEmptyTitle', () => {
-  it('says Nothing needs you only when the source settled OK', () => {
-    expect(needsYouEmptyTitle({ unavailable: [], loading: [] })).toBe('Nothing needs you')
-    expect(needsYouEmptyTitle({ unavailable: [], loading: ['Agents'] })).toBe('Loading')
-    expect(needsYouEmptyTitle({ unavailable: ['Agents'], loading: [] })).toBe("Can't tell")
-  })
-})
-
-describe('source classification', () => {
-  it('gives each source exactly one state', () => {
-    expect(sourceStatus(true, 'pending')).toBe('ready')
-    expect(sourceStatus(true, 'error')).toBe('ready')
-    expect(sourceStatus(false, 'pending')).toBe('loading')
-    expect(sourceStatus(false, 'error')).toBe('failed')
-    expect(sourceStatus(false, 'success')).toBe('no-snapshot')
-  })
-  it('splits the states into disjoint lists', () => {
-    expect(classifySources({ Agents: 'no-snapshot' })).toEqual({
-      unavailable: [],
-      loading: [],
-      noSnapshot: ['Agents'],
-    })
-    expect(classifySources({ Agents: 'failed' })).toEqual({
-      unavailable: ['Agents'],
-      loading: [],
-      noSnapshot: [],
-    })
-    expect(classifySources({ Agents: 'ready' })).toEqual({
-      unavailable: [],
-      loading: [],
-      noSnapshot: [],
-    })
-  })
-  it('a source that settled with no snapshot is never an all-clear', () => {
-    const settledEmpty = classifySources({ Agents: sourceStatus(false, 'success') })
-    expect(needsYouEmptyTitle(settledEmpty)).not.toBe('Nothing needs you')
-    expect(unknownSentence(unknownPhrase([], [], ['Agents']))).toBe('No snapshot yet from Agents')
-  })
-})
-
-describe('needsYouEmptyTitle with sources that have no snapshot', () => {
-  const ok = { unavailable: [], loading: [] }
-  it('claims all-clear only when every source has a snapshot', () => {
-    expect(needsYouEmptyTitle({ ...ok, noSnapshot: [] })).toBe('Nothing needs you')
-    expect(needsYouEmptyTitle(ok)).toBe('Nothing needs you')
-  })
-  it('names the gap when the source has no snapshot', () => {
-    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Agents'] })).toBe('No snapshot yet')
-  })
-  it('words the phrase and the summary with the short form', () => {
-    expect(unknownPhrase([], [], ['Agents'])).toBe('no snapshot yet from Agents')
-    expect(homeSummaryParts({ decisions: [], ...ok, noSnapshot: ['Agents'] }).sentence).toBe(
-      'No snapshot yet from Agents.',
-    )
-  })
-})
-
-describe('feedEmptyLine', () => {
-  const none = { failed: [], pending: [], now: NOW }
-  it('names every unknown source after the empty window, with the retry only for a failure', () => {
-    const line = feedEmptyLine({ loaded: true, ...none, failed: ['Agents'] })
-    expect(line).toStartWith('No events since ')
-    expect(line).toEndWith('Agents failed to load — reload to retry.')
-    expect(feedEmptyLine({ loaded: true, ...none, pending: ['Agents'] })).toEndWith(
-      ' Agents loading.',
-    )
-  })
-  it("with no feed and no cause known, says the feed's own gap", () => {
-    const needsYou = homeSummaryParts({
-      decisions: [],
-      unavailable: [],
-      loading: [],
-      noSnapshot: ['Agents'],
-    }).sentence
-    const line = feedEmptyLine({ loaded: false, ...none })
-    expect(line).toBe('No snapshot yet from Agents.')
-    expect(line).toBe(needsYou)
-    expect(feedEmptyLine({ loaded: false, ...none, pending: ['Agents'] })).toBe('Agents loading.')
-  })
-})
-
 describe('tasksLine', () => {
   it('words unknown tasks as loading or failed, never as zeros', () => {
     expect(tasksLine(null, 'loading').lead).toBe('Tasks: loading')
@@ -397,7 +292,7 @@ describe('readings', () => {
 const ev = (key: string, ms: number): ActivityEvent => ({
   key,
   ms,
-  actor: 'narrator',
+  actor: 'calendar',
   title: '{t}',
 })
 
@@ -419,93 +314,8 @@ describe('activityStream', () => {
   })
 })
 
-describe('homeSummaryParts', () => {
-  const base = { unavailable: [], loading: [] }
-  const agentDecision = (): Decision => ({
-    ...decision(60 * MIN),
-    source: 'agent',
-    href: '/agents',
-  })
-
-  it('names the oldest wait in the sentence, the count only in the heading, and the split across sources as the one fact', () => {
-    expect(
-      homeSummaryParts({
-        ...base,
-        decisions: [decision(2 * 60 * MIN), decision(30 * MIN), agentDecision()],
-      }),
-    ).toEqual({
-      sentence: 'Oldest wait on you 2\u00a0h.',
-      facts: ['1 with agents', '2 in the human queue'],
-    })
-  })
-
-  it('never repeats the fleet, the next meeting or recovery from the strip', () => {
-    const { facts } = homeSummaryParts({ ...base, decisions: [decision(MIN)] })
-    expect(facts.join(' ')).not.toMatch(/agents working|meeting|recovery/i)
-  })
-
-  it('reads an empty inbox without a fact', () => {
-    expect(homeSummaryParts({ ...base, decisions: [] })).toEqual({
-      sentence: 'Nothing needs you.',
-      facts: [],
-    })
-  })
-
-  it('names an unavailable source instead of implying an empty inbox', () => {
-    expect(homeSummaryParts({ unavailable: ['Agents'], loading: [], decisions: [] })).toEqual({
-      sentence: "Can't tell — Agents failed to load.",
-      facts: [],
-    })
-  })
-
-  it('says loading, never an empty inbox, while the source is pending', () => {
-    expect(homeSummaryParts({ unavailable: [], loading: ['Agents'], decisions: [] })).toEqual({
-      sentence: 'Loading Agents.',
-      facts: [],
-    })
-  })
-
-  it('omits an unknown age rather than printing a figure it lacks', () => {
-    expect(homeSummaryParts({ ...base, decisions: [decision(null)] }).sentence).toBe(
-      'An item is waiting on you.',
-    )
-  })
-
-  it('leaves the split out when one source holds every item', () => {
-    expect(homeSummaryParts({ ...base, decisions: [decision(MIN), decision(MIN)] }).facts).toEqual(
-      [],
-    )
-  })
-})
-
-const ago = (min: number) => new Date(NOW - min * MIN).toISOString()
-
-describe('restLabel', () => {
-  it('words the show-more button as the remainder', () => {
-    expect(restLabel('/agents', 1)).toBe('1 more on Agents')
-  })
-})
-
-describe('names in the feed', () => {
-  it('keeps a long project chip whole', () => {
-    const [row] = narrativeEvents([
-      { project: 'an-extremely-long-project-name', summary: '{s}', revisedAt: ago(5) },
-    ] as unknown as Parameters<typeof narrativeEvents>[0])
-    expect(row?.chip).toBe('an-extremely-long-project-name')
-  })
-})
-
-describe('activity row parts per actor', () => {
-  it('narrator: the headline is line 1, the project the chip, no outcome', () => {
-    const [row] = narrativeEvents([
-      { project: '{project}', summary: '{summary}', revisedAt: ago(5) },
-    ] as unknown as Parameters<typeof narrativeEvents>[0])
-    expect(row?.actor).toBe('narrator')
-    expect(row?.chip).toBe('{project}')
-    expect(row?.outcome).toBeUndefined()
-  })
-
-  it('calendar: a started meeting is one line, no outcome and no chip', () => {
+describe('calendar activity rows', () => {
+  it('a started meeting is one line, no outcome and no chip', () => {
     const [row] = calendarEvents(
       [{ key: 'm', title: '{meeting}', startMs: NOW - MIN }] as unknown as Parameters<
         typeof calendarEvents
@@ -575,31 +385,6 @@ describe('day boundaries on a DST day', () => {
       dst,
     )
     expect(counts).toEqual({ overdue: 0, dueSoon: 1, open: 2 })
-  })
-})
-
-const agoIso = (m: number) => new Date(NOW - m * MIN).toISOString()
-
-describe('staleFeeds and unavailable sources', () => {
-  it('names only the loaded feeds past 30 minutes', () => {
-    expect(
-      staleFeeds(
-        [
-          { name: 'Narrator', receivedAt: agoIso(5) },
-          { name: 'Agents', receivedAt: agoIso(45) },
-        ],
-        NOW,
-      ),
-    ).toEqual(['Agents 45\u00a0min old'])
-    expect(staleFeeds([{ name: 'Agents', receivedAt: agoIso(29) }], NOW)).toEqual([])
-  })
-
-  const base = { decisions: [], loading: [], fleet: null, meetings: null, recovery: null, now: NOW }
-
-  it('does not say nothing needs you when the source failed', () => {
-    expect(homeSummaryParts({ ...base, unavailable: ['Agents'] }).sentence).toBe(
-      "Can't tell — Agents failed to load.",
-    )
   })
 })
 
@@ -682,18 +467,35 @@ describe('laterMeeting', () => {
   })
 })
 
-describe('needsYouEmptyBody', () => {
-  const ok = { unavailable: [], loading: [] }
-  it('is null only when the source answered', () => {
-    expect(needsYouEmptyBody(ok)).toBeNull()
+describe('homeSummaryParts', () => {
+  const meeting = (startMs: number) => ({ startMs }) as unknown as Meeting
+  const agendaOf = (meetings: Meeting[], unavailable: ('work' | 'personal')[] = []) => ({
+    meetings,
+    unavailable,
   })
-  it('names the source when it is unknown, which no title does', () => {
-    expect(needsYouEmptyBody({ unavailable: ['Agents'], loading: [] })).toBe(
-      'Agents failed to load.',
+
+  it('says the calendar is unavailable when none answered', () => {
+    expect(homeSummaryParts(null, NOW)).toEqual({ sentence: 'Calendar unavailable.', facts: [] })
+  })
+  it('reads an empty day', () => {
+    expect(homeSummaryParts(agendaOf([]), NOW).sentence).toBe('No meetings today.')
+  })
+  it('counts the meetings still ahead of the whole day', () => {
+    const day = agendaOf([
+      meeting(NOW - 60 * MIN),
+      meeting(NOW + 60 * MIN),
+      meeting(NOW + 90 * MIN),
+    ])
+    expect(homeSummaryParts(day, NOW).sentence).toBe('2 of 3 meetings still ahead today.')
+  })
+  it('says none are left once the last one started', () => {
+    expect(homeSummaryParts(agendaOf([meeting(NOW - MIN)]), NOW).sentence).toBe(
+      '1 meeting today, none left.',
     )
-    expect(needsYouEmptyBody({ unavailable: [], loading: ['Agents'] })).toBe('Agents loading.')
-    expect(needsYouEmptyBody({ ...ok, noSnapshot: ['Agents'] })).toBe(
-      'No snapshot yet from Agents.',
-    )
+  })
+  it('names the calendar that could not be read as the one fact', () => {
+    expect(homeSummaryParts(agendaOf([], ['personal']), NOW).facts).toEqual([
+      'Personal unavailable',
+    ])
   })
 })

@@ -9,7 +9,6 @@ import {
   acwrCell,
   acwrCellGap,
   recoveryCellGap,
-  agentsCell,
   meetingCell,
   recoveryCaption,
   recoveryCell,
@@ -42,17 +41,6 @@ const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
   isToday: true,
   last: null,
   ...over,
-})
-
-describe('agents cell without a fleet', () => {
-  const emptyText = (feed: 'none' | 'failed' | null) =>
-    (agentsCell(undefined, null, feed).state as { reason: string }).reason
-
-  it('names the cause and the next step, one wording per feed state', () => {
-    expect(emptyText('none')).toBe('No snapshot yet — agent-workflows pushes every 10\u00a0min')
-    expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
-    expect(emptyText(null)).toBe('No fleet counts in this snapshot')
-  })
 })
 
 describe('Garmin cadence on Home: once per screen', () => {
@@ -129,7 +117,6 @@ describe('recovery footer breaks', () => {
 
 describe('strip cells with no reading', () => {
   it('shows an em dash and a reason, never 0', () => {
-    expect(agentsCell(undefined, null)).toMatchObject({ value: null })
     expect(meetingCell(null, null, null, NOW)).toMatchObject({
       value: null,
       state: { kind: 'empty', reason: 'calendar unavailable' },
@@ -292,17 +279,6 @@ describe('strip cells with no reading', () => {
     expect(cell('A very long meeting name without any clause break at all').footer).toBe(
       'A very long meeting…\u00a0·\u00a01\u00a0remaining',
     )
-  })
-})
-
-describe('agentsCell', () => {
-  it('states one window, now: the caption says so and no 24 h footer contradicts it', () => {
-    const cell = agentsCell({ working: 2 } as never, {
-      total: 5,
-      parts: [{ key: 'working', label: 'working', value: 2 }],
-    })
-    expect(cell).toMatchObject({ caption: 'Agents working · now', value: '2', unit: 'of 5 agents' })
-    expect(cell.footer).toBeUndefined()
   })
 })
 

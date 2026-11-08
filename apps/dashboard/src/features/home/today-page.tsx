@@ -1,48 +1,35 @@
 import { useMemo } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Stack } from '@mantine/core'
+import { Anchor, Group, Stack, Text } from '@mantine/core'
+import { IconExternalLink } from '@tabler/icons-react'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
-import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
 import { RECOVERY_DAYS, allocateForms, lastScored, windowCopyDays } from '../garmin-health/model'
 import { VISIBLE_DATE_MIN } from '../garmin-health/constants'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
-import { deriveDecisions } from '../../lib/decisions'
+import { consoleUrl } from '../../lib/console-url'
 import { dayKey } from '../calendar/derive'
 import { taskFeedState, unanswered } from '../calendar/query-state'
 import { useNow } from '../../lib/use-now'
 import { shotState } from '../../lib/shot-state'
-import { countUnknownAgents, fleetParts, flattenAgents } from '../agents/model'
 import { ActivityFeed } from './activity-feed'
 import { Meetings } from './meetings'
 import {
   acwrReading,
   activityStream,
   calendarEvents,
-  staleFeeds,
-  narrativeEvents,
   laterMeeting,
   nextMeeting,
   recoveryReading,
   recoveryWindow,
-  classifySources,
   homeSummaryParts,
-  sourceStatus,
   taskCounts,
   todayAgenda,
   type RawCalendarEvent,
 } from './model'
-import { NeedsYou } from './needs-you'
 import { garminStore, toApiWindow } from '../../lib/window-stores'
 import { applyVisibilityFilter } from '../garmin-health/visibility'
-import {
-  acwrCell,
-  acwrCellGap,
-  agentsCell,
-  meetingCell,
-  recoveryCell,
-  recoveryCellGap,
-} from './strip-cells'
+import { acwrCell, acwrCellGap, meetingCell, recoveryCell, recoveryCellGap } from './strip-cells'
 import classes from './home.module.css'
 
 /** The Garmin page's default window, the fallback for a dateless custom range. */
@@ -60,17 +47,13 @@ const asEvents = (data: unknown): RawCalendarEvent[] | null =>
   Array.isArray(data) ? (data as RawCalendarEvent[]) : null
 
 /**
- * Today: what needs the owner, what is next on the day, and whether body and fleet are fit to
- * work. Every figure is one read of an existing endpoint; the Needs-you count, the cards and the
- * summary sentence all come from the one `deriveDecisions` list.
+ * Today: what is next on the day and whether the body is fit to work. Every figure is one read of
+ * an existing endpoint. The factory's own pages (needs-you, flow, chain, improve) live in the Console.
  */
 export function TodayPage() {
   const now = useNow()
-  // `basalt-ui shot`'s `empty` state: the real empty branches (no decision, no meeting, no update).
+  // `basalt-ui shot`'s `empty` state: the real empty branches (no meeting, no update).
   const shotEmpty = shotState() === 'empty'
-
-  const agentsQuery = useQuery(agentsQueries.latest())
-  const narrativesQuery = useQuery(agentsQueries.narratives())
 
   // From local midnight, so this morning's meetings come back and render as ended.
   const todayKey = dayKey(new Date(now))
@@ -96,21 +79,6 @@ export function TodayPage() {
   const recoveryNow = useQuery(recoveryQueries.summary(garminParams))
   const recoverySeries = useQuery(recoveryQueries.series(garminParams))
   const loadQuery = useQuery(trainingLoadQueries.summary(garminParams))
-
-  // ── Sources ────────────────────────────────────────────────────────────────────────────────
-  // Under the shot's `empty` the overview feed holds no snapshot: the cell reads the real no-snapshot branch.
-  const agentsRecord = shotEmpty ? null : (agentsQuery.data?.latest ?? null)
-  const snapshot = agentsRecord?.snapshot
-  // One state per source: failed, loading, or settled without a snapshot (unknown, never empty).
-  const { unavailable, loading, noSnapshot } = classifySources({
-    Agents: sourceStatus(agentsRecord !== null, agentsQuery.status),
-  })
-
-  const decisions = deriveDecisions({ agents: snapshot, now })
-
-  // ── Fleet ─────────────────────────────────────────────────────────────────────────
-  const agents = flattenAgents(snapshot)
-  const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   // ── Calendar ───────────────────────────────────────────────────────────────────────────────
   // Under the shot's `empty` the sources answered with nothing: the real empty agenda, not the unknown one.
@@ -170,22 +138,14 @@ export function TodayPage() {
 
   // ── Activity ───────────────────────────────────────────────────────────────────────────────
   const stream = activityStream(
-    shotEmpty
-      ? []
-      : [
-          ...narrativeEvents(narrativesQuery.data?.data),
-          ...(agenda === null ? [] : calendarEvents(agenda.meetings, now)),
-        ],
+    shotEmpty ? [] : [...(agenda === null ? [] : calendarEvents(agenda.meetings, now))],
     now,
   )
-  const stale = staleFeeds(
-    shotEmpty || agentsRecord === null
-      ? []
-      : [{ name: 'Agents', receivedAt: agentsRecord.receivedAt }],
-    now,
-  )
-
-  const summary = homeSummaryParts({ decisions, unavailable, loading, noSnapshot })
+  const summary = homeSummaryParts(agenda, now)
+  // Null on a host without an `argo.` sibling (localhost): no Console to link.
+  const consoleHref = consoleUrl(window.location, '/needs-you')
+  // Neither calendar has answered yet: the sentence would read "unavailable" for what is only loading.
+  const calendarPending = !shotEmpty && googleQuery.isPending && m365Query.isPending
 
   // The Garmin cadence sentence prints once: on the first of these two cells that shows a data gap.
   const recoverySeriesState = {
@@ -202,30 +162,23 @@ export function TodayPage() {
 
   return (
     <>
-      <PageBar
-        sync={{
-          syncing: agentsQuery.isFetching,
-          onSync: () => void agentsQuery.refetch(),
-          label: 'Refresh',
-        }}
-      />
+      <PageBar />
       <Stack gap="md" className={classes.root}>
-        <PageSummary
-          sentence={summary.sentence}
-          facts={summary.facts}
-          aside={dateFormat.format(now)}
-        />
+        {calendarPending ? (
+          <PageSummary loading aside={dateFormat.format(now)} />
+        ) : (
+          <PageSummary
+            sentence={summary.sentence}
+            facts={summary.facts}
+            aside={dateFormat.format(now)}
+          />
+        )}
 
         <StatGroup
           variant="strip"
           label="Today at a glance"
-          cols={4}
+          cols={3}
           cells={[
-            agentsCell(
-              snapshot?.summary,
-              fleet,
-              agentsRecord !== null ? null : agentsQuery.isError ? 'failed' : 'none',
-            ),
             meetingCell(agenda, next, later, now),
             recoveryCell(recovery, recoveryNow.isPending, recoverySeriesState, recoveryForm),
             acwrCell(
@@ -240,25 +193,22 @@ export function TodayPage() {
         />
 
         <div className={classes.columns}>
-          <NeedsYou
-            decisions={decisions}
-            unavailable={unavailable}
-            loading={loading}
-            noSnapshot={noSnapshot}
-          />
-          <Stack gap="md">
-            <Meetings agenda={agenda} tasks={tasks} tasksFeed={tasksFeed} now={now} />
-            <ActivityFeed
-              events={stream.events}
-              total={stream.total}
-              stale={stale}
-              loaded={agentsRecord !== null}
-              failed={unavailable}
-              pending={loading}
-              now={now}
-            />
-          </Stack>
+          <Meetings agenda={agenda} tasks={tasks} tasksFeed={tasksFeed} now={now} />
+          <ActivityFeed events={stream.events} total={stream.total} now={now} />
         </div>
+        {consoleHref === null ? null : (
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">
+              Needs-you, flow, chain and improve live in the Console.
+            </Text>
+            <Anchor href={consoleHref} target="_blank" rel="noopener noreferrer" size="sm">
+              <Group gap={4} component="span" wrap="nowrap">
+                Open Console
+                <IconExternalLink size={14} aria-hidden />
+              </Group>
+            </Anchor>
+          </Group>
+        )}
       </Stack>
     </>
   )

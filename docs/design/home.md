@@ -2,6 +2,8 @@
 
 > **2026-11-07:** Warden was removed from Argo (switched off 2026-10-27). Home now reads Agents, Calendar and Garmin only: no Warden decision cards, activity rows or dispatch-budget cell. The Warden mentions below are wave history.
 
+> **2026-11-08:** The factory's pages moved to the Console (decision NL3). Home no longer reads the Agents feed: no Needs-you card, no fleet cell, no narrative or stale-feed rows; the strip has three cells and the page links to the Console. The Agents mentions below are wave history.
+
 Route `/` (shipped Wave 20; replaced the redirect in `apps/dashboard/src/routes/index.tsx`), source files to create: `apps/dashboard/src/routes/index.tsx`, `apps/dashboard/src/features/home/`. Reads existing endpoints only: Warden snapshot, Agents overview + history + narratives, Calendar (Google, M365, TickTick), Garmin recovery / training load, Warden item timelines.
 
 ## Baseline verdict

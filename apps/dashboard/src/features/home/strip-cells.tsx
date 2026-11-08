@@ -4,9 +4,6 @@ import { DayAxis } from './strip-visuals'
 import { Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import type { OverviewSummary } from '../../lib/queries/agents'
-import { clockOf, noSnapshotText, type FleetPart } from '../agents/model'
-import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
@@ -23,6 +20,7 @@ import {
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
 import {
+  clockOf,
   countdownLabel,
   localKey,
   meetingState,
@@ -40,51 +38,6 @@ import classes from './home.module.css'
 
 /** The recovery sparkline's ink: a trend, not a verdict (`Meter` has `tone="muted"` for its own fill). */
 const MUTED_FILL = alpha(VX.muted, 0.35)
-
-// ── Agents working ───────────────────────────────────────────────────────────────────────────
-
-export function agentsCell(
-  summary: OverviewSummary | undefined,
-  fleet: { parts: FleetPart[]; total: number } | null,
-  /** The overview feed itself: `none` = nothing pushed yet, `failed` = the read failed, `null` = a snapshot exists. */
-  feed: 'none' | 'failed' | null = null,
-): StatStripCell {
-  const working = summary?.working
-  if (fleet === null) {
-    return {
-      key: 'agents',
-      caption: 'Agents working · now',
-      value: null,
-      state: {
-        kind: 'empty',
-        reason:
-          feed === 'none'
-            ? noSnapshotText()
-            : feed === 'failed'
-              ? 'Agents failed to load — reload to retry'
-              : 'No fleet counts in this snapshot',
-      },
-    }
-  }
-  return {
-    key: 'agents',
-    caption: 'Agents working · now',
-    value: typeof working === 'number' ? String(working) : null,
-    ...(typeof working === 'number' && {
-      unit: `of ${fleet.total} ${fleet.total === 1 ? 'agent' : 'agents'}`,
-    }),
-    visual: (
-      <Meter
-        label="Agents by state"
-        max={fleet.total || 1}
-        segments={fleet.parts
-          .filter((p) => p.value > 0)
-          .map((p) => ({ value: p.value, label: p.label, color: FLEET_COLOR[p.key] }))}
-        startCaption={null}
-      />
-    ),
-  }
-}
 
 /** `{name} · {fact}`: which meeting the cell is about, in its shortest form; the fact alone with no name. */
 const withName = (title: string, fact: string): string => {

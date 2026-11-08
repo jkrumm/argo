@@ -71,46 +71,6 @@
   color: var(--vx-muted);
 }
 
-/* ── Activity feed ────────────────────────────────────────────────────────────────────────── */
-
-.live {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--vx-space-control-gap);
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--vx-muted);
-}
-
-.pulse {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--vx-status-good, var(--vx-ink));
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.pulseOff {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--vx-status-warn, var(--vx-muted));
-}
-
-@keyframes pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pulse {
-    animation: none;
-  }
-}
-
 .balanced {
   display: block;
   text-wrap: balance;
