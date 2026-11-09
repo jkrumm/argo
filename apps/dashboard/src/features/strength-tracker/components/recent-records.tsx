@@ -10,6 +10,7 @@ import { strengthQueries } from '../../../lib/queries/strength'
 import { METRICS, EXERCISE_COLORS, type ExerciseKey } from '../constants'
 import { exerciseLabel, metricLabel } from '../formulas'
 import { dayLabel, groupByDay } from '../model'
+import { useField } from '../../../lib/use-field'
 
 /** A static tuple, not `METRICS.map()`: `field.enum` closes over its values at definition, and a
  * derived array widens to `string[]`. `avg_intensity` is deliberately absent — a percentage has no
@@ -46,7 +47,7 @@ export function RecentRecords({
   }
   multiExercise: boolean
 }) {
-  const [metricFilter] = local.field.metric.use()
+  const [metricFilter] = useField(local.field.metric)
 
   const { data, isLoading } = useQuery(strengthQueries.records({ ...params, metric: metricFilter }))
 

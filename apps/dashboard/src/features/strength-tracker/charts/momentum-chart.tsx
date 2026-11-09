@@ -16,6 +16,7 @@ import { NBSP, withUnit } from '../../../lib/format'
 import { DELTA_DAYS, fmtMonthly, liftDelta, perMonthRaw } from '../model'
 import { useNow } from '../../../lib/use-now'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
+import { useField } from '../../../lib/use-field'
 
 /** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
  * this one card plots is not worth a query param. Persisted, so it survives a reload. */
@@ -44,7 +45,7 @@ const fmtVelocity = (v: number, unit: string) => `${fmtMonthly(v)}${unit}`
 
 export default function MomentumChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.seriesDetailed(params))
-  const [selectedExercise] = local.field.exercise.use()
+  const [selectedExercise] = useField(local.field.exercise)
 
   // Render-time guard: the stored lift may not be in this window's data at all.
   const activeExercise =

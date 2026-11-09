@@ -50,6 +50,7 @@ import { explorerStore, type PaneKey, type ViewKey } from './store'
 import { TagChips, type ChipScope } from './tag-chips'
 import { TagsModal } from './tags-modal'
 import classes from './m365.module.css'
+import { useField } from '../../lib/use-field'
 
 const SCOPE_BY_VIEW: Record<ViewKey, ChipScope> = {
   chats: 'chats',
@@ -69,10 +70,10 @@ export function M365ExplorerPage(): ReactElement {
   const qc = useQueryClient()
   const m365Fetching = useIsFetching({ queryKey: m365Queries.all() })
   const compact = useSizeClass() === 'compact'
-  const [view, setView] = explorerStore.field.view.use()
-  const [storedTag, setTag] = explorerStore.field.tag.use()
-  const [query] = explorerStore.field.q.use()
-  const [pane, setPane] = explorerStore.field.pane.use()
+  const [view, setView] = useField(explorerStore.field.view)
+  const [storedTag, setTag] = useField(explorerStore.field.tag)
+  const [query] = useField(explorerStore.field.q)
+  const [pane, setPane] = useField(explorerStore.field.pane)
   const phoneRef = useRef<HTMLDivElement>(null)
   /** Set by an explicit pick on a phone, so focus moves to the record then and not on mount or resize. */
   const pickedRef = useRef(false)

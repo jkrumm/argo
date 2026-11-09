@@ -17,6 +17,7 @@ import {
   windowTitle,
   type SeriesPoint,
 } from './model'
+import { useField } from '../../lib/use-field'
 
 const HEIGHT = { base: 200, regular: 240 } as const
 const utcDay = (key: string): Date => new Date(`${key}T00:00:00Z`)
@@ -33,8 +34,8 @@ const toPoint = (p: SeriesPoint): Point => ({ ...p, at: utcDay(p.date), km: p.di
 /** The page's main chart: weekly distance against the target; days and weekly pace behind tabs. */
 export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
   const { window: preset } = walkingStore.useValues()
-  const [view] = walkingLocal.field.view.use()
-  const [targetKm] = walkingLocal.field.weeklyTargetKm.use()
+  const [view] = useField(walkingLocal.field.view)
+  const [targetKm] = useField(walkingLocal.field.weeklyTargetKm)
   const isDefault = walkingLocal.field.weeklyTargetKm.isDefault(targetKm)
   const heroes = useQuery(walkingPadQueries.heroes(params))
   const weekly = useQuery(walkingPadQueries.series({ ...params, bucket: 'week' }))

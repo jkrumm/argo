@@ -42,6 +42,7 @@ import {
 } from '../features/astro-window'
 import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
 import { shotState } from '../lib/shot-state'
+import { useField } from '../lib/use-field'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
@@ -205,7 +206,7 @@ function AstroWindowPage() {
    * The bar's own site pill has no patch and therefore leaves `detailDate` standing; the API
    * resolves an out-of-window date to the nearest night, so that is a nuance rather than a break.
    */
-  const [, setSite] = astroStore.field.site.use()
+  const [, setSite] = useField(astroStore.field.site)
   const handleSiteChange = useCallback(
     (site: string) => {
       setSite(site, { patch: { detailDate: undefined } })

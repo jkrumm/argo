@@ -19,6 +19,7 @@ import { useMonthOptions } from '../components/range-bar'
 import { TAX_TAGS, tagLabel, topLabel, topOf } from '../lib/categories'
 import { finStore, type FinanceFilters } from '../../../lib/window-stores'
 import classes from '../components/finance.module.css'
+import { useField } from '../../../lib/use-field'
 
 const col = createColumnHelper<TxRow>()
 
@@ -82,11 +83,11 @@ function categoryOptions(categories: readonly Category[] | undefined) {
 export function TransactionsPage() {
   const meta = useMeta()
   const filters = finStore.useValues()
-  const [, setSort] = finStore.field.sort.use()
-  const [, setDir] = finStore.field.dir.use()
-  const [, setPage] = finStore.field.page.use()
-  const [, setSize] = finStore.field.size.use()
-  const [, setUncategorized] = finStore.field.uncategorized.use()
+  const [, setSort] = useField(finStore.field.sort)
+  const [, setDir] = useField(finStore.field.dir)
+  const [, setPage] = useField(finStore.field.page)
+  const [, setSize] = useField(finStore.field.size)
+  const [, setUncategorized] = useField(finStore.field.uncategorized)
   const curate = useCurate()
   const months = useMonthOptions()
   const [bulk, setBulk] = useState<{ kind: BulkKind; rows: TxRow[] } | null>(null)

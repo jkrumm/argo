@@ -14,6 +14,7 @@ import { METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
 import { drawnSeries } from './volume-series'
+import { useField } from '../../../lib/use-field'
 
 /** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
 const local = createLocalStore({
@@ -48,7 +49,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
   const byExercise = query.data?.byExercise
 
   const availableExercises = (byExercise ?? []).map((b) => b.exercise_id)
-  const [selectedExercise] = local.field.exercise.use()
+  const [selectedExercise] = useField(local.field.exercise)
 
   // The stored lift may not be in this window's data: fall back to the first option.
   const effectiveSelected: string = availableExercises.includes(selectedExercise)

@@ -30,6 +30,7 @@ import { categoryLines, paceRows, type PaceRow, elapsedDays } from '../lib/pace'
 import { FINANCE_SPLIT } from '../../../lib/series'
 import { FILTERS_CLEARED, finStore } from '../../../lib/window-stores'
 import classes from '../components/finance.module.css'
+import { useField } from '../../../lib/use-field'
 
 const HISTORY = 3
 const TREND_MONTHS = 12
@@ -148,7 +149,7 @@ function SplitLegend({ status: s }: { status: MonthStatus }) {
 
 export function ThisMonthPage() {
   const meta = useMeta()
-  const [monthParam, setMonth] = finStore.field.month.use()
+  const [monthParam, setMonth] = useField(finStore.field.month)
   const status = useMonthStatus(monthParam)
   const options = useMonthOptions()
   const s = status.data

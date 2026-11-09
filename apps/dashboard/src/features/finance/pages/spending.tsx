@@ -18,6 +18,7 @@ import { useRange } from '../lib/use-range'
 import { FINANCE_SPLIT } from '../../../lib/series'
 import { FILTERS_CLEARED, finStore } from '../../../lib/window-stores'
 import classes from '../components/finance.module.css'
+import { useField } from '../../../lib/use-field'
 
 const MERCHANTS_SHOWN = 12
 
@@ -83,7 +84,7 @@ export function SpendingPage() {
   const merchantsRef = useRef<HTMLDivElement>(null)
   const current = useMonthStatus('')
   const filters = finStore.useValues()
-  const [focus, setFocus] = finStore.field.focus.use()
+  const [focus, setFocus] = useField(finStore.field.focus)
   const categories: readonly Category[] | undefined = meta.data?.categories
   const merchants = useMerchants(
     range === null ? null : { ...range, ...(focus !== '' && { category: focus }) },

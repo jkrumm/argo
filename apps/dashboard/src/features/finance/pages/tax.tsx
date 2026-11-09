@@ -21,6 +21,7 @@ import { MONTH_UNIVERSE, everyNth, monthTick } from '../lib/months'
 import { FINANCE_SPLIT } from '../../../lib/series'
 import { finStore } from '../../../lib/window-stores'
 import classes from '../components/finance.module.css'
+import { useField } from '../../../lib/use-field'
 
 /** The tax tag the Gewerbe's costs carry. */
 const BUSINESS_TAG = 'business'
@@ -130,9 +131,9 @@ function QueueRow({
 
 export function TaxPage() {
   const meta = useMeta()
-  const [selected] = finStore.field.year.use()
+  const [selected] = useField(finStore.field.year)
   const filters = finStore.useValues()
-  const [, setPage] = finStore.field.page.use()
+  const [, setPage] = useField(finStore.field.page)
   const lastMonth = meta.data?.last_month ?? null
   const firstMonth = meta.data?.first_month ?? null
   const year =

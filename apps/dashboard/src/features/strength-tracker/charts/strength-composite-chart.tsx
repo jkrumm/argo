@@ -13,6 +13,7 @@ import { localDay } from '../../garmin-health/charts/local-day'
 import { EXERCISES, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { parseExercises } from './exercise-helpers'
+import { useField } from '../../../lib/use-field'
 
 /**
  * Per-card select → a local store field, not `useState` (law C3). Persisted per chart. The unset
@@ -126,7 +127,7 @@ export default function StrengthCompositeChart({
   exerciseId: (typeof EXERCISE_KEYS)[number]
 }) {
   const exerciseField = exerciseStore.field.exercise.withFallback(exerciseId)
-  const [selected] = exerciseField.use()
+  const [selected] = useField(exerciseField)
 
   const query = useQuery(
     strengthQueries.composite({

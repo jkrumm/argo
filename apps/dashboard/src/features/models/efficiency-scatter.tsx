@@ -60,6 +60,7 @@ import {
   type RouteUse,
   type ScatterPoint,
 } from './model'
+import { useField } from '../../lib/use-field'
 
 const NEVER = () => null
 
@@ -134,7 +135,7 @@ interface DotGroup {
 export function EfficiencyScatter(props: EfficiencyScatterProps) {
   const { axis, points, free, missing, lacks, source, state, height, display } = props
   const compact = useSizeClass() === 'compact'
-  const [pick, setPick] = modelsStore.field.pick.use()
+  const [pick, setPick] = useField(modelsStore.field.pick)
   const resting = !state.pending && !state.error && !state.empty && points.length > 0
 
   return (
@@ -215,7 +216,7 @@ function Scatter({
   compact,
 }: EfficiencyScatterProps & { compact: boolean }) {
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [pick, setPick] = modelsStore.field.pick.use()
+  const [pick, setPick] = useField(modelsStore.field.pick)
   const [tip, setTip] = useState<TipAt | null>(null)
   // The lineage under the mouse lights its ladder over the picked one; transient, so not in the store.
   const [hover, setHover] = useState('')

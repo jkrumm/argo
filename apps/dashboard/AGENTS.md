@@ -144,6 +144,8 @@ pending screen / `CrashFallback`, so its anchors declare `empty` only. `shot` re
 
 The dashboard uses `babel-plugin-react-compiler` through `@vitejs/plugin-react`'s `reactCompilerPreset()` run by `@rolldown/plugin-babel`. All components are automatically memoized where safe. Opt out with `'use no memo'` as the first statement in a component. `bun run build` fails (`scripts/check-compiler.ts`) when no built chunk carries compiler output.
 
+Read field handles with `useField(store.field.x)` (`src/lib/use-field.ts`), never `store.field.x.use()`: the compiler caches the bare call and drops the hook (React #311). `src/lib/use-field.test.ts` enforces it.
+
 ## Observability (HyperDX)
 
 `import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4319` (unauthed receiver, no key needed in dev); in prod the API process on the mini relays the same paths itself (`POST /v1/traces` and `/v1/logs`, same-origin with `VITE_HYPERDX_ENDPOINT` empty; the upstream credential is the process's own `OTEL_EXPORTER_OTLP_HEADERS`, the public ingestion key baked into the bundle at `make deploy` via `secrets-run`).

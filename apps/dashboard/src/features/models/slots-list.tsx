@@ -12,6 +12,7 @@ import type { EfficiencyVariant } from './api/types'
 import { SLOTS_INFO } from './copy'
 import { EM_DASH, fmtIndex, fmtPoints, fmtSeconds, fmtTokens, fmtUsd } from './format'
 import type { Option, SlotRow } from './slot-rows'
+import { useField } from '../../lib/use-field'
 
 const columnHelper = createColumnHelper<SlotRow>()
 
@@ -97,7 +98,7 @@ export function SlotsList({
   routesError: string | null
   names: (v: EfficiencyVariant) => string
 }) {
-  const [pick, setPick] = modelsStore.field.pick.use()
+  const [pick, setPick] = useField(modelsStore.field.pick)
   const open = (row: SlotRow) => {
     if (row.variant === null) return
     setPick(row.variant.lineage === pick ? '' : row.variant.lineage)

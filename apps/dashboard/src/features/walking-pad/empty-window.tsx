@@ -5,10 +5,11 @@ import { useNow } from '../../lib/use-now'
 import { walkingStore } from '../../lib/window-stores'
 import { useLastWalk } from './last-walk'
 import { emptyWindowHint, emptyWindowShort, widenLabel, widerPreset } from './model'
+import { useField } from '../../lib/use-field'
 
 /** The empty state under the dimmed strip: why nothing is drawn, what fills it, and the wider window. */
 export function EmptyWindow() {
-  const [range, setWindow] = walkingStore.field.window.use()
+  const [range, setWindow] = useField(walkingStore.field.window)
   const preset = range.preset
   const last = useLastWalk()
   const now = useNow()

@@ -3,10 +3,11 @@ import { IconTarget } from '@tabler/icons-react'
 import { SettingsRow } from 'basalt-ui'
 import { walkingLocal } from './local-store'
 import { WEEKLY_TARGET_BOUNDS } from './model'
+import { useField } from '../../lib/use-field'
 
 /** The weekly distance target, edited from the THIS WEEK cell. Persisted on this device only. */
 export function TargetPopover() {
-  const [target, setTarget] = walkingLocal.field.weeklyTargetKm.use()
+  const [target, setTarget] = useField(walkingLocal.field.weeklyTargetKm)
   return (
     <Popover position="bottom-start" withArrow shadow="md">
       <Popover.Target>

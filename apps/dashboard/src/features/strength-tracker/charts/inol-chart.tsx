@@ -14,6 +14,7 @@ import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants
 import { exerciseLabel, inolDotColor, inolZoneLabel } from '../formulas'
 import { pickActiveExercise } from './active-exercise'
 import { trailingMA } from './trailing-ma'
+import { useField } from '../../../lib/use-field'
 
 /** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
 const local = createLocalStore({
@@ -33,7 +34,7 @@ type InolPoint = {
 export default function InolChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.seriesDetailed(params))
   const byExercise = query.data?.byExercise
-  const [selectedExercise] = local.field.exercise.use()
+  const [selectedExercise] = useField(local.field.exercise)
 
   const activeExercise = pickActiveExercise(byExercise, selectedExercise)
 

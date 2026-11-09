@@ -17,16 +17,13 @@ import { FlowBoundary } from './flow-boundary'
 import { parseNode, toggleNode } from './flow-node'
 import { NodeDetail } from './node-detail'
 import { RouterColumn } from './router-column'
+import { useField } from '../../lib/use-field'
 
 const PANEL = 'routing'
 
-// A hook-named alias: the React Compiler reads a bare `.field.node.use()` as a plain call and caches it
-// after the first render, which drops its hooks and crashes the next render (React #311).
-const useNodeField = usageStore.field.node.use
-
 export function RoutingSection({ range, node }: { range: Range; node: string }) {
   const compact = useSizeClass() === 'compact'
-  const [, setNode] = useNodeField()
+  const [, setNode] = useField(usageStore.field.node)
   const selected = parseNode(node)
   const hasNode = selected !== null
   const [open, setOpen] = useState(hasNode)

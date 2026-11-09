@@ -28,6 +28,7 @@ import {
 import { TargetPopover } from './target-popover'
 import { weekDaysSeries } from './week-queries'
 import classes from './strip.module.css'
+import { useField } from '../../lib/use-field'
 
 /** The meter's track runs past the target so an overrun stays visible; the tick marks the target. */
 const TARGET_HEADROOM = 1.25
@@ -39,7 +40,7 @@ const withContext = (value: string, context: string | undefined) =>
 function useWeekCell(): StatStripCell {
   const now = useNow()
   const query = useQuery(weekDaysSeries(now))
-  const [targetKm] = walkingLocal.field.weeklyTargetKm.use()
+  const [targetKm] = useField(walkingLocal.field.weeklyTargetKm)
   const isDefault = walkingLocal.field.weeklyTargetKm.isDefault(targetKm)
   const week = query.data === undefined ? null : weekSummary(query.data.points, now)
   const km = week === null ? null : week.distanceM / 1000

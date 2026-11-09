@@ -13,6 +13,7 @@ import { modelsStore } from '../../lib/window-stores'
 import type { EfficiencyVariant } from './api/types'
 import { EM_DASH, fmtIndex, fmtPrice, fmtSeconds, fmtTokens, fmtUsd } from './format'
 import { byEffort, creatorKey, effortRank } from './model'
+import { useField } from '../../lib/use-field'
 
 /** A variant with what the table shows beside it. */
 interface CatalogRow {
@@ -94,7 +95,7 @@ export function CatalogTable({
   routesOf: (v: EfficiencyVariant) => number
   names: (lineage: string) => string
 }) {
-  const [pick, setPick] = modelsStore.field.pick.use()
+  const [pick, setPick] = useField(modelsStore.field.pick)
   const data = variants.map<CatalogRow>((variant) => ({
     variant,
     name: names(variant.lineage),

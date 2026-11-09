@@ -5,6 +5,7 @@ import { APP_LOCALE } from '../../lib/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { walkingLocal } from './local-store'
 import { collapseAchievements, groupByMonth, type AchievementRow } from './model'
+import { useField } from '../../lib/use-field'
 
 const dayFormat = new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short' })
 
@@ -35,7 +36,7 @@ function Row({ row }: { row: AchievementRow }) {
 
 export function AchievementsList() {
   const query = useQuery(walkingPadQueries.achievements({ limit: FETCH_LIMIT }))
-  const [showAll, setShowAll] = walkingLocal.field.showAllAchievements.use()
+  const [showAll, setShowAll] = useField(walkingLocal.field.showAllAchievements)
   const compact = useSizeClass() === 'compact'
   const items = query.data?.data ?? []
   const rows = collapseAchievements(items)
