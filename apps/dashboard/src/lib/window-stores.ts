@@ -203,8 +203,11 @@ export const usageStore = createSearchStore({
     payer: field.multi(USAGE_PAYER_VALUES, []),
     lens: field.enum(USAGE_LENS_VALUES, 'cost'),
     groupBy: field.enum(USAGE_GROUP_BY_VALUES, 'sub_tool'),
+    // The Claude subscriptions card: the combined pool, or the accounts on their own.
+    subsView: field.enum(['pool', 'accounts'], 'pool'),
   },
 }).labels({
+  subsView: { pool: 'Combined', accounts: 'Accounts' },
   view: {
     flow: 'Quotas',
     explore: 'Explore',

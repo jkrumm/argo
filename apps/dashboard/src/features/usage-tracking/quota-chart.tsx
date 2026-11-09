@@ -1,8 +1,8 @@
 /**
- * The Claude subscriptions' chart: weekly share left per account (thin line in its payer colour) and
- * the capacity-weighted combined share (one thick neutral line), over the 14 days up to the latest
- * reset. A short tick on the baseline marks each account's reset, coloured like its line. Composed on
- * `CartesianChart`, like `DrainChart`; `quotas-model.ts` owns the data, this file only draws it.
+ * The Accounts view of the Claude subscriptions card: weekly share left per account (a line in its payer
+ * shade), over the 14 days up to the latest reset, a short tick on the baseline at each account's reset.
+ * The combined pool is the card's default view, drawn by `DrainChart`. Composed on `CartesianChart`;
+ * `quotas-model.ts` owns the data, this file only draws it.
  */
 import { lineY } from '@tanstack/charts/line'
 import { decorative } from '@tanstack/charts/mark/decorative'
@@ -22,16 +22,13 @@ import { drainTicks, pctText } from './drain-model'
 import { shortDay, shortHour } from './model'
 import { quotaLeftText, type QuotaModel } from './quotas-model'
 
-const COMBINED = 'combined'
-
 /** The length of a reset tick on the baseline, px. */
 const TICK_PX = 12
 
 /** Same-family colours need a second cue: the later accounts take a dash. */
 const DASH: Record<string, string> = { me: '6 3', me2: '1.5 3' }
 
-const THIN_WIDTH = 1.25
-const THICK_WIDTH = 3
+const LINE_WIDTH = 1.5
 
 interface QuotaRow {
   at: Date
@@ -39,10 +36,7 @@ interface QuotaRow {
 }
 
 function quotaRows(model: QuotaModel): QuotaRow[] {
-  const lines = [
-    ...model.accounts.map((a) => ({ key: a.id, points: a.line })),
-    { key: COMBINED, points: model.combined },
-  ]
+  const lines = model.accounts.map((a) => ({ key: a.id, points: a.line }))
   const instants = [...new Set(lines.flatMap((l) => l.points.map((p) => p.at)))].toSorted(
     (a, b) => a - b,
   )
@@ -58,37 +52,22 @@ export function QuotaChart({ model, height }: { model: QuotaModel; height: numbe
   const compact = useSizeClass() === 'compact'
   const rows = quotaRows(model)
 
-  const series: ChartSeries<QuotaRow>[] = [
-    ...model.accounts.map((a): ChartSeries<QuotaRow> => ({
-      key: a.id,
-      label: a.label,
-      color: colorForPayer(a.payer),
-      getValue: (d) => d.values[a.id] ?? null,
-      formatValue: quotaLeftText,
-      gaps: 'connect',
-      strokeWidth: THIN_WIDTH,
-    })),
-    {
-      key: COMBINED,
-      label: 'Combined',
-      color: VX.ink,
-      getValue: (d) => d.values[COMBINED] ?? null,
-      formatValue: quotaLeftText,
-      gaps: 'connect',
-      strokeWidth: THICK_WIDTH,
-    },
-  ]
+  const series = model.accounts.map((a): ChartSeries<QuotaRow> => ({
+    key: a.id,
+    label: a.label,
+    color: colorForPayer(a.payer),
+    getValue: (d) => d.values[a.id] ?? null,
+    formatValue: quotaLeftText,
+    gaps: 'connect',
+    strokeWidth: LINE_WIDTH,
+  }))
 
   const marks = (plot: PlotContext<QuotaRow, Date>): ChartMarks => {
     const out: ChartMarks[number][] = []
     const top = plot.yDomain[1]
     const bottom = plot.yDomain[0]
 
-    // Thin lines first, the combined line last so it sits on top.
-    const visible = plot.visible.toSorted(
-      (a, b) => (a.key === COMBINED ? 1 : 0) - (b.key === COMBINED ? 1 : 0),
-    )
-    for (const s of visible) {
+    for (const s of plot.visible) {
       out.push(
         lineY(
           plot.rows(s.key).filter((r) => r.y !== null),
@@ -98,7 +77,7 @@ export function QuotaChart({ model, height }: { model: QuotaModel; height: numbe
             y: 'y',
             z: 'series',
             stroke: s.color,
-            strokeWidth: s.key === COMBINED ? THICK_WIDTH : THIN_WIDTH,
+            strokeWidth: LINE_WIDTH,
             ...(DASH[s.key] === undefined ? {} : { strokeDasharray: DASH[s.key] }),
           },
         ),
@@ -149,7 +128,7 @@ export function QuotaChart({ model, height }: { model: QuotaModel; height: numbe
 
   return (
     <CartesianChart<QuotaRow, Date>
-      ariaLabel="Claude subscriptions: weekly quota left per account and combined, last 14 days to the next reset"
+      ariaLabel="Claude subscriptions: weekly quota left per account, last 14 days to the next reset"
       data={rows}
       height={height}
       x={(d) => d.at}

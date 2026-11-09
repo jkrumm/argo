@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  addDays,
   capState,
   computeBudget,
   isOff,
@@ -66,6 +67,42 @@ describe('computeBudget', () => {
   it('excludes days outside the window from the total but keeps 31 daily points', () => {
     expect(b.daily).toHaveLength(31)
     expect(b.daily[0]).toEqual({ day: '2026-09-26', usd: 5.43 })
+  })
+
+  it('gives the rolling sum per past day only where its whole window is on record', () => {
+    const cells = Array.from({ length: 45 }, (_, i) => ({
+      day: addDays('2026-09-26', i),
+      label: 'm',
+      usd: 10,
+    }))
+    const { history } = computeBudget(cells, '2026-11-09')
+    expect(history[0]).toEqual({ day: '2026-10-25', rollingUsd: 300 })
+    expect(history.at(-1)).toEqual({ day: '2026-11-09', rollingUsd: 300 })
+  })
+
+  it('caps the rolling history at 30 days for a long-lived key', () => {
+    const cells = Array.from({ length: 90 }, (_, i) => ({
+      day: addDays('2026-08-12', i),
+      label: 'm',
+      usd: 1,
+    }))
+    const { history } = computeBudget(cells, '2026-11-09')
+    expect(history).toHaveLength(30)
+    expect(history[0]?.day).toBe('2026-10-11')
+  })
+
+  it('starts a key younger than one window at its first day', () => {
+    const cells = [
+      { day: '2026-10-22', label: 'm', usd: 5 },
+      { day: '2026-10-24', label: 'm', usd: 7 },
+    ]
+    const { history } = computeBudget(cells, '2026-10-25')
+    expect(history).toEqual([
+      { day: '2026-10-22', rollingUsd: 5 },
+      { day: '2026-10-23', rollingUsd: 5 },
+      { day: '2026-10-24', rollingUsd: 12 },
+      { day: '2026-10-25', rollingUsd: 12 },
+    ])
   })
 
   it('sums labels inside the window only, largest first', () => {

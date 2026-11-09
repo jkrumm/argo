@@ -220,6 +220,7 @@ describe('budgetReading', () => {
     burn7dUsdPerDay: 20,
     projected7dUsd: 697.45,
     daily: [],
+    history: [],
     dropoffNext7: [],
     topModels: [],
     underCapOn: null,

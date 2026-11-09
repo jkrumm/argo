@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'bun:test'
-import { drainRows, drainTicks, keyDrain, placeResetLabel, whenText } from './drain-model'
+import {
+  drainRows,
+  drainTicks,
+  keyDrain,
+  placeResetLabel,
+  risesOf,
+  thinJumps,
+  whenText,
+  type DrainJump,
+} from './drain-model'
 import { shortDay } from './model'
 
 const DAY = 86_400_000
@@ -18,6 +27,7 @@ describe('keyDrain', () => {
     rolling30Usd: 300,
     burn7dUsdPerDay: 10,
     daily: [{ day: '2026-10-07', usd: 999 }, ...real],
+    history: real.map((d) => ({ day: d.day, rollingUsd: 300 })),
     underCapOn: null as string | null,
     fetchedAt: '2026-11-06T08:00:00Z' as string | null,
   }
@@ -25,74 +35,82 @@ describe('keyDrain', () => {
   const input = (over: Partial<typeof budget> = {}) => ({
     id: 'personal',
     title: 'IU personal key',
-    payer: 'iu-api',
     budget: { ...budget, ...over },
     now,
   })
 
-  it('counts the cumulative spend from the window start, ignoring days outside it', () => {
-    const m = keyDrain(input())
-    expect(m.actual[0]).toEqual({ at: local(2026, 10, 8), left: 100 })
-    expect(m.actual[1]?.left).toBeCloseTo(98, 6)
-    expect(m.actual.at(-1)?.left).toBeCloseTo(40, 6)
+  it('draws the recorded line from the rolling sum of each day, in dollars', () => {
+    const { model: m } = keyDrain(input())
+    expect(m.actual[0]).toEqual({ at: local(2026, 10, 9), left: 200 })
+    expect(m.actual.at(-1)?.left).toBeCloseTo(200, 6)
+    expect(m.yMax).toBe(500)
     expect(m.headline).toBe('$200 left')
-    expect(m.leftText(40)).toBe('$200 of $500 left')
-    expect(m.even).toEqual([])
-    expect(m.subtitle).toBe('rolling 30 d window · no reset, old days drop off')
+    expect(m.leftText(200)).toBe('$200 of $500 left')
+    expect(m.window.from).toBe(local(2026, 10, 9))
   })
 
-  it('lets old days drop off in the projection while the last 7 days burn on', () => {
-    const m = keyDrain(input())
-    // Each day ahead one old $10 day drops and $10 of burn arrives: flat at 40 %.
-    expect(m.projection.length).toBe(15)
-    expect(m.projection.every((p) => Math.abs(p.left - 40) < 1e-6)).toBe(true)
+  it('projects 30 days: each old day comes back while the last 7 days burn on', () => {
+    const { model: m } = keyDrain(input())
+    // Each day ahead one old $10 day returns and $10 of burn arrives: the tops stay at $210.
+    expect(m.window.to).toBe(local(2026, 11, 7) + 30 * DAY)
+    expect(m.projection[0]?.left).toBeCloseTo(200, 6)
+    expect(m.projection.find((p) => p.at === local(2026, 11, 20))?.left).toBeCloseTo(210, 6)
     expect(m.runOut).toBeNull()
     expect(m.verdict).toContain('Stays under the cap')
-    expect(m.window.to).toBe(local(2026, 11, 7) + 14 * DAY)
+  })
+
+  it('keeps projecting past zero while the key is over its cap', () => {
+    const { model: m } = keyDrain(
+      input({ rolling30Usd: 513, burn7dUsdPerDay: 0, underCapOn: '2026-11-08' }),
+    )
+    expect(m.runOut).toBeNull()
+    expect(m.projection.at(-1)?.left).toBeCloseTo(287, 6)
+    expect(m.projection.filter((p) => p.left > 0).length).toBeGreaterThan(40)
+    expect(m.verdict).toBe(`Over the cap, back under ${shortDay(new Date(local(2026, 11, 8)))}`)
+  })
+
+  it('labels what a day visibly gives back and lists the next returns', () => {
+    const daily = budget.daily.map((d) => (d.day === '2026-10-09' ? { ...d, usd: 40 } : d))
+    const { model: m, returns } = keyDrain(input({ daily, burn7dUsdPerDay: 0, rolling30Usd: 490 }))
+    // The first old day came back at midnight, before `now`: it is not listed as still to come.
+    expect(returns[0]).toMatchObject({ usd: 40, after: '$60 left' })
+    expect(returns[0]?.when).toContain('tomorrow')
+    expect(returns[1]).toMatchObject({ usd: 10, after: '$70 left' })
+    expect(returns).toHaveLength(4)
+    expect(m.jumps.find((j) => j.size === 40)?.label).toBe('+$40')
+  })
+
+  it('skips the days that give nothing back', () => {
+    const daily = budget.daily.map((d) => (d.day < '2026-10-20' ? { ...d, usd: 0 } : d))
+    const { returns } = keyDrain(input({ daily }))
+    expect(returns[0]?.at).toBe(local(2026, 11, 7) + 12 * DAY)
+    expect(returns[0]?.when).toContain('in 12 d')
   })
 
   it('marks the run-out when the burn outruns the drop-off', () => {
-    const m = keyDrain(input({ burn7dUsdPerDay: 60 }))
-    // Net +50 $/d on $200 of headroom: empty after 4 days.
-    const at = m.actual.at(-1)?.at ?? 0
-    expect(m.runOut?.at).toBe(at + 4 * DAY)
-    expect(m.projection.at(-1)).toEqual({ at: at + 4 * DAY, left: 0 })
-    expect(m.verdict).toContain('Hits the cap')
-  })
-
-  it('names the day it is back under the cap', () => {
-    const m = keyDrain(input({ rolling30Usd: 600, burn7dUsdPerDay: 0, underCapOn: '2026-11-12' }))
-    expect(m.runOut?.at).toBe(m.actual.at(-1)?.at)
-    expect(m.resets).toEqual([
-      {
-        at: local(2026, 11, 12),
-        label: `back under cap ${shortDay(new Date(local(2026, 11, 12)))}`,
-      },
-    ])
-    expect(m.verdict).toContain('Over the cap')
-    expect(m.verdict).toContain(shortDay(new Date(local(2026, 11, 12))))
+    const { model: m } = keyDrain(input({ burn7dUsdPerDay: 60 }))
+    expect(m.runOut?.label).toMatch(/^empty /)
+    expect(m.runOut?.at).toBeGreaterThan(now - DAY)
+    expect(m.verdict).toMatch(/^Hits the cap /)
   })
 
   it('says how far over the cap it is, in the warn tone, instead of $0 left', () => {
-    const over = keyDrain(input({ rolling30Usd: 548.43 }))
+    const { model: over } = keyDrain(input({ rolling30Usd: 548.43 }))
     expect(over.headline).toBe('$48 over cap')
     expect(over.headlineTone).toBe('warn')
-    const under = keyDrain(input())
-    expect(under.headline).toContain('left')
-    expect(under.headlineTone).toBeUndefined()
+    expect(keyDrain(input()).model.headlineTone).toBeUndefined()
   })
 
   it('is empty without a portal report', () => {
-    expect(keyDrain(input({ fetchedAt: null })).empty).toBe('No portal report yet')
+    expect(keyDrain(input({ fetchedAt: null })).model.empty).toBe('No portal report yet')
   })
 })
 
 describe('drainRows', () => {
   it('merges the lines by instant, absent lines as null', () => {
-    const m = keyDrain({
+    const { model: m } = keyDrain({
       id: 'personal',
       title: 'IU personal key',
-      payer: 'iu-api',
       budget: {
         limitUsd: 500,
         windowFrom: '2026-11-01',
@@ -103,17 +121,50 @@ describe('drainRows', () => {
           { day: '2026-11-01', usd: 10 },
           { day: '2026-11-02', usd: 10 },
         ],
+        history: [
+          { day: '2026-11-01', rollingUsd: 10 },
+          { day: '2026-11-02', rollingUsd: 20 },
+        ],
         underCapOn: null,
         fetchedAt: '2026-11-03T00:00:00Z',
       },
-      now: local(2026, 11, 3, 12),
+      now: local(2026, 11, 2, 12),
     })
     const rows = drainRows(m)
     const times = rows.map((r) => r.at.getTime())
     expect(times).toEqual([...new Set(times)].toSorted((a, b) => a - b))
-    expect(rows[0]).toMatchObject({ actual: 100, projection: null, even: null })
+    expect(rows[0]).toMatchObject({ actual: 490, projection: null, even: null })
     const anchor = rows.find((r) => r.projection !== null && r.actual !== null)
     expect(anchor?.projection).toBeCloseTo(anchor?.actual ?? NaN, 5)
+  })
+})
+
+describe('risesOf', () => {
+  const at = (ms: number, left: number) => ({ at: ms, left })
+  const label = (r: number) => `+${r}`
+
+  it('labels one rising run at its top, however many samples it spans', () => {
+    expect(risesOf([at(0, 10), at(1, 30), at(2, 50), at(3, 40)], 5, label)).toEqual([
+      { at: 2, left: 50, label: '+40', size: 40 },
+    ])
+  })
+
+  it('finds every run and drops the ones under the minimum', () => {
+    const jumps = risesOf([at(0, 10), at(1, 12), at(2, 5), at(3, 50), at(4, 50)], 5, label)
+    expect(jumps.map((j) => j.at)).toEqual([3])
+  })
+
+  it('catches a rise on the last point', () => {
+    expect(risesOf([at(0, 0), at(1, 9)], 5, label).map((j) => j.at)).toEqual([1])
+  })
+})
+
+describe('thinJumps', () => {
+  const jump = (at: number, size: number): DrainJump => ({ at, left: 0, label: '', size })
+
+  it('keeps the bigger of two jumps that would touch, in time order', () => {
+    const kept = thinJumps([jump(0, 5), jump(10, 50), jump(100, 1)], (x) => x, 44)
+    expect(kept.map((j) => j.at)).toEqual([10, 100])
   })
 })
 

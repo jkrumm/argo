@@ -1,6 +1,6 @@
 /**
- * The Quotas tab's four cards in one chart form: Claude subscriptions (weekly quota, per account and
- * combined), Claude API credit (the three pools in dollars), the IU personal key and the Athena team
+ * The Quotas tab's four cards in one chart form: Claude subscriptions (the combined weekly quota, or
+ * the accounts on their own), Claude API credit (the three pools in dollars), the IU personal key and the Athena team
  * key (each a rolling 30-day cap). Every card has a headline, a fixed-window subtitle, the chart, a compact
  * row per account or pool where there are several, and a one-line verdict. All of it is state ("now"),
  * so none of it follows the page Range. Each card fetches behind its own boundary.
@@ -9,9 +9,11 @@ import { Suspense, type ReactNode } from 'react'
 import { useSuspenseQueries, useSuspenseQuery } from '@tanstack/react-query'
 import { Box, SimpleGrid, Stack, Table, Text } from '@mantine/core'
 import { ChartCard } from 'basalt-ui/charts'
-import { alpha, CONTAINER_KEYS, VX } from 'basalt-ui/tokens'
+import { ViewTabs } from 'basalt-ui/controls'
+import { CONTAINER_KEYS, VX } from 'basalt-ui/tokens'
 import { usageQueries } from '../../lib/queries/usage'
 import { useNow } from '../../lib/use-now'
+import { usageStore } from '../../lib/window-stores'
 import { IU_KEYS } from './accounts'
 import { colorForPayer } from './constants'
 import { DrainChart } from './drain-chart'
@@ -27,27 +29,27 @@ const REFRESH_MS = 5 * 60_000
 
 const fallback = <ChartCard state={{ pending: true }} placeholderHeight={CARD_HEIGHT} />
 
-function Swatch({ color, thick = false }: { color: string; thick?: boolean }) {
+function Swatch({ color }: { color: string }) {
   return (
     <Box
       component="span"
       display="inline-block"
       mr={6}
       w={10}
-      h={thick ? 4 : 2}
+      h={2}
       bg={color}
       style={{ verticalAlign: 'middle' }}
     />
   )
 }
 
-/** A compact row table under a chart: `fz` xs, no borders, a warn tint on rows that need attention. */
+/** A compact row table under a chart: `fz` xs, no borders. */
 function Rows({
   head,
   rows,
 }: {
   head: readonly string[]
-  rows: ReadonlyArray<{ key: string; warn: boolean; cells: ReactNode[] }>
+  rows: ReadonlyArray<{ key: string; cells: ReactNode[] }>
 }) {
   return (
     <Table fz="xs" verticalSpacing={4} horizontalSpacing={6} withRowBorders={false}>
@@ -62,7 +64,7 @@ function Rows({
       </Table.Thead>
       <Table.Tbody>
         {rows.map((r) => (
-          <Table.Tr key={r.key} {...(r.warn ? { bg: alpha(VX.status.warn, 0.14) } : {})}>
+          <Table.Tr key={r.key}>
             {r.cells.map((c, i) => (
               <Table.Td key={i} ta={i === 0 ? 'left' : 'right'}>
                 {c}
@@ -83,7 +85,9 @@ function SubscriptionsCard() {
       { ...usageQueries.quotaLatest(), refetchInterval: REFRESH_MS },
     ],
   })
+  const { subsView } = usageStore.useValues()
   const model = quotaDrain(quotaInputs(quota.data, latest.data), now)
+  const byAccount = subsView === 'accounts'
   return (
     <Box data-shot="quotas-subscriptions">
       <ChartCard
@@ -93,44 +97,34 @@ function SubscriptionsCard() {
         placeholderHeight={CARD_HEIGHT}
         state={{ empty: model.empty ?? false }}
         facts={{ value: model.headline }}
+        actions={<ViewTabs field={usageStore.field.subsView} label="Subscription view" />}
       >
         <Stack gap="xs">
-          <QuotaChart model={model} height={CHART_HEIGHT} />
+          {byAccount ? (
+            <QuotaChart model={model} height={CHART_HEIGHT} />
+          ) : (
+            <DrainChart model={model.pool} height={CHART_HEIGHT} />
+          )}
           <Rows
             head={['Account', 'Left', 'Resets']}
-            rows={[
-              {
-                key: 'combined',
-                warn: false,
-                cells: [
-                  <>
-                    <Swatch color={VX.ink} thick />
-                    combined · weighted by capacity
-                  </>,
-                  model.combinedLeftPct === null ? '—' : pctText(model.combinedLeftPct),
-                  '',
-                ],
-              },
-              ...model.accounts.map((a) => ({
-                key: a.id,
-                warn: a.status === 'runs-out' || a.status === 'limit',
-                cells: [
-                  <>
-                    <Swatch color={colorForPayer(a.payer)} />
-                    {a.label} · {a.plan}
-                  </>,
-                  a.leftPct === null ? '—' : pctText(a.leftPct),
-                  <>
-                    {a.resetsText ?? '—'}
-                    {a.note === null ? null : (
-                      <Text span inherit c={VX.status.warn} display="block">
-                        {a.note}
-                      </Text>
-                    )}
-                  </>,
-                ],
-              })),
-            ]}
+            rows={model.accounts.map((a) => ({
+              key: a.id,
+              cells: [
+                <>
+                  {byAccount ? <Swatch color={colorForPayer(a.payer)} /> : null}
+                  {a.label} · {a.plan}
+                </>,
+                a.leftPct === null ? '—' : pctText(a.leftPct),
+                <>
+                  {a.resetsText ?? '—'}
+                  {a.note === null ? null : (
+                    <Text span inherit c={VX.status.warn} display="block">
+                      {a.note}
+                    </Text>
+                  )}
+                </>,
+              ],
+            }))}
           />
           <Text size="xs" c="dimmed">
             {model.verdict}
@@ -161,17 +155,13 @@ function CreditCard() {
             head={['Pool', 'Left', 'Renews', 'Needs']}
             rows={rows.map((r) => ({
               key: r.account,
-              warn: r.dryText !== null,
               cells: [
-                <>
-                  <Swatch color={colorForPayer(r.payer)} />
-                  {r.label}
-                </>,
+                r.label,
                 `${fmtUsd(r.leftUsd)} of ${fmtUsd(r.grantUsd)}`,
                 <>
                   {r.renews}
                   {r.dryText === null ? null : (
-                    <Text span inherit c={VX.status.warn} display="block">
+                    <Text span inherit c="dimmed" display="block">
                       {r.dryText}
                     </Text>
                   )}
@@ -191,15 +181,13 @@ function CreditCard() {
 
 function KeyCard({ iuKey }: { iuKey: (typeof IU_KEYS)[number]['id'] }) {
   const now = useNow()
-  const entry = IU_KEYS.find((k) => k.id === iuKey)
   const { data: budget } = useSuspenseQuery({
     ...usageQueries.iuBudget(iuKey),
     refetchInterval: REFRESH_MS,
   })
-  const model = keyDrain({
+  const { model, returns } = keyDrain({
     id: iuKey,
     title: iuKey === 'personal' ? 'IU personal key' : 'Athena team key',
-    payer: entry?.payer ?? 'iu-api',
     budget,
     now,
   })
@@ -218,6 +206,15 @@ function KeyCard({ iuKey }: { iuKey: (typeof IU_KEYS)[number]['id'] }) {
       >
         <Stack gap="xs">
           <DrainChart model={model} height={CHART_HEIGHT} />
+          {returns.length === 0 ? null : (
+            <Rows
+              head={['Comes back', 'Amount', 'After']}
+              rows={returns.map((r) => ({
+                key: String(r.at),
+                cells: [r.when, `+${fmtUsd(r.usd)}`, r.after],
+              }))}
+            />
+          )}
           <Text size="xs" c="dimmed">
             {model.verdict}
           </Text>

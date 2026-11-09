@@ -121,6 +121,29 @@ describe('quotaDrain', () => {
     expect(m.verdict).not.toContain(formatDuration(2 * DAY))
   })
 
+  it('projects the pool: each account burns at its pace and refills at its reset', () => {
+    const next = NOW + 3 * DAY
+    const { pool } = quotaDrain(
+      [account({ id: 'me', points: samples(10), nextResetAt: iso(next) })],
+      NOW,
+    )
+    // 20 % in the 4 days so far: 5 % a day, 65 % left just before the reset, then full.
+    expect(pool.projection[0]).toEqual(at(NOW, 80))
+    expect(pool.projection.find((p) => p.at === next)?.left).toBeCloseTo(100, 6)
+    expect(pool.projection.find((p) => p.at === next - 60_000)?.left).toBeCloseTo(65, 1)
+    expect(pool.projection.at(-1)?.left).toBeCloseTo(97.5, 6)
+    expect(pool.jumps.at(-1)?.size).toBeCloseTo(35, 1)
+  })
+
+  it('labels a past reset of the pool as a jump, not the noise between samples', () => {
+    const rising = [90, 95, 96, 20, 21].map((pct, i) => ({
+      at: iso(NOW - (5 - i) * HOUR),
+      sevenDayPct: pct,
+    }))
+    const { pool } = quotaDrain([account({ id: 'me', points: rising, sevenDayPct: 21 })], NOW)
+    expect(pool.jumps.filter((j) => j.at < NOW).map((j) => j.at)).toEqual([NOW - 2 * HOUR])
+  })
+
   it('ticks each account’s resets in its payer colour: deduped, in the window, plus the next', () => {
     const next = NOW + 3 * DAY
     const m = quotaDrain(
@@ -180,14 +203,14 @@ describe('creditDrain', () => {
     )
   })
 
-  it('draws a renewal as a jump back up and ticks it per pool', () => {
+  it('draws a renewal as a labelled jump back up', () => {
     const { model } = creditDrain(PACE, now)
     const iuEnd = Date.parse(PACE.pools[0]?.cycle.end ?? '')
     const before = model.projection.find((p) => p.at === iuEnd - 60_000)
     const after = model.projection.find((p) => p.at === iuEnd)
     expect(after?.left).toBeGreaterThan((before?.left ?? Infinity) + 100)
-    expect(model.ticks.map((t) => [t.at, t.payer])).toContainEqual([iuEnd, 'iu-credit'])
-    expect(model.ticks).toHaveLength(2)
+    expect(model.jumps.map((j) => j.at)).toContain(iuEnd)
+    expect(model.jumps[0]?.label).toMatch(/^\+\$/)
   })
 
   it('sums pools of different cycle lengths on one window', () => {

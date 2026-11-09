@@ -1,8 +1,8 @@
 /**
  * The Quotas tab's two multi-payer charts. `quotaDrain`: the Claude subscriptions' weekly windows, one
- * thin line per account and one thick COMBINED line weighted by weekly capacity units. `creditDrain`:
- * the three API-credit pools summed into one dollar line (total, even pace, projection, renewals as
- * ticks). Pure: no React, no queries; `quota-chart.tsx` and `drain-chart.tsx` only draw what these return.
+ * line per account and the COMBINED pool weighted by weekly capacity units, recorded and projected.
+ * `creditDrain`: the three API-credit pools summed into one dollar line (total, even pace, projection,
+ * renewals as labelled jumps). Pure: no React, no queries; `quota-chart.tsx` and `drain-chart.tsx` only draw what these return.
  */
 import { formatDuration } from '../../lib/format'
 import type { PaceResponse, QuotaLatestResponse, QuotaResponse } from '../../lib/queries/usage'
@@ -11,7 +11,9 @@ import {
   clamp,
   emptyModel,
   inText,
+  JUMP_LEAD_MS,
   pctText,
+  risesOf,
   whenText,
   type DrainModel,
   type DrainPoint,
@@ -23,7 +25,6 @@ import {
   fmtDay,
   fmtRate,
   fmtUsd,
-  poolPayer,
   poolTitle,
   reportAgeNote,
 } from './flow-model'
@@ -35,7 +36,6 @@ export const QUOTA_WINDOW_HOURS = 360
 const HOUR_MS = 3_600_000
 const HALF_DAY_MS = DAY_MS / 2
 const WEEK_MS = 7 * DAY_MS
-const MINUTE_MS = 60_000
 
 /** The subscriptions chart shows this much history. */
 const SUB_SPAN_MS = 14 * DAY_MS
@@ -48,6 +48,12 @@ const RESET_DEDUPE_MS = DAY_MS
 
 /** A pool whose cycle end is unknown still gets this much room to project into. */
 const POOL_OPEN_MS = 14 * DAY_MS
+
+/** A combined rise under this many points is sampling noise, not a reset. */
+const QUOTA_MIN_RISE_PCT = 3
+
+/** A credit rise under this is not a renewal. */
+const CREDIT_MIN_RISE_USD = 1
 
 // ── Shared ───────────────────────────────────────────────────────────────────────────────────
 
@@ -142,6 +148,8 @@ export interface QuotaModel {
   /** The capacity-weighted combined share left. */
   combined: DrainPoint[]
   combinedLeftPct: number | null
+  /** The combined pool as a drain chart: recorded, projected, every reset a labelled jump. */
+  pool: DrainModel
   /** One short tick per reset, coloured by its account. */
   ticks: DrainTick[]
   headline: string
@@ -152,7 +160,7 @@ export interface QuotaModel {
 }
 
 const QUOTA_INFO =
-  'Share of each account’s weekly quota left (thin lines, 100 % right after a reset) and the combined share (thick line): the mean of the accounts weighted by weekly capacity units (iu 2, me 1, me2 1). An account’s last reading is carried forward to the next sample. A tick on the baseline marks one account’s weekly reset. No combined projection: the accounts reset at different times, so a single run-out has no meaning; each row says when that account runs out.'
+  'The combined share of the weekly quotas left: the mean of the accounts weighted by weekly capacity units (iu 2, me 1, me2 1), an account’s last reading carried forward to the next sample. Dashed: each account burns on at its pace so far this week and refills at its own reset, each label is what a reset gives back. The Accounts tab shows the three accounts on their own.'
 
 export const quotaLeftText = (left: number): string => `${pctText(left)} left`
 
@@ -169,6 +177,35 @@ function resetsOf(input: QuotaAccountInput, from: number, next: number | null): 
     else deduped[deduped.length - 1] = t
   }
   return next === null ? deduped : [...deduped, next]
+}
+
+/** The share of the week burned per ms so far; 0 when there is too little of the week to read. */
+function burnPerMs(pct: number | null, next: number | null, now: number): number {
+  if (pct === null || next === null || pct <= 0) return 0
+  const elapsed = now - (next - WEEK_MS)
+  return elapsed < MIN_ELAPSED_MS ? 0 : pct / elapsed
+}
+
+/** The pool's weighted share ahead of now: each account burns at its pace and refills at its reset. */
+function quotaProjection(
+  accounts: ReadonlyArray<{ units: number; left: number; next: number | null; rate: number }>,
+  now: number,
+  to: number,
+): DrainPoint[] {
+  const units = accounts.reduce((sum, a) => sum + a.units, 0)
+  if (units === 0) return []
+  const leftAt = (a: (typeof accounts)[number], t: number): number =>
+    a.next === null || t < a.next
+      ? Math.max(0, a.left - a.rate * (t - now))
+      : Math.max(0, 100 - a.rate * (t - a.next))
+  const kinks = accounts.flatMap((a) => [
+    ...(a.next === null ? [] : [a.next - JUMP_LEAD_MS, a.next]),
+    ...(a.rate > 0 ? [now + a.left / a.rate] : []),
+    ...(a.rate > 0 && a.next !== null ? [a.next + 100 / a.rate] : []),
+  ])
+  return sortedUnique([now, to, ...kinks])
+    .filter((t) => t >= now && t <= to)
+    .map((at) => ({ at, left: accounts.reduce((s, a) => s + a.units * leftAt(a, at), 0) / units }))
 }
 
 function accountView(
@@ -198,9 +235,9 @@ function accountView(
       note: 'limit reached',
     }
   }
-  const elapsed = now - (next - WEEK_MS)
-  if (elapsed < MIN_ELAPSED_MS || pct <= 0) return { ...base, ...fine, status: 'ok', note: null }
-  const emptyAt = now + (100 - pct) / (pct / elapsed)
+  const rate = burnPerMs(pct, next, now)
+  if (rate === 0) return { ...base, ...fine, status: 'ok', note: null }
+  const emptyAt = now + (100 - pct) / rate
   if (emptyAt >= next) return { ...base, ...fine, status: 'ok', note: null }
   return {
     ...base,
@@ -258,12 +295,27 @@ export function quotaDrain(inputs: readonly QuotaAccountInput[], now: number): Q
 
   const info = QUOTA_INFO
   const base = { window, now, info }
+  const poolBase = {
+    id: 'subscriptions',
+    kind: 'quota' as const,
+    title: 'Claude subscriptions',
+    yMax: 100,
+    yText: pctText,
+    window,
+    now,
+    info,
+  }
   if (lines.every((l) => l.length === 0)) {
     return {
       ...base,
       accounts: inputs.map((input, i) => accountView(input, [], nexts[i] ?? null, now)),
       combined: [],
       combinedLeftPct: null,
+      pool: emptyModel(
+        { ...poolBase, subtitle: 'weekly quota · no samples yet' },
+        'No quota samples yet',
+        quotaLeftText,
+      ),
       ticks: [],
       headline: '—',
       subtitle: 'weekly quota · no samples yet',
@@ -304,14 +356,46 @@ export function quotaDrain(inputs: readonly QuotaAccountInput[], now: number): Q
         ? `${limited.map((a) => a.label).join(', ')} at the limit until the reset`
         : 'Every account lasts to its weekly reset at the pace so far'
 
+  const projection = quotaProjection(
+    inputs.flatMap((input, i) => {
+      const left = lines[i]?.at(-1)?.left
+      const next = nexts[i] ?? null
+      return left === undefined || input.units <= 0
+        ? []
+        : [{ units: input.units, left, next, rate: burnPerMs(input.sevenDayPct, next, now) }]
+    }),
+    now,
+    window.to,
+  )
+  const riseLabel = (rise: number): string => `+${pctText(rise)}`
+  const headline = combinedLeftPct === null ? '—' : `${pctText(combinedLeftPct)} left combined`
+  const subtitle = `weekly quota · last 14 d to the next reset${covered < inputs.length ? ` · ${covered} of ${inputs.length} accounts` : ''}`
+
   return {
     ...base,
     accounts,
     combined,
     combinedLeftPct,
+    pool: {
+      ...poolBase,
+      actual: combined,
+      projection,
+      even: [],
+      resets: [],
+      jumps: [
+        ...risesOf(combined, QUOTA_MIN_RISE_PCT, riseLabel),
+        ...risesOf(projection, QUOTA_MIN_RISE_PCT, riseLabel),
+      ],
+      runOut: null,
+      headline,
+      subtitle,
+      verdict,
+      leftText: quotaLeftText,
+      empty: null,
+    },
     ticks,
-    headline: combinedLeftPct === null ? '—' : `${pctText(combinedLeftPct)} left combined`,
-    subtitle: `weekly quota · last 14 d to the next reset${covered < inputs.length ? ` · ${covered} of ${inputs.length} accounts` : ''}`,
+    headline,
+    subtitle,
     verdict,
     empty: null,
   }
@@ -322,7 +406,6 @@ export function quotaDrain(inputs: readonly QuotaAccountInput[], now: number): Q
 export interface CreditRow {
   account: string
   label: string
-  payer: string
   leftUsd: number | null
   grantUsd: number
   /** `21 Nov`; `unknown` without a cycle end. */
@@ -339,7 +422,7 @@ export interface CreditView {
 }
 
 const CREDIT_INFO =
-  'The three API-credit pools as one dollar line: what is left of the grants summed (solid), the even pace that spends each grant exactly at its renewal (dotted) and the projection at today’s production rate, flat until the router starts drawing on a pool (dashed). A tick marks each pool’s renewal: the total jumps back up there because the pool is full again. After a renewal a pool counts as full; its later draw is not projected. The total starts where every pool’s cycle has begun: earlier cycles are not in the data.'
+  'The three API-credit pools as one dollar line: what is left of the grants summed (solid), the even pace that spends each grant exactly at its renewal (dotted) and the projection at today’s production rate, flat until the router starts drawing on a pool (dashed). Each label is one pool’s renewal: the total jumps back up there because the pool is full again. After a renewal a pool counts as full; its later draw is not projected. The total starts where every pool’s cycle has begun: earlier cycles are not in the data.'
 
 const dollars = (left: number): string => `${fmtUsd(left)} left`
 
@@ -370,14 +453,12 @@ export function creditDrain(pace: PaceResponse, now: number): CreditView {
     id: 'credit',
     kind: 'credit' as const,
     title: 'Claude API credit',
-    payer: 'unknown',
-    neutral: true,
     yMax: total,
     yText: fmtUsd,
     window: { from, to },
     now,
     info: CREDIT_INFO,
-    subtitle: 'current billing cycles · renewals ticked',
+    subtitle: 'current billing cycles to the last renewal',
   }
   if (pools.length === 0) {
     return { model: emptyModel(base, 'No credit pool enabled', dollars), rows: [] }
@@ -424,7 +505,7 @@ export function creditDrain(pace: PaceResponse, now: number): CreditView {
   const actual = actualGrid.map((at) => ({ at, left: actualAt(at) }))
 
   // A renewal is a jump: sample just before it and at it.
-  const renewals = ends.flatMap((e) => [e - MINUTE_MS, e])
+  const renewals = ends.flatMap((e) => [e - JUMP_LEAD_MS, e])
   const projectionGrid = sortedUnique([
     now,
     to,
@@ -437,21 +518,8 @@ export function creditDrain(pace: PaceResponse, now: number): CreditView {
   const nextEnd = Math.min(...ends.filter((e) => e > now))
   const even =
     allEnded && Number.isFinite(nextEnd)
-      ? [from, nextEnd - MINUTE_MS].map((at) => ({ at, left: evenAt(at) }))
+      ? [from, nextEnd - JUMP_LEAD_MS].map((at) => ({ at, left: evenAt(at) }))
       : []
-
-  const ticks: DrainTick[] = pools.flatMap((p) => {
-    const end = endOf(p.cycle.end)
-    return end === null
-      ? []
-      : [
-          {
-            at: end,
-            payer: poolPayer(p.account),
-            label: `${poolTitle(p.account)} renews ${fmtDay(p.cycle.end ?? '')}`,
-          },
-        ]
-  })
 
   const rows: CreditRow[] = pools.map((p) => {
     const end = endOf(p.cycle.end)
@@ -459,7 +527,6 @@ export function creditDrain(pace: PaceResponse, now: number): CreditView {
     return {
       account: p.account,
       label: poolTitle(p.account),
-      payer: poolPayer(p.account),
       leftUsd: p.leftUsd,
       grantUsd: p.grantUsd,
       renews: p.cycle.end === null ? 'unknown' : fmtDay(p.cycle.end),
@@ -500,7 +567,7 @@ export function creditDrain(pace: PaceResponse, now: number): CreditView {
       projection,
       even,
       resets: [],
-      ticks,
+      jumps: risesOf(projection, CREDIT_MIN_RISE_USD, (rise) => `+${fmtUsd(rise)}`),
       runOut: null,
       headline: `${fmtUsd(left)} left of ${fmtUsd(total)}`,
       verdict,

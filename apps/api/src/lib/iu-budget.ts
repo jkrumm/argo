@@ -44,8 +44,28 @@ export interface IuBudget {
   burn7dUsdPerDay: number
   projected7dUsd: number
   daily: Array<{ day: string; usd: number }>
+  /** The rolling 30-day sum as of each day, oldest first; see `rollingHistory`. */
+  history: Array<{ day: string; rollingUsd: number }>
   dropoffNext7: Array<{ day: string; freesUsd: number; headroomUsd: number }>
   topModels: Array<{ label: string; usd: number }>
+}
+
+/**
+ * The rolling sum as of each of the last 30 days, only where it is exact: a day counts once all 30 days
+ * of its window are on record. A key with under 30 days of portal data is younger than one window, so
+ * its sum is complete from its first day.
+ */
+function rollingHistory(perDay: ReadonlyMap<string, number>, today: string): IuBudget['history'] {
+  const first = [...perDay.keys()].toSorted()[0] ?? today
+  const exactFrom = addDays(first, IU_WINDOW_DAYS - 1)
+  const oldest = addDays(today, -(IU_WINDOW_DAYS - 1))
+  const start = exactFrom > today ? first : exactFrom > oldest ? exactFrom : oldest
+  const days: string[] = []
+  for (let day = start; day <= today; day = addDays(day, 1)) days.push(day)
+  return days.map((day) => {
+    const window = Array.from({ length: IU_WINDOW_DAYS }, (_, i) => addDays(day, -i))
+    return { day, rollingUsd: round2(sum(window.map((d) => perDay.get(d) ?? 0))) }
+  })
 }
 
 /**
@@ -94,6 +114,7 @@ export function computeBudget(
     burn7dUsdPerDay: round2(burn7),
     projected7dUsd: round2(rolling30 - freed + BURN_DAYS * burn7),
     daily: span(-30, 0).map((day) => ({ day, usd: round2(usd(day)) })),
+    history: rollingHistory(perDay, today),
     dropoffNext7: dropoff,
     topModels: [...perLabel.entries()]
       .map(([label, v]) => ({ label, usd: round2(v) }))

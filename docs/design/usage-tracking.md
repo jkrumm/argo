@@ -42,7 +42,7 @@ As of 2026-11-02 16:00 UTC, the gateway's first day (first row 00:26 UTC, traffi
 | Evals on credit                                  | $6.91, all on `me` (the eval reserve kept them off `iu`)                                                                                                                      | gateway rows, `purpose = eval`                              |
 | Projection at $85/d, pools drained in pick order | iu dry **3 Nov ~17:00 UTC**, me dry **4 Nov ~19:00 UTC**; then 16 days on IU until iu renews on 21 Nov (≈ $1,380 of Claude work at list price)                                | §Pace model                                                 |
 | IU spend through the gateway since the cutover   | $3.26: $2.91 non-Claude production seats (GPT Terra $2.50), $0.36 non-Claude eval arms, $0.003 Claude-Code-shaped verify probes, **$0 credit fallback**                       | gateway `api_key` rows, `gateway_picks`                     |
-| IU personal key                                  | **$577.57 of $500** over the rolling 30 days; as the mid-October days leave the window and new spend stays at today's $3.35/d, the sum drops under $500 around 12 Nov        | `iu_portal_cost`                                            |
+| IU personal key                                  | **$577.57 of $500** over the rolling 30 days; as the mid-October days leave the window and new spend stays at today's $3.35/d, the sum drops under $500 around 12 Nov         | `iu_portal_cost`                                            |
 | Athena team key                                  | $465.14 of $500 by the portal (rolling 30 d). Tracked over the last 7 days: agw $337.51 until it moved to the gateway (last agw row 2 Nov 08:05 UTC), Athena Teamchat $133.22 | `iu_portal_cost`, `records`                                 |
 
 **Verdict today: over pace.** The headline asks whether credit expires unspent; it will not, every dollar will be spent. The risk is that
@@ -135,34 +135,38 @@ The tab answers one question: how much of each quota is left, and will it last. 
 1 Verdict   one sentence: the credit verdict, a subscriptions clause (who runs out before the reset), the IU clause
 2 Cards     four cards in a 2x2 grid (one column on a phone), one chart form: headline, fixed-window subtitle,
             chart, one-line verdict
-              Claude subscriptions  ONE chart, last 14 d to the latest next reset: a thin line per account
-                                    (payer colour, weekly % left) and one thick neutral COMBINED line,
-                                    capacity-weighted by weekly units (iu 2, me 1, me2 1; USAGE_ACCOUNTS.weeklyUnits).
-                                    Each account's last reading is carried forward onto a common grid; no reading yet
-                                    = no combined value; an account with no samples at all is left out and the
-                                    subtitle says "n of 3 accounts". Reset ticks per account on the baseline. No
-                                    combined projection: the accounts reset at different times; each row says when
-                                    that account runs out. Rows: label, plan, % left, resets, warn tint when it runs
-                                    out before its reset.
+              Claude subscriptions  Combined (default) | Accounts, `?subsView`, last 14 d to the latest next reset.
+                                    Combined: the capacity-weighted pool (iu 2, me 1, me2 1; USAGE_ACCOUNTS.weeklyUnits),
+                                    recorded and projected: each account burns at its pace so far this week and refills
+                                    at its own reset. Accounts: a line per account in its payer shade, reset ticks on
+                                    the baseline. Each account's last reading is carried forward onto a common grid; no
+                                    reading yet = no combined value; an account with no samples at all is left out and
+                                    the subtitle says "n of 3 accounts". Rows: label, plan, % left, resets.
               Claude API credit     the enabled pools as ONE dollar chart: total left, even pace, projection at the
-                                    production rate, a renewal tick per pool (the total jumps back up). Starts where
-                                    every pool's cycle has begun (earlier cycles are not in /usage/pace). Rows: label,
-                                    $ left of grant, renews, needed $/d.
-              IU personal key       rolling 30 d cap, /usage/iu-budget?iuKey=personal
+                                    production rate, each renewal a labelled jump. Starts where every pool's cycle has
+                                    begun (earlier cycles are not in /usage/pace). Rows: label, $ left of grant, renews,
+                                    needed $/d. A pool running dry before its renewal is the goal, so it carries no
+                                    warning colour.
+              IU personal key       rolling 30 d cap in dollars, /usage/iu-budget?iuKey=personal. Solid: the cap left as
+                                    of each past day (`history`, only where the whole window is on record). Dashed, 30 d
+                                    ahead: each past day comes back exactly as it was spent, the last 7 days' burn runs
+                                    on. Rows: the next four days that give something back and what is left after.
               Athena team key       the same, iuKey=athena-team (its own cap, never summed)
+            One neutral ink on every card: recorded solid with a faint fill and a dot at now, projected dashed, every
+            jump back up labelled with what it gives back (the bigger jump keeps its label when two would touch).
 3 Routing   one closed-by-default disclosure "Routing and demand" (follows Range; queries mount on open;
 and demand  ?node= opens it): Router and Demand columns, the selected node's detail, Athena's spend by producer
             and "agw on this key since the cutover"
 ```
 
-| Node     | Detail blocks                                                                                                  | Endpoint                             |
-| -------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Node     | Detail blocks                                                                                                 | Endpoint                             |
+| -------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
 | Router   | picks per day by target, reason mix, refusals by reason, IU spend per day by cause, cache per caller × target | `/usage/router`                      |
-| Workflow | steps × model, purpose split per day, cost per run, cache hit per step                                         | `/usage/demand?workflow=<w>&by=step` |
+| Workflow | steps × model, purpose split per day, cost per run, cache hit per step                                        | `/usage/demand?workflow=<w>&by=step` |
 
 `?node=` is `router` or `demand:<workflow>`; the retired `pool:`, `sub:` and `key:` values (the old Supply column) are
 ignored. The Supply column, the per-pool, per-subscription and per-key details and the facts strip are gone: every fact
-is on a card or in the verdict. The Insights strip is on Explore, not on this tab.
+is on a card or in the verdict.
 
 **Controls.** Range (default 7 d) is shown on the page but only drives the "Routing and demand" disclosure (its title
 says so); the verdict and the four cards are state. No Workspace here.
@@ -176,20 +180,11 @@ instead of one tab per wallet: Over time (group by payer, tool, model, project),
 timelines, Rhythm, Weekly volume. Range, Measure, Workspace as in v6 reach every block; Grain sits on Over time and reaches only it (Weekly volume is always weeks, the row timelines always days). Athena team is off by default and never in
 an "all".
 
-### Insights (owner addition at sign-off)
+### Insights (removed from the page 2026-11-09)
 
-At the top of **Explore**, following Range (7, 30 or 90 days against the equally long period before; `All` reads 90 days and says so in the title): three to five ranked observations, each one sentence that names a number and links
-to the node it is about. Examples from today's data: "review is 98 % of production credit", "the review hotfix cut the
-cost per review from $0.78 to $0.16", "`me` carries every eval, `iu` every production call", "the Athena key has $35 of
-headroom until 12 Nov", "no Claude work fell back to IU today". A node link switches to Flow with that node selected. When the previous window starts before the data floor (2026-06-15, as at 90 d), the detectors that compare against it (mover, cost per run, cache drop) stay silent.
-
-- **Facts by rules, never by a model.** Each insight is a deterministic detector over the same endpoints: the biggest
-  share, the biggest mover against the previous period, a pace change, a seat or route change and its effect, a
-  fallback to IU, a cache-hit drop, a cap approaching. A detector fires only past its threshold; ranked by money moved.
-- **Wording may use `agw digest`** (Haiku, cents a day) to turn a detector's facts into the sentence; the numbers are
-  inserted from the facts, never written by the model. Without it a template sentence is shown.
-- An insight with thin data says so, like every other view. Empty state: "nothing stands out".
-- Endpoint `/usage/insights?period=` returns the fired detectors with their facts, rank and target node.
+The "What stands out" strip on Explore is gone: on real data most of it repeated the Quotas cards (the two key caps) or a
+fixed routing policy ("me carries every eval, iu every production call"), and its links left Explore for a tab the reader
+had just come from. `GET /usage/insights` stays for API consumers: fired detectors with their facts, rank and target node, by rules, never by a model.
 
 ## Endpoints
 
