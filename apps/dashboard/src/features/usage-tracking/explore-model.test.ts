@@ -6,7 +6,6 @@ import {
   exploreVolumePayers,
   exploreWord,
   explorePayers,
-  insightsPeriodOf,
 } from './explore-model'
 
 describe('explorePayers', () => {
@@ -76,17 +75,5 @@ describe('exploreVolumePayers', () => {
       { id: 'iu-sub', title: 'IU Ultra' },
       { id: 'me-credit', title: 'Me credit' },
     ])
-  })
-})
-
-describe('insightsPeriodOf', () => {
-  test('follows 7, 30 and 90 days and titles the window used', () => {
-    expect(insightsPeriodOf('7d')).toEqual({ period: '7d', title: '7 d' })
-    expect(insightsPeriodOf('30d')).toEqual({ period: '30d', title: '30 d' })
-    expect(insightsPeriodOf('90d')).toEqual({ period: '90d', title: '90 d' })
-  })
-
-  test('all has no prior window and reads 90 days, said in the title', () => {
-    expect(insightsPeriodOf('all')).toEqual({ period: '90d', title: '90 d' })
   })
 })

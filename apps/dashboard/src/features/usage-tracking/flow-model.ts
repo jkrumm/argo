@@ -7,7 +7,6 @@
 import type {
   DemandResponse,
   DemandRow,
-  InsightsResponse,
   LaneSplitResponse,
   PacePool,
   PaceResponse,
@@ -522,37 +521,4 @@ export function agwReading(
 ): { state: 'bills' | 'quiet' | 'none' } {
   if (lastRowAt === null) return { state: 'none' }
   return { state: now - new Date(lastRowAt).getTime() < AGW_STALE_MS ? 'bills' : 'quiet' }
-}
-
-// ── Insights ─────────────────────────────────────────────────────────────────────────────────
-
-/** The sources `/usage/insights` names as unreadable, in words. */
-export function sourceLabel(source: string): string {
-  if (source === 'pace') return 'the credit pace'
-  if (source === 'router') return 'the router'
-  if (source === 'demand') return 'demand'
-  if (source.startsWith('iu-budget:')) {
-    const key = source.slice('iu-budget:'.length)
-    return key === 'personal' ? 'the IU personal key' : `the ${key} key`
-  }
-  return source
-}
-
-export interface InsightsView {
-  /** The ranked items, at most five, best first. */
-  items: InsightsResponse['items']
-  /** What the strip says when it has no item to show: nothing stands out, or which sources were not read. */
-  note: string | null
-}
-
-/**
- * The strip's content. Empty means "nothing stands out" only when every source was read; a non-empty
- * `unavailable` names what could not be, instead, whether or not some detectors still fired.
- */
-export function insightsView(data: InsightsResponse): InsightsView {
-  const items = data.items.toSorted((a, b) => a.rank - b.rank).slice(0, 5)
-  if (data.unavailable.length > 0) {
-    return { items, note: `Could not read ${data.unavailable.map(sourceLabel).join(', ')}.` }
-  }
-  return { items, note: items.length === 0 ? 'Nothing stands out.' : null }
 }

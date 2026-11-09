@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'bun:test'
-import type { InsightsResponse } from '../../lib/queries/usage'
 import { DEMAND, PACE, ROUTER } from './flow-fixtures'
 import {
   agwOnKey,
@@ -14,7 +13,6 @@ import {
   fmtInstant,
   fmtRate,
   fmtUsd,
-  insightsView,
   iuByCause,
   laneLabel,
   laneRows,
@@ -300,49 +298,6 @@ describe('purposeSegments', () => {
   it('drops purposes with no cost', () => {
     const row = { ...(DEMAND.rows[1] as (typeof DEMAND.rows)[number]) }
     expect(purposeSegments(row).map((x) => x.key)).toEqual(['prod', 'eval'])
-  })
-})
-
-describe('insights strip', () => {
-  const item = (id: string, rank: number, thin = false) => ({
-    id,
-    rank,
-    node: 'router',
-    sentence: `sentence ${id}`,
-    facts: {},
-    usdMoved: 10 - rank,
-    thin,
-  })
-  const data = (over: Partial<InsightsResponse>): InsightsResponse => ({
-    asOf: PACE.asOf,
-    period: '7d',
-    items: [],
-    unavailable: [],
-    ...over,
-  })
-
-  it('ranks the items, at most five, and has no note while items are shown and every source was read', () => {
-    const v = insightsView(data({ items: [3, 1, 2, 5, 4, 6].map((n) => item(`i${n}`, n)) }))
-    expect(v.items.map((i) => i.rank)).toEqual([1, 2, 3, 4, 5])
-    expect(v.note).toBeNull()
-  })
-
-  it('says nothing stands out only when nothing is empty and nothing unread', () => {
-    expect(insightsView(data({})).note).toBe('Nothing stands out.')
-  })
-
-  it('names the sources that could not be read instead, even over an empty list', () => {
-    const v = insightsView(
-      data({ unavailable: ['pace', 'iu-budget:personal', 'iu-budget:athena-team'] }),
-    )
-    expect(v.items).toEqual([])
-    expect(v.note).toBe('Could not read the credit pace, the IU personal key, the athena-team key.')
-  })
-
-  it('keeps the items that fired beside the unread note', () => {
-    const v = insightsView(data({ items: [item('a', 1, true)], unavailable: ['router'] }))
-    expect(v.items.map((i) => i.id)).toEqual(['a'])
-    expect(v.note).toBe('Could not read the router.')
   })
 })
 

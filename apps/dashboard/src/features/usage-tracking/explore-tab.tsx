@@ -10,7 +10,6 @@ import { ChartCard } from 'basalt-ui/charts'
 import type { Grain, Range } from '../../lib/queries/usage'
 import type { UsageGroupBy, UsageLens } from '../../lib/window-stores'
 import type { PayerValue } from './accounts'
-import { InsightsStrip } from './insights-strip'
 import { ExploreLists } from './explore-lists'
 import { EXPLORE_GROUP_OPTIONS, exploreScope, exploreVolumePayers } from './explore-model'
 import { OverTime } from './over-time'
@@ -37,9 +36,6 @@ export function ExploreTab({ range, grain, lens, groupBy, workspace, payer }: Ex
 
   return (
     <Stack gap="md">
-      <Suspense fallback={fallback(160)}>
-        <InsightsStrip range={range} />
-      </Suspense>
       <Suspense fallback={fallback(300)}>
         <OverTime
           range={range}
