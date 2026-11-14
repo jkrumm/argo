@@ -185,9 +185,9 @@ describe('GET /my-resource', () => {
 ## Tests
 
 ```bash
-# Run all tests (from repo root). secrets-run injects the admin Postgres credentials
-# (apps/api/.env.test.tpl); scripts/test.sh creates a scratch database argo_test_<12 hex> on
-# localhost:5432, creates schemas `argo` and `usage`, applies usage-tracker's plain-SQL migrations
+# Run all tests (from repo root). The admin connection is the unix socket in /tmp as the OS user, no
+# password (ARGO_TEST_PG_USER + ARGO_TEST_PG_PASSWORD switch it to TCP); scripts/test.sh creates a
+# scratch database argo_test_<12 hex> on that cluster, creates schemas `argo` and `usage`, applies usage-tracker's plain-SQL migrations
 # (~/SourceRoot/usage-tracker/migrations/pg, or $USAGE_MIGRATIONS_DIR), points DATABASE_URL at it,
 # runs `bun test --cwd apps/api` and drops the database in a trap. The argo tables come from the
 # tests' own runMigrations(). Missing migrations dir or secrets: it fails with a message.
@@ -204,7 +204,7 @@ bun run --cwd apps/api test:unit
 > The app role `argo` can only SELECT on schema `usage`, which is why the integration tests run as
 > admin in a scratch database instead of the shared one. A bare `bun test` fails integration tests
 > with `DATABASE_URL ... undefined`; use `bun test:api`. The Postgres on the mini must be up
-> (`cd ~/SourceRoot/vps && make up`).
+> (see `~/SourceRoot/dotfiles/docs/postgres.md`).
 
 Tests live alongside source files as `*.test.ts`:
 

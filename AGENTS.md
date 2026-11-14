@@ -77,7 +77,7 @@ bun run --cwd apps/dashboard test             # bun test src
 bun run --cwd apps/api test:unit
 
 # Integration tests (src/routes/*.test.ts, src/db/*.test.ts) need the mini's Postgres up; NOT part of CI.
-# `bun test:api` creates a scratch database argo_test_<hex> as admin (secrets-run, apps/api/.env.test.tpl),
+# `bun test:api` creates a scratch database argo_test_<hex> as the Postgres superuser over the unix socket in /tmp (OS user, no password),
 # applies usage-tracker's migrations/pg for schema `usage` (USAGE_MIGRATIONS_DIR overrides the path),
 # runs the suite there and drops it:
 bun test:api
@@ -202,7 +202,7 @@ production cannot show) and forwards every other read to production, so its shot
 
 All secrets via 1Password, account `tkrumm`. DB password at `op://vps/argo/DB_PASSWORD`.
 
-Local-dev scripts (`dev`, `db:migrate`, `test:api`) inject through the **`secrets-run`** shim
+Local-dev scripts (`dev`, `db:migrate`) inject through the **`secrets-run`** shim
 (dotfiles): a drop-in `op` — live biometric `op` on the MacBook, the age-encrypted headless
 cache on the Mac mini (where `op` isn't interactively signed in). Prod scripts (`dev:prod-api`,
 `m365:auth:prod`) stay on raw `op run` — present-human only.
