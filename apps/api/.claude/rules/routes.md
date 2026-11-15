@@ -29,7 +29,7 @@ Summary endpoints use `WindowQuerySchema` (from `src/lib/window.ts`):
 query: WindowQuerySchema // { window?: '7d'|'30d'|'90d'|'all'; from?: string; to?: string }
 ```
 
-Parse with `parseWindow(query)` to get `{ from: Date; to: Date }`. Default window is 30 days.
+Date-keyed summary and series endpoints parse with `parseDateWindow(query)` to get `{ from: string; to: string }` (`YYYY-MM-DD`, Europe/Berlin, both ends inclusive). Timestamped endpoints such as walking-pad sessions use `parseWindow(query)` for `{ from: Date; to: Date }`. Default window is 30 days.
 
 ## Response shapes
 
