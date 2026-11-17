@@ -18,8 +18,10 @@ DualPanel/MirroredBars/BandStrip exceptions) is `features/astro-window/charts/sk
 
 ## Query inventory
 
-- `src/lib/queries/daily-metrics.ts`: `dailyMetricsQueries.{series,recovery,recoverySeries,
-  fitnessDirection,trainingLoad}(params)`, `activitiesQueries.list(params)` (workouts stacked bar).
+- `src/lib/queries/daily-metrics.ts`: `dailyMetricsQueries.{summary,series}(params)`,
+  `recoveryQueries.{summary,series}(params)`, `fitnessDirectionQueries.summary(params)`,
+  `trainingLoadQueries.summary(params)`; `src/lib/queries/activities.ts`:
+  `activitiesWindowQueries.list(params)` (workouts stacked bar).
 - `src/lib/queries/strength.ts`: `strengthQueries.{heroes,seriesDetailed,weeklyVolume,
   trainingLoad,records,relativeProgression,sparklines,readiness,alignment,deloadSignal}(params)`,
   `strengthQueries.composite({ exercise_id, window?, from?, to? })`.
