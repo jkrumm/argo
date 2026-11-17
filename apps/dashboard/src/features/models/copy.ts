@@ -75,6 +75,8 @@ export const Y_COLUMN: Record<YMetric, string> = {
 }
 
 export const EPOCH_ATTRIBUTION = 'Coding benchmarks: Epoch AI (epoch.ai), CC-BY 4.0'
+/** The short credit a tooltip row carries. */
+export const EPOCH_SHORT = 'Epoch AI · CC-BY 4.0'
 export const EPOCH_URL = 'https://epoch.ai/data/ai-benchmarking-dashboard'
 
 const Y_INFO: Record<YMetric, string> = {
@@ -90,7 +92,7 @@ const Y_SUBTITLE: Record<YMetric, string> = {
   combined: '50% intelligence rank, 50% coding rank',
 }
 
-/** The chart's copy for an x metric and a y metric: General keeps today's wording but the title. */
+/** The chart's copy for an x metric and a y metric: the title names the y, the info leads with what it is. */
 export function chartCopy(axis: Axis, y: YMetric): MetricCopy & { title: string } {
   const copy = METRIC_COPY[axis]
   const subtitle = Y_SUBTITLE[y]

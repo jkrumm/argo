@@ -574,9 +574,12 @@ describe('leanestAlternative on a y score', () => {
   })
 
   it('Combined compares the blended rank, a candidate without coding on its General rank', () => {
+    // Ranks over all four by intelligence: own 37.5, smart 62.5, coder 12.5, uncoded 87.5; coding ranks over
+    // the three scored: own 50, smart 16.7, coder 83.3. own blends to 43.75; coder (47.9) and uncoded (its
+    // General rank, 87.5) both clear it and uncoded is leaner. On intelligence alone the gain would be 20.
     const found = on('combined')
-    expect(found).not.toBeNull()
-    expect(found?.points).toBeGreaterThanOrEqual(0)
+    expect(found?.by.slug).toBe('uncoded')
+    expect(found?.points).toBeCloseTo(43.75, 10)
   })
 
   it('is null for a variant with no score on the metric', () => {
