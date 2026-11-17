@@ -15,11 +15,31 @@ import { env } from './env.js'
 
 const base = env.OTEL_EXPORTER_OTLP_ENDPOINT
 
-export const resource = resourceFromAttributes({
-  'service.name': env.OTEL_SERVICE_NAME,
-  'service.version': env.OTEL_SERVICE_VERSION || pkg.version,
-  'deployment.environment': env.NODE_ENV,
-})
+// Resource attributes per the ClickStack telemetry contract (vps docs/observability.md §Telemetry contract).
+// The release passes the full SHA in OTEL_SERVICE_VERSION; the contract wants the short one.
+export function resourceAttributes(input: {
+  serviceName: string
+  serviceVersion: string
+  nodeEnv: 'development' | 'test' | 'production'
+  hostName: string
+}): Attributes {
+  return {
+    'service.name': input.serviceName,
+    'service.namespace': 'argo',
+    'service.version': input.serviceVersion.slice(0, 7),
+    'deployment.environment.name': input.nodeEnv === 'production' ? 'prod' : 'dev',
+    ...(input.hostName ? { 'host.name': input.hostName } : {}),
+  }
+}
+
+export const resource = resourceFromAttributes(
+  resourceAttributes({
+    serviceName: env.OTEL_SERVICE_NAME,
+    serviceVersion: env.OTEL_SERVICE_VERSION || pkg.version,
+    nodeEnv: env.NODE_ENV,
+    hostName: env.OTEL_HOST_NAME,
+  }),
+)
 
 // D21 — credential-bearing headers must never reach the exporter. Header
 // span attributes (`http.request.header.*` / `http.response.header.*`) are

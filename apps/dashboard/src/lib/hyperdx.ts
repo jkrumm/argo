@@ -46,8 +46,11 @@ if (typeof window !== 'undefined') {
       // Finance fetches and DOM never leave the mini: see `hyperdx-options.ts`.
       blockClass: HYPERDX_BLOCK_CLASS,
       ignoreUrls: HYPERDX_IGNORE_URLS,
+      // Contract: vps docs/observability.md §Telemetry contract. VITE_APP_SHA is the short SHA, set by make deploy.
       otelResourceAttributes: {
-        'deployment.environment': import.meta.env.MODE,
+        'service.namespace': 'argo',
+        'service.version': import.meta.env['VITE_APP_SHA'] || 'dev',
+        'deployment.environment.name': import.meta.env.PROD ? 'prod' : 'dev',
         // Injected by Vite at build time — see vite.config.ts `define`.
         'app.version': __APP_VERSION__,
       },

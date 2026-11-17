@@ -43,6 +43,8 @@
     <string>argo-api</string>
     <key>OTEL_SERVICE_VERSION</key>
     <string>__SHA__</string>
+    <key>OTEL_HOST_NAME</key>
+    <string>mini</string>
     <key>JIRA_BOARD_ID</key>
     <string>272</string>
     <key>GITLAB_BASE_URL</key>

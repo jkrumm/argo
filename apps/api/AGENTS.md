@@ -231,8 +231,11 @@ See `.claude/rules/observability.md` for the full pattern — when to add manual
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318  # base URL — SDK appends /v1/traces and /v1/logs
 OTEL_SERVICE_NAME=argo-api                         # service.name resource attribute
-OTEL_SERVICE_VERSION=                              # optional; falls back to package.json version
+OTEL_SERVICE_VERSION=                              # optional; falls back to package.json version (resource: first 7 chars)
+OTEL_HOST_NAME=                                    # optional; host.name (the mini's plist sets `mini`, dev leaves it unset)
 ```
+
+Resource attributes (`telemetry.ts` `resourceAttributes`, contract vps `docs/observability.md`): `service.namespace=argo`, `deployment.environment.name` = `prod` when `NODE_ENV=production` else `dev`. The old `deployment.environment` key is no longer sent.
 
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.
 

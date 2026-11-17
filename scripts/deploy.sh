@@ -173,14 +173,14 @@ read_console_url() {
   else print -u2 "[deploy] $CONSOLE_URL_FILE is not an http(s) origin: the Today page gets no Console link"; fi
 }
 
-build_dashboard() {  # $1 release dir
+build_dashboard() {  # $1 release dir, $2 sha
   local key console
   console=$(read_console_url)
   key=$(secrets-run read "$HYPERDX_KEY_REF" 2>/dev/null)
   [[ -n "$key" ]] || { print -u2 "[deploy] cannot read $HYPERDX_KEY_REF through secrets-run"; return 1; }
   (
     cd "$1" || exit 1
-    env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY="$key" VITE_CONSOLE_URL="$console" \
+    env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY="$key" VITE_CONSOLE_URL="$console" VITE_APP_SHA="${2[1,7]}" \
       bun run --cwd apps/dashboard build
   ) || return 1
   [[ -f "$1/apps/dashboard/dist/index.html" ]] || { print -u2 "[deploy] dashboard build left no dist/index.html"; return 1; }
@@ -198,7 +198,7 @@ build_release() {  # $1 sha
   mkdir -p "$dir"
   git -C "$REPO_DIR" archive --format=tar "$1" | tar -x -C "$dir" || { remove_release "$1"; die "exporting $1 failed"; }
   (cd "$dir" && bun install --frozen-lockfile) || { remove_release "$1"; die "bun install failed; the live release is untouched"; }
-  build_dashboard "$dir" || { remove_release "$1"; die "the dashboard build failed; the live release is untouched"; }
+  build_dashboard "$dir" "$1" || { remove_release "$1"; die "the dashboard build failed; the live release is untouched"; }
   chmod +x "$dir/scripts/"*.sh 2>/dev/null
   touch "$dir/.complete"
 }
@@ -339,7 +339,7 @@ main() {
     act git -C "$REPO_DIR" fetch --prune origin master
     act "git -C $REPO_DIR archive $sha | tar -x -C $release   (the live release is never written to)"
     act bun install --frozen-lockfile "(in $release)"
-    act "env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY=<redacted> VITE_CONSOLE_URL=\"$(read_console_url)\" bun run --cwd apps/dashboard build (in $release)"
+    act "env VITE_API_URL= VITE_HYPERDX_ENDPOINT= VITE_HYPERDX_SERVICE_NAME=argo-dashboard VITE_HYPERDX_API_KEY=<redacted> VITE_CONSOLE_URL=\"$(read_console_url)\" VITE_APP_SHA=${sha[1,7]} bun run --cwd apps/dashboard build (in $release)"
     act "touch $release/.complete (written last; a failed build removes the release)"
     act "re-exec $release/scripts/deploy.sh once, pinned to $sha"
     act "$release/scripts/launch.sh --check   (every .env.tpl ref resolves to a non-empty value; refuses before anything is stopped)"
