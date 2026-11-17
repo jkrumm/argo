@@ -353,7 +353,8 @@ export const FILTERS_CLEARED: FinanceFilters = {
  * The models page. `callable` and `superseded` are the visibility filters (the defaults are the
  * uncluttered view: what the IU endpoint can call, without the models a newer one replaced); `creators`
  * narrows the field, empty meaning all. `pick` is the highlighted lineage, URL only so a link carries it.
- * `metric` is the x axis of the one chart.
+ * `metric` is the x axis of the one chart, `y` its y score: General (AA intelligence), Coding (the
+ * Epoch coding score) or Combined (the default, a blend of both).
  */
 export const modelsStore = createSearchStore({
   key: 'models',
@@ -363,8 +364,10 @@ export const modelsStore = createSearchStore({
     creators: field.multi(CREATOR_VALUES, []),
     pick: field.string({ max: 80 }, { persist: false }),
     metric: field.enum(['index', 'cost', 'time', 'tokens'], 'index'),
+    y: field.enum(['combined', 'general', 'coding'], 'combined'),
   },
 }).labels({
   creators: CREATOR_LABELS,
   metric: { index: 'Index', cost: 'Cost', time: 'Time', tokens: 'Tokens' },
+  y: { combined: 'Combined', general: 'General', coding: 'Coding' },
 })

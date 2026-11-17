@@ -24,6 +24,9 @@ const DIST = join(ROOT, 'apps/dashboard/dist')
 const LOCAL_SNAPSHOT = join(ROOT, '.design-shots/efficiency.local.json')
 const ROUTES = [
   '/models',
+  '/models?y=general',
+  '/models?y=coding',
+  '/models?y=coding&metric=cost',
   '/models?metric=cost',
   '/models?metric=time',
   '/models?metric=tokens',

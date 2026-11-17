@@ -60,6 +60,32 @@ describe('GET /models/efficiency', () => {
     expect(seen).toEqual([{ method: 'GET', path: '/api/efficiency', auth: null }])
   })
 
+  it('relays the coding field of every variant unchanged, and a response without it too', async () => {
+    const coding = {
+      score: 61.5,
+      components: [
+        { benchmark: 'cursorbench', score: 0.478, costPerTask: 1.2, tokensPerTask: 52000 },
+        { benchmark: 'scicode', score: 0.31, costPerTask: null, tokensPerTask: null },
+      ],
+    }
+    const withCoding = {
+      variants: [
+        { slug: 'a', coding },
+        { slug: 'b', coding: null },
+        { slug: 'c', coding: { score: null, components: [coding.components[0]] } },
+      ],
+    }
+    reply = () => Response.json(withCoding)
+    expect(await (await get('/models/efficiency', bearer)).json()).toEqual(withCoding)
+
+    // A modelpick from before the contract has no `coding` key: nothing is added.
+    const older = { variants: [{ slug: 'a', intelligence: 40 }] }
+    reply = () => Response.json(older)
+    const res = await get('/models/efficiency', bearer)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(older)
+  })
+
   it('passes the service status through', async () => {
     reply = () => Response.json({ error: 'snapshot missing' }, { status: 500 })
     const res = await get('/models/efficiency', bearer)

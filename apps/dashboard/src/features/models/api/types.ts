@@ -6,10 +6,32 @@
  * Money is dollars, time is seconds, prices are dollars per 1M tokens. `intelligence` is the
  * Artificial Analysis Intelligence Index and `costPerTask` what AA measured to run its index suite
  * once. `tokensPerTaskEst` (cost / output price) and `timePerTaskEstSec` (tokens / speed) are
- * ESTIMATES. `supersededBy` is the superseding lineage's slug. A route's `variantSlug` is null when AA has
+ * ESTIMATES. `coding` is Epoch AI's coding evidence (CC-BY 4.0), see `EfficiencyCoding`. `supersededBy` is the superseding lineage's slug. A route's `variantSlug` is null when AA has
  * no row for its model at its effort (`reason` says so).
  */
 export type Effort = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'default'
+
+/** One coding benchmark of one variant, from Epoch AI. Scores are on the benchmark's own scale. */
+export interface CodingComponent {
+  /** cursorbench | swe_bench_verified | terminalbench | frontierswe | frontiercode | scicode | aider_polyglot | webdev_arena */
+  benchmark: string
+  score: number
+  /** USD per task; CursorBench only, else null. */
+  costPerTask: number | null
+  /** Tokens per task; CursorBench only, else null. */
+  tokensPerTask: number | null
+}
+
+/**
+ * Coding evidence for one variant. `score` (0-100) is the mean, over the variant's benchmarks, of its
+ * mid-rank percentile among all variants of the response that have that benchmark; it is null when
+ * fewer than 2 benchmarks contribute (`components` is still listed). Compare scores within one
+ * response, never across time.
+ */
+export interface EfficiencyCoding {
+  score: number | null
+  components: CodingComponent[]
+}
 
 export interface EfficiencyVariant {
   slug: string
@@ -28,6 +50,11 @@ export interface EfficiencyVariant {
   e2eSec: number | null
   tps: number | null
   ttfatSec: number | null
+  /**
+   * Null when Epoch has no coding benchmark for this exact (model, effort). Optional here only because
+   * a response from before the contract carried it has no such key: that reads as null.
+   */
+  coding?: EfficiencyCoding | null
   superseded: boolean
   supersededBy: string | null
   iu: { id: string | null; listed: boolean; accessible: boolean; legs: string[] }

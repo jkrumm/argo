@@ -8,7 +8,13 @@
  * as a real one (five slots, one with no benchmark row). It is dense on purpose, with the routed
  * variants close together, so the label and frontier logic is stressed.
  */
-import type { EfficiencyResponse, EfficiencyVariant, Effort, EfficiencyRoute } from '../api/types'
+import type {
+  CodingComponent,
+  EfficiencyResponse,
+  EfficiencyRoute,
+  EfficiencyVariant,
+  Effort,
+} from '../api/types'
 
 /** mulberry32: a small deterministic PRNG, so the fixture is the same on every run. */
 function prng(seed: number): () => number {
@@ -543,9 +549,85 @@ const rand = prng(20261106)
 const withoutSpeed = (variant: EfficiencyVariant): EfficiencyVariant =>
   variant.slug === 'filler-03-high' ? { ...variant, tps: null, timePerTaskEstSec: null } : variant
 
-const variants = [...LINEAGES, ...fillerLineages()]
-  .flatMap((spec) => variantsOf(spec, rand))
-  .map(withoutSpeed)
+/** FNV-1a: a stable seed per slug, so the coding data never shifts the general numbers above. */
+const seedOf = (slug: string): number => {
+  let hash = 2166136261
+  for (const char of slug) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+  return hash >>> 0
+}
+
+/** Routed variants that always carry coding data, and the one routed variant that never does (a hollow dot). */
+const CODED = new Set([
+  'claude-marlow-4-high',
+  'claude-ember-4-2-medium',
+  'gpt-9-1-vega-medium',
+  'claude-quill-4-high',
+])
+const UNCODED = new Set(['gemini-prism-5'])
+
+const plain = (benchmark: string, score: number): CodingComponent => ({
+  benchmark,
+  score,
+  costPerTask: null,
+  tokensPerTask: null,
+})
+
+/** The invented benchmark results of one variant, or null: ~20% have none, ~10% only one benchmark. */
+function benchmarksOf(variant: EfficiencyVariant): CodingComponent[] | null {
+  const r = prng(seedOf(variant.slug))
+  const u = UNCODED.has(variant.slug) ? 0 : CODED.has(variant.slug) ? 1 : r()
+  if (u < 0.2) return null
+  const strength = Math.min(0.97, Math.max(0.03, variant.intelligence / 75 + (r() - 0.5) * 0.3))
+  const cursor: CodingComponent = {
+    benchmark: 'cursorbench',
+    score: round(strength * 0.75, 3),
+    costPerTask: round((variant.costPerTask ?? 0) * 0.5, 4),
+    tokensPerTask: Math.round((variant.tokensPerTaskEst ?? 0) * 0.4),
+  }
+  if (u < 0.3) return [cursor]
+  const sci = plain('scicode', round(strength * 0.6 + (r() - 0.5) * 0.06, 3))
+  if (u < 0.65) return [cursor, sci]
+  return [
+    cursor,
+    sci,
+    plain('webdev_arena', Math.round(900 + strength * 700 + (r() - 0.5) * 80)),
+    plain('swe_bench_verified', round(strength * 0.9 + (r() - 0.5) * 0.08, 3)),
+  ]
+}
+
+/**
+ * Attaches `coding` the way the contract defines it: `score` is the mean over a variant's benchmarks of
+ * its mid-rank percentile among the variants that have that benchmark (a benchmark only one variant has
+ * counts for nothing), null with fewer than two contributing benchmarks.
+ */
+function withCoding(all: EfficiencyVariant[]): EfficiencyVariant[] {
+  const results = new Map(all.map((v) => [v.slug, benchmarksOf(v)]))
+  const byBenchmark = new Map<string, number[]>()
+  for (const components of results.values()) {
+    for (const c of components ?? []) {
+      byBenchmark.set(c.benchmark, [...(byBenchmark.get(c.benchmark) ?? []), c.score])
+    }
+  }
+  const percentile = (benchmark: string, score: number): number | null => {
+    const all = byBenchmark.get(benchmark) ?? []
+    if (all.length < 2) return null
+    const below = all.filter((s) => s < score).length
+    const equal = all.filter((s) => s === score).length
+    return ((below + equal / 2) / all.length) * 100
+  }
+  return all.map((variant) => {
+    const components = results.get(variant.slug) ?? null
+    if (components === null) return { ...variant, coding: null }
+    const ranks = components.flatMap((c) => percentile(c.benchmark, c.score) ?? [])
+    const score =
+      ranks.length < 2 ? null : round(ranks.reduce((a, b) => a + b, 0) / ranks.length, 1)
+    return { ...variant, coding: { score, components } }
+  })
+}
+
+const variants = withCoding(
+  [...LINEAGES, ...fillerLineages()].flatMap((spec) => variantsOf(spec, rand)).map(withoutSpeed),
+)
 
 // Five slots, as a real route table has: two Anthropic-like on a quota (one with no benchmark row at
 // its effort), one metered OpenAI-like, one metered Google-like with no effort set.

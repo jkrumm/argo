@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { EfficiencyRoute, EfficiencyVariant } from './api/types'
 import { EFFICIENCY_FIXTURE } from './__fixtures__/efficiency'
-import { efficiencyIndexes, lineageNames } from './model'
+import { efficiencyIndexes, lineageNames, yScores } from './model'
 import { slotRows, slotSummary } from './slot-rows'
 
 const fixture = EFFICIENCY_FIXTURE.variants
@@ -204,5 +204,60 @@ describe('slotSummary', () => {
 
   it('is empty without slots', () => {
     expect(slotSummary([])).toBe('')
+  })
+})
+
+const coded = (v: EfficiencyVariant, score: number | null): EfficiencyVariant => ({
+  ...v,
+  coding: { score, components: [] },
+})
+
+describe('slots on the active y score', () => {
+  // marlow is smarter than lean on intelligence but worse at coding.
+  const pool = [
+    coded(make('claude-own', 'Anthropic', 40, 4), 50),
+    coded(make('claude-smart', 'Anthropic', 55, 1), 20),
+    coded(make('claude-coder', 'Anthropic', 38, 1), 90),
+    make('claude-plain', 'Anthropic', 60, 0.5),
+  ]
+  const idx = efficiencyIndexes(pool)
+  const slot = [route('claude-own', 'high', 'claude-own', 'subscription')]
+  const rows = (metric: 'general' | 'coding' | 'combined') =>
+    slotRows(slot, pool, idx, (l) => l, yScores(pool, metric))
+
+  it('General compares intelligence', () => {
+    const [row] = rows('general')
+    expect(row?.score?.value).toBe(40)
+    expect(row?.onMax.kind === 'better' && row.onMax.by.slug).toBe('claude-plain')
+  })
+
+  it('Coding compares the coding score', () => {
+    const [row] = rows('coding')
+    expect(row?.score?.value).toBe(50)
+    expect(row?.onMax.kind === 'better' && row.onMax.by.slug).toBe('claude-coder')
+  })
+
+  it('a slot whose variant has no coding score compares nothing on Coding', () => {
+    const [row] = slotRows(
+      [route('claude-plain', 'high', 'claude-plain', 'subscription')],
+      pool,
+      idx,
+      (l) => l,
+      yScores(pool, 'coding'),
+    )
+    expect(row?.score).toBeNull()
+    expect(row?.onMax.kind).toBe('na')
+    expect(row?.anywhere.kind).toBe('na')
+  })
+
+  it('Combined keeps that slot, flagged as ranked on intelligence', () => {
+    const [row] = slotRows(
+      [route('claude-plain', 'high', 'claude-plain', 'subscription')],
+      pool,
+      idx,
+      (l) => l,
+      yScores(pool, 'combined'),
+    )
+    expect(row?.score?.fallback).toBe(true)
   })
 })

@@ -1,6 +1,7 @@
 /**
- * The one scatter of the models page: intelligence (y) against a log axis of the efficiency index, cost,
- * tokens or time per task, switched by the toggle in the card's actions. Composed on `CartesianChart`
+ * The one scatter of the models page: a y score (Combined, General intelligence or Coding, by the first
+ * toggle in the card's actions) against a log axis of the efficiency index, cost, tokens or time per task
+ * (the second). A Combined variant with no coding score is a hollow dot. Composed on `CartesianChart`
  * because no shipped kind draws a scatter.
  *
  * A thin line joins each lineage's
@@ -36,9 +37,12 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { MODEL_CREATOR } from '../../lib/series'
 import { modelsStore } from '../../lib/window-stores'
 import type { EfficiencyResponse } from './api/types'
+import { EPOCH_ATTRIBUTION, EPOCH_URL, Y_NAME } from './copy'
 import {
   APPROX,
+  benchmarkName,
   EM_DASH,
+  fmtBenchmark,
   fmtIndex,
   fmtMinuteTick,
   fmtPrice,
@@ -53,12 +57,14 @@ import { captureRadius, nearestPoint, pointerInPlot, toPlotPixel } from './point
 import { dotRadius, labelPass, RING_GAP } from './scatter-labels'
 import {
   attractiveQuadrant,
+  codingScore,
   creatorKey,
   ladders,
   paretoFrontier,
   type Axis,
   type RouteUse,
   type ScatterPoint,
+  type YMetric,
 } from './model'
 import { useField } from '../../lib/use-field'
 
@@ -99,6 +105,8 @@ const VENDOR_LABEL: Record<Vendor, string> = {
 
 export interface EfficiencyScatterProps {
   axis: Axis
+  /** The y score the dots are placed on. */
+  y: YMetric
   title: string
   subtitle: string
   info: string
@@ -109,6 +117,8 @@ export interface EfficiencyScatterProps {
   missing: number
   /** What the missing ones lack ("speed measure"), for the footnote. */
   lacks: string
+  /** Variants with no score on the y metric (Coding only): not drawn, counted in the footnote. */
+  unscored: number
   yDomain: readonly [number, number]
   use: ReadonlyMap<string, RouteUse>
   /** A lineage's short chart-label name (the same rule for every lineage). */
@@ -127,13 +137,15 @@ const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' 
 /** The dots of one look are one mark: `dot` takes a single fill. */
 interface DotGroup {
   color: string
+  /** A Combined variant with no coding score: ringed, not filled. */
+  hollow: boolean
   fillOpacity: number
   r: number
   points: ScatterPoint[]
 }
 
 export function EfficiencyScatter(props: EfficiencyScatterProps) {
-  const { axis, points, free, missing, lacks, source, state, height, display } = props
+  const { axis, y, points, free, missing, lacks, unscored, source, state, height, display } = props
   const compact = useSizeClass() === 'compact'
   const [pick, setPick] = useField(modelsStore.field.pick)
   const resting = !state.pending && !state.error && !state.empty && points.length > 0
@@ -159,6 +171,7 @@ export function EfficiencyScatter(props: EfficiencyScatterProps) {
               {display(pick)}
             </Button>
           )}
+          <ViewTabs field={modelsStore.field.y} label="Chart score" />
           <ViewTabs field={modelsStore.field.metric} label="Chart measure" />
         </Group>
       }
@@ -166,7 +179,16 @@ export function EfficiencyScatter(props: EfficiencyScatterProps) {
       {resting ? (
         <>
           <Scatter {...props} compact={compact} />
-          <Footnote source={source} free={free} missing={missing} lacks={lacks} axis={axis} />
+          <Footnote
+            source={source}
+            free={free}
+            missing={missing}
+            lacks={lacks}
+            axis={axis}
+            y={y}
+            unscored={unscored}
+            hollow={points.filter((p) => p.fallback).length}
+          />
         </>
       ) : null}
     </ChartCard>
@@ -179,12 +201,18 @@ function Footnote({
   missing,
   lacks,
   axis,
+  y,
+  unscored,
+  hollow,
 }: {
   source: EfficiencyResponse['source'] | null
   free: number
   missing: number
   lacks: string
   axis: Axis
+  y: YMetric
+  unscored: number
+  hollow: number
 }) {
   return (
     <Box pt="xs">
@@ -200,6 +228,20 @@ function Footnote({
         {missing > 0
           ? ` · ${plural(missing, 'variant')} not shown: ${missing === 1 ? 'it has' : 'they have'} no ${lacks}`
           : null}
+        {unscored > 0
+          ? ` · ${plural(unscored, 'variant')} not shown: ${unscored === 1 ? 'it has' : 'they have'} no coding score`
+          : null}
+        {hollow > 0
+          ? ` · ${plural(hollow, 'hollow dot')}: no coding score, placed by intelligence rank alone`
+          : null}
+        {y === 'general' ? null : (
+          <>
+            {' · '}
+            <Anchor href={EPOCH_URL} target="_blank" rel="noopener noreferrer" inherit>
+              {EPOCH_ATTRIBUTION}
+            </Anchor>
+          </>
+        )}
       </Text>
     </Box>
   )
@@ -207,6 +249,7 @@ function Footnote({
 
 function Scatter({
   axis,
+  y: yMetric,
   points,
   yDomain,
   use,
@@ -253,7 +296,7 @@ function Scatter({
   const series: ChartSeries<ScatterPoint>[] = [
     {
       key: 'intelligence',
-      label: 'Intelligence index',
+      label: Y_NAME[yMetric],
       color: VX.ink2,
       getValue: (p) => p.y,
       formatValue: (v) => v.toFixed(1),
@@ -400,8 +443,9 @@ function Scatter({
       const color = VENDOR_COLOR[vendor]
       const fillOpacity = dimmed(p) ? DIM_OPACITY : vendor === 'other' ? 0.6 : 0.92
       const r = radius(p)
-      const key = `${vendor}|${fillOpacity}|${r}`
-      const group = groups.get(key) ?? { color, fillOpacity, r, points: [] }
+      const hollow = p.fallback
+      const key = `${vendor}|${fillOpacity}|${r}|${hollow}`
+      const group = groups.get(key) ?? { color, hollow, fillOpacity, r, points: [] }
       group.points.push(p)
       groups.set(key, group)
     }
@@ -415,9 +459,9 @@ function Scatter({
           y: (p) => p.y,
           r: group.r,
           fill: group.color,
-          fillOpacity: group.fillOpacity,
-          stroke: VX.dotStroke,
-          strokeWidth: 1,
+          fillOpacity: group.hollow ? 0 : group.fillOpacity,
+          stroke: group.hollow ? group.color : VX.dotStroke,
+          strokeWidth: group.hollow ? 1.6 : 1,
         }),
       )
     }
@@ -523,6 +567,32 @@ function Scatter({
     return out
   }
 
+  /** What sits behind the y score: the other score, and for Coding the benchmarks it is made of. */
+  const scoreRows = (p: ScatterPoint): ChartTooltipRow[] => {
+    if (yMetric === 'general') return []
+    const v = p.variant
+    const coding = codingScore(v)
+    const intelligence = { label: 'Intelligence', value: v.intelligence.toFixed(1) }
+    if (yMetric === 'combined') {
+      return [
+        intelligence,
+        {
+          label: 'Coding score',
+          value: coding === null ? 'none: rank by intelligence' : coding.toFixed(1),
+        },
+      ]
+    }
+    const components = v.coding?.components ?? []
+    return [
+      intelligence,
+      ...components.map((c) => ({
+        label: benchmarkName(c.benchmark),
+        value: fmtBenchmark(c.score),
+      })),
+      { label: 'Source', value: 'Epoch AI · CC-BY 4.0' },
+    ]
+  }
+
   const tooltipRows = (p: ScatterPoint): readonly ChartTooltipRow[] => {
     const v = p.variant
     const routes = use.get(v.slug)
@@ -536,6 +606,7 @@ function Scatter({
             },
           ]
     const core: ChartTooltipRow[] = [
+      ...scoreRows(p),
       { label: 'Efficiency index', value: p.index === null ? EM_DASH : fmtIndex(p.index) },
       { label: 'Cost / task', value: v.costPerTask === null ? EM_DASH : fmtUsd(v.costPerTask) },
       { label: 'Tokens / task', value: fmtTokens(v.tokensPerTaskEst) },
@@ -652,7 +723,7 @@ function Scatter({
       }}
     >
       <CartesianChart<ScatterPoint, number>
-        ariaLabel={`${ariaLabelOf(axis)}, one dot per model and reasoning effort`}
+        ariaLabel={`${ariaLabelOf(axis, yMetric)}, one dot per model and reasoning effort`}
         data={points}
         height={height}
         x={(p) => p.lx}
@@ -669,6 +740,7 @@ function Scatter({
         <PointTip
           point={tipPoint}
           title={`${display(tipPoint.variant.lineage)}${effortWord(tipPoint.variant.effort)}`}
+          yLabel={Y_NAME[yMetric]}
           tip={tip}
           rows={tooltipRows(tipPoint)}
           compact={compact}
@@ -705,17 +777,19 @@ const routeIds = (ids: readonly string[]): string =>
 function PointTip({
   point,
   title,
+  yLabel,
   tip,
   rows,
   compact,
 }: {
   point: ScatterPoint
   title: string
+  /** The active y score's name. */
+  yLabel: string
   tip: TipAt
   rows: readonly ChartTooltipRow[]
   compact: boolean
 }) {
-  const v = point.variant
   const body = (
     <Stack gap={2}>
       <Text size="sm" fw={600}>
@@ -723,9 +797,12 @@ function PointTip({
       </Text>
       <Group justify="space-between" gap="xs" wrap="nowrap">
         <Text size="xs" c="dimmed">
-          Intelligence
+          {yLabel}
         </Text>
-        <Text size="xs">{v.intelligence.toFixed(1)}</Text>
+        <Text size="xs">
+          {point.y.toFixed(1)}
+          {point.fallback ? ' · rank by intelligence' : ''}
+        </Text>
       </Group>
       {rows.map((row) => (
         <Group key={row.label} justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
@@ -775,16 +852,17 @@ function PointTip({
   )
 }
 
-function ariaLabelOf(axis: Axis): string {
+function ariaLabelOf(axis: Axis, y: YMetric): string {
+  const name = y === 'general' ? 'Intelligence index' : Y_NAME[y]
   switch (axis) {
     case 'index':
-      return 'Intelligence index against efficiency index'
+      return `${name} against efficiency index`
     case 'cost':
-      return 'Intelligence index against cost per task'
+      return `${name} against cost per task`
     case 'tokens':
-      return `Intelligence index against ${APPROX} tokens per task`
+      return `${name} against ${APPROX} tokens per task`
     case 'time':
-      return `Intelligence index against ${APPROX} time per task`
+      return `${name} against ${APPROX} time per task`
   }
 }
 
