@@ -42,10 +42,8 @@ The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents.
 
 ```bash
 # One-time, in the vps repo:
-cd ~/SourceRoot/vps
-make up                                       # Postgres :5432, ClickStack :4318
-make postgres-setup                           # provisions the argo role + schema (idempotent)
-cd -
+make -C ~/SourceRoot/vps up                   # Postgres :5432, ClickStack :4318
+make -C ~/SourceRoot/vps postgres-setup       # provisions the argo role + schema (idempotent)
 
 # In argo:
 bun install
