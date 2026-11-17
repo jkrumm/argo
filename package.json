@@ -38,7 +38,11 @@
     "typescript": "^7.0.2"
   },
   "overrides": {
-    "maplibre-gl": "6.10.0"
+    "maplibre-gl": "6.10.0",
+    "solid-js": "^1.9.19",
+    "ws": "^8.22.0",
+    "js-yaml": "^4.3.2",
+    "protobufjs": "^7.6.5"
   },
   "basalt": {
     "roots": [
