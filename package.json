@@ -42,7 +42,9 @@
     "solid-js": "^1.9.19",
     "ws": "^8.22.0",
     "js-yaml": "^4.3.2",
-    "protobufjs": "^7.6.5"
+    "protobufjs": "^7.6.5",
+    "@opentelemetry/sdk-node": "^0.222.0",
+    "@opentelemetry/instrumentation": "^0.222.0"
   },
   "basalt": {
     "roots": [
