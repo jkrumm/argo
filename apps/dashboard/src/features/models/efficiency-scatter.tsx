@@ -37,7 +37,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { MODEL_CREATOR } from '../../lib/series'
 import { modelsStore } from '../../lib/window-stores'
 import type { EfficiencyResponse } from './api/types'
-import { EPOCH_ATTRIBUTION, EPOCH_URL, Y_NAME } from './copy'
+import { EPOCH_ATTRIBUTION, EPOCH_SHORT, EPOCH_URL, Y_NAME } from './copy'
 import {
   APPROX,
   benchmarkName,
@@ -589,7 +589,7 @@ function Scatter({
         label: benchmarkName(c.benchmark),
         value: fmtBenchmark(c.score),
       })),
-      { label: 'Source', value: 'Epoch AI · CC-BY 4.0' },
+      { label: 'Source', value: EPOCH_SHORT },
     ]
   }
 
