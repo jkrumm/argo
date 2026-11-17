@@ -49,6 +49,27 @@ export function fmtTokenTick(tokens: number): string {
   return fmtTokens(tokens, false)
 }
 
+const BENCHMARK_NAMES: Record<string, string> = {
+  cursorbench: 'CursorBench',
+  swe_bench_verified: 'SWE-bench Verified',
+  terminalbench: 'Terminal-Bench',
+  frontierswe: 'FrontierSWE',
+  frontiercode: 'FrontierCode',
+  scicode: 'SciCode',
+  aider_polyglot: 'Aider Polyglot',
+  webdev_arena: 'WebDev Arena',
+}
+
+/** A coding benchmark's name: `swe_bench_verified` is `SWE-bench Verified`; an unknown id reads as itself. */
+export const benchmarkName = (benchmark: string): string => BENCHMARK_NAMES[benchmark] ?? benchmark
+
+/**
+ * A benchmark score on its own scale: a share (0–1) as a percentage, anything above as a rounded
+ * number (WebDev Arena is Elo-like).
+ */
+export const fmtBenchmark = (score: number): string =>
+  score <= 1 ? `${Number((score * 100).toFixed(1))}%` : String(Math.round(score))
+
 /** `+8.3 pts` / `-1.2 pts`. */
 export const fmtPoints = (delta: number): string =>
   `${delta >= 0 ? '+' : '-'}${Math.abs(delta).toFixed(1)}${NBSP}pts`

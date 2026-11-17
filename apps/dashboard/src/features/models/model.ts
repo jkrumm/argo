@@ -178,6 +178,93 @@ export function efficiencyIndexes(variants: readonly EfficiencyVariant[]): Map<s
   return indexes
 }
 
+// ── y score ─────────────────────────────────────────────────────────────────
+
+export const Y_METRICS = ['combined', 'general', 'coding'] as const
+export type YMetric = (typeof Y_METRICS)[number]
+
+/**
+ * How the Combined y blends its two percentile ranks. General is the rank of the AA intelligence index,
+ * Coding the rank of Epoch's coding score, each among every variant of the response that has it.
+ */
+export const Y_WEIGHTS = { general: 0.5, coding: 0.5 } as const
+
+export interface YScore {
+  /** Intelligence for General; a 0-100 score for Coding and Combined. */
+  value: number
+  /** Combined only: no coding score, so `value` is the General rank alone. */
+  fallback: boolean
+}
+
+/** Variant slug → its score on the active metric; a variant the metric cannot score has no entry. */
+export type YScores = ReadonlyMap<string, YScore>
+
+/** The coding score of a variant, or null: no Epoch row, a response from before the contract, or fewer than 2 benchmarks. */
+export const codingScore = (variant: EfficiencyVariant): number | null =>
+  variant.coding?.score ?? null
+
+/**
+ * Mid-rank percentile (0-100) of every entry among all of them: `(below + equal / 2) / n * 100`, equal
+ * counting the entry itself, the same rank modelpick uses for the coding score.
+ */
+export function percentileRanks(
+  entries: readonly { slug: string; value: number }[],
+): Map<string, number> {
+  const ranks = new Map<string, number>()
+  for (const entry of entries) {
+    let below = 0
+    let equal = 0
+    for (const other of entries) {
+      if (other.value < entry.value) below += 1
+      else if (other.value === entry.value) equal += 1
+    }
+    ranks.set(entry.slug, ((below + equal / 2) / entries.length) * 100)
+  }
+  return ranks
+}
+
+/**
+ * The y score of every variant on the active metric. Hand it the whole response, never the filtered set,
+ * so a filter cannot move a rank. General is the raw intelligence (every variant has one). Coding is the
+ * coding score, absent for a variant without one. Combined is the Y_WEIGHTS mean of the two percentile
+ * ranks; a variant with no coding score falls back to its General rank alone, flagged, never dropped and
+ * never scored as zero.
+ */
+export function yScores(
+  variants: readonly EfficiencyVariant[],
+  metric: YMetric,
+): Map<string, YScore> {
+  const scores = new Map<string, YScore>()
+  if (metric === 'general') {
+    for (const v of variants) scores.set(v.slug, { value: v.intelligence, fallback: false })
+    return scores
+  }
+  if (metric === 'coding') {
+    for (const v of variants) {
+      const coding = codingScore(v)
+      if (coding !== null) scores.set(v.slug, { value: coding, fallback: false })
+    }
+    return scores
+  }
+  const general = percentileRanks(variants.map((v) => ({ slug: v.slug, value: v.intelligence })))
+  const coded = variants.flatMap((v) => {
+    const value = codingScore(v)
+    return value === null ? [] : [{ slug: v.slug, value }]
+  })
+  const coding = percentileRanks(coded)
+  for (const v of variants) {
+    const rank = general.get(v.slug) ?? 0
+    const codingRank = coding.get(v.slug)
+    scores.set(
+      v.slug,
+      codingRank === undefined
+        ? { value: rank, fallback: true }
+        : { value: Y_WEIGHTS.general * rank + Y_WEIGHTS.coding * codingRank, fallback: false },
+    )
+  }
+  return scores
+}
+
 // ── chart points ────────────────────────────────────────────────────────────
 
 export type Axis = 'index' | 'cost' | 'tokens' | 'time'
@@ -207,8 +294,10 @@ export interface ScatterPoint {
   x: number
   /** `log10(x)`: the chart's linear x. */
   lx: number
-  /** Intelligence. */
+  /** The active y score: intelligence for General, 0-100 for Coding and Combined. */
   y: number
+  /** Combined only: the variant has no coding score, so `y` is its General rank alone. */
+  fallback: boolean
   /** The efficiency index, null when the variant misses a measure. */
   index: number | null
 }
@@ -217,11 +306,19 @@ export function scatterPoints(
   variants: readonly EfficiencyVariant[],
   axis: Axis,
   indexes: ReadonlyMap<string, number>,
-): { points: ScatterPoint[]; free: number; missing: number } {
+  /** The active y; omitted is General (the raw intelligence). */
+  ys: YScores = yScores(variants, 'general'),
+): { points: ScatterPoint[]; free: number; missing: number; unscored: number } {
   const points: ScatterPoint[] = []
   let free = 0
   let missing = 0
+  let unscored = 0
   for (const variant of variants) {
+    const score = ys.get(variant.slug)
+    if (score === undefined) {
+      unscored += 1
+      continue
+    }
     const x = axisValue(variant, axis, indexes)
     if (x === null) {
       if (variant.costPerTask === 0) free += 1
@@ -232,11 +329,12 @@ export function scatterPoints(
       variant,
       x,
       lx: Math.log10(x),
-      y: variant.intelligence,
+      y: score.value,
+      fallback: score.fallback,
       index: indexes.get(variant.slug) ?? null,
     })
   }
-  return { points, free, missing }
+  return { points, free, missing, unscored }
 }
 
 export interface Ladder {
@@ -285,13 +383,30 @@ export function attractiveQuadrant(
   return { xBelow: median(points.map((p) => p.x)), yAbove: median(points.map((p) => p.y)) }
 }
 
-/** The y domain every chart shares: the visible intelligence range, padded and snapped to 5. */
-export function intelligenceDomain(variants: readonly EfficiencyVariant[]): [number, number] {
-  if (variants.length === 0) return [0, 60]
-  const values = variants.map((v) => v.intelligence)
+/** The visible range of `values`, padded and snapped to 5. */
+function paddedDomain(values: readonly number[]): [number, number] {
+  if (values.length === 0) return [0, 60]
   const low = Math.floor((Math.min(...values) - 2) / 5) * 5
   const high = Math.ceil((Math.max(...values) + 2) / 5) * 5
   return [Math.max(0, low), high]
+}
+
+/** The General y domain: the visible intelligence range, padded and snapped to 5. */
+export const intelligenceDomain = (variants: readonly EfficiencyVariant[]): [number, number] =>
+  paddedDomain(variants.map((v) => v.intelligence))
+
+/**
+ * The y domain of the active metric over the variants shown. General is the intelligence range; Coding
+ * and Combined are 0-100 scores, so the top is capped at 100.
+ */
+export function yDomain(
+  variants: readonly EfficiencyVariant[],
+  ys: YScores,
+  metric: YMetric,
+): [number, number] {
+  if (metric === 'general') return intelligenceDomain(variants)
+  const [low, high] = paddedDomain(variants.flatMap((v) => ys.get(v.slug)?.value ?? []))
+  return [low, Math.min(100, high)]
 }
 
 // ── slots ───────────────────────────────────────────────────────────────────
@@ -367,26 +482,33 @@ export interface Alternative {
   indexRatio: number
 }
 
-/** The leanest variant in `pool` at equal or better intelligence, if it saves enough to matter. */
+/**
+ * The leanest variant in `pool` at equal or better score on the active y, if it saves enough to matter.
+ * `ys` omitted is General (intelligence). A variant with no score on the metric has no alternative, and
+ * a candidate with none is not one.
+ */
 export function leanestAlternative(
   variant: EfficiencyVariant,
   pool: readonly EfficiencyVariant[],
   indexes: ReadonlyMap<string, number>,
+  ys: YScores = yScores([variant, ...pool], 'general'),
 ): Alternative | null {
   const own = indexes.get(variant.slug)
-  if (own === undefined) return null
-  let best: { by: EfficiencyVariant; index: number } | null = null
+  const ownScore = ys.get(variant.slug)
+  if (own === undefined || ownScore === undefined) return null
+  let best: { by: EfficiencyVariant; index: number; score: number } | null = null
   for (const candidate of pool) {
     if (candidate.slug === variant.slug || candidate.superseded) continue
-    if (candidate.intelligence < variant.intelligence) continue
+    const score = ys.get(candidate.slug)
+    if (score === undefined || score.value < ownScore.value) continue
     const index = indexes.get(candidate.slug)
     if (index === undefined) continue
-    if (best === null || index < best.index) best = { by: candidate, index }
+    if (best === null || index < best.index) best = { by: candidate, index, score: score.value }
   }
   if (best === null || best.index > MIN_SAVING * own) return null
   return {
     by: best.by,
-    points: best.by.intelligence - variant.intelligence,
+    points: best.score - ownScore.value,
     indexRatio: best.index / own,
   }
 }

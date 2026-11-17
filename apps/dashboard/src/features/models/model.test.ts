@@ -15,11 +15,16 @@ import {
   lineageOfModel,
   MIN_SAVING,
   paretoFrontier,
+  percentileRanks,
   routeUse,
   routedSlugs,
   scatterPoints,
   variantLabel,
   visibleVariants,
+  Y_METRICS,
+  Y_WEIGHTS,
+  yDomain,
+  yScores,
   type ModelFilters,
 } from './model'
 
@@ -385,5 +390,210 @@ describe('names', () => {
     expect(lineageOfModel('gpt-9.1-vega', EFFICIENCY_FIXTURE.variants)).toBe('gpt-9-1-vega')
     expect(lineageOfModel('claude-marlow-4', EFFICIENCY_FIXTURE.variants)).toBe('claude-marlow-4')
     expect(lineageOfModel('no-such-model', EFFICIENCY_FIXTURE.variants)).toBeNull()
+  })
+})
+
+// ── the y score: General, Coding, Combined ──────────────────────────────────
+
+/** A variant with a coding score (null: Epoch measured it but fewer than two benchmarks counted). */
+const withCoding = (v: EfficiencyVariant, score: number | null): EfficiencyVariant => ({
+  ...v,
+  coding: {
+    score,
+    components: [{ benchmark: 'cursorbench', score: 0.4, costPerTask: null, tokensPerTask: null }],
+  },
+})
+
+describe('percentileRanks', () => {
+  it('is the mid-rank percentile, ties counting the entry itself', () => {
+    const ranks = percentileRanks([
+      { slug: 'a', value: 1 },
+      { slug: 'b', value: 2 },
+      { slug: 'c', value: 2 },
+      { slug: 'd', value: 3 },
+    ])
+    // below 0, equal 1 (itself): 12.5; b and c: (1 + 2 / 2) / 4; d: (3 + 1 / 2) / 4
+    expect(ranks.get('a')).toBeCloseTo(12.5, 10)
+    expect(ranks.get('b')).toBeCloseTo(50, 10)
+    expect(ranks.get('c')).toBeCloseTo(50, 10)
+    expect(ranks.get('d')).toBeCloseTo(87.5, 10)
+  })
+})
+
+describe('yScores', () => {
+  const lo = variant('lo', 'lo', 'high', 10, 1)
+  const mid = variant('mid', 'mid', 'high', 20, 1)
+  const hi = variant('hi', 'hi', 'high', 30, 1)
+  const field = [withCoding(lo, 90), withCoding(mid, 10), hi]
+
+  it('General is the raw intelligence of every variant', () => {
+    const ys = yScores(field, 'general')
+    expect([...ys].map(([slug, s]) => [slug, s.value, s.fallback])).toEqual([
+      ['lo', 10, false],
+      ['mid', 20, false],
+      ['hi', 30, false],
+    ])
+  })
+
+  it('Coding is the coding score, and has no entry for a variant without one', () => {
+    const ys = yScores(
+      [...field, withCoding(variant('thin', 'thin', 'high', 5, 1), null)],
+      'coding',
+    )
+    expect(ys.get('lo')?.value).toBe(90)
+    expect(ys.get('mid')?.value).toBe(10)
+    expect(ys.has('hi')).toBe(false)
+    expect(ys.has('thin')).toBe(false)
+  })
+
+  it('Combined is the weighted mean of the two percentile ranks', () => {
+    expect(Y_WEIGHTS.general + Y_WEIGHTS.coding).toBe(1)
+    const ys = yScores(field, 'combined')
+    // intelligence ranks over all three: 1/6, 3/6, 5/6; coding ranks over the two scored: 3/4, 1/4.
+    const general = (1 / 6) * 100
+    expect(ys.get('lo')?.value).toBeCloseTo(Y_WEIGHTS.general * general + Y_WEIGHTS.coding * 75, 10)
+    expect(ys.get('lo')?.fallback).toBe(false)
+    expect(ys.get('mid')?.value).toBeCloseTo(Y_WEIGHTS.general * 50 + Y_WEIGHTS.coding * 25, 10)
+  })
+
+  it('Combined falls back to the General rank for a variant without a coding score: kept, flagged, not zero', () => {
+    const ys = yScores(
+      [...field, withCoding(variant('thin', 'thin', 'high', 25, 1), null)],
+      'combined',
+    )
+    for (const slug of ['hi', 'thin']) {
+      expect(ys.get(slug)?.fallback).toBe(true)
+      expect(ys.get(slug)?.value).toBeGreaterThan(0)
+    }
+    // hi is first by intelligence among four: (3 + 1 / 2) / 4
+    expect(ys.get('hi')?.value).toBeCloseTo(87.5, 10)
+    expect(ys.get('lo')?.fallback).toBe(false)
+  })
+
+  it('reads a variant of an older contract (no coding key) as having none', () => {
+    const old = variant('old', 'old', 'high', 15, 1)
+    expect('coding' in old).toBe(false)
+    expect(yScores([old], 'coding').size).toBe(0)
+    expect(yScores([old, hi], 'combined').get('old')?.fallback).toBe(true)
+    expect(yScores([old], 'general').get('old')?.value).toBe(15)
+  })
+
+  it('covers every metric', () => {
+    expect(Y_METRICS).toEqual(['combined', 'general', 'coding'])
+  })
+})
+
+describe('scatterPoints on a y score', () => {
+  const a = variant('a', 'A', 'high', 10, 0.1)
+  const b = withCoding(variant('b', 'B', 'high', 20, 0.2), 70)
+  const c = withCoding(variant('c', 'C', 'high', 30, 0.3), 40)
+  const field = [a, b, c]
+
+  it('defaults to General and draws the intelligence, so a General chart is unchanged', () => {
+    const { points, unscored } = scatterPoints(field, 'cost', NO_INDEX)
+    expect(points.map((p) => p.y)).toEqual([10, 20, 30])
+    expect(points.every((p) => !p.fallback)).toBe(true)
+    expect(unscored).toBe(0)
+  })
+
+  it('Coding puts a point at the coding score and counts a variant without one apart', () => {
+    const { points, unscored, missing } = scatterPoints(
+      field,
+      'cost',
+      NO_INDEX,
+      yScores(field, 'coding'),
+    )
+    expect(points.map((p) => [p.variant.slug, p.y])).toEqual([
+      ['b', 70],
+      ['c', 40],
+    ])
+    expect(unscored).toBe(1)
+    expect(missing).toBe(0)
+  })
+
+  it('Combined keeps the variant without coding and marks it', () => {
+    const { points } = scatterPoints(field, 'cost', NO_INDEX, yScores(field, 'combined'))
+    expect(points.map((p) => [p.variant.slug, p.fallback])).toEqual([
+      ['a', true],
+      ['b', false],
+      ['c', false],
+    ])
+  })
+})
+
+describe('yDomain', () => {
+  const a = variant('a', 'A', 'high', 10, 1)
+  const b = withCoding(variant('b', 'B', 'high', 20, 1), 71)
+  const c = withCoding(variant('c', 'C', 'high', 30, 1), 96)
+  const field = [a, b, c]
+
+  it('General is the intelligence domain, as before', () => {
+    expect(yDomain(field, yScores(field, 'general'), 'general')).toEqual(intelligenceDomain(field))
+    expect(yDomain(field, yScores(field, 'general'), 'general')).toEqual([5, 35])
+  })
+
+  it('Coding follows the coding scores of the variants that have one, capped at 100', () => {
+    expect(yDomain(field, yScores(field, 'coding'), 'coding')).toEqual([65, 100])
+    expect(yDomain([a, b], yScores(field, 'coding'), 'coding')).toEqual([65, 75])
+  })
+
+  it('Combined follows the blended ranks', () => {
+    const [low, high] = yDomain(field, yScores(field, 'combined'), 'combined')
+    expect(low).toBeLessThan(40)
+    expect(high).toBeLessThanOrEqual(100)
+    expect(yDomain([], new Map(), 'combined')).toEqual([0, 60])
+  })
+})
+
+describe('leanestAlternative on a y score', () => {
+  // own is mid on intelligence, top on coding; 'smart' beats it on intelligence only, 'coder' on neither.
+  const own = withCoding(variant('own', 'own', 'high', 40, 1), 80)
+  const smart = withCoding(variant('smart', 'smart', 'high', 50, 1), 30)
+  const coder = withCoding(variant('coder', 'coder', 'high', 35, 1), 85)
+  const uncoded = variant('uncoded', 'uncoded', 'high', 60, 1)
+  const pool = [smart, coder, uncoded]
+  const index = new Map([
+    ['own', 1],
+    ['smart', 0.5],
+    ['coder', 0.4],
+    ['uncoded', 0.3],
+  ])
+  const on = (metric: 'general' | 'coding' | 'combined') =>
+    leanestAlternative(own, pool, index, yScores([own, ...pool], metric))
+
+  it('General compares intelligence', () => {
+    const found = on('general')
+    expect(found?.by.slug).toBe('uncoded')
+    expect(found?.points).toBe(20)
+  })
+
+  it('Coding compares the coding score and skips a candidate without one', () => {
+    const found = on('coding')
+    expect(found?.by.slug).toBe('coder')
+    expect(found?.points).toBe(5)
+  })
+
+  it('Combined compares the blended rank, a candidate without coding on its General rank', () => {
+    const found = on('combined')
+    expect(found).not.toBeNull()
+    expect(found?.points).toBeGreaterThanOrEqual(0)
+  })
+
+  it('is null for a variant with no score on the metric', () => {
+    expect(
+      leanestAlternative(
+        uncoded,
+        [own],
+        new Map([
+          ['uncoded', 1],
+          ['own', 0.1],
+        ]),
+        yScores([own, uncoded], 'coding'),
+      ),
+    ).toBeNull()
+  })
+
+  it('defaults to General (intelligence), as before', () => {
+    expect(leanestAlternative(own, pool, index)?.by.slug).toBe('uncoded')
   })
 })

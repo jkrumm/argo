@@ -1,6 +1,6 @@
 /**
- * The models page: where the owner decides which model to use for what. One big scatter of intelligence
- * against the efficiency index (or cost, time or tokens, by the toggle), "Your slots" with the leanest
+ * The models page: where the owner decides which model to use for what. One big scatter of a y score
+ * (combined, general intelligence or coding) against the efficiency index (or cost, time or tokens, by the toggle), "Your slots" with the leanest
  * alternative to each agw route, and the catalog of every effort of every current model as a data
  * table. Everything on screen is `model.ts`'s answer over `GET /api/models/efficiency`.
  */
@@ -16,17 +16,18 @@ import { modelsStore } from '../../lib/window-stores'
 import { modelsQueries } from './api/queries'
 import type { EfficiencyVariant } from './api/types'
 import { CatalogTable } from './catalog-table'
-import { METRIC_COPY } from './copy'
+import { chartCopy } from './copy'
 import { EfficiencyScatter } from './efficiency-scatter'
 import { asUtc, shortLineage } from './format'
 import {
   efficiencyIndexes,
-  intelligenceDomain,
   lineageNames,
   routeUse,
   scatterPoints,
   variantLabel,
   visibleVariants,
+  yDomain,
+  yScores,
 } from './model'
 import { slotRows, slotSummary } from './slot-rows'
 import { SlotsList } from './slots-list'
@@ -54,9 +55,11 @@ export function ModelsPage() {
 
   // Medians and recommendation pools use every variant: a filter never moves an index or a verdict.
   const indexes = efficiencyIndexes(variants)
-  const scatter = scatterPoints(visible, filters.metric, indexes)
-  const copy = METRIC_COPY[filters.metric]
-  const slots = slotRows(routes, variants, indexes, display)
+  // The y ranks are over every variant too, so a filter never moves a score.
+  const ys = yScores(variants, filters.y)
+  const scatter = scatterPoints(visible, filters.metric, indexes, ys)
+  const copy = chartCopy(filters.metric, filters.y)
+  const slots = slotRows(routes, variants, indexes, display, ys)
 
   const summary =
     data === undefined
@@ -109,14 +112,16 @@ export function ModelsPage() {
         )}
         <EfficiencyScatter
           axis={filters.metric}
+          y={filters.y}
           title={copy.title}
           subtitle={copy.subtitle}
           info={copy.info}
           lacks={copy.lacks}
+          unscored={scatter.unscored}
           points={scatter.points}
           free={scatter.free}
           missing={scatter.missing}
-          yDomain={intelligenceDomain(visible)}
+          yDomain={yDomain(visible, ys, filters.y)}
           use={use}
           names={(lineage) => shortLineage(display(lineage))}
           display={display}
@@ -131,7 +136,12 @@ export function ModelsPage() {
               : undefined,
           )}
         />
-        <SlotsList rows={slots} routesError={data?.routesError ?? null} names={variantName} />
+        <SlotsList
+          rows={slots}
+          y={filters.y}
+          routesError={data?.routesError ?? null}
+          names={variantName}
+        />
         <CatalogTable
           variants={visible}
           indexes={indexes}

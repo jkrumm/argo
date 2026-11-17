@@ -9,8 +9,18 @@ import { Callout } from 'basalt-ui/content'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { modelsStore } from '../../lib/window-stores'
 import type { EfficiencyVariant } from './api/types'
-import { SLOTS_INFO } from './copy'
-import { EM_DASH, fmtIndex, fmtPoints, fmtSeconds, fmtTokens, fmtUsd } from './format'
+import { EPOCH_ATTRIBUTION, SLOTS_INFO, Y_COLUMN, Y_NAME } from './copy'
+import {
+  benchmarkName,
+  EM_DASH,
+  fmtBenchmark,
+  fmtIndex,
+  fmtPoints,
+  fmtSeconds,
+  fmtTokens,
+  fmtUsd,
+} from './format'
+import type { YMetric } from './model'
 import type { Option, SlotRow } from './slot-rows'
 import { useField } from '../../lib/use-field'
 
@@ -89,12 +99,42 @@ function OptionText({
 
 const indexText = (row: SlotRow): string => (row.index === null ? EM_DASH : fmtIndex(row.index))
 
+/** The active y value of a slot; a Combined slot with no coding score says it is ranked on intelligence. */
+const scoreText = (row: SlotRow): string =>
+  row.score === null ? EM_DASH : row.score.value.toFixed(1) + (row.score.fallback ? '*' : '')
+
+/** A Coding slot's benchmarks with their names, `CursorBench 39.2% · SciCode 12.0%`; empty when it has none. */
+const componentsText = (row: SlotRow): string =>
+  (row.variant?.coding?.components ?? [])
+    .map((c) => `${benchmarkName(c.benchmark)} ${fmtBenchmark(c.score)}`)
+    .join(' · ')
+
+/** The score cell: the active y value, and for Coding its benchmarks under it. */
+function ScoreCell({ row, y }: { row: SlotRow; y: YMetric }) {
+  const components = y === 'coding' ? componentsText(row) : ''
+  return (
+    <Stack gap={0}>
+      <Text size="sm" inherit>
+        {scoreText(row)}
+      </Text>
+      {components === '' ? null : (
+        <Text size="xs" c="dimmed" style={{ whiteSpace: 'normal', minWidth: 160 }}>
+          {components}
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
 export function SlotsList({
   rows,
+  y,
   routesError,
   names,
 }: {
   rows: readonly SlotRow[]
+  /** The active y metric: the score column and the alternatives compare on it. */
+  y: YMetric
   routesError: string | null
   names: (v: EfficiencyVariant) => string
 }) {
@@ -110,11 +150,11 @@ export function SlotsList({
       header: 'Slot',
       cell: (ctx) => <SlotName row={ctx.row.original} />,
     }),
-    columnHelper.accessor((row) => row.variant?.intelligence ?? null, {
-      id: 'intelligence',
+    columnHelper.accessor((row) => row.score?.value ?? null, {
+      id: 'score',
       meta: { priority: 3 },
-      header: 'Intel.',
-      cell: (ctx) => ctx.getValue()?.toFixed(1) ?? EM_DASH,
+      header: Y_COLUMN[y],
+      cell: (ctx) => <ScoreCell row={ctx.row.original} y={y} />,
     }),
     columnHelper.accessor((row) => row.index, {
       id: 'index',
@@ -166,7 +206,7 @@ export function SlotsList({
       )}
       <BasaltDataTable
         title="Your slots"
-        subtitle="agw routes by model and effort, with the leanest option at equal or better intelligence"
+        subtitle={`agw routes by model and effort, with the leanest option at equal or better ${y === 'general' ? 'intelligence' : Y_NAME[y].toLowerCase()}`}
         data={[...rows]}
         columns={columns}
         enableSorting={false}
@@ -182,7 +222,7 @@ export function SlotsList({
             <SlotName row={row} />
             {row.variant === null ? null : (
               <Text size="xs" c="dimmed">
-                Intel. {row.variant.intelligence.toFixed(1)} · {indexText(row)} index ·{' '}
+                {Y_COLUMN[y]} {scoreText(row)} · {indexText(row)} index ·{' '}
                 {fmtUsd(row.variant.costPerTask)} / task ·{' '}
                 {fmtSeconds(row.variant.timePerTaskEstSec)} ·{' '}
                 {fmtTokens(row.variant.tokensPerTaskEst)} tokens
@@ -203,6 +243,8 @@ export function SlotsList({
       />
       <Text size="xs" c="dimmed">
         {SLOTS_INFO}
+        {y === 'general' ? '' : ` ${EPOCH_ATTRIBUTION}.`}
+        {y === 'combined' ? ' * has no coding score: ranked on intelligence alone.' : ''}
       </Text>
     </Stack>
   )

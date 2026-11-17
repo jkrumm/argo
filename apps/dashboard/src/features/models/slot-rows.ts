@@ -10,8 +10,11 @@ import {
   leanestAlternative,
   lineageOfModel,
   variantLabel,
+  yScores,
   type Alternative,
   type SlotGroup,
+  type YScore,
+  type YScores,
 } from './model'
 
 /** What a slot's alternative cell says: nothing applies, nothing is leaner, or a leaner variant. */
@@ -26,6 +29,8 @@ export interface SlotRow {
   /** A route bills today: `mixed` counts, a slot that spends money is read as a deliberate seat. */
   billed: boolean
   index: number | null
+  /** The variant's score on the active y metric, null when there is none (no variant, or no coding score). */
+  score: YScore | null
   /** The leanest Claude variant: a move that stays on the free Max quota. */
   onMax: Option
   /** The leanest callable or Claude variant; for a billed slot it excludes Anthropic. */
@@ -43,6 +48,8 @@ export function slotRows(
   variants: readonly EfficiencyVariant[],
   indexes: ReadonlyMap<string, number>,
   display: (lineage: string) => string,
+  /** The active y scores over ALL variants; omitted is General. */
+  ys: YScores = yScores(variants, 'general'),
 ): SlotRow[] {
   const bySlug = new Map(variants.map((v) => [v.slug, v]))
   const maxPool = variants.filter((v) => creatorKey(v.creator) === 'anthropic')
@@ -55,9 +62,20 @@ export function slotRows(
     const name =
       variant === null ? unmatchedName(group, variants, display) : variantLabel(variant, display)
     const index = variant === null ? undefined : indexes.get(variant.slug)
-    // Without an index nothing was compared, so the row must not read as "already leanest".
-    if (variant === null || index === undefined) {
-      return { key: group.key, group, variant, name, billed, index: null, onMax: NA, anywhere: NA }
+    const score = variant === null ? null : (ys.get(variant.slug) ?? null)
+    // Without an index or a score nothing was compared, so the row must not read as "already leanest".
+    if (variant === null || index === undefined || score === null) {
+      return {
+        key: group.key,
+        group,
+        variant,
+        name,
+        billed,
+        index: index ?? null,
+        score,
+        onMax: NA,
+        anywhere: NA,
+      }
     }
     return {
       key: group.key,
@@ -66,8 +84,9 @@ export function slotRows(
       name,
       billed,
       index,
-      onMax: billed ? NA : optionOf(leanestAlternative(variant, maxPool, indexes)),
-      anywhere: optionOf(leanestAlternative(variant, billed ? billedPool : quotaPool, indexes)),
+      score,
+      onMax: billed ? NA : optionOf(leanestAlternative(variant, maxPool, indexes, ys)),
+      anywhere: optionOf(leanestAlternative(variant, billed ? billedPool : quotaPool, indexes, ys)),
     }
   })
   // groupSlots already orders by route count, and the sort is stable.
@@ -104,7 +123,7 @@ export function slotSummary(rows: readonly SlotRow[]): string {
     `Your ${rows.length} ${noun(rows.length, 'slot', 'slots')}: ${head.join(', ')}.`,
   ]
 
-  const unbenchmarked = rows.filter((r) => r.index === null).length
+  const unbenchmarked = rows.filter((r) => r.index === null || r.score === null).length
   if (unbenchmarked < rows.length) {
     const billedLeaner = billed.filter(betterAnywhere).length
     const quotaLeaner = quota.filter((r) => r.onMax.kind === 'better').length
