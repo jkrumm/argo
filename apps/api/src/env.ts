@@ -25,6 +25,8 @@ const EnvShape = z.object({
   OTEL_EXPORTER_OTLP_HEADERS: z.string().default(''),
   OTEL_SERVICE_NAME: z.string().default('argo-api'),
   OTEL_SERVICE_VERSION: z.string().default('0.0.0'),
+  // The machine this process runs on (`host.name`, contract: vps docs/observability.md). Unset = no host.name.
+  OTEL_HOST_NAME: z.string().default(''),
   UPTIME_KUMA_URL: z.string().default(''),
   UPTIME_KUMA_USERNAME: z.string().default('admin'),
   UPTIME_KUMA_PASSWORD: z.string().default(''),

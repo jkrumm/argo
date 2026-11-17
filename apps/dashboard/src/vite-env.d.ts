@@ -9,4 +9,6 @@ interface ImportMetaEnv {
   readonly VITE_DEV_API_TOKEN?: string
   /** The factory Console's origin (see `lib/console-url.ts`); unset renders no Console link. */
   readonly VITE_CONSOLE_URL?: string
+  /** Short git SHA of the build, the browser telemetry's `service.version`; set by `make deploy`, unset in dev. */
+  readonly VITE_APP_SHA?: string
 }

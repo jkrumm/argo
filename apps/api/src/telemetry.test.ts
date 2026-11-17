@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'bun:test'
-import { redactHeaderAttributes, REDACTED_HEADER_NAMES } from './telemetry.js'
+import { redactHeaderAttributes, REDACTED_HEADER_NAMES, resourceAttributes } from './telemetry.js'
+
+describe('resourceAttributes', () => {
+  const base = {
+    serviceName: 'argo-api',
+    serviceVersion: '0123456789abcdef0123456789abcdef01234567',
+    nodeEnv: 'production' as const,
+    hostName: 'mini',
+  }
+
+  it('sets the contract namespace, prod environment name, short version and host', () => {
+    expect(resourceAttributes(base)).toEqual({
+      'service.name': 'argo-api',
+      'service.namespace': 'argo',
+      'service.version': '0123456',
+      'deployment.environment.name': 'prod',
+      'host.name': 'mini',
+    })
+  })
+
+  it('maps every non-production mode to dev and omits host.name when unset', () => {
+    const attributes = resourceAttributes({ ...base, nodeEnv: 'development', hostName: '' })
+    expect(attributes['deployment.environment.name']).toBe('dev')
+    expect(attributes).not.toHaveProperty('host.name')
+    expect(attributes).not.toHaveProperty('deployment.environment')
+  })
+})
 
 describe('redactHeaderAttributes', () => {
   it('redacts http.request.header.authorization', () => {
