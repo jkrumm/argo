@@ -9,7 +9,7 @@ import { env } from '../env.js'
  *
  * A query is SQL with typed placeholders (`{from:UInt32}`) plus a params object: ClickHouse substitutes them
  * server-side (`param_<name>` URL parameters), so a value never becomes SQL text. The SQL itself is written
- * only in `lib/line-queries.ts`; nothing from a request reaches it as text. The credential travels in the
+ * only in the `lib/*-queries.ts` modules (Line, Machines); nothing from a request reaches it as text. The credential travels in the
  * `Authorization` header, never in the URL, so it is on no span. A `readonly=1` user cannot send settings,
  * so there are none: the response format is the `FORMAT JSON` clause of the query.
  */

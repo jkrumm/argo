@@ -94,17 +94,24 @@ type SeriesRow = {
   load1: number | null
 }
 
-// ── The newest sample of each host: the "now" column values ─────────────────────────────────
+// ── The newest sample of each host: the "now" column values (a mean over cores per timestamp) ─
 
 const NOW_SQL = `
-SELECT ResourceAttributes['host.name'] AS host,
-  argMaxIf(Value, TimeUnix, MetricName = 'system.cpu.utilization' AND Attributes['state'] = 'idle') AS idle,
-  argMaxIf(Value, TimeUnix, MetricName = 'system.memory.utilization' AND Attributes['state'] = 'used') AS mem_used,
-  argMaxIf(Value, TimeUnix, MetricName = 'system.cpu.load_average.1m') AS load1
-FROM default.otel_metrics_gauge
-WHERE ${AGENT_SCOPE}
-  ${HOST_FILTER}
-  AND MetricName IN ('system.cpu.utilization', 'system.memory.utilization', 'system.cpu.load_average.1m')
+SELECT host,
+  argMaxIf(idle, ts, NOT isNaN(idle)) AS idle,
+  argMaxIf(mem_used, ts, NOT isNaN(mem_used)) AS mem_used,
+  argMaxIf(load1, ts, NOT isNaN(load1)) AS load1
+FROM (
+  SELECT ResourceAttributes['host.name'] AS host, TimeUnix AS ts,
+    avgIf(Value, MetricName = 'system.cpu.utilization' AND Attributes['state'] = 'idle') AS idle,
+    avgIf(Value, MetricName = 'system.memory.utilization' AND Attributes['state'] = 'used') AS mem_used,
+    avgIf(Value, MetricName = 'system.cpu.load_average.1m') AS load1
+  FROM default.otel_metrics_gauge
+  WHERE ${AGENT_SCOPE}
+    ${HOST_FILTER}
+    AND MetricName IN ('system.cpu.utilization', 'system.memory.utilization', 'system.cpu.load_average.1m')
+  GROUP BY host, ts
+)
 GROUP BY host
 LIMIT 100
 FORMAT JSON`
@@ -150,7 +157,8 @@ type FilesystemRow = { host: string; mount: string; fs_type: string; used: numbe
 const NETWORK_SQL = `
 SELECT ResourceAttributes['host.name'] AS host,
   toUnixTimestamp(toStartOfInterval(TimeUnix, INTERVAL {step:UInt32} SECOND)) AS t,
-  Attributes['device'] AS device, Attributes['direction'] AS direction, max(Value) AS total
+  Attributes['device'] AS device, Attributes['direction'] AS direction, max(Value) AS total,
+  toUnixTimestamp(max(TimeUnix)) AS at
 FROM default.otel_metrics_sum
 WHERE ${AGENT_SCOPE}
   ${HOST_FILTER}
@@ -164,7 +172,8 @@ FORMAT JSON`
 const DISK_IO_SQL = `
 SELECT ResourceAttributes['host.name'] AS host,
   toUnixTimestamp(toStartOfInterval(TimeUnix, INTERVAL {step:UInt32} SECOND)) AS t,
-  Attributes['device'] AS device, Attributes['direction'] AS direction, max(Value) AS total
+  Attributes['device'] AS device, Attributes['direction'] AS direction, max(Value) AS total,
+  toUnixTimestamp(max(TimeUnix)) AS at
 FROM default.otel_metrics_sum
 WHERE ${AGENT_SCOPE}
   ${HOST_FILTER}
@@ -174,7 +183,15 @@ ORDER BY host, device, direction, t
 LIMIT 60000
 FORMAT JSON`
 
-type CounterRow = { host: string; t: number; device: string; direction: string; total: number }
+/** `t` is the bucket start, `at` the newest sample in it: a rate divides by the time between samples, so the bucket still filling is exact. */
+type CounterRow = {
+  host: string
+  t: number
+  at: number
+  device: string
+  direction: string
+  total: number
+}
 
 // ── Containers ──────────────────────────────────────────────────────────────────────────────
 
@@ -213,7 +230,8 @@ export type RatePoint = { t: number; inBps: number | null; outBps: number | null
 
 /**
  * Per-second rates from a cumulative counter, summed over devices. A series' rate in a bucket is the
- * rise since its previous bucket over the elapsed time. A counter reset (the value fell) and a hole of
+ * rise since its previous bucket over the time between the two buckets' newest samples (exact for the
+ * bucket still filling). A counter reset (the value fell) and a hole of
  * more than one empty bucket are gaps, never a spike; the first bucket of a series has no rate. A
  * bucket with no rate in any series is absent. `in`: receive/read, `out`: transmit/write.
  */
@@ -236,9 +254,9 @@ export function counterRates(
       const prev = list[i - 1]
       const cur = list[i]
       if (!prev || !cur) continue
-      const elapsed = cur.t - prev.t
+      const elapsed = cur.at - prev.at
       const rise = cur.total - prev.total
-      if (elapsed <= 0 || elapsed > 2 * step || rise < 0) continue
+      if (cur.t - prev.t > 2 * step || elapsed <= 0 || rise < 0) continue
       const isIn = cur.direction === directions.in
       if (!isIn && cur.direction !== directions.out) continue
       let perHost = out.get(cur.host)
