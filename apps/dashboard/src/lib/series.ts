@@ -100,6 +100,12 @@ const SERIES_MAP = defineSeries({
   // reads as two categories and neither as a verdict (gold would read as a warning).
   calendarWork: p(BP.blue),
   calendarPersonal: p(BP.violet),
+  // Line page — direction pair on the router and speed charts (down = deep sky, up = light sky, the same
+  // two shades on every chart of the page) and packet loss, the one attention colour. Round-trip time is
+  // a lone series per chart, so it stays neutral (`VX.line`) and has no row here.
+  lineDown: p(BP.blue, 1, 2),
+  lineUp: p(BP.blue, 3, 4),
+  lineLoss: p(BP.red),
 } satisfies SeriesMap)
 
 /** Garmin activities — per-type identity. */

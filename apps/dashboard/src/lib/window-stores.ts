@@ -371,3 +371,15 @@ export const modelsStore = createSearchStore({
   metric: { index: 'Index', cost: 'Cost', time: 'Time', tokens: 'Tokens' },
   y: { combined: 'Combined', general: 'General', coding: 'Coding' },
 })
+
+export const LINE_WINDOW_VALUES = ['24h', '7d', '30d', '90d'] as const
+
+/** The Line page's one control: how far back every card reads (the API's `window`; no custom range). */
+export const lineStore = createSearchStore({
+  key: 'line',
+  fields: {
+    window: field.range({ presets: LINE_WINDOW_VALUES, fallback: '7d' }),
+  },
+}).labels({
+  window: { '24h': '24 h', '7d': '7 D', '30d': '30 D', '90d': '90 D' },
+})
