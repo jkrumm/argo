@@ -40,6 +40,11 @@ describe('every query', () => {
     },
   )
 
+  it('selects the newest sample time per bucket for the counter rates', () => {
+    for (const sql of [MACHINES_SQL.NETWORK_SQL, MACHINES_SQL.DISK_IO_SQL])
+      expect(sql).toContain('toUnixTimestamp(max(TimeUnix)) AS at')
+  })
+
   it('pins the host agent and prod on every host query, and the host only as a placeholder', () => {
     for (const [name, sql] of Object.entries(MACHINES_SQL)) {
       if (name.startsWith('CONTAINER')) continue
@@ -78,10 +83,11 @@ describe('counterRates', () => {
   const row = (
     t: number,
     total: number,
-    over: Partial<{ device: string; direction: string }> = {},
+    over: Partial<{ device: string; direction: string; at: number }> = {},
   ) => ({
     host: 'vps',
     t,
+    at: over.at ?? t,
     device: over.device ?? 'eth0',
     direction: over.direction ?? 'receive',
     total,
@@ -125,6 +131,12 @@ describe('counterRates', () => {
     const h = rates.get('vps')
     expect(h?.get(900)).toBeUndefined()
     expect(h?.get(1200)?.inBps).toBe(1)
+  })
+
+  it('divides by the time between the newest samples, so the bucket still filling is exact', () => {
+    // the previous bucket's newest sample at 290, the current bucket (started 300) has one at 350
+    const rates = counterRates([row(0, 0, { at: 290 }), row(300, 60_000, { at: 350 })], 300, dirs)
+    expect(rates.get('vps')?.get(300)?.inBps).toBe(1000)
   })
 
   it('averages over one missing bucket instead of dropping it', () => {
@@ -194,17 +206,59 @@ const answers =
       case 'machines.network':
       case 'machines.detail.network':
         return [
-          { host: 'vps', t: NOW - 600, device: 'eth0', direction: 'receive', total: 0 },
-          { host: 'vps', t: NOW - 300, device: 'eth0', direction: 'receive', total: 3000 },
-          { host: 'vps', t: NOW - 600, device: 'eth0', direction: 'transmit', total: 0 },
-          { host: 'vps', t: NOW - 300, device: 'eth0', direction: 'transmit', total: 600 },
+          {
+            host: 'vps',
+            t: NOW - 600,
+            at: NOW - 600,
+            device: 'eth0',
+            direction: 'receive',
+            total: 0,
+          },
+          {
+            host: 'vps',
+            t: NOW - 300,
+            at: NOW - 300,
+            device: 'eth0',
+            direction: 'receive',
+            total: 3000,
+          },
+          {
+            host: 'vps',
+            t: NOW - 600,
+            at: NOW - 600,
+            device: 'eth0',
+            direction: 'transmit',
+            total: 0,
+          },
+          {
+            host: 'vps',
+            t: NOW - 300,
+            at: NOW - 300,
+            device: 'eth0',
+            direction: 'transmit',
+            total: 600,
+          },
         ]
       case 'machines.detail.disk':
         return [
-          { host: 'vps', t: NOW - 600, device: 'sda', direction: 'read', total: 0 },
-          { host: 'vps', t: NOW - 300, device: 'sda', direction: 'read', total: 30_000 },
-          { host: 'vps', t: NOW - 600, device: 'sda', direction: 'write', total: 0 },
-          { host: 'vps', t: NOW - 300, device: 'sda', direction: 'write', total: 3_000 },
+          { host: 'vps', t: NOW - 600, at: NOW - 600, device: 'sda', direction: 'read', total: 0 },
+          {
+            host: 'vps',
+            t: NOW - 300,
+            at: NOW - 300,
+            device: 'sda',
+            direction: 'read',
+            total: 30_000,
+          },
+          { host: 'vps', t: NOW - 600, at: NOW - 600, device: 'sda', direction: 'write', total: 0 },
+          {
+            host: 'vps',
+            t: NOW - 300,
+            at: NOW - 300,
+            device: 'sda',
+            direction: 'write',
+            total: 3_000,
+          },
         ]
       case 'machines.detail.container_cpu':
         return [
