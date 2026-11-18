@@ -372,6 +372,23 @@ export const modelsStore = createSearchStore({
   y: { combined: 'Combined', general: 'General', coding: 'Coding' },
 })
 
+export const MACHINE_RANGE_VALUES = ['1h', '24h', '7d', '30d'] as const
+
+/**
+ * The Machines page: how far back every sparkline and chart reads (the API's `range`; no custom range)
+ * and the machine whose charts show below the list (`host`, the URL only so a link carries it; empty
+ * means the one that most needs attention).
+ */
+export const machinesStore = createSearchStore({
+  key: 'machines',
+  fields: {
+    range: field.range({ presets: MACHINE_RANGE_VALUES, fallback: '24h' }),
+    host: field.string({ max: 64 }, { persist: false }),
+  },
+}).labels({
+  range: { '1h': '1 H', '24h': '24 H', '7d': '7 D', '30d': '30 D' },
+})
+
 export const LINE_WINDOW_VALUES = ['24h', '7d', '30d', '90d'] as const
 
 /** The Line page's one control: how far back every card reads (the API's `window`; no custom range). */
