@@ -1,5 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "scripts/evidence/index.ts",
+    "scripts/design-shot/index.ts",
+    "scripts/design-shot/fixture-proxy.ts",
+    "scripts/design-shot/models-fixture.ts",
+    "apps/api/scripts/*.ts"
+  ],
+  "ignorePatterns": [
+    "apps/api/src/generated/**",
+    "docs/poc/**",
+    "docs/design/**"
+  ],
   "ignoreDependencies": [
     "concurrently"
   ]
