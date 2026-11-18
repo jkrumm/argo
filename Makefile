@@ -3,10 +3,16 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check deploy verify rollback logs evidence design-shot db-sync verify-pages version
+.PHONY: help check test deploy verify rollback logs evidence design-shot db-sync verify-pages version
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+# The unit suites run in a host test slot when `factory` is installed, so a lead's run waits its turn like the other heavy
+# steps. project.yaml `steps.unit` lets the factory run `make test` on its Linux step host when the mini's line is longer.
+# Without `factory` (CI, the step image) the bare commands run.
+SLOT_PROJECT = argo
+slot = $(if $(shell command -v factory 2>/dev/null),factory slot run --name "$(SLOT_PROJECT) $(1)" --,)
 
 check: ## Run exactly the local validation CI runs (drift, lint, format, typecheck incl. scripts/ and dashboard tests, dashboard build, unit tests)
 	./node_modules/.bin/basalt-ui sync --check
@@ -16,8 +22,10 @@ check: ## Run exactly the local validation CI runs (drift, lint, format, typeche
 	bun --cwd apps/dashboard typecheck
 	bun run typecheck:scripts
 	bun run --cwd apps/dashboard build
-	bun --cwd apps/dashboard test
-	bun run --cwd apps/api test:unit
+	@$(MAKE) --no-print-directory test
+
+test: ## Unit suites: dashboard and api, DB-free (the API integration suite is test:api)
+	@$(call slot,unit) sh -c 'bun --cwd apps/dashboard test && bun run --cwd apps/api test:unit'
 
 deploy: ## Deploy origin/master to the mini: release, LaunchAgent, health wait, rollback on failure (DRY_RUN=1 = plan only)
 	@zsh scripts/deploy.sh

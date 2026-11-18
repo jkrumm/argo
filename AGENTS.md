@@ -71,6 +71,7 @@ bun run --cwd apps/dashboard typecheck        # route tree, app, node and test f
 bun run typecheck:scripts                     # scripts/
 bun run --cwd apps/dashboard build            # vite build
 bun run --cwd apps/dashboard test             # bun test src
+# `make test` runs the two test lines of this block as one target; project.yaml `steps.unit` lets the factory run it on its step host.
 
 # API unit tests (no DB connection): the DB-free set is listed once, in apps/api/package.json `test:unit`
 # (placeholder DATABASE_URL / API_SECRET included). A new DB-free test file goes into that list.
