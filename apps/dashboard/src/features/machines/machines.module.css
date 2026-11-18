@@ -1,0 +1,13 @@
+/* The selected machine's row: the row that holds the marked name cell takes the selected-row surface. */
+.table tr:has([data-selected='true']) > td {
+  background: var(--vx-surface-row-selected);
+}
+
+/* The heading above the selected machine's charts. */
+.detailHead {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
