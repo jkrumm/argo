@@ -8,8 +8,6 @@ deploy:
   hold: 30m
 ship:
   - { via: push }
-# leads: 1 is from the first project.yaml (897432e7, 2026-11-02); no reason was recorded. Unset is 64 (NL32).
-leads: 1
 signals:
   github:
     author: jkrumm
