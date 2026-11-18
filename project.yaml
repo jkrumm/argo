@@ -14,3 +14,10 @@ signals:
   github:
     author: jkrumm
     since: 2026-11-07T06:30:00Z
+# The unit suites (Makefile `test`) may run on the factory's Linux step host when the mini's test line would make a lead
+# wait longer (`$(call slot,unit)`). Checked by reading the suites: no database (test:api, the DB run, stays home), no
+# browser, no shell tool beyond bun, and the generated clients they import are committed (apps/api/src/generated).
+steps:
+  unit:
+    make: test
+    remote: true
