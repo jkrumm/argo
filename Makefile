@@ -9,10 +9,10 @@ help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 # The unit suites run in a host test slot when `factory` is installed, so a lead's run waits its turn like the other heavy
-# steps. project.yaml `steps.unit` lets the factory run `make test` on its Linux step host when the mini's line is longer.
-# Without `factory` (CI, the step image) the bare commands run.
+# steps. project.yaml `steps.unit` lets the factory run `make test` on its Linux step host when the mini's line is longer;
+# there the factory sets FACTORY_STEP_CORES and already holds the slot, so the bare commands run. CI runs them bare too.
 SLOT_PROJECT = argo
-slot = $(if $(shell command -v factory 2>/dev/null),factory slot run --name "$(SLOT_PROJECT) $(1)" --,)
+slot = $(if $(FACTORY_STEP_CORES),,$(if $(shell command -v factory 2>/dev/null),factory slot run --name "$(SLOT_PROJECT) $(1)" --,))
 
 check: ## Run exactly the local validation CI runs (drift, lint, format, typecheck incl. scripts/ and dashboard tests, dashboard build, unit tests)
 	./node_modules/.bin/basalt-ui sync --check
