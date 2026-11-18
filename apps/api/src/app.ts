@@ -41,6 +41,7 @@ import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { financeRoutes } from './routes/finance.js'
 import { modelsRoutes } from './routes/models.js'
 import { lineRoutes } from './routes/line.js'
+import { machinesRoutes } from './routes/machines.js'
 import { authGuard } from './lib/auth-guard.js'
 import { shouldTraceRequest } from './lib/trace-filter.js'
 
@@ -172,6 +173,11 @@ export function buildApp() {
                   "The home internet line's history from linewatch's export in ClickStack's ClickHouse: `GET /line/now` (up / down / stale, last outage, newest router and speed-test reading), `/line/uptime`, `/line/latency` (loss and round-trip time per probe target), `/line/router` (sync rate, noise margin) and `/line/speedtests`, each over a `window` of 24h, 7d, 30d or 90d. 503 when ClickHouse is unavailable.",
               },
               {
+                name: 'Machines',
+                description:
+                  "Host and container metrics of every machine from the host agents in ClickStack's ClickHouse: `GET /machines/overview` (one entry per machine that reported in the last 24 h: reporting or silent, newest CPU, memory, load, fullest filesystem and network rate, a series over the range) and `GET /machines/detail?host=` (CPU, memory, disk IO, network, filesystems and top containers), each over a `range` of 1h, 24h, 7d or 30d. A machine with no sample for 10 minutes is silent, its values null. 503 when ClickHouse is unavailable.",
+              },
+              {
                 name: 'System',
                 description:
                   'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -217,6 +223,7 @@ export function buildApp() {
             'Finance',
             'Models',
             'Line',
+            'Machines',
             'System',
           ],
         }),
@@ -287,6 +294,7 @@ export function buildApp() {
       .use(financeRoutes)
       .use(modelsRoutes)
       .use(lineRoutes)
+      .use(machinesRoutes)
   )
 }
 
