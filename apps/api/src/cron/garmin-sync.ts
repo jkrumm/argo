@@ -153,8 +153,7 @@ function runGarminSync(reason: string): Promise<GarminSyncResult> {
 }
 
 async function syncOnce(reason: string): Promise<GarminSyncResult> {
-  // eslint-disable-next-line no-console
-  console.log(`[garmin-sync] starting (reason=${reason}, backfill=${BACKFILL_DAYS}d)`)
+  log.info(`[garmin-sync] starting (reason=${reason}, backfill=${BACKFILL_DAYS}d)`)
   let errors = 0
   let daysSynced = 0
   let activitiesSynced = 0
@@ -173,14 +172,12 @@ async function syncOnce(reason: string): Promise<GarminSyncResult> {
         daysSynced += 1
       } catch (e) {
         errors += 1
-        // eslint-disable-next-line no-console
-        console.error(`[garmin-sync] upsert ${m.date} failed:`, e)
+        log.error(`[garmin-sync] upsert ${m.date} failed`, e)
       }
     }
   } catch (e) {
     errors += 1
-    // eslint-disable-next-line no-console
-    console.error('[garmin-sync] daily-metrics fetch failed:', e)
+    log.error('[garmin-sync] daily-metrics fetch failed', e)
   }
 
   // Activities — wider window if table is empty.
@@ -198,13 +195,11 @@ async function syncOnce(reason: string): Promise<GarminSyncResult> {
   } catch (e) {
     errors += 1
     activitiesMsg = `error: ${(e as Error).message}`
-    // eslint-disable-next-line no-console
-    console.error('[garmin-sync] activities fetch failed:', e)
+    log.error('[garmin-sync] activities fetch failed', e)
   }
 
   const message = `synced=${daysSynced} errors=${errors} activities[${activitiesMsg}]`
-  // eslint-disable-next-line no-console
-  console.log(`[garmin-sync] done: ${message}`)
+  log.info(`[garmin-sync] done: ${message}`)
 
   return { errors, message, daysSynced, activitiesSynced }
 }

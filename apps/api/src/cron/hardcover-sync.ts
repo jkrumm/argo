@@ -5,6 +5,7 @@ import { userBook } from '../db/schema.js'
 import { hardcover, type HardcoverUserBook } from '../clients/hardcover.js'
 import { upsertBook } from '../lib/book-store.js'
 import { env } from '../env.js'
+import { log } from '../telemetry.js'
 import { pullReadingStatsShared, pushReadingShelf } from '../lib/reading-store.js'
 import { cronOptions, fireTick } from './traced-tick.js'
 
@@ -65,14 +66,12 @@ async function upsertUserBooks(rows: HardcoverUserBook[]): Promise<void> {
 
 export async function runHardcoverSync(): Promise<{ upserted: number; errors: number }> {
   if (inProgress) {
-    // eslint-disable-next-line no-console
-    console.log('[hardcover-sync] already in progress — skipping')
+    log.info('[hardcover-sync] already in progress — skipping')
     return { upserted: 0, errors: 0 }
   }
   inProgress = true
 
-  // eslint-disable-next-line no-console
-  console.log('[hardcover-sync] starting')
+  log.info('[hardcover-sync] starting')
   let errors = 0
   let upserted = 0
 
@@ -86,12 +85,10 @@ export async function runHardcoverSync(): Promise<{ upserted: number; errors: nu
     await upsertBooks(rows)
     await upsertUserBooks(rows)
 
-    // eslint-disable-next-line no-console
-    console.log(`[hardcover-sync] done: upserted=${upserted}`)
+    log.info(`[hardcover-sync] done: upserted=${upserted}`)
   } catch (e) {
     errors += 1
-    // eslint-disable-next-line no-console
-    console.error('[hardcover-sync] failed:', e)
+    log.error('[hardcover-sync] failed', e)
   } finally {
     inProgress = false
     pushReadingShelf() // fire-and-forget: the coalescer swallows push errors
