@@ -22,11 +22,12 @@ export function TrendChart({ machine, metric }: { machine: Machine; metric: 'cpu
     x: new Date(p.t * 1000),
     value: read(p),
   }))
+  const now = metric === 'cpu' ? machine.cpuPct : machine.memPct
+  // The newest sample counts too: a bucket mean can sit below it, and "peak" under "now" reads as a bug.
   const peak = points.reduce<number | null>(
     (max, p) => (p.value !== null && (max === null || p.value > max) ? p.value : max),
-    null,
+    now,
   )
-  const now = metric === 'cpu' ? machine.cpuPct : machine.memPct
   const tone = toneOf(now, metric === 'cpu' ? LIMITS.cpu : LIMITS.memory)
   const series: readonly ChartSeries<Point>[] = [
     {
