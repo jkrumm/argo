@@ -15,9 +15,9 @@ export type PortalFreshness = 'fresh' | 'stale' | 'dead' | 'empty'
 
 const HOUR_MS = 3_600_000
 const DAY_MS = 24 * HOUR_MS
-export const FRESH_MAX_MS = 8 * HOUR_MS
-export const DEAD_AFTER_MS = 48 * HOUR_MS
-export const QUOTA_STALE_AFTER_MS = 30 * 60_000
+const FRESH_MAX_MS = 8 * HOUR_MS
+const DEAD_AFTER_MS = 48 * HOUR_MS
+const QUOTA_STALE_AFTER_MS = 30 * 60_000
 const QUOTA_WINDOW_MS = 7 * DAY_MS
 const WARN_AT_PCT = 80
 
@@ -167,7 +167,7 @@ export function loadFailure(error: unknown, cause: string): Error {
 export const answersKey = (response: { iuKey?: IuKeyId | undefined }, key: IuKeyId): boolean =>
   (response.iuKey ?? 'personal') === key
 
-export const NO_PORTAL_REPORT = 'No portal report for this key yet'
+const NO_PORTAL_REPORT = 'No portal report for this key yet'
 
 /** What the next portal sync fills in: the key's cap, or its portal-vs-tracked comparison. */
 export type PortalTarget = 'cap' | 'comparison'
@@ -193,11 +193,10 @@ export function noPortalNote(input: {
         } · ${withUnit(30, 'd')}`
   return { head: `${NO_PORTAL_REPORT} · the next portal sync fills ${fills}`, tracked }
 }
-export const PORTAL_DEAD_NOTE = 'portal session expired — run make iu-portal-login in usage-tracker'
-export const NO_CACHE_DATA = 'no cache data'
+const PORTAL_DEAD_NOTE = 'portal session expired — run make iu-portal-login in usage-tracker'
 /** How the API names a row with no model (a producer that reports cost without one, e.g. Athena teamchat). */
-export const UNKNOWN_MODEL = '(unknown model)'
-export const UNKNOWN_MODEL_LABEL = 'Unknown model'
+const UNKNOWN_MODEL = '(unknown model)'
+const UNKNOWN_MODEL_LABEL = 'Unknown model'
 
 /**
  * A model key as a list reads it: the API's parenthesised no-model keys become a plain label, and a
@@ -209,8 +208,7 @@ export const modelLabel = (model: string): string =>
     ? UNKNOWN_MODEL_LABEL
     : model.replace(/^[^/\s]+\//, '')
 
-export const staleNote = (fetchedAgeMs: number): string =>
-  `stale · fetched ${formatAge(fetchedAgeMs)}`
+const staleNote = (fetchedAgeMs: number): string => `stale · fetched ${formatAge(fetchedAgeMs)}`
 
 export type FreshnessBadge = { text: string; tone: 'muted' | 'warn' | 'bad' }
 

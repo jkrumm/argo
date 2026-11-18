@@ -73,7 +73,7 @@ const SETTLE_MS = 2_000
 
 const DRAFT_SAVE_KEY = ['workout-draft', 'save'] as const
 
-export const workoutDraftQueries = {
+const workoutDraftQueries = {
   all: () => ['workout-draft'] as const,
   state: () =>
     queryOptions({

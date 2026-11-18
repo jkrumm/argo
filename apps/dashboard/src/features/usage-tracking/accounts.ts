@@ -143,9 +143,6 @@ export const IU_KEYS = [
 
 export type IuKeyId = (typeof IU_KEYS)[number]['id']
 
-/** The key ids in registry order: the values of the IU API tab's Key control. */
-export const IU_KEY_IDS: readonly IuKeyId[] = IU_KEYS.map((k) => k.id)
-
 /**
  * A wallet is one payer with a name. `kind` decides the `$` word: a subscription's dollars are list
  * value (what the usage would cost at API prices), an API's are spend. `account` links a
@@ -235,22 +232,3 @@ export const ME_API: ApiWallet = {
   account: null,
   iuKey: null,
 }
-
-/** What a wallet's dollars are called: a subscription's are list value, an API's are spend. */
-export const dollarWord = (kind: Wallet['kind']): string =>
-  kind === 'sub' ? 'list value' : 'spend'
-
-/** The account ids in registry order: the values of the Account control. */
-export const ACCOUNT_IDS: readonly AccountId[] = USAGE_ACCOUNTS.map((a) => a.id)
-
-/**
- * The Claude account picker's ceilings, in percent used: it stops sending work to an account whose
- * 5 h session passes `session` or whose weekly window passes `weekly` (98 instead while a window
- * resets within 24 h, which no chart draws). Source: dotfiles `docs/claude-accounts.md`, rule v1.4;
- * edit here when the rule changes.
- */
-export const PICKER_CEILINGS = { session: 90, weekly: 95 } as const
-
-/** The payer id of an account id (`me2` is `me2-sub`); an id outside the registry is `unknown`. */
-export const payerOfAccount = (account: string): PayerValue =>
-  USAGE_ACCOUNTS.find((a) => a.id === account)?.payer ?? 'unknown'

@@ -277,24 +277,6 @@ export interface SearchToolsHit {
   score?: number
 }
 
-export async function searchTools(
-  query: string,
-  opts: { category?: string; limit?: number } = {},
-): Promise<SearchToolsHit[]> {
-  const args: Record<string, unknown> = { query }
-  if (opts.category) args['category'] = opts.category
-  if (opts.limit) args['limit'] = opts.limit
-  const r = await callMetaTool<
-    { tools?: SearchToolsHit[]; results?: SearchToolsHit[] } | SearchToolsHit[]
-  >('search-tools', args)
-  if (Array.isArray(r)) return r
-  return r.tools ?? r.results ?? []
-}
-
-export async function getToolSchema(toolName: string): Promise<unknown> {
-  return callMetaTool<unknown>('get-tool-schema', { tool_name: toolName })
-}
-
 /**
  * Execute a Microsoft Graph operation through the MCP meta-dispatcher.
  *
@@ -303,7 +285,7 @@ export async function getToolSchema(toolName: string): Promise<unknown> {
  * Argo routes hard-code both `toolName` and the shape of `parameters` — this
  * helper is internal-only and must never be exposed via a generic endpoint.
  */
-export async function callGraphTool<T>(
+async function callGraphTool<T>(
   toolName: string,
   parameters: Record<string, unknown> = {},
 ): Promise<T> {

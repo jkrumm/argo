@@ -4,7 +4,7 @@ import { IuKeyEnum } from './iu-keys.js'
 import { normalizeProject } from './project-normalize.js'
 import { ACCOUNT_PATTERN, PAYER_EXPR, PayerEnum, WorkspaceEnum } from './usage-query.js'
 
-export const BillingEnum = z.enum(['max', 'api_credit', 'iu', 'openrouter', 'unknown'])
+const BillingEnum = z.enum(['max', 'api_credit', 'iu', 'openrouter', 'unknown'])
 
 /**
  * Accept either a single scalar or an array for filter query params.
@@ -17,7 +17,7 @@ export const stringFilter = z.union([z.string(), z.array(z.string())]).optional(
 export const billingFilter = z.union([BillingEnum, z.array(BillingEnum)]).optional()
 export const payerFilter = z.union([PayerEnum, z.array(PayerEnum)]).optional()
 export const workspaceFilter = z.union([WorkspaceEnum, z.array(WorkspaceEnum)]).optional()
-export const AccountSchema = z.string().regex(ACCOUNT_PATTERN)
+const AccountSchema = z.string().regex(ACCOUNT_PATTERN)
 export const accountFilter = z.union([AccountSchema, z.array(AccountSchema)]).optional()
 export const iuKeyFilter = z.union([IuKeyEnum, z.array(IuKeyEnum)]).optional()
 

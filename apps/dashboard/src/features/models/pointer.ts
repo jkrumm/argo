@@ -13,7 +13,7 @@ export interface PlotRect {
 }
 
 /** The capture radius, px: a fingertip is wider than a mouse pointer. */
-export const CAPTURE_RADIUS = { touch: 24, mouse: 16 } as const
+const CAPTURE_RADIUS = { touch: 24, mouse: 16 } as const
 
 export const captureRadius = (pointerType: string): number =>
   pointerType === 'touch' || pointerType === 'pen' ? CAPTURE_RADIUS.touch : CAPTURE_RADIUS.mouse

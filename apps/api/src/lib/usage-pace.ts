@@ -8,18 +8,18 @@
  */
 import { addDays } from './iu-budget.js'
 
-export const DAY_MS = 86_400_000
+const DAY_MS = 86_400_000
 const HOUR_MS = 3_600_000
 
 /** The rate window: the last 7 × 24 h, clipped to the first gateway row. */
 export const RATE_WINDOW_MS = 7 * DAY_MS
 /** A rate from a window shorter than this is marked thin. */
-export const THIN_WINDOW_HOURS = 24
+const THIN_WINDOW_HOURS = 24
 /** The gateway keeps this much of every pool undrawn (agent-workflows docs/gateway.md §Credit pacing). */
-export const GATEWAY_HEADROOM_USD = 2
+const GATEWAY_HEADROOM_USD = 2
 /** `under` fires when a pool expires with more than max(UNDER_MIN_USD, UNDER_RATIO × grant) unspent. */
-export const UNDER_MIN_USD = 5
-export const UNDER_RATIO = 0.05
+const UNDER_MIN_USD = 5
+const UNDER_RATIO = 0.05
 
 /** Pools the page always lists, with the grant the subscription gives per cycle; the API-side registry. */
 export const POOL_REGISTRY: ReadonlyArray<{ account: string; grantUsd: number }> = [
@@ -237,7 +237,7 @@ export interface Spill {
  * pools), `rate × days` in Claude list dollars. Null when the last pool outlasts the renewal or never
  * dries.
  */
-export function spillOf(
+function spillOf(
   projections: readonly PoolProjection[],
   soonestRenewal: Date | null,
   rateUsdPerDay: number,
@@ -254,7 +254,7 @@ export function spillOf(
 }
 
 /** `over` beats `under`: running dry is the louder state. `no-pool` when nothing is enabled. */
-export function verdictOf(input: {
+function verdictOf(input: {
   enabledPools: number
   spill: Spill | null
   expiringUnspent: ReadonlyArray<{ unspentAtEndUsd: number; grantUsd: number }>

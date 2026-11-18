@@ -15,7 +15,7 @@ export function normalizeTitle(s: string): string {
     .trim()
 }
 
-export function tokens(s: string): string[] {
+function tokens(s: string): string[] {
   return normalizeTitle(s).split(/\s+/).filter(Boolean)
 }
 
@@ -120,10 +120,7 @@ export function stringAutoConfirms(
  * Hardcover often has several fragmented records for the same work; the
  * richest member (cover + year + genres) makes the best candidate.
  */
-export function pickRichest(
-  hits: HardcoverSearchHit[],
-  chosen: HardcoverSearchHit,
-): HardcoverSearchHit {
+function pickRichest(hits: HardcoverSearchHit[], chosen: HardcoverSearchHit): HardcoverSearchHit {
   const cluster = hits.filter(
     (h) =>
       normalizeTitle(h.title) === normalizeTitle(chosen.title) &&

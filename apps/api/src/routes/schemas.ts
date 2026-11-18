@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-export const ExerciseSchema = z.string()
-
 export const SetTypeSchema = z.enum(['warmup', 'work', 'drop', 'amrap'])
 
 export const WorkoutSetSchema = z.object({

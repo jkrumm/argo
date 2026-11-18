@@ -14,11 +14,11 @@ import type { CalendarEventPayload, SourceClass } from '../../lib/queries/calend
 export type CalendarItem = ScheduleEventData<CalendarEventPayload>
 
 /** The window "free time" is measured in: the working day. */
-export const FREE_WINDOW = { startH: 8, endH: 18 } as const
+const FREE_WINDOW = { startH: 8, endH: 18 } as const
 /** The shared track of the day-load strip, in hours; its tick marks this. */
 export const DAY_TARGET_H = 8
 /** The Week grid never opens wider than this ... */
-export const WEEK_WINDOW_CLAMP = { startH: 7, endH: 22 } as const
+const WEEK_WINDOW_CLAMP = { startH: 7, endH: 22 } as const
 /** ... and falls back to this when the week has no timed events. */
 export const WEEK_WINDOW_FALLBACK = { startH: 8, endH: 18 } as const
 
@@ -87,12 +87,12 @@ function atHourMs(key: DayKey, hour: number): number {
 
 // ---- classification -------------------------------------------------------------------------
 
-export function isTask(event: CalendarItem): boolean {
+function isTask(event: CalendarItem): boolean {
   return event.payload?.source === 'ticktick'
 }
 
 /** A meeting with a clock time: not a task, not all-day. */
-export function isTimed(event: CalendarItem): boolean {
+function isTimed(event: CalendarItem): boolean {
   return !isTask(event) && event.payload?.isAllDay !== true
 }
 
@@ -111,11 +111,11 @@ export function displayTitle(event: CalendarItem): string {
 }
 
 /** Meetings that still happen: the basis of every count, booked hour, free block and "next". */
-export function timedEvents(events: readonly CalendarItem[]): CalendarItem[] {
+function timedEvents(events: readonly CalendarItem[]): CalendarItem[] {
   return events.filter((e) => isTimed(e) && !isCancelled(e))
 }
 
-export function durationMin(event: CalendarItem): number {
+function durationMin(event: CalendarItem): number {
   return (toDate(String(event.end)).getTime() - toDate(String(event.start)).getTime()) / MIN_MS
 }
 

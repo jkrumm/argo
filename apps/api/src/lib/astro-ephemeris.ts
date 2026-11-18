@@ -136,7 +136,7 @@ export function greenwichMeanSiderealTime(date: Date): number {
 }
 
 /** Local Mean Sidereal Time in degrees, for an east-positive longitude. */
-export function localSiderealTime(date: Date, lonEastDeg: number): number {
+function localSiderealTime(date: Date, lonEastDeg: number): number {
   return normalizeDegrees(greenwichMeanSiderealTime(date) + lonEastDeg)
 }
 

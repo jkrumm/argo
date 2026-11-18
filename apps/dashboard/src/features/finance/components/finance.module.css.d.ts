@@ -24,7 +24,6 @@ declare const classes: {
   readonly split: string
   readonly splitWide: string
   readonly splitHalf: string
-  readonly splitLists: string
   readonly ribbon: string
   readonly ribbonLink: string
   readonly bookingInline: string

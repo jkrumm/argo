@@ -33,7 +33,7 @@ export type SplitRow = Measures & {
 export type SplitTotal = Measures & { payer: string; prior: Prior | null }
 
 /** Parenthesised like `(unset)`, so it can never be a real project, tool or model name. */
-export const SPLIT_FOLD_KEY = '(other)'
+const SPLIT_FOLD_KEY = '(other)'
 
 /** Rows with no key read this; never folded, so its share (spend without a project) is always visible. */
 export const SPLIT_UNSET_KEY = '(unset)'

@@ -7,15 +7,15 @@ import { placeLabels, type LabelCandidate, type PlacedLabel } from './labels'
 import { paretoFrontier, type RouteUse, type ScatterPoint } from './model'
 import { toPlotPixel } from './pointer'
 
-export const DOT_R = 3.4
-export const ROUTED_R = 4.8
-export const SELECTED_BUMP = 0.8
+const DOT_R = 3.4
+const ROUTED_R = 4.8
+const SELECTED_BUMP = 0.8
 export const RING_GAP = 4.5
 /** Estimated glyph width of the 12 px label font, px. */
-export const CHAR_WIDTH = 6.4
-export const LINE_HEIGHT = 14
+const CHAR_WIDTH = 6.4
+const LINE_HEIGHT = 14
 /** Under this plot width (px) labels shorten from `· 4 routes` to `· 4`. */
-export const NARROW_PLOT_PX = 420
+const NARROW_PLOT_PX = 420
 
 export const dotRadius = (
   point: ScatterPoint,

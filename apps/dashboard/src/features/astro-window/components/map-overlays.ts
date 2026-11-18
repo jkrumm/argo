@@ -253,7 +253,7 @@ function resolveStopColor(cs: CSSStyleDeclaration, token: string, opacity: numbe
  * stop list widens the tuple that `ExpressionSpecification` is, and the shape is validated by the
  * style spec at runtime anyway.
  */
-export function buildLpRamp(range: readonly [number, number] = LP_RANGE_FULL): LpRampExpression {
+function buildLpRamp(range: readonly [number, number] = LP_RANGE_FULL): LpRampExpression {
   const cs = getComputedStyle(document.documentElement)
   const remappedStops = remapLpRampStops(range)
   const stops = LP_RAMP.flatMap(({ token, alpha: opacity }, index) => [
@@ -272,7 +272,7 @@ export function buildLpRamp(range: readonly [number, number] = LP_RANGE_FULL): L
  * fresh on every `style.load` and scheme flip, same as `buildLpRamp`, since `cloudHigh` resolves
  * to a different hex per scheme.
  */
-export function buildCloudRamp(): LpRampExpression {
+function buildCloudRamp(): LpRampExpression {
   const cs = getComputedStyle(document.documentElement)
   const stops = CLOUD_RAMP.flatMap(({ stop, token, alpha: opacity }) => [
     stop,
@@ -338,7 +338,7 @@ function hillshadeIllumination(method: HillshadeMethod): {
  * Called on every `style.load` AND on a bare scheme flip (`refreshHillshade`, mirroring
  * `buildLpRamp`/`refreshLpRamp`), so the relief always paints the shades actually mounted.
  */
-export function buildHillshadePaint({
+function buildHillshadePaint({
   exaggeration,
   method,
 }: {
@@ -1120,7 +1120,7 @@ export function refreshCloudRamp(map: MapLibreMap, state: OverlayState): void {
  * the panel-change effect already call that on every commit), so toggling the ramp or picking a
  * new base both update the wash live with no separate wiring in `site-map.tsx`.
  */
-export function syncBaseWash(map: MapLibreMap, state: OverlayState): void {
+function syncBaseWash(map: MapLibreMap, state: OverlayState): void {
   const base = baseLayer(state.base)
   const id = baseWashLayerId(base)
   if (id === undefined || map.getLayer(id) === undefined) return

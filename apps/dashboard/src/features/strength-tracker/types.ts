@@ -1,4 +1,4 @@
-import { EXERCISES, type ExerciseKey, type MetricKey } from './constants'
+import type { ExerciseKey, MetricKey } from './constants'
 
 /**
  * Window/range parameters every strength endpoint accepts.
@@ -14,24 +14,5 @@ export type SummaryParams =
 export type SummaryParamsWithExercises = SummaryParams & { exercises?: string }
 
 export type ExerciseFilterState = ReadonlyArray<ExerciseKey>
-
-export function exerciseLabel(id: string): string {
-  return EXERCISES.find((e) => e.value === id)?.label ?? id
-}
-
-export function metricUnit(metric: string): string {
-  return (
-    (
-      {
-        estimated_1rm: 'kg',
-        max_weight: 'kg',
-        total_volume: 'kg',
-        total_reps: 'reps',
-        work_sets: 'sets',
-        avg_intensity: '%',
-      } as Record<string, string>
-    )[metric] ?? ''
-  )
-}
 
 export type { ExerciseKey, MetricKey }

@@ -29,7 +29,7 @@ import type { LoadingMode } from '../plate-math'
 // tab stops polling entirely — this must not drain a phone in a gym bag.
 const GYM_POLL_MS = 5_000
 
-export const gymQueries = {
+const gymQueries = {
   all: () => ['gym'] as const,
   state: () =>
     queryOptions({

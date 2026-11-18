@@ -1,7 +1,7 @@
 import { createLocalStore, field } from 'basalt-ui/state'
 import { DEFAULT_WEEKLY_TARGET_KM, WEEKLY_TARGET_BOUNDS } from './model'
 
-export const WEEK_VIEWS = ['weeks', 'days', 'pace'] as const
+const WEEK_VIEWS = ['weeks', 'days', 'pace'] as const
 
 /**
  * The page's device-local preferences: the weekly distance target the THIS WEEK meter and the weekly

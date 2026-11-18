@@ -16,7 +16,7 @@ import type { PayerValue } from './accounts'
 import { PAYER_LABELS, USAGE_ACCOUNTS } from './accounts'
 import { formatAge } from './budget-model'
 
-export const EM_DASH = '—'
+const EM_DASH = '—'
 
 // ── Money, dates ─────────────────────────────────────────────────────────────────────────────
 
@@ -67,8 +67,7 @@ export function fmtInstant(value: string): string {
 }
 
 /** Whole days: `16 days`, `1 day`. */
-export const fmtDays = (n: number): string =>
-  `${Math.round(n)} ${Math.round(n) === 1 ? 'day' : 'days'}`
+const fmtDays = (n: number): string => `${Math.round(n)} ${Math.round(n) === 1 ? 'day' : 'days'}`
 
 /** A 0–1 share as a whole percentage with a thin space glue: `98 %`. */
 export const fmtPct = (ratio: number | null | undefined): string =>
@@ -214,7 +213,7 @@ export function reportAgeNote(pace: PaceResponse, now: number): string | null {
 }
 
 /** Gateway silence the Router and Demand headers call out (spec §Empty and stale). */
-export const GATEWAY_STALE_MS = 30 * 60_000
+const GATEWAY_STALE_MS = 30 * 60_000
 
 /** "last request {age} ago" once the newest gateway row is older than 30 min; null while fresh or without rows. */
 export function lastRequestNote(lastRequestAt: string | null, now: number): string | null {
@@ -237,11 +236,7 @@ export type IuCause = keyof typeof IU_CAUSE_LABEL
 const IU_CAUSE_ORDER = Object.keys(IU_CAUSE_LABEL) as IuCause[]
 
 /** Causes that are Claude work on the IU key: drawn in the warn ink once they carry a dollar. */
-export const CLAUDE_ON_IU_CAUSES: readonly IuCause[] = [
-  'claude-code',
-  'credit-fallback',
-  'route-fallback',
-]
+const CLAUDE_ON_IU_CAUSES: readonly IuCause[] = ['claude-code', 'credit-fallback', 'route-fallback']
 
 export interface TargetCount {
   target: string
@@ -255,7 +250,7 @@ export function picksByTarget(picks: RouterResponse['picks']): TargetCount[] {
   return [...counts].map(([target, n]) => ({ target, n })).toSorted((a, b) => b.n - a.n)
 }
 
-export const totalPicks = (picks: RouterResponse['picks']): number => sum(picks.map((p) => p.n))
+const totalPicks = (picks: RouterResponse['picks']): number => sum(picks.map((p) => p.n))
 
 /** Picks per reason over the range, optionally of one target; most first. */
 export function picksByReason(
@@ -508,7 +503,7 @@ export function agwOnKey(
 }
 
 /** An agw row on the team key newer than this still counts as agw billing it; older is a key agw has left. */
-export const AGW_STALE_MS = 6 * HOUR_MS
+const AGW_STALE_MS = 6 * HOUR_MS
 
 /**
  * How the Athena card reads agw: `bills` (warn ink, "still bills this key") only while an agw row is newer

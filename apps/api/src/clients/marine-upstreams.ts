@@ -115,11 +115,6 @@ function setCached(key: string, value: CacheValue): void {
   cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value })
 }
 
-/** Exported for tests only — drops every cached entry. */
-export function clearMarineUpstreamCache(): void {
-  cache.clear()
-}
-
 // ── Upstream response shapes ────────────────────────────────────────────
 
 type OpenMeteoMarineResponse = {

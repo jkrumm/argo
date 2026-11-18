@@ -20,7 +20,7 @@ export const StatInputSchema = z.object({
 export type StatInput = z.infer<typeof StatInputSchema>
 
 // An empty list is legitimate for a pull (nothing read yet); the POST route keeps min(1).
-export const PulledStatsSchema = z.object({ stats: z.array(StatInputSchema).max(1000) })
+const PulledStatsSchema = z.object({ stats: z.array(StatInputSchema).max(1000) })
 
 /** Parse a command's stdout (`{"stats":[...]}`) into validated stat rows; throws on bad JSON or shape. */
 export function parsePulledStats(stdout: string): StatInput[] {

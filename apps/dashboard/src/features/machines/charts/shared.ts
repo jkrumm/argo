@@ -3,7 +3,7 @@ import type { MachineDetail } from '../../../lib/queries/machines'
 import { gapZones } from '../model'
 
 /** One cursor across every chart of the page: hovering a moment in one reads the same moment in all. */
-export const MACHINES_CURSOR = 'machines-time'
+const MACHINES_CURSOR = 'machines-time'
 
 /** The time axis every chart shares: the same extent, so a silent stretch lines up on all of them. */
 export function timeAxis(range: { from: number; to: number } | undefined) {

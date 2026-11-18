@@ -169,7 +169,7 @@ export function glowCells(rose: SkyglowRose, top: number = ALT_DOMAIN[1]): GlowC
 
 /** Brightness resolution of the skyglow field, mag/arcsec². Finer than the eye separates two
  * ramp colours, coarse enough that the field is a few dozen fills instead of one per cell. */
-export const GLOW_BUCKET_MPSAS = 0.1
+const GLOW_BUCKET_MPSAS = 0.1
 
 /** Cells grouped by brightness bucket (the quantised mpsas), so a mark per bucket draws the whole
  * field. Each entry's `mpsas` is the bucket's value; its cells keep their own geometry. */

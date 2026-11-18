@@ -247,10 +247,7 @@ function toAstroObserver(observer: Observer): AstroObserver {
  * definition uses. Same rationale as {@link moonHorizontal}: a caller needing
  * both must not get them from two separate evaluations.
  */
-export function sunHorizontal(
-  time: Date,
-  observer: Observer,
-): { altitude: number; azimuth: number } {
+function sunHorizontal(time: Date, observer: Observer): { altitude: number; azimuth: number } {
   const astroObserver = toAstroObserver(observer)
   const equatorial = Equator(Body.Sun, time, astroObserver, true, true)
   const horizontal = Horizon(time, astroObserver, equatorial.ra, equatorial.dec)
@@ -279,11 +276,6 @@ export function moonHorizontal(
   const equatorial = Equator(Body.Moon, time, astroObserver, true, true)
   const horizontal = Horizon(time, astroObserver, equatorial.ra, equatorial.dec, 'normal')
   return { altitude: horizontal.altitude, azimuth: horizontal.azimuth }
-}
-
-/** Apparent topocentric moon altitude in degrees, refraction included. */
-export function moonAltitudeDeg(time: Date, observer: Observer): number {
-  return moonHorizontal(time, observer).altitude
 }
 
 /**
@@ -517,4 +509,3 @@ function summarizeWindow(samples: NightSample[], run: Run): ShootingWindow {
 
 /** Re-export so callers need not import both modules for the common case. */
 export type { Observer }
-export { coreTransit, maxCoreAltitude }

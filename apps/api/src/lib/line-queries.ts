@@ -178,7 +178,7 @@ type OpenRow = { scope: string; opened: number; closed: number }
 export type Outage = { start: number; end: number; durationS: number; ongoing: boolean }
 
 /** Start of the open internet outage, or null. Never inferred from silence: only an `opened` without its `closed`. */
-export async function ongoingOutageStart(ch: ClickHouse, nowSec: number): Promise<number | null> {
+async function ongoingOutageStart(ch: ClickHouse, nowSec: number): Promise<number | null> {
   const rows = await ch.query<OpenRow>('line.outage.open', OPEN_OUTAGE_SQL, {
     from: nowSec - TWO_DAYS_S,
   })

@@ -37,7 +37,7 @@ export type MetricKey =
 
 /** Re-exported from the leaf store module so the values, the type, the Select options,
  * the route's zod enum and the store's accepted set are all ONE declaration. */
-export const WINDOW_PRESET_VALUES = STRENGTH_WINDOW_VALUES
+const WINDOW_PRESET_VALUES = STRENGTH_WINDOW_VALUES
 
 export type WindowPreset = (typeof WINDOW_PRESET_VALUES)[number]
 
@@ -56,13 +56,6 @@ export const EXERCISE_COLORS: Record<ExerciseKey, string> = {
   squat: SERIES.squat,
   pull_ups: SERIES.pullUps,
 }
-
-export const SET_TYPE_OPTIONS: { value: SetType; label: string }[] = [
-  { value: 'warmup', label: 'Warm-up' },
-  { value: 'work', label: 'Work' },
-  { value: 'drop', label: 'Drop' },
-  { value: 'amrap', label: 'AMRAP' },
-]
 
 export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
   { value: 'estimated_1rm', label: 'e1RM', unit: 'kg' },

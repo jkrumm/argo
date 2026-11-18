@@ -1015,7 +1015,7 @@ export const DEFAULT_OM_DOMAIN: OmDomainId = 'dwd_icon_d2'
 const OM_DOMAIN_BY_ID = new Map(OM_DOMAINS.map((entry) => [entry.id, entry]))
 
 /** The Zod-shaped id list, same convention as `BASE_LAYER_IDS`. */
-export const OM_DOMAIN_IDS = OM_DOMAINS.map((entry) => entry.id) as [OmDomainId, ...OmDomainId[]]
+const OM_DOMAIN_IDS = OM_DOMAINS.map((entry) => entry.id) as [OmDomainId, ...OmDomainId[]]
 
 /** Type guard, not a bare `as` — same shape as `isBaseLayerId`/`isHillshadeMethod`. Used by both
  * the `wx` codec below (a hand-edited or stale URL must not smuggle an unknown domain id into a
@@ -1094,7 +1094,7 @@ export function omTileUrl({
 
 /** Required by the data's CC BY 4.0 licence — wired through the same `attribution` field every
  * other catalogue row's source declares, so MapLibre composes it the same way. */
-export const OPEN_METEO_ATTRIBUTION =
+const OPEN_METEO_ATTRIBUTION =
   'Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>'
 
 /**

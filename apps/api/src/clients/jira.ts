@@ -641,7 +641,7 @@ function matchLinkType(types: RawIssueLinkType[], query: string): LinkTypeMatch 
   return null
 }
 
-export async function addIssueLink(sourceKey: string, link: IssueLinkInput): Promise<void> {
+async function addIssueLink(sourceKey: string, link: IssueLinkInput): Promise<void> {
   const types = await getIssueLinkTypes()
   const match = matchLinkType(types, link.type)
   if (!match) {
@@ -848,7 +848,7 @@ export async function listTransitions(
   }))
 }
 
-export async function transitionIssue(key: string, statusOrTransition: string): Promise<void> {
+async function transitionIssue(key: string, statusOrTransition: string): Promise<void> {
   const transitions = await listTransitions(key)
   const target = statusOrTransition.trim().toLowerCase()
   const match =

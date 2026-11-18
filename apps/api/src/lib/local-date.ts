@@ -4,7 +4,7 @@
  * `YYYY-MM-DD` strings runs on UTC midnight of the date, which has no DST gaps.
  */
 
-export const LOCAL_TZ = 'Europe/Berlin'
+const LOCAL_TZ = 'Europe/Berlin'
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 

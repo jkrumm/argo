@@ -4,7 +4,7 @@ import { z } from 'zod'
 // pressing Save. Kept out of the route so the TTL rule is unit-testable without
 // a database; the route owns transport, this owns the shape and the expiry.
 
-export const DraftSetSchema = z.object({
+const DraftSetSchema = z.object({
   set_type: z.enum(['warmup', 'work', 'drop', 'amrap']),
   weight_kg: z.number().min(0).max(1000),
   reps: z.number().int().min(0).max(100),

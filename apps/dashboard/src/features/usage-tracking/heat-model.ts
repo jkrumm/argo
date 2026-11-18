@@ -3,8 +3,8 @@
  */
 import type { RhythmResponse } from '../../lib/queries/usage'
 
-export const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
-export const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
 
 export type RhythmCell = { day: string; hour: string; value: number }
 

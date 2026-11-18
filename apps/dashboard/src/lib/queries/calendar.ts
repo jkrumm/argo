@@ -34,29 +34,17 @@ export type CalendarEventPayload = {
 
 // Per-Google-calendar palette — mirrors Apple Calendar's hues for these calendars.
 // Unknown calendars fall back to GOOGLE_FALLBACK_COLOR.
-export const GOOGLE_CALENDAR_COLORS: Record<string, string> = {
+const GOOGLE_CALENDAR_COLORS: Record<string, string> = {
   Privat: SERIES.steps,
   Arbeit: SERIES.calories,
   Familie: SERIES.deadlift,
   Ferien: SERIES.spo2,
 }
-export const GOOGLE_FALLBACK_COLOR = VX.status.bad
-export const M365_COLOR = SERIES.sleepDuration
-export const TICKTICK_FALLBACK_COLOR = SERIES.steps
+const GOOGLE_FALLBACK_COLOR = VX.status.bad
+const M365_COLOR = SERIES.sleepDuration
+const TICKTICK_FALLBACK_COLOR = SERIES.steps
 
-export const SOURCE_COLOR: Record<CalendarSource, string> = {
-  google: GOOGLE_FALLBACK_COLOR,
-  m365: M365_COLOR,
-  ticktick: TICKTICK_FALLBACK_COLOR,
-}
-
-export const SOURCE_LABEL: Record<CalendarSource, string> = {
-  google: 'Personal (Google)',
-  m365: 'Work (M365)',
-  ticktick: 'Tasks (TickTick)',
-}
-
-export function colorForGoogleCalendar(name: string | null | undefined): string {
+function colorForGoogleCalendar(name: string | null | undefined): string {
   if (!name) return GOOGLE_FALLBACK_COLOR
   return GOOGLE_CALENDAR_COLORS[name] ?? GOOGLE_FALLBACK_COLOR
 }

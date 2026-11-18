@@ -20,7 +20,7 @@ export const ACWR_ZONE_NAME = {
 } as const satisfies Record<AcwrZone, string>
 
 /** A real abbreviation for the one zone name too long for a narrow segment; the other zones have none. */
-export const ACWR_ZONE_SHORT = {
+const ACWR_ZONE_SHORT = {
   caution: 'Caut.',
 } as const satisfies Partial<Record<AcwrZone, string>>
 

@@ -5,7 +5,7 @@ import { shotFetcher, shotState } from '../../../lib/shot-state'
 import type { EfficiencyResponse } from './types'
 
 /** `status` is the HTTP status, so Argo's 401 handling (`isUnauthorizedError`) reads it as it does elsewhere. */
-export class ModelsApiError extends Error {
+class ModelsApiError extends Error {
   readonly status: number
 
   constructor(status: number, message: string) {

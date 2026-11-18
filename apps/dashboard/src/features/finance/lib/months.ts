@@ -61,8 +61,6 @@ export function monthName(month: Month): string {
   return `${MONTH_FULL[Number(number) - 1] ?? number} ${year}`
 }
 
-export const isMonth = (value: string): boolean => /^\d{4}-(0[1-9]|1[0-2])$/.test(value)
-
 export function shiftMonth(month: Month, delta: number): Month {
   const [year = 0, number = 1] = month.split('-').map(Number)
   const index = year * 12 + (number - 1) + delta

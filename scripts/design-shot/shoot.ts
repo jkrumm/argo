@@ -8,8 +8,8 @@ const VIEWPORTS = {
   desktop: { width: 1440, height: 900, mobile: false },
   mobile: { width: 390, height: 844, mobile: true },
 } as const
-export const SCHEMES: Scheme[] = ['dark', 'light']
-export const DEVICES: Device[] = ['desktop', 'mobile']
+const SCHEMES: Scheme[] = ['dark', 'light']
+const DEVICES: Device[] = ['desktop', 'mobile']
 const NAV_TIMEOUT_MS = 30_000
 // DPR 2 × 8000 CSS px = 16000 device px, just under Chromium's ~16384 texture limit.
 const MAX_PAGE_HEIGHT = 8000
@@ -41,7 +41,7 @@ const measureContent = (page: Page): Promise<number> =>
   })
 
 /** `/garmin-health` → `garmin-health`; `/a?tab=b` → `a-tab-b`; `/` → `root`. Filesystem-safe. */
-export const routeSlug = (route: string): string =>
+const routeSlug = (route: string): string =>
   route.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'root'
 
 /** `rel` joined onto `outDir`, refusing anything that resolves outside it. */

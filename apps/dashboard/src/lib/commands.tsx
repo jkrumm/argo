@@ -35,7 +35,7 @@ const SkinfoldLogForm = lazy(() =>
   })),
 )
 
-export const OVERLAYS = defineOverlays({
+const OVERLAYS = defineOverlays({
   'body-comp:log-weight': {
     title: 'Log weight',
     render: (p: { lastWeight: number | null }) => (

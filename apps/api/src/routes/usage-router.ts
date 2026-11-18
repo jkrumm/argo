@@ -30,7 +30,7 @@ async function picksReadable(): Promise<boolean> {
 
 // ── The IU cause rule ─────────────────────────────────────────────────────────────────────────
 
-export const IU_CAUSES = [
+const IU_CAUSES = [
   'design',
   'eval',
   'claude-code',

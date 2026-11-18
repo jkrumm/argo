@@ -4,8 +4,8 @@ import { SERIES } from '../../../lib/series'
 import { fmtAzimuth, fmtDegrees } from '../formulas'
 import type { HourlyPoint } from '../types'
 
-export const FLOOR_DEG = -20
-export const MIN_TOP_DEG = 20
+const FLOOR_DEG = -20
+const MIN_TOP_DEG = 20
 const STEP_DEG = 10
 /** Float noise at a 10° boundary (30.000000000000004) must neither raise the top nor clip the sample. */
 const FLOAT_TOLERANCE_DEG = 1e-9
@@ -26,11 +26,11 @@ export function timelineDomain(hourly: readonly HourlyPoint[]): [number, number]
 }
 
 /** A track outside the plot's altitude domain is a gap: it is not drawn, so it has no hover row either. */
-export const inPlot = (v: number, domain: readonly [number, number]): number | null =>
+const inPlot = (v: number, domain: readonly [number, number]): number | null =>
   v < domain[0] - FLOAT_TOLERANCE_DEG || v > domain[1] + FLOAT_TOLERANCE_DEG ? null : v
 
 /** The sun is a reference track: it stays clipped at the original 20° even when a high moon lifts the axis. */
-export const SUN_CLIP: readonly [number, number] = [FLOOR_DEG, MIN_TOP_DEG]
+const SUN_CLIP: readonly [number, number] = [FLOOR_DEG, MIN_TOP_DEG]
 
 export const plotSeries = (domain: readonly [number, number]): ChartSeries<HourlyPoint>[] => [
   {

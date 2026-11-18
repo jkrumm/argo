@@ -154,10 +154,6 @@
   .splitHalf {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-
-  .splitLists {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  }
 }
 
 /* ── Month ribbon under the trend chart: one tap target per month ──────────────────────────── */

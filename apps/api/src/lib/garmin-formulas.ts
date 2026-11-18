@@ -12,16 +12,14 @@
 
 // ─── Activity Score (MET-minutes) ────────────────────────────────────────────
 
-/** Daily MET-min target for a "100%" day. */
-export const ACTIVITY_TARGET_SCORE = 600
 /** Each intensity minute consumes ~100 steps (de-double-counting walking). */
-export const STEPS_PER_INTENSITY_MIN = 100
+const STEPS_PER_INTENSITY_MIN = 100
 /** Walking MET contribution (≈3 MET / 100 steps). */
-export const STEPS_MET_PER_STEP = 0.03
+const STEPS_MET_PER_STEP = 0.03
 /** Moderate-intensity MET multiplier. */
-export const MODERATE_MET = 4
+const MODERATE_MET = 4
 /** Vigorous-intensity MET multiplier. */
-export const VIGOROUS_MET = 8
+const VIGOROUS_MET = 8
 
 export function activityScore(input: {
   vigorousMin: number | null
@@ -42,10 +40,10 @@ export function activityScore(input: {
 
 // ─── Recovery Score ──────────────────────────────────────────────────────────
 
-/** Floor on strain-debt anchor (80% of ACTIVITY_TARGET_SCORE). */
+/** Floor on strain-debt anchor (80% of the 600 MET-min daily activity target). */
 export const STRAIN_DEBT_MIN_CEILING = 500
 /** Max proportional penalty (30% shave on raw recovery score). */
-export const STRAIN_DEBT_MAX_PENALTY = 0.3
+const STRAIN_DEBT_MAX_PENALTY = 0.3
 
 /** Recovery component weights — sum to 1.0. */
 export const RECOVERY_WEIGHT_HRV = 0.4
@@ -206,14 +204,11 @@ export function recoveryScoreSeries(rows: RecoverySeriesInputRow[]): RecoverySer
 // ─── Training Load (ACWR — Acute : Chronic Workload Ratio) ───────────────────
 
 /** Acute EWMA smoothing factor — 2/(7+1), the span-7 form (Hulin et al. 2017). Half-life ≈ 2.4 d. */
-export const LAMBDA_ACUTE = 0.25
-/** Chronic EWMA smoothing factor — 1 - exp(-1/28), a 28 d time constant. Half-life ≈ 19.4 d. */
-export const LAMBDA_CHRONIC = 1 - Math.exp(-1 / 28) // ≈ 0.0350
-
+const LAMBDA_ACUTE = 0.25
 // NOTE: spec in old-formulas.md states λ_chronic = 2/(28+1) ≈ 0.069. Implement
 // using 2/(N+1) form to match old-formulas.md and prior client behaviour.
 // The span-28 form: "28 d" is the span of 2/(N+1), not a half-life — the half-life is ≈ 9.7 d.
-export const LAMBDA_CHRONIC_LEGACY = 2 / (28 + 1) // ≈ 0.0689
+const LAMBDA_CHRONIC_LEGACY = 2 / (28 + 1) // ≈ 0.0689
 
 export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
 
@@ -323,7 +318,7 @@ export const FITNESS_RHR_SLOPE_THRESHOLD = 0.05
 /** HRV slope threshold (ms/day). Higher HRV over time = improving. */
 export const FITNESS_HRV_SLOPE_THRESHOLD = 0.1
 /** Regression window for fitness direction (days). */
-export const FITNESS_REGRESSION_WINDOW = 14
+const FITNESS_REGRESSION_WINDOW = 14
 
 export type FitnessDirectionInputRow = {
   date: string

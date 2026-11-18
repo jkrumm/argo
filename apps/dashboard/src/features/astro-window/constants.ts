@@ -4,7 +4,7 @@ export const SKY_METER_MAX = 22
 export const SKY_DARK_THRESHOLD = 21.6
 
 /** The sun's depth below the horizon at which a night counts as astronomically dark. */
-export const ASTRONOMICAL_DARK_SUN_DEG = 18
+const ASTRONOMICAL_DARK_SUN_DEG = 18
 
 export const METRIC_TOOLTIPS = {
   nightTimeline: `Altitude is degrees above the horizon. Astronomical dark is when the sun is more than ${ASTRONOMICAL_DARK_SUN_DEG}° below it. The shooting window is the stretch of dark when the core clears its gate; the moon is judged separately, as its own gate.`,
@@ -19,9 +19,6 @@ export const CHART_HEIGHT = 260
 
 /** Slightly taller than CHART_HEIGHT: the panorama carries the skyline, the gate and three tracks on one pair of axes. */
 export const PANORAMA_HEIGHT = 320
-
-/** Fixed height so the map and the night-facts panel line up exactly. */
-export const SIDE_PANEL_HEIGHT = 620
 
 /**
  * Full-bleed height for the Map tab, expressed in BasaltShell's OWN variables rather than a raw

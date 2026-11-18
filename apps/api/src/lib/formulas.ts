@@ -2,7 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { weightLog, userProfile } from '../db/schema.js'
 
-export const HARD_FALLBACK_BW = 80
+const HARD_FALLBACK_BW = 80
 
 export type WeightEntry = { date: string; weight_kg: number }
 
@@ -67,7 +67,7 @@ export async function loadBodyweightResolver(): Promise<(date: string) => number
  * means depending on which formula you picked, with no agreement to anchor it. See
  * `docs/STRENGTH-ANALYTICS.md` §2.2.
  */
-export const E1RM_MAX_REPS = 10
+const E1RM_MAX_REPS = 10
 
 function round1(v: number): number {
   return Math.round(v * 10) / 10
@@ -78,10 +78,7 @@ function round1(v: number): number {
  * range. Both formulas are always valid together (they share the [1, {@link E1RM_MAX_REPS}] window),
  * so this returns both or neither.
  */
-export function estimate1RMParts(
-  weight: number,
-  reps: number,
-): { epley: number; brzycki: number } | null {
+function estimate1RMParts(weight: number, reps: number): { epley: number; brzycki: number } | null {
   if (reps < 1 || reps > E1RM_MAX_REPS) return null
   return { epley: weight * (1 + reps / 30), brzycki: (weight * 36) / (37 - reps) }
 }

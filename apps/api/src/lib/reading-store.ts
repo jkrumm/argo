@@ -195,7 +195,7 @@ const PUSH_TIMEOUT_MS = 20_000
 const PULL_MIN_INTERVAL_MS = 5 * 60_000
 
 /** Run the configured stats command and upsert its output. Never throws; true when rows were stored. */
-export async function pullReadingStats(): Promise<boolean> {
+async function pullReadingStats(): Promise<boolean> {
   const argv = splitCommand(env.READING_STATS_SOURCE_CMD)
   if (argv.length === 0) return false
 

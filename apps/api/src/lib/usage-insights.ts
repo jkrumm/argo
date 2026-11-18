@@ -13,9 +13,9 @@ import type { IuKey } from './iu-keys.js'
 
 export const PERIODS = ['7d', '30d', '90d'] as const
 export type Period = (typeof PERIODS)[number]
-export const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '30d': 30, '90d': 90 }
+const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '30d': 30, '90d': 90 }
 
-export const MAX_INSIGHTS = 5
+const MAX_INSIGHTS = 5
 
 const DAY_MS = 86_400_000
 /** Under this much gateway data inside a window, an insight built on it is `thin` (spec vocabulary). */
@@ -23,25 +23,25 @@ const THIN_MS = DAY_MS
 
 // ── Thresholds ────────────────────────────────────────────────────────────────────────────────────
 /** top-share fires when one workflow is at least this share of production credit spend. */
-export const TOP_SHARE_MIN = 0.5
+const TOP_SHARE_MIN = 0.5
 /** mover fires at a spend change of at least this many dollars … */
-export const MOVER_MIN_USD = 5
+const MOVER_MIN_USD = 5
 /** … and at least this fraction of the previous period's spend. */
-export const MOVER_MIN_CHANGE = 0.3
+const MOVER_MIN_CHANGE = 0.3
 /** cost-per-run fires when a workflow's cost per run moved by at least this fraction … */
-export const COST_PER_RUN_MIN_CHANGE = 0.3
+const COST_PER_RUN_MIN_CHANGE = 0.3
 /** … with at least this many runs in each period. */
-export const COST_PER_RUN_MIN_RUNS = 5
+const COST_PER_RUN_MIN_RUNS = 5
 /** pool-split fires when one pool carries at least this share of eval spend and another of production spend. */
-export const POOL_SPLIT_MIN_SHARE = 0.9
+const POOL_SPLIT_MIN_SHARE = 0.9
 /** claude-on-iu warns above this many dollars of Claude work on IU in the period … */
-export const CLAUDE_ON_IU_WARN_USD = 1
+const CLAUDE_ON_IU_WARN_USD = 1
 /** … and reassures below this: "$0" is whole cents, so the fractions of a cent a verify probe costs still read $0. */
-export const CLAUDE_ON_IU_ZERO_USD = 0.005
+const CLAUDE_ON_IU_ZERO_USD = 0.005
 /** cache-drop fires when a caller × target hit rate fell by at least this many points (0–1) … */
-export const CACHE_DROP_MIN_POINTS = 0.15
+const CACHE_DROP_MIN_POINTS = 0.15
 /** … on at least this many requests in each period. */
-export const CACHE_DROP_MIN_REQUESTS = 50
+const CACHE_DROP_MIN_REQUESTS = 50
 
 // ── Input shapes (structural; the loaders' outputs satisfy them) ───────────────────────────────────
 
@@ -530,8 +530,8 @@ const KEY_LABEL: Record<IuKey, string> = {
 }
 
 /** Portal freshness (spec §Vocabulary): fresh ≤ 8 h, stale > 8 h, dead > 48 h. */
-export const PORTAL_STALE_HOURS = 8
-export const PORTAL_DEAD_HOURS = 48
+const PORTAL_STALE_HOURS = 8
+const PORTAL_DEAD_HOURS = 48
 
 /** `5 h` below two days, `3 d` from there. */
 function ageText(hours: number): string {
@@ -592,7 +592,7 @@ export function capNear(input: InsightInputs): InsightDraft[] {
   return drafts
 }
 
-export const DETECTORS: readonly ((input: InsightInputs) => InsightDraft[])[] = [
+const DETECTORS: readonly ((input: InsightInputs) => InsightDraft[])[] = [
   topShare,
   mover,
   costPerRun,

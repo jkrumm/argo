@@ -29,7 +29,7 @@ export const RIDEABLE_HEIGHT_M = { min: 0.5, max: 4 } as const
  * How far off dead-offshore the wind may sit before it is disqualifying.
  * 60° is the conventional offshore/cross-shore boundary.
  */
-export const MAX_WIND_OFF_AXIS_DEG = 60
+const MAX_WIND_OFF_AXIS_DEG = 60
 
 /**
  * Below this the wind is not strong enough to matter and its direction stops
@@ -38,13 +38,13 @@ export const MAX_WIND_OFF_AXIS_DEG = 60
 export const GLASSY_WIND_KN = 5
 
 /** Swell height sweet spot. Asymmetric: undersized is worse than oversized. */
-export const IDEAL_SWELL_HEIGHT = { ideal: 1.5, below: 1.1, above: 2.5 } as const
+const IDEAL_SWELL_HEIGHT = { ideal: 1.5, below: 1.1, above: 2.5 } as const
 
 /** Period beyond which more is not better in any practical sense. Seconds. */
-export const GREAT_SWELL_PERIOD_S = 14
+const GREAT_SWELL_PERIOD_S = 14
 
 /** Wind speed at which even a perfectly offshore breeze has become a nuisance. Knots. */
-export const RUINOUS_WIND_KN = 30
+const RUINOUS_WIND_KN = 30
 
 /**
  * Relative weights. Period is heaviest for the reason in the module docstring;

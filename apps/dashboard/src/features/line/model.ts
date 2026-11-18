@@ -9,7 +9,7 @@ export const WINDOW_NOUN: Record<LineWindow, string> = {
   '90d': 'last 90 days',
 }
 
-export const TARGET_LABEL: Record<string, string> = {
+const TARGET_LABEL: Record<string, string> = {
   gateway: 'Router',
   cloudflare: 'Cloudflare',
   google: 'Google',

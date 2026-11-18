@@ -3,7 +3,7 @@ import type { LineUptime, LineWindow } from '../../../lib/queries/line'
 import { axisLabel, bucketLabel, outageZones } from '../model'
 
 /** One cursor across every chart of the page: hovering a day in one reads the same day in all. */
-export const LINE_CURSOR = 'line-time'
+const LINE_CURSOR = 'line-time'
 
 /** The time axis every chart shares: the same extent, so outages and sync changes line up. */
 export function timeAxis(range: { from: number; to: number } | undefined, window: LineWindow) {

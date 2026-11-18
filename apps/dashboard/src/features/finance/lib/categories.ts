@@ -4,7 +4,7 @@ import type { Category } from '../api/types'
 export const NONE = '__none__'
 
 /** `/api/merchants` names merchant-less bookings this way. */
-export const UNKNOWN_MERCHANT = '(unknown)'
+const UNKNOWN_MERCHANT = '(unknown)'
 
 /** The merchant filter value a merchant name drills down with. */
 export const merchantFilter = (merchant: string): string =>

@@ -52,7 +52,7 @@ const iso = (window: Window) => ({
 })
 
 /** The insights of one period as of `now` (a parameter so a test can pin the clock). */
-export async function loadInsights(period: Period, now: Date) {
+async function loadInsights(period: Period, now: Date) {
   const { current, previous } = periodWindows(now, period)
   const down = new Set<string>()
   // A previous window reaching before the data floor is not comparable (every workflow would read as growth), as in

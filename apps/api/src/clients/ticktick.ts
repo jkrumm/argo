@@ -12,7 +12,7 @@ import type { Task } from '../generated/ticktick/types.gen'
 
 const API_KEY = env.TICKTICK_API_KEY
 
-export const ticktickClient = createClient(
+const ticktickClient = createClient(
   createConfig({
     baseUrl: 'https://ticktick.com',
     // Type-cast: @hey-api expects a typeof-fetch-shaped function (which carries

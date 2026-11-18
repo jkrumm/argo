@@ -1,13 +1,13 @@
 /** The page's fixed copy: what is measured, what is estimated, and how far to trust it. */
 import type { Axis, YMetric } from './model'
 
-export const ESTIMATE_NOTE =
+const ESTIMATE_NOTE =
   '≈ estimate from cost per task: good for ranking, reads 2–4× high for most models and up to 20× for input-heavy ones'
 
 const READING =
   'The dotted line is the frontier of what is drawn: the best score for that value or less. The shaded corner is leaner than the median and scores above the median. Rings are the variants your agw routes use.'
 
-export const PRICE_NOTE =
+const PRICE_NOTE =
   'Cost is the API list price. Claude models on a Max subscription run on a quota, and no per-model quota weights are published, so the chart does not price a quota slot differently: read the cost axis as what the same work would cost on the API.'
 
 const INDEX_INFO = `One number for how lean a variant is: cost per task (weight 0.6), time (0.3) and tokens (0.1), each against the median variant, combined as a geometric mean. 1× is the median variant, lower is leaner, and the medians come from every variant with all three measures, so a filter never moves a model. Time and tokens are estimates derived from cost, so this is not three independent measurements: it works out to token use ×1, price ×0.6 and speed ×−0.3. A variant missing any of the three has no index. ${PRICE_NOTE}`
@@ -29,7 +29,7 @@ export interface MetricCopy {
   lacks: string
 }
 
-export const METRIC_COPY: Record<Axis, MetricCopy> = {
+const METRIC_COPY: Record<Axis, MetricCopy> = {
   index: {
     against: 'efficiency index',
     subtitle:

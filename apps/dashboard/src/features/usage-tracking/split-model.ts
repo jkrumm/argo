@@ -192,7 +192,7 @@ export function mergeByLabel(
 }
 
 /** A model-less row under a model split; the API never folds it, so neither does a list. */
-export const UNKNOWN_MODEL_KEY = '(unknown model)'
+const UNKNOWN_MODEL_KEY = '(unknown model)'
 
 /** Keys that stay visible whatever their rank: how much has no project or no model is a reading of its own. */
 const PINNED_KEYS: ReadonlySet<string> = new Set([UNSET_KEY, UNKNOWN_MODEL_KEY])
@@ -248,9 +248,6 @@ export function modelShares(rows: readonly SplitRow[], lens: UsageLens): ModelSh
 
 /** Keys the API keeps before folding the tail: wide enough that a wallet's own top row is in it. */
 export const SPLIT_TOP = 50
-
-/** Whether a range total clears the bar for Me API to get a card of its own ("only when it reaches $1"). */
-export const SHOW_AT_USD = 1
 
 /**
  * The share of a payer's dollars that carries no project: the `(unset)` row of a project split over

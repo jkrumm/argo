@@ -239,10 +239,10 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
 export const USAGE_PAYER = groupTokens('payer', USAGE_PAYER_MAP)
 export const USAGE_RANK = groupTokens('rank', USAGE_RANK_MAP)
-export const ROUTING_REASON = groupTokens('routing', ROUTING_REASON_MAP)
+const ROUTING_REASON = groupTokens('routing', ROUTING_REASON_MAP)
 export const LP = groupTokens('lp', LP_MAP)
 export const FINANCE_SPLIT = groupTokens('finsplit', FINANCE_SPLIT_MAP)
-export const FINANCE_ACCOUNT = groupTokens('finacct', FINANCE_ACCOUNT_MAP)
+const FINANCE_ACCOUNT = groupTokens('finacct', FINANCE_ACCOUNT_MAP)
 export const MODEL_CREATOR = groupTokens('model', MODEL_CREATOR_MAP)
 
 const FINANCE_ACCOUNT_SLOTS = [

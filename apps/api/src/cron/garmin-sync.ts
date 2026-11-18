@@ -148,7 +148,7 @@ async function resetStaleInProgress(): Promise<void> {
   await db.update(syncControl).set({ in_progress: 0 }).where(eq(syncControl.id, 1))
 }
 
-export function runGarminSync(reason: string): Promise<GarminSyncResult> {
+function runGarminSync(reason: string): Promise<GarminSyncResult> {
   return guardedSync(() => syncOnce(reason))
 }
 

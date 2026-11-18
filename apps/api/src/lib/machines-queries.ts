@@ -31,7 +31,7 @@ export function machineWindow(range: MachineRange, nowSec: number): RangeWindow 
 /** No sample for this long and a machine is silent: unknown, never zero. */
 export const SILENT_AFTER_S = 600
 /** A machine is listed while it reported within this long. */
-export const LISTED_FOR_S = 86_400
+const LISTED_FOR_S = 86_400
 /** The detail's containers are the means of this many seconds. */
 const CONTAINER_WINDOW_S = 300
 const TOP_CONTAINERS = 6

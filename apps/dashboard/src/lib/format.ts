@@ -10,9 +10,6 @@ export const glue = (text: string): string => text.replaceAll(' ', NBSP)
 /** Every no-break space becomes a plain space, so glued and plain text compare equal (not a byte-exact inverse of {@link glue}). */
 export const unglue = (text: string): string => text.replaceAll(NBSP, ' ')
 
-/** An arrow with a no-break space each side, so a line never wraps right before or after it. */
-export const ARROW = `${NBSP}→${NBSP}`
-
 /** `28 d`, `1.2 kg/wk` — a value joined to its unit with a no-break space, so a wrap never splits them. */
 export const withUnit = (value: string | number, unit: string): string => `${value}${NBSP}${unit}`
 

@@ -5,15 +5,7 @@
  */
 import type { EfficiencyRoute, EfficiencyVariant, Effort } from './api/types'
 
-export const EFFORT_ORDER: readonly Effort[] = [
-  'none',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-  'max',
-  'default',
-]
+const EFFORT_ORDER: readonly Effort[] = ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'default']
 
 /** Position of an effort on the ladder; `default` (a model with no effort setting) sits last. */
 export const effortRank = (effort: Effort): number => EFFORT_ORDER.indexOf(effort)
@@ -132,7 +124,7 @@ export const visibleVariants = (
  * not three independent measurements: mathematically it weighs tokens x1, price x0.6 and speed x-0.3.
  * Lowering the tokens weight therefore raises the price or speed weight; token use stays x1.
  */
-export const INDEX_WEIGHTS = { cost: 0.6, time: 0.3, tokens: 0.1 } as const
+const INDEX_WEIGHTS = { cost: 0.6, time: 0.3, tokens: 0.1 } as const
 
 const positive = (value: number | null): value is number => value !== null && value > 0
 
@@ -270,7 +262,7 @@ export function yScores(
 export type Axis = 'index' | 'cost' | 'tokens' | 'time'
 
 /** The x of a variant on an axis (time in minutes), or null when it cannot sit on a log axis. */
-export function axisValue(
+function axisValue(
   variant: EfficiencyVariant,
   axis: Axis,
   indexes: ReadonlyMap<string, number>,

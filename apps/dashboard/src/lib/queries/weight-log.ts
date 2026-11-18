@@ -30,14 +30,3 @@ export function useCreateWeightLog() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: weightLogQueries.all() }),
   })
 }
-
-export function useDeleteWeightLog() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) =>
-      api['weight-log']({ id: String(id) })
-        .delete()
-        .then(unwrap),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: weightLogQueries.all() }),
-  })
-}

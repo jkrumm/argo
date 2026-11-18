@@ -2,7 +2,7 @@
 // output). The cap is a ROLLING window: today and the 29 days before, measured by IU's own portal.
 // Pure functions over per-day portal sums so the route stays a query plus a call.
 
-export const IU_CAP_USD = 500
+const IU_CAP_USD = 500
 export const IU_WINDOW_DAYS = 30
 const BURN_DAYS = 7
 const TOP_MODELS = 10

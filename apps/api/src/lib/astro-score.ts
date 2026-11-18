@@ -34,7 +34,7 @@ export const MAX_MOON_ILLUMINATION = 0.25
  * deliberately unused: seeing is arcsecond-scale atmospheric turbulence, which
  * is invisible at 12 mm.
  */
-export const WORST_TRANSPARENCY_BAND = 8
+const WORST_TRANSPARENCY_BAND = 8
 
 /**
  * The darkness ramp, in mag/arcsec² **in the direction the core sits** — not at
@@ -47,7 +47,7 @@ export const WORST_TRANSPARENCY_BAND = 8
  * from. Note the reversed scale — higher mpsas is darker, so `good > bad` and
  * {@link linearScore} inverts accordingly.
  */
-export const CORE_DARKNESS_RANGE = { good: 21.0, bad: 17.3 } as const
+const CORE_DARKNESS_RANGE = { good: 21.0, bad: 17.3 } as const
 
 /**
  * Core clearance ramp, degrees of sky between the measured ridge and the core

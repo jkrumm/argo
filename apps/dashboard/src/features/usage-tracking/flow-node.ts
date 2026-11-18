@@ -6,7 +6,7 @@
  */
 export type FlowNode = { kind: 'router' } | { kind: 'demand'; workflow: string }
 
-export const NO_NODE = ''
+const NO_NODE = ''
 
 export const ROUTER_NODE = 'router'
 export const demandNode = (workflow: string): string => `demand:${workflow}`

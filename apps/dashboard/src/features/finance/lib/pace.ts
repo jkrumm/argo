@@ -9,7 +9,7 @@ export function daysInMonth(month: Month): number {
 }
 
 /** A booking that counts as spending: the same rule as the service's monthly expense (expense or uncategorized, refunds net out). */
-export const isSpend = (row: Pick<TxRow, 'category_kind'>): boolean =>
+const isSpend = (row: Pick<TxRow, 'category_kind'>): boolean =>
   row.category_kind === 'expense' || row.category_kind === null
 
 /** Spending per day of `month` (index 0 = day 1), positive cents, refunds netted. */

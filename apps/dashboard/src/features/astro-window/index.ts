@@ -1,13 +1,6 @@
 import { lazy } from 'react'
 
-export {
-  METRIC_TOOLTIPS,
-  CHART_HEIGHT,
-  PANORAMA_HEIGHT,
-  SIDE_PANEL_HEIGHT,
-  MAP_FULL_BLEED_HEIGHT,
-  MAP_MIN_HEIGHT,
-} from './constants'
+export { CHART_HEIGHT, PANORAMA_HEIGHT, MAP_FULL_BLEED_HEIGHT } from './constants'
 
 export type {
   WindowParams,
@@ -26,15 +19,6 @@ export type {
 } from './types'
 
 export {
-  verdictTone,
-  fmtDegrees,
-  fmtMinutes,
-  fmtLocalClock,
-  moonPhaseLabel,
-  limitingFactor,
-  fmtShortDay,
-  coreGateFailure,
-  coreMeterReading,
   headlineFirstDate,
   headlineNight,
   markedNightOf,
@@ -44,17 +28,14 @@ export {
 
 export {
   BASE_LAYER_IDS,
-  BASE_LAYERS,
   DEFAULT_LP_YEAR,
   formatLpParam,
   formatTerrainParam,
   formatWeatherParam,
-  LP_YEARS,
   parseLpParam,
   parseTerrainParam,
   parseWeatherParam,
   SCHEME_DEFAULT_BASE,
-  WEATHER_LAYERS,
   type BaseLayerId,
   type LpYear,
   type MapLayerState,

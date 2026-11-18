@@ -25,10 +25,10 @@ import { log } from '../telemetry.js'
  * slightly too low is silent — `aiComplete` doubles this once internally
  * before giving up.
  */
-export const SENTENCE_TOKENS = 16000
+const SENTENCE_TOKENS = 16000
 
 /** Longest a window endpoint waits for the sentence before serving the verdict without it. */
-export const SENTENCE_TIMEOUT_MS = 20_000
+const SENTENCE_TIMEOUT_MS = 20_000
 
 export type SentenceCompleter = (
   prompt: string,

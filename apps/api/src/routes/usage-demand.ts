@@ -18,7 +18,7 @@ import { buildFilterSql, payerFilter } from '../lib/usage-filters.js'
 
 const rowsOf = <T>(result: unknown) => result as unknown as T[]
 
-export const PURPOSES = ['prod', 'eval', 'verify', 'other'] as const
+const PURPOSES = ['prod', 'eval', 'verify', 'other'] as const
 type Purpose = (typeof PURPOSES)[number]
 
 /** `prod` / `eval` / `verify` as stored; `drift`, any other value and an absent purpose are `other`. */

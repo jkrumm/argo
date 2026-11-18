@@ -1,8 +1,3 @@
-/* Chart facts: a list row's share. */
-.share {
-  white-space: nowrap;
-}
-
 /* A card beside a taller grid partner fills its cell instead of leaving the cell grey below it. */
 .fill {
   height: 100%;

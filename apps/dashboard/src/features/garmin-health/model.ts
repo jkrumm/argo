@@ -16,7 +16,7 @@ const EM_DASH = '—'
 export const FITNESS_DAYS = 14
 export const VO2_DAYS = 180
 
-/** Daily activity target in MET-min — mirrors `ACTIVITY_TARGET_SCORE` in `garmin-formulas.ts`. */
+/** Daily activity target in MET-min. */
 export const ACTIVITY_TARGET_SCORE = 600
 
 /** The recovery cut-offs: below 40 rest, from 70 push. */

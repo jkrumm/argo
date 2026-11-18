@@ -54,7 +54,7 @@ import { shouldTraceRequest } from './lib/trace-filter.js'
  * below), then runs migrations, listens, and wires cron/uptime/signal
  * handling around it.
  */
-export function buildApp() {
+function buildApp() {
   return (
     new Elysia()
       .use(

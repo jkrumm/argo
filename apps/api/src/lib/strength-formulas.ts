@@ -14,23 +14,9 @@ import {
   STRAIN_DEBT_MIN_CEILING,
   type AcwrZone,
 } from './garmin-formulas.js'
-import {
-  computeMetrics,
-  estimate1RM,
-  makeBodyweightResolver,
-  loadBodyweightResolver,
-  E1RM_MAX_REPS,
-} from './formulas.js'
+import { computeMetrics, estimate1RM } from './formulas.js'
 import { addDays } from './local-date.js'
 import { weekStart } from './week.js'
-
-export {
-  computeMetrics,
-  estimate1RM,
-  makeBodyweightResolver,
-  loadBodyweightResolver,
-  E1RM_MAX_REPS,
-}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -121,7 +107,7 @@ export function sessionInol(workout: WorkoutWithSets, bw: number): number | null
 }
 
 /** Best e1RM set in a session (used in §1.12 e1RM chart tooltips). */
-export function bestSet(workout: WorkoutWithSets, bw: number): BestSet | null {
+function bestSet(workout: WorkoutWithSets, bw: number): BestSet | null {
   if (workout.estimated_1rm === null) return null
   const isPullUps = workout.exercise_id === 'pull_ups'
   let bestE1rm: number | null = null
@@ -149,11 +135,7 @@ export function bestSet(workout: WorkoutWithSets, bw: number): BestSet | null {
 }
 
 /** §1.16 — generic metric extraction for PR detection + charts. */
-export function extractMetric(
-  workout: WorkoutWithSets,
-  metric: MetricKey,
-  bw: number,
-): number | null {
+function extractMetric(workout: WorkoutWithSets, metric: MetricKey, bw: number): number | null {
   const isPullUps = workout.exercise_id === 'pull_ups'
   switch (metric) {
     case 'max_weight': {
@@ -539,7 +521,7 @@ export function buildOneRmSeries(
 }
 
 /** §1.14 — Momentum series: e1RM + 8-entry trailing MA + per-date velocity. */
-export function buildMomentumSeries(
+function buildMomentumSeries(
   workouts: WorkoutWithSets[],
 ): Array<{ date: string; e1rm: number | null; e1rmMA: number | null; velocity: number | null }> {
   const sorted = workouts
@@ -768,7 +750,7 @@ export function buildRelativeProgressionSeries(
 // ─── DOTS (§2.1) ─────────────────────────────────────────────────────────────
 
 /** IPF 2020 DOTS constants — male. */
-export const DOTS_MALE = {
+const DOTS_MALE = {
   A: -307.75076,
   B: 24.0900756,
   C: -0.1918759221,
@@ -777,7 +759,7 @@ export const DOTS_MALE = {
 } as const
 
 /** IPF 2020 DOTS constants — female. */
-export const DOTS_FEMALE = {
+const DOTS_FEMALE = {
   A: -57.96288,
   B: 13.6175032,
   C: -0.1126655495,
@@ -785,7 +767,7 @@ export const DOTS_FEMALE = {
   E: -0.0000010706,
 } as const
 
-export function dotsCoefficient(bw: number, gender: 'male' | 'female'): number {
+function dotsCoefficient(bw: number, gender: 'male' | 'female'): number {
   const c = gender === 'female' ? DOTS_FEMALE : DOTS_MALE
   const denom = c.A + c.B * bw + c.C * bw ** 2 + c.D * bw ** 3 + c.E * bw ** 4
   return denom > 0 ? 500 / denom : 0

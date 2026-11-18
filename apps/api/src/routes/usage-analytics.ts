@@ -65,7 +65,7 @@ const lensValue = (r: FlowRow, lens: 'cost' | 'tokens') =>
   lens === 'cost' ? r.cost : r.input + r.output + r.cacheRead + r.cacheWrite + r.reasoning
 
 /** Largest `top` rows by the lens, the tail summed into one `other` row so totals stay whole. */
-export function foldFlow(rows: FlowRow[], lens: 'cost' | 'tokens', top: number): FlowRow[] {
+function foldFlow(rows: FlowRow[], lens: 'cost' | 'tokens', top: number): FlowRow[] {
   const sorted = rows.toSorted((a, b) => lensValue(b, lens) - lensValue(a, lens))
   if (sorted.length <= top) return sorted
   const tail = sorted.slice(top - 1)

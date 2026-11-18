@@ -16,7 +16,7 @@ type MessagePayload = { message: ReactNode }
 
 const toMessage = (payload: MessagePayload): ReactNode => payload.message
 
-export const NOTIFICATIONS = defineNotifications({
+const NOTIFICATIONS = defineNotifications({
   // ── Reading (Hardcover match + shelf sync) ───────────────────────────────
   'reading:success': { intent: 'success', toMessage },
   'reading:partial': { intent: 'warning', toMessage },

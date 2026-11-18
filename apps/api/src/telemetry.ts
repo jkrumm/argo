@@ -32,7 +32,7 @@ export function resourceAttributes(input: {
   }
 }
 
-export const resource = resourceFromAttributes(
+const resource = resourceFromAttributes(
   resourceAttributes({
     serviceName: env.OTEL_SERVICE_NAME,
     serviceVersion: env.OTEL_SERVICE_VERSION || pkg.version,

@@ -3,35 +3,6 @@ import { USAGE_PAYER, USAGE_RANK, USAGE_SOURCE } from '../../lib/series'
 import { USAGE_PAYERS } from './accounts'
 import type { TimePoint } from './types'
 
-const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
-  'claude-code': 'claudeCode',
-  claudeCode: 'claudeCode',
-  litellm: 'litellm',
-  'litellm-bridge': 'litellm',
-  'agent-gateway': 'agentGateway',
-  'agent-gateway-iu': 'agentGateway',
-  'research-gateway': 'researchGateway',
-  // Persisted source value: the service is image-gateway now, rows keep the old name.
-  'image-gen-gateway': 'imageGen',
-  'image-gateway': 'imageGen',
-  'email-gateway': 'emailGateway',
-  hermes: 'hermesAgent',
-  'hermes-agent': 'hermesAgent',
-  hermesAgent: 'hermesAgent',
-  audio: 'audioProxy',
-  'audio-proxy': 'audioProxy',
-  'audio-gateway': 'audioProxy',
-  audioProxy: 'audioProxy',
-  feuer: 'feuer',
-  opencode: 'opencode',
-}
-
-export function colorForSource(source: string): string {
-  const token = SOURCE_KEY_TO_TOKEN[source]
-  if (token !== undefined) return USAGE_SOURCE[token]
-  return USAGE_SOURCE.other
-}
-
 export function colorForPayer(payer: string): string {
   const token = USAGE_PAYERS.find((p) => p.id === payer)?.token ?? 'unknown'
   return USAGE_PAYER[token] ?? USAGE_SOURCE.other

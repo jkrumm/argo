@@ -1,6 +1,4 @@
 import { money, percent } from 'basalt-ui/format'
-import { VX } from 'basalt-ui/tokens'
-import type { Tone } from '../api/types'
 
 const CURRENCY = 'EUR'
 
@@ -31,12 +29,6 @@ export function signedEur(cents: number): string {
 /** A ratio (0.25) as `25 %`; `—` when there is none. */
 export const ratio = (value: number | null): string =>
   value === null ? '—' : percent(value, { input: 'ratio' })
-
-/** The status ink of a report tone. */
-export const toneColor = (tone: Tone): string =>
-  ({ good: VX.status.good, warn: VX.status.warn, bad: VX.status.bad, neutral: VX.status.neutral })[
-    tone
-  ]
 
 /** The sign of a change as a tone: a loss or an overspend is `bad`. */
 export const gainTone = (cents: number): 'good' | 'bad' | undefined =>

@@ -32,7 +32,7 @@ const BANDS: Record<string, { min?: number; max?: number }> = {
 }
 
 /** The server query a set of ledger filters stands for. */
-export function ledgerQuery(f: FinanceFilters): TxQuery {
+function ledgerQuery(f: FinanceFilters): TxQuery {
   const band = BANDS[f.amount]
   return {
     ...(f.from !== '' && { from: f.from }),

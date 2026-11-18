@@ -63,15 +63,15 @@ export function toApiWindow<W extends string, F extends string>(
   return { window: resolved.window === 'custom' ? fallback : resolved.window }
 }
 
-export const GARMIN_WINDOW_VALUES = ['7d', '30d', '3m', '1y', 'all'] as const
+const GARMIN_WINDOW_VALUES = ['7d', '30d', '3m', '1y', 'all'] as const
 export const STRENGTH_WINDOW_VALUES = ['7d', '30d', '3m', '6m', '1y', 'ytd', 'all'] as const
-export const BODY_COMP_WINDOW_VALUES = ['7d', '30d', '90d', 'all'] as const
+const BODY_COMP_WINDOW_VALUES = ['7d', '30d', '90d', 'all'] as const
 export const WALKING_WINDOW_VALUES = ['7d', '30d', '90d', '6m', '1y', 'all'] as const
 
 /** Declared here rather than in the feature: `strengthStore` needs them and the feature's
  * `constants.ts` already imports this module, so stating them there would close a cycle. */
 export const EXERCISE_KEYS = ['bench_press', 'deadlift', 'squat', 'pull_ups'] as const
-export const WALKING_METRIC_KEYS = ['distance', 'duration', 'steps'] as const
+const WALKING_METRIC_KEYS = ['distance', 'duration', 'steps'] as const
 
 export const garminStore = createSearchStore({
   key: 'garmin-health:window',
@@ -162,7 +162,7 @@ export const walkingStore = createSearchStore({
  * The page tabs, Flow (labelled Quotas; the default) and Explore. The rest are the v6 tab values: still accepted from an
  * old URL or stored value so they never read as unknown, then folded into Flow (the Quotas tab) by `migrateUsageSearch`. They are not offered as tabs.
  */
-export const USAGE_VIEW_VALUES = [
+const USAGE_VIEW_VALUES = [
   'flow',
   'explore',
   'overview',
@@ -175,11 +175,11 @@ export const USAGE_VIEW_VALUES = [
 /** The tabs a visitor can pick, in display order. */
 export const USAGE_TAB_VALUES = ['flow', 'explore'] as const
 /** The measure: dollars at API prices (list value for the subs, spend for the API) or fresh tokens. */
-export const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
+const USAGE_LENS_VALUES = ['cost', 'tokens'] as const
 /** `payer` is Explore's "by payer"; the single-wallet views never offer it. */
-export const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
+const USAGE_GROUP_BY_VALUES = ['sub_tool', 'model_norm', 'project', 'payer'] as const
 /** Explore's Payer control: every payer the API derives, Athena team included (off by default, never in an "all"). */
-export const USAGE_PAYER_VALUES = [...USAGE_PAYERS.map((p) => p.id), 'unknown'] as const
+const USAGE_PAYER_VALUES = [...USAGE_PAYERS.map((p) => p.id), 'unknown'] as const
 export type UsageView = (typeof USAGE_VIEW_VALUES)[number]
 export type UsageLens = (typeof USAGE_LENS_VALUES)[number]
 export type UsageGroupBy = (typeof USAGE_GROUP_BY_VALUES)[number]
@@ -274,7 +274,7 @@ const monthLabels = Object.fromEntries(MONTH_UNIVERSE.map((m) => [m, monthLabel(
 const yearLabels = Object.fromEntries(YEAR_UNIVERSE.map((y) => [y, y]))
 
 /** The amount filter of the transactions page: spending and income in bands, each a closed range of cents. */
-export const AMOUNT_BANDS = {
+const AMOUNT_BANDS = {
   '': 'Any amount',
   'out-100': 'Spent 100 € or more',
   'out-20': 'Spent 20 € to 100 €',
@@ -372,7 +372,7 @@ export const modelsStore = createSearchStore({
   y: { combined: 'Combined', general: 'General', coding: 'Coding' },
 })
 
-export const MACHINE_RANGE_VALUES = ['1h', '24h', '7d', '30d'] as const
+const MACHINE_RANGE_VALUES = ['1h', '24h', '7d', '30d'] as const
 
 /**
  * The Machines page: how far back every sparkline and chart reads (the API's `range`; no custom range)
@@ -389,7 +389,7 @@ export const machinesStore = createSearchStore({
   range: { '1h': '1 H', '24h': '24 H', '7d': '7 D', '30d': '30 D' },
 })
 
-export const LINE_WINDOW_VALUES = ['24h', '7d', '30d', '90d'] as const
+const LINE_WINDOW_VALUES = ['24h', '7d', '30d', '90d'] as const
 
 /** The Line page's one control: how far back every card reads (the API's `window`; no custom range). */
 export const lineStore = createSearchStore({
