@@ -237,6 +237,8 @@ OTEL_HOST_NAME=                                    # optional; host.name (the mi
 
 Resource attributes (`telemetry.ts` `resourceAttributes`, contract vps `docs/observability.md`): `service.namespace=argo`, `deployment.environment.name` = `prod` when `NODE_ENV=production` else `dev`. The old `deployment.environment` key is no longer sent.
 
+Logs: the registry expects argo-api logs, so the cron jobs' run lines (start, done, failures) go through `log.*` from `telemetry.ts`, inside the tick's span (a TraceId on every record, vps `make telemetry-lint` holds `untraced-logs` to 5 % for argo-api). Boot-time lines (cron registered, `api running`) stay on `console`: they would be untraced.
+
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.
 
 ## Native runtime (mini)

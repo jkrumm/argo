@@ -9,6 +9,7 @@ import {
 } from '../clients/hardcover.js'
 import { runReadingMatch } from '../lib/reading-match.js'
 import { env } from '../env.js'
+import { log } from '../telemetry.js'
 import { cronOptions, fireTick } from './traced-tick.js'
 
 let inProgress = false
@@ -27,14 +28,12 @@ export async function runHardcoverReconcile(): Promise<{
   errors: number
 }> {
   if (inProgress) {
-    // eslint-disable-next-line no-console
-    console.log('[hardcover-reconcile] already in progress — skipping')
+    log.info('[hardcover-reconcile] already in progress — skipping')
     return { matched: 0, reconciled: 0, errors: 0 }
   }
   inProgress = true
 
-  // eslint-disable-next-line no-console
-  console.log('[hardcover-reconcile] starting')
+  log.info('[hardcover-reconcile] starting')
 
   let errors = 0
   let reconciled = 0
@@ -44,8 +43,7 @@ export async function runHardcoverReconcile(): Promise<{
     // Step 0: run the match scan first so the shelf mirror is fresh.
     const matchResult = await runReadingMatch()
     matched = matchResult.matched
-    // eslint-disable-next-line no-console
-    console.log(
+    log.info(
       `[hardcover-reconcile] match scan done: scanned=${matchResult.scanned} matched=${matchResult.matched} autoConfirmed=${matchResult.autoConfirmed} enriched=${matchResult.enriched}`,
     )
 
@@ -145,19 +143,16 @@ export async function runHardcoverReconcile(): Promise<{
         reconciled++
       } catch (err) {
         errors++
-        // eslint-disable-next-line no-console
-        console.error(`[hardcover-reconcile] error for book_key=${row.book_key}:`, err)
+        log.error(`[hardcover-reconcile] error for book_key=${row.book_key}`, err)
       }
     }
 
-    // eslint-disable-next-line no-console
-    console.log(
+    log.info(
       `[hardcover-reconcile] done: matched=${matched} reconciled=${reconciled} errors=${errors}`,
     )
   } catch (e) {
     errors++
-    // eslint-disable-next-line no-console
-    console.error('[hardcover-reconcile] fatal error:', e)
+    log.error('[hardcover-reconcile] fatal error', e)
   } finally {
     inProgress = false
   }
