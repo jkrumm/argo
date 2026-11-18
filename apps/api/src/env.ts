@@ -83,6 +83,13 @@ const EnvShape = z.object({
   FIN_SERVICE_PORT: z.coerce.number().int().default(4581),
   FIN_SERVICE_TOKEN: z.string().default(''),
 
+  // ClickStack's ClickHouse HTTP interface over the tailnet (read-only user `argo_ro`, contract: vps
+  // docs/observability.md §Dashboard read access). The Line page reads linewatch's history from it; empty
+  // (the default) switches the read path off and `/line/*` answers 503.
+  CLICKHOUSE_URL: z.string().default(''),
+  CLICKHOUSE_USER: z.string().default('argo_ro'),
+  CLICKHOUSE_PASSWORD: z.string().default(''),
+
   // modelpick server (repo ~/SourceRoot/modelpick): loopback-only and read-only, so no service token.
   // Argo's /models/* routes relay to it.
   MODELPICK_PORT: z.coerce.number().int().default(7727),

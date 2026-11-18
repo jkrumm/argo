@@ -40,6 +40,7 @@ import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { financeRoutes } from './routes/finance.js'
 import { modelsRoutes } from './routes/models.js'
+import { lineRoutes } from './routes/line.js'
 import { authGuard } from './lib/auth-guard.js'
 import { shouldTraceRequest } from './lib/trace-filter.js'
 
@@ -166,6 +167,11 @@ export function buildApp() {
                   'Which model to use for what: Artificial Analysis intelligence, cost per task and speed per model and reasoning effort, joined with the agent-workflows route table and IU access, relayed from the loopback modelpick server on the mini. `GET /models/efficiency` is the one read; tokens and time per task in it are estimates. 503 when modelpick is down.',
               },
               {
+                name: 'Line',
+                description:
+                  "The home internet line's history from linewatch's export in ClickStack's ClickHouse: `GET /line/now` (up / down / stale, last outage, newest router and speed-test reading), `/line/uptime`, `/line/latency` (loss and round-trip time per probe target), `/line/router` (sync rate, noise margin) and `/line/speedtests`, each over a `window` of 24h, 7d, 30d or 90d. 503 when ClickHouse is unavailable.",
+              },
+              {
                 name: 'System',
                 description:
                   'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -210,6 +216,7 @@ export function buildApp() {
             'Reading',
             'Finance',
             'Models',
+            'Line',
             'System',
           ],
         }),
@@ -279,6 +286,7 @@ export function buildApp() {
       .use(readingRoutes)
       .use(financeRoutes)
       .use(modelsRoutes)
+      .use(lineRoutes)
   )
 }
 

@@ -45,6 +45,9 @@
     <string>__SHA__</string>
     <key>OTEL_HOST_NAME</key>
     <string>mini</string>
+    <!-- ClickStack's ClickHouse HTTP interface over the tailnet (MagicDNS name of the VPS), read-only user argo_ro: the Line page. -->
+    <key>CLICKHOUSE_URL</key>
+    <string>http://vps:8123</string>
     <key>JIRA_BOARD_ID</key>
     <string>272</string>
     <key>GITLAB_BASE_URL</key>
