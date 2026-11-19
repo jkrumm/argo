@@ -2,37 +2,13 @@
 
 ## What Argo Is
 
-Personal dashboard + agent-backbone API for Johannes Krumm, running natively on the Mac mini at
-`https://argo.jkrumm.com` (tailnet only). Health/training core: **Garmin Health** (HRV, resting HR, sleep,
-stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
-ACWR, PR detection, body weight) — Argo pulls health data every 6 hours straight from the official Garmin Connect Personal API (a personal API key, `GARMIN_API_KEY`), strength
-data is logged manually. Alongside them: a general
-an in-process `aiComplete` (`lib/ai-complete.ts`, no HTTP route; backs classification and the astro/marine verdict sentences),
-**Usage Tracking** (Claude Code and gateway spend, read from the `usage` schema in the shared database: `usage-tracker` and `agw` write it directly, Argo has no ingest endpoint and reads `usage.records_unique` through the projection `src/lib/usage-source.ts`; each record carries the Claude `account` — `iu`/`me`/`me2`, null off Max billing — filterable on every `/usage` endpoint and a breakdown/groupBy dimension; IU API rows also carry the IU key `iu_key` — `personal`/`athena-team`, each with its own $500 cap, `iuKey` filter and `iu_key` dimension on the records endpoints, `?iuKey` on `iu-budget`/`iu-reconcile`; the **payer** — `iu-sub` (Ultra)/`me-sub`/`me2-sub`, the API credit those subscriptions grant `iu-credit`/`me-credit`/`me2-credit` (billing `api_credit` + account, written by the inference gateway), `iu-api`/`iu-team-api`/`me-api`/`unknown`, derived from billing + account + iu_key in the query layer — is the usage page's default split and filter); also Claude account quota samples (`GET /usage/quota`, `GET /usage/quota-latest`, from `usage.quota_samples`) and picker decisions (`GET /usage/account-picks/summary`, from `usage.account_picks`), IU's portal cost report (`usage.iu_portal_cost`, read by `GET /usage/{iu-budget,iu-reconcile}`) plus the `flow` and `movers` aggregates (apps/api/AGENTS.md §Usage page data), shown on the usage page (two tabs, spec `docs/design/usage-tracking.md` v7: **Quotas** (default, `?view=flow`) — a verdict sentence (credit, subscriptions, IU clause) and four cards in one chart form: Claude subscriptions (Combined, the pool weighted by capacity units iu 2 / me 1 / me2 1, recorded and projected, or Accounts, one line each: `?subsView`), Claude API credit (the three pools summed in dollars with the even pace, projection and labelled renewals), the IU personal key and the Athena team key (each a rolling 30 d $500 cap in dollars, recorded from the true rolling sum, projected 30 d as each past day comes back); below them a closed "Routing and demand" disclosure (Router and Demand columns, the selected node's detail via `?node=router|demand:<workflow>`, Athena's spend by producer; follows Range, mounts on open, `?node=` opens it); the Athena team key stays out of every total; **Explore** — the analysis blocks across every payer at once with a Payer multi-select (over time, projects / tools rows, rhythm, weekly volume). The v6 tabs Overview, Claude Max, IU API and Credits are deleted; their `?view=` values still open Quotas. Range (default 7 d) drives only the Routing and demand disclosure, the verdict and the cards are state; data from `GET /usage/{pace,router,demand}`, `/usage/split?by=lane`, `/usage/quota-latest`, `/usage/iu-budget`; `GET /usage/credits/*` is gone, `pace` and `router` replaced it), **Reading**
-(Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
-and **Atlassian** surfaces, **WalkingPad**.
+Personal dashboard + agent-backbone API for Johannes Krumm, running natively on the Mac mini at `https://argo.jkrumm.com` (tailnet only). Health and training core (Garmin Health, Strength Tracker), Usage Tracking, Astro Window, Reading, M365, GitLab, Atlassian and WalkingPad surfaces: `docs/overview.md`.
 
-**Astro Window** answers "is tonight (or this week) worth going out for?" for Milky Way nightscapes. It is scored by a deterministic engine (`apps/api/src/lib/window-score.ts` — hard gates that name _why_ a night is out, plus weighted 0–1 factors) instantiated per domain (`astro-score.ts`). **The model never computes a number**: the ephemeris, the thresholds and the score are all deterministic, and `aiComplete()` only writes one sentence about an already-finished verdict — see `docs/ASTRO-WINDOW.md`.
-
-The **marine** half of that feature exists **API-only**: `/marine/window` and `/marine/spots` run over the same engine (`marine-score.ts`, `marine-spots.ts`, `clients/marine-upstreams.ts`) and are tested, but the dashboard page was removed on 2026-08-18 — the surf face gets rebuilt deliberately, step by step, on top of the shipped endpoints.
-
-The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`. All routes require a bearer except the health probe (see Verify & Monitor).
+The API is also the agent interface: `GET /openapi/json` is the contract (`apps/api/.claude/rules/openapi.md`). **The model never computes a number** in Astro Window: the ephemeris, thresholds and score are deterministic; `aiComplete()` writes one sentence about a finished verdict (`docs/ASTRO-WINDOW.md`).
 
 ## Finance — the vault frontend
 
-Argo is the frontend of Johannes's encrypted finance vault (repo `~/SourceRoot/finances`; `docs/service.md` there is the contract). The vault stays encrypted on the mini; `fin serve` (loopback `127.0.0.1:${FIN_SERVICE_PORT:-4581}`) holds the key only in memory while unlocked. The API relays `/finance/*` to it (`apps/api/src/routes/finance.ts`, secret `FIN_SERVICE_TOKEN`, service status codes passed through, 503 when it is down; see `apps/api/AGENTS.md` §Finance). The dashboard's **Finance** section (`/finance/…`, `apps/dashboard/src/features/finance/`) shows one unlock screen while locked (a login form so 1Password fills the vault key), and when unlocked the six pages — This month, Spending, Recurring, Transactions, Net worth, Tax — with a page-bar sync control (last sync, "syncing…", **Sync now**) and **Lock**; the status is polled every 30 s only while a finance page is open, and a 423 from any data call drops back to the unlock screen. The response types are a pinned copy of the finances repo's `ui/src/api/types.ts` (`features/finance/api/types.ts`, source commit in its header); the pages also curate the books (category, tax tag, recurring override, merchant rule: the four typed writes the relay allows): re-copy them when that file changes. Agents never unlock the vault or handle its key; `POST /finance/unlock` is human-only.
-
-Warden was switched off 2026-10-27 and its API is gone; the `warden_snapshots` and `warden_actions` tables are left in the `argo` schema, unused, pending a cleanup migration.
-
-The factory's own pages (needs-you, flow, chain, improve) live in the Console, not in Argo; the Today page links to it (`apps/dashboard/src/lib/console-url.ts` joins a path onto `VITE_CONSOLE_URL`, the Console's own door origin: `make deploy` bakes it from the mini-local one-line file `~/.argo/console-url`, `apps/dashboard/.env.development` points dev at the `.test` door; unset, there is no link). Argo's `/agents/*` API and the Agents and Agent performance pages are gone; the `agent_overview_snapshots`, `agent_narratives` and `agent_review_stats_snapshots` tables stay in the `argo` schema, unused, pending a cleanup migration.
-
-## Workspace Layout
-
-```
-argo/
-├── apps/api/          — Elysia + Bun + Postgres + Drizzle + Zod + OTel
-└── apps/dashboard/    — Vite + React 19 + Mantine v9 + TanStack Router/Query
-```
+Argo is the frontend of the encrypted finance vault (repo `~/SourceRoot/finances`). Agents never unlock the vault or handle its key: `POST /finance/unlock` is human-only, and the API relays `/finance/*` (`apps/api/AGENTS.md` §Finance). Pages, unlock flow and retired surfaces: `docs/overview.md`.
 
 ## Common Commands
 
@@ -52,7 +28,7 @@ bun run --cwd apps/api db:generate            # generate migration after schema 
 Validation and deploy entry points are `make check` / `make deploy` / `make verify` / `make rollback` / `make logs` —
 see [Validate](#validate), [Deploy](#deploy) and [Verify & Monitor](#verify--monitor) below.
 
-**Dev infra prerequisite:** the local Postgres + ClickStack come from `~/SourceRoot/vps/compose.dev.yml`. Start once with `cd ~/SourceRoot/vps && make up` (and `make postgres-setup` the first time to provision the `argo` role + schema). The `bun dev` command then connects to the shared cluster on `localhost:5432` and pipes OTel to ClickStack on `localhost:4318`.
+Dev needs the shared Postgres and ClickStack cluster from `~/SourceRoot/vps` (first-run role setup, OTel ports): `docs/reference.md` §Local dev infra.
 
 ## Validate
 
@@ -62,28 +38,7 @@ see [Validate](#validate), [Deploy](#deploy) and [Verify & Monitor](#verify--mon
 a dashboard `vite build`, the dashboard tests, and the DB-free API unit tests. Non-zero on the first
 failure; writes only the gitignored `apps/dashboard/dist`.
 
-```bash
-./node_modules/.bin/basalt-ui sync --check    # managed files match the installed basalt-ui
-bun run lint                                  # oxlint + basalt-ui check-theme
-bun run format:check                          # oxfmt
-bun run --cwd apps/api typecheck
-bun run --cwd apps/dashboard typecheck        # route tree, app, node and test files (tsconfig.test.json)
-bun run typecheck:scripts                     # scripts/
-bun run --cwd apps/dashboard build            # vite build
-bun run --cwd apps/dashboard test             # bun test src
-# `make test` runs the two test lines of this block as one target (the factory's `steps.unit`, see project.yaml).
-
-# API unit tests (no DB connection): the DB-free set is listed once, in apps/api/package.json `test:unit`
-# (placeholder DATABASE_URL / API_SECRET included). A new DB-free test file goes into that list.
-bun run --cwd apps/api test:unit
-
-# Integration tests (src/routes/*.test.ts, src/db/*.test.ts) need the mini's Postgres up; NOT part of CI.
-# `bun test:api` creates a scratch database argo_test_<hex> as the Postgres superuser over the unix socket in /tmp (OS user, no password),
-# applies usage-tracker's migrations/pg for schema `usage` (USAGE_MIGRATIONS_DIR overrides the path),
-# runs the suite there and drops it:
-bun test:api
-bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
-```
+The individual gates, the API unit and integration split, and the `test:api` scratch database: `docs/reference.md` §Validate commands.
 
 ## Deploy
 
@@ -94,41 +49,13 @@ reachable from the MacBook, phone and tablet only. The database is the shared Po
 the scheduled jobs run in the same process (`CRONS_ENABLED=true` in the plist). A push to `master` deploys nothing by itself:
 run `make deploy`.
 
-The VPS copy is gone (dropped 2026-11-03): no containers, images, `argo` schema or role remain there, so there is no second
-copy to roll back to. Restoring the database, newest recovery point first:
-
-1. **The nightly backup of `shared`** (03:15, vps `scripts/backup-pg-dev.sh`, 14 kept, each restore-drilled on write):
-   `homelab:/mnt/hdd/backups/vps-mini-postgres/<ts>/shared.dump` plus `SHA256SUMS` and `counts.tsv`; at most ~24 h of loss.
-   Procedure and drill: vps `docs/mini-postgres.md`.
-2. **The cutover dump**, last resort for VPS-era data: `homelab:~/argo-backups/argo-schema-final-20261030T1643Z.{dump,sums,sha256}`
-   (custom format, the whole VPS `argo` schema incl. the five legacy usage tables; `sha256sum -c` the `.sha256` first). It loses
-   everything the mini wrote since 2026-10-30 16:43Z.
-
-Either way, `argo` only (both dumps hold more than Argo; never restore a whole `shared.dump` into `shared`, it carries `usage`):
-`launchctl bootout gui/$(id -u)/com.jkrumm.argo` and confirm it is gone; `pg_restore --schema=argo --no-owner --role=argo
---exit-on-error -d <scratch db>` and compare row counts against `counts.tsv` / `.sums`; then the same with `--clean --if-exists -d
-shared` as role `argo`; `COMMENT ON SCHEMA argo IS 'argo live (restored from <dump>) <date>'` (the restore replaces the mark the
-guards read); `make deploy`.
+The VPS copy is gone (dropped 2026-11-03): no second copy to roll back to. Restoring the database, newest recovery point first: the nightly `shared` backup (at most ~24 h of loss), then the cutover dump as last resort. Procedure: `docs/deploy.md` §Database restore.
 
 Migrations apply automatically on API boot — **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
 
-### Mini layout (`~/.argo`, `ARGO_ROOT` relocates it for tests)
+### Mini layout
 
-```
-repo/                 fetch-only clone (nothing runs from it)
-releases/<sha>/       git archive of one commit + bun install + built dashboard; `.complete` is written last
-current               symlink to the live release
-data/                 deployed-sha, previous-sha (written only after a release is healthy), deploy.lock, err-log-offset
-state/                the app's DATA_DIR (the Google / M365 OAuth token file); outside every release, survives deploys
-```
-
-The LaunchAgent `com.jkrumm.argo` (`deploy/com.jkrumm.argo.plist.template`) points at the release path, not at `current`; logs are
-`~/Library/Logs/argo.{out,err}.log`. Non-secret config lives in the plist (`PORT=7737`, `HOST`, `DATA_DIR`, `DASHBOARD_DIR`,
-`GIT_SHA`, `CRONS_ENABLED`, ...); secrets only through `.env.tpl` (op:// refs, resolved by `scripts/launch.sh`, which fails closed
-with exit 78 unless every ref is non-empty and assembles `DATABASE_URL` for role `argo` on database `shared` and
-`OTEL_EXPORTER_OTLP_HEADERS`). `DOCKER_VPS_URL` is deliberately unset: the VPS socket-proxy only listens on the VPS's Docker network,
-so `/docker/vps/*` and the VPS half of `/summary` answer an error until a tailnet path exists; the homelab half reads `:2376`
-(tailnet grant `tag:devhost` -> `tag:homelab`).
+`~/.argo` holds the release tree, the markers and the app's state; the LaunchAgent `com.jkrumm.argo` points at the release path, not at `current`. Layout, plist and secret resolution: `docs/deploy.md` §Mini layout.
 
 ```bash
 make deploy              # fetch origin/master, build the release, check the refs, switch, wait for /api/health at the new sha
@@ -138,29 +65,11 @@ make rollback            # previous-sha goes live (exit 1 if it cannot); the mar
 make logs                # last 200 lines of argo.out.log / argo.err.log
 ```
 
-`make deploy` deploys what is on **origin/master** (push first), re-executes the release's own `scripts/deploy.sh` (the deploy lock stays held across the re-exec, `ARGO_DEPLOY_LOCK_HELD`), refuses before
-anything is stopped if a `.env.tpl` ref does not resolve, and rolls back to the previous release when the new one is not healthy
-within 120 s (a first deploy is left booted out instead of crash-looping). Releases beyond the newest three (plus live and
-previous) are pruned. Dashboard bundle: `VITE_API_URL` empty (same-origin `/api`), `VITE_CONSOLE_URL` from `~/.argo/console-url` (the Console's origin, one line, machine-local, outside every release; a missing or invalid file builds a bundle without the Today page's Console link), `VITE_HYPERDX_ENDPOINT` empty (same-origin
-`/v1/traces` + `/v1/logs`), the public ingestion key read through `secrets-run`. Deploys run on the Mac mini only (they need
-`~/.local/bin/secrets-run` and `launchctl`). `make rollback` leaves `make verify` failing until the next deploy: the live sha is then,
-by intent, not origin/master. Never roll back to a release older than `5b0c8596e9c1` (the cutover): the plist is rendered from
-the release's own template, so an older one would restart with `CRONS_ENABLED=false`. Logic test (no launchd): `zsh scripts/test/deploy-logic.sh` (not part of `make check`).
+`make deploy` ships origin/master (push first), re-executes the release's own `scripts/deploy.sh`, and rolls back to the previous release when the new one is not healthy within 120 s. Never roll back to a release older than `5b0c8596e9c1` (the cutover): an older plist restarts with `CRONS_ENABLED=false`. `make rollback` leaves `make verify` failing until the next deploy, by intent. Mechanics, the dashboard bundle env and pruning: `docs/deploy.md` §make deploy.
 
 ## Verify & Monitor
 
-`make verify` is `scripts/verify.sh` against the **mini** copy (`http://127.0.0.1:7737`), exit 0 only if all hold: the LaunchAgent is
-loaded; `GET /api/health` is ok and its `commit` equals `deployed-sha` equals `git ls-remote origin refs/heads/master` of the clone (it
-fails, naming both, when origin/master moved ahead); `GET /` is the SPA and an `/assets/*` file it names is 200 with an immutable
-`Cache-Control`; unauthenticated `GET /api/usage/summary` is 401; with the bearer,
-`/api/usage/summary` (reads the `usage` schema), `/api/exercises` (reads the `argo` schema) and `/api/openapi/json` answer 200 JSON;
-the stderr log has no `Unhandled`, `ECONNREFUSED … 5432` or `password authentication failed` line since the process started (the last `argo: process start` line `scripts/launch.sh` writes on every launchd start, else the log offset `make deploy` recorded; a crash-looped predecessor's lines do not count).
-`make verify-pages [BASE=<origin>]` loads every route of `scripts/evidence/routes.txt` in a real Chrome (bearer from `secrets-run`,
-reads only) and fails on an uncaught page error, a 5xx other than 503 or an empty page; 503s (Google / M365 without tokens) are listed as notes.
-The mini door is `https://<mini-door-host>` (dotfiles Caddy registry, tailnet clients only); the process serves the SPA, `/api/*`
-and the browser OTLP relay itself. Note that in dashboard mode only `/api/*` reaches the API, so probe `/api/health`, not `/health`.
-`/health` returns `{status, commit}`, `commit` being the `GIT_SHA` in the plist; it is unauthenticated and does not touch the
-database (see `docs/DEPLOY-VERIFICATION.md`).
+`make verify` (`scripts/verify.sh`, against the mini copy at `http://127.0.0.1:7737`) exits 0 only when the LaunchAgent is loaded, `/api/health` commit equals `deployed-sha` and origin/master, the SPA, assets, auth and bearer endpoints answer, and the stderr log is clean since the last process start. `make verify-pages` loads every route in a real Chrome. Each check, the mini door and `/health`: `docs/deploy.md` §make verify.
 
 - Public health URL (tailnet clients only): `https://argo.jkrumm.com/api/health`.
 - Uptime Kuma: the homelab cannot use that URL (the Caddy source guard answers it 403), so the monitor `Argo - Door` (group `Local` /
@@ -168,24 +77,7 @@ database (see `docs/DEPLOY-VERIFICATION.md`).
 - OTel `service.name`: `argo-api` (via `OTEL_SERVICE_NAME`; the dashboard is `argo-dashboard`).
 - Logs: `make logs`.
 
-`make evidence LABEL=<l>` is the real-data before/after baseline for UI work: it builds the dashboard,
-serves `dist` on an ephemeral port with `/api` proxied to production (GETs only — any other method is
-answered 405 and listed under `## blocked writes`, but does not fail the run), injects the bearer into `localStorage` (read via `secrets-run`, never
-printed or written; the run aborts unless it authenticates), then runs the bundle / screens (13 routes × light/dark × desktop/mobile) /
-lighthouse (median of 3) lanes. Output: `docs/waves/evidence/<l>.md`; raw screenshots and Lighthouse
-JSON land in the gitignored `docs/waves/evidence/.raw/<l>/`. Needs `secrets-run` and a locally installed Google Chrome. Code: `scripts/evidence/`.
-
-`make design-shot [ROUTES="/models /usage-tracking"] [LABEL=<l>] [SKIP_BUILD=1]` is the redesign loop's shot harness: same
-GET-only production proxy as `make evidence` (the guarantee assumes dashboard GET endpoints are side-effect-free), every
-route (default `scripts/evidence/routes.txt`) × dark/light × desktop 1440 / mobile 390 at DPR 2, plus one crop per
-desktop card/table, into `.design-shots/<label>/` with an `index.html` board and `manifest.json`. The shots show real
-personal data: `.design-shots/` is gitignored, never commit or upload the images. Code: `scripts/design-shot/`.
-
-`bun scripts/design-shot/fixture-proxy.ts --fixture <fixture> [--port <n>]` (`goal`, `at-goal`, `weight-fresh`, `weight-no-rate`,
-`skinfold-one`, `skinfold-close`, `skinfold-many`, `all`) is a loopback, GET-only `/api` proxy for `basalt-ui shot --dist <dist>
---api /api=http://127.0.0.1:<port>`: it answers synthetic goal-weight, weigh-in and skinfold data (the body-composition states
-production cannot show) and forwards every other read to production, so its shots still carry real data and follow the
-`.design-shots/` rules.
+Real-data baselines and design shots (`make evidence`, `make design-shot`, the fixture proxy): `docs/deploy.md` §Evidence and design shots. The shots show real personal data: `.design-shots/` is gitignored, never commit or upload the images.
 
 ## Gotchas
 
@@ -222,30 +114,9 @@ bun db:sync                              # optional: copy the live argo schema f
 bun dev                                  # API :4040 + dashboard :7715 (https://argo.test via dotfiles Caddy); crons off
 ```
 
-On the mini `shared.argo` is the live database: `bun dev` refuses to start there (set `ARGO_DEV_ON_LIVE=1` to override) and
-`bun db:sync` refuses it unconditionally. Develop UI work against `make evidence` / `make design-shot` (GET-only proxy to
-production) or on a MacBook with its own local copy. `bun db:sync` (`scripts/db-sync.sh`) seeds that copy from the live mini
-schema over `ssh mini`: one REPEATABLE READ READ ONLY snapshot with `default_transaction_read_only=on`, pg_dump plus per-table
-rows + md5 from that snapshot, a local restore that commits only when every table matches, marked `argo dev copy ...`; a
-local schema without that mark (or the older `argo rehearsal copy`) is replaced only with `FORCE=1`. `bun db:migrate` refuses the live database the same way as
-`bun dev` (`scripts/live-guard.sh`, fail-closed: an unreadable mark also refuses).
+On the mini, `shared.argo` is the live database: `bun dev` refuses to start there (`ARGO_DEV_ON_LIVE=1` overrides it), `bun db:migrate` refuses the same way, and `bun db:sync` refuses unconditionally. Develop UI work against `make evidence` / `make design-shot` or a MacBook copy. Mechanics: `docs/deploy.md` §The mini is live.
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.
-
-## Design System
-
-**`basalt-ui` is now Argo's design system** — the Mantine theme, chart primitives (`basalt-ui/charts`),
-tokens (`basalt-ui/tokens`), and toolchain presets (oxlint/oxfmt/lefthook) all come from the
-framework. Argo is `basalt-ui`'s original reference consumer; the local `packages/charts` package
-and hand-rolled `DESIGN.md`/theming docs it used to carry have been retired in favor of the
-framework's agentic layer (`bunx basalt-ui init`/`sync`, the `.claude/rules/basalt-*.md` doctrine, and
-the managed `/basalt-design` / `/basalt-charts` skills in `.claude/skills/`).
-
-**`DESIGN.md` (repo root) is Argo's app-delta record** — not the law itself anymore, but the
-project-specific deltas on top of basalt's defaults (accent hue, series dictionary). It is a basalt
-`seed` file: written once by `basalt-ui init`, then owned by Argo — `basalt-ui sync` never overwrites it.
-Read it before building or restyling any UI. The pre-basalt `DESIGN.md`/`MANTINE-THEMING.md` era
-was retired 2026-09-07; basalt-ui's own theming docs (shipped with the framework) are the reference.
 
 ## Workspace-Specific Docs
 
@@ -257,11 +128,7 @@ was retired 2026-09-07; basalt-ui's own theming docs (shipped with the framework
 
 ## Analytics Reference
 
-- `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
-- `docs/ASTRO-WINDOW.md` — the astro + marine window planner: status per piece, the response contract, every decision taken during the build (D1–D11), what is still unverified
-- `docs/ASTRO-MAP-RESEARCH.md` — **shipped**: `/astro/light-pollution` + `/astro/skyglow` (point-lookup), `GET /astro/tiles/lp/{year}/{z}/{x}/{y}.png` (the terrarium-encoded raster tile route), and the Map tab — basemap/imagery catalogue, the light-pollution ramp overlay, a global weather layer catalogue (RainViewer radar, decoded EUMETSAT cloud products, NASA GIBS infrared, Open-Meteo model forecasts) and the settings drawer. The decision record: light-pollution sources and licences, the Lorenz binary-tile decode, a direction-resolved skyglow model, terrain horizons, cloud/weather source selection and two shipped-then-fixed rendering bugs (§9–§10). POC scripts in `docs/poc/astro-map/` (lint-excluded) reproduce every number in it
-- `docs/ASTRO-HORIZON-RESEARCH.md` — the terrain-horizon rebuild, **shipped in five phases**. `GET /astro/horizon` serves the per-azimuth near/far-split skyline (`lib/terrain-horizon.ts`'s `horizonProfile`/`horizonAt`) for an arbitrary coordinate from the AWS terrarium DEM (`clients/terrarium-dem.ts`); `/astro/window`'s per-night gate is `max(8°, farHorizon(coreAzimuth) + 2°)`, evaluated per sample rather than once per night, and the moon counts as down when it sits behind that same skyline (`resolveNight` in `lib/astro-night.ts`); `GET /astro/visibility` (`lib/astro-visibility.ts`'s `annualVisibility`) integrates a whole calendar year on a 10-minute grid into the deterministic, weather-free annual budget — "is this spot worth the drive at all" — under three progressively honest gates (`flat`/`terrain`/`terrainMoon`). On the dashboard, the **Forecast** tab carries the sky panorama (`charts/sky-panorama.tsx` — terrain silhouette, skyglow rose and the sun/moon/core tracks on one azimuth × altitude pair of axes, with the gate drawn and the clearing segment emphasised) plus the monthly budget chart, and the **Map** tab carries hillshade + optional 3D terrain off one shared terrarium `raster-dem` source and click-anywhere scouting (`components/scout-panel.tsx`, comparing any coordinate against the selected site). **Not built:** the §5 clearance raster layer — measured at 0.34 ms/cell and rasterable, but no tile route exists. The record: the PVGIS validation, why the near field (≤500 m) is DEM-unstable and ships advisory-only, what terrain does to the core and to moonlight, the annual-budget numbers that reorder the site ranking 16× under a terrain-aware gate, and the re-verified library landscape (`astronomy-engine` is upstream-abandoned, `suncalc` 2.0 is now viable for sun/moon only). POC scripts in `docs/poc/astro-horizon/` reproduce every number in it
-- `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
+Metric definitions, formulas and the astro, horizon and strength decision records with their POC scripts: `docs/reference.md` §Analytics Reference.
 
 ## Design System — agent pointer
 
@@ -270,6 +137,8 @@ design law. The basalt-ui doctrine lives in `.claude/rules/basalt-*.md` (six rul
 framework-managed block at the end of this file (written by `basalt-ui sync`; `sync --check` gates it
 in CI). Precedence: `DESIGN.md` > the
 `basalt-*` rules > the `basalt-*` skills.
+
+Basalt history and the analytics index: `docs/reference.md`.
 
 <!-- basalt:begin 2.29.0 -->
 
