@@ -8,7 +8,7 @@ The API is also the agent interface: `GET /openapi/json` is the contract (`apps/
 
 ## Finance — the vault frontend
 
-Argo is the frontend of the encrypted finance vault (repo `~/SourceRoot/finances`). Agents never unlock the vault or handle its key: `POST /finance/unlock` is human-only, and the API relays `/finance/*` (`apps/api/AGENTS.md` §Finance). Pages, unlock flow and retired surfaces: `docs/overview.md`.
+Argo is the frontend of the encrypted finance vault (repo `~/SourceRoot/finances`). Agents never unlock the vault or handle its key: `POST /finance/unlock` is human-only, and the API relays `/finance/*` (`docs/api/finance.md`). Pages, unlock flow and retired surfaces: `docs/overview.md`.
 
 ## Common Commands
 
@@ -123,8 +123,8 @@ The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces
 | File                       | Contents                                                                                |
 | -------------------------- | --------------------------------------------------------------------------------------- |
 | `DESIGN.md`                | Argo's app-delta record: accent hue, series dictionary, deviations from basalt defaults |
-| `apps/api/AGENTS.md`       | DB, migrations, adding a route, test patterns, OTel vars                                |
-| `apps/dashboard/AGENTS.md` | Adding a page, stack details, React Compiler, observability                             |
+| `apps/api/AGENTS.md`       | DB, migrations, adding a route; points to `docs/api/` for tests, OTel, usage, finance   |
+| `apps/dashboard/AGENTS.md` | Adding a page, stack details, React Compiler; points to `docs/dashboard/` for the rest  |
 
 ## Analytics Reference
 

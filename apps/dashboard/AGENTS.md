@@ -13,26 +13,6 @@
 - **Charts:** `basalt-ui/charts` (TanStack Charts kinds; each feature keeps its charts under `features/<page>/charts/`) + `src/lib/series.ts` (Argo's per-metric series identity)
 - **Dates:** `date-fns` (frontend only; backend sends ISO strings)
 
-## Route Structure
-
-Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) is gitignored — regenerated automatically in dev and by `tsr generate`.
-
-- `__root.tsx` — AppShell sidebar layout + theme toggle + `<Outlet />`
-- `index.tsx` — Today (the home page: day strip, agenda, calendar activity, an external link to the Console for the factory's pages; `features/home/`, `lib/console-url.ts` joins a path onto the configured `VITE_CONSOLE_URL`; null, no link, when it is unset)
-- `astro-window.tsx` — Astro Window page
-- `body-composition.tsx` — Body Composition page
-- `calendar.tsx` — Calendar page
-- `garmin-health.tsx` — Garmin Health page
-- `m365-explorer.tsx` — M365 Explorer page
-- `models.tsx` — Models page (System → which model to use for what: one log-x scatter of a y score against a weighted efficiency index (x toggle to cost, ≈time or ≈tokens per task; y toggle `modelsStore.y`: Combined (default, 50/50 percentile rank of AA intelligence and Epoch's `coding.score`, constants `Y_WEIGHTS` in `model.ts`; a variant with no coding score is a hollow dot ranked on intelligence alone), General (AA intelligence, the old chart) or Coding (`coding.score`, benchmarks named in the tooltip and slots list, Epoch AI CC-BY 4.0 credited next to them); the slots' leanest alternative compares on the active y; the cost axis is API list price, no quota weights exist), your agw slots with the leanest alternative on Max and anywhere, a per-variant catalog table; `features/models/`, data from `GET /api/models/efficiency` via the modelpick relay, plain fetch, contract pinned in `api/types.ts`, logic pure in `model.ts`/`labels.ts`/`pointer.ts` (the scatter's own pointer overlay: nearest dot in 2D pixel space from the chart's clip rect and the page's own domains, since `CartesianChart` exposes no scales; hover shows the tooltip and lights the lineage, a click or tap toggles `pick`); filters and the highlighted lineage are `modelsStore`; fixture shots: `bun scripts/design-shot/models-fixture.ts [--live]` after a dashboard build; `--live` reads a gitignored local snapshot). **This repo is public and Artificial Analysis data is internal use only: fixtures stay synthetic (`features/models/__fixtures__/efficiency.ts`), and real numbers only ever come through the relay**
-- `line.tsx` — Line page (System → the home internet line on one screen, `features/line/`; data from `GET /api/line/*` (ClickHouse via the API's read path, one endpoint per card, queries in `lib/queries/line.ts`). One range control, `lineStore.window` (`24h`/`7d`/`30d`/`90d`, default `7d`). Reading order = the three questions: the strip (Internet up/down/no data + last outage, Uptime %, Line sync rate + noise margin, last speed test), loss and round-trip time per target (router, Cloudflare, Google, Quad9; RTT line, loss bars on the right axis, outages shaded on every chart's shared time axis), then sync rate, noise margin and speed tests as points. Colour is for attention only: loss and outage bands red, the strip's value only when down or unknown; down/up are two sky shades (`SERIES.lineDown/lineUp`). Every card owns its query, so a ClickHouse failure is that card's error state (retry button) and nothing else; pure logic in `model.ts`. Dropped from linewatch's old dashboard on purpose: throughput, path and hardware, availability heatmap, verdict rules)
-- `machines.tsx` — Machines page (System → every machine that reported in the last 24 hours on one screen, `features/machines/`; data from `GET /api/machines/{overview,detail}` (host agents in ClickHouse, queries in `lib/queries/machines.ts`). One range control and the selected host are `machinesStore` (`range` `1h`/`24h`/`7d`/`30d`, default `24h`; `host` URL-only, empty = the machine that most needs attention, `selectHost` in `model.ts`). A `BasaltDataTable` row per machine (status and reporting share, CPU and memory as a value with a 0–100 sparkline shared across rows, fullest disk, load per core, network in/out), then six cards for the selected machine on one shared time axis: CPU, Memory, Network, Disk IO, Filesystems and, on Docker hosts only, Containers. Neutral by default; colour only for state that needs the eye (`LIMITS` in `model.ts`: disk 80/90 %, memory 85/95 %, CPU 90/98 %, load per core 1.5/2.5; silent machines red, their values dashes, silent stretches shaded on every chart). Overview and detail are two queries, so one failing is one error state; pure logic in `model.ts`)
-- `reading.tsx` — Reading page
-- `strength-tracker.tsx` — Strength Tracker page
-- `usage-tracking.tsx` — Usage Tracking page
-- `walking-pad.tsx` — Walking Pad page
-- `finance.tsx` (layout: the lock gate + status polling, `features/finance/finance-layout.tsx`) with `finance.index.tsx` (This month: budget month via `?month=`, projection, cumulative pace chart, still due, category vs average, latest bookings, 12-month trend), `finance.spending.tsx`, `finance.recurring.tsx` (subscriptions, bills, due in 30 days, stopped and left out; a row opens `recurring-modal.tsx` for the override), `finance.transactions.tsx` (server-paged ledger, inline category and tax-tag selects with optimistic writes, bulk modal, merchant rule), `finance.net-worth.tsx`, `finance.tax.tsx` (sums per tag and the untagged queue with one-tap tags) — the vault frontend (design: `docs/design/finance-v2.md`); pages live in `features/finance/pages/`, writes in `features/finance/api/mutations.ts` (`useCurate`: optimistic patch of every cached transaction list, rollback and rethrow on failure, one debounced refresh of the derived queries), the filters are `finStore` in `lib/window-stores.ts` (URL only, never localStorage), data goes through `features/finance/api/` (plain `fetch` against `/api/finance/*`, not Eden: the relay returns the service's raw responses). The unlock form keeps the key in an uncontrolled input, never in state, a query or a mutation (their variables outlive the call)
-
 ## Adding a page
 
 See `.claude/rules/basalt-state.md`.
@@ -98,37 +78,13 @@ Eden Treaty maps hyphenated path segments with bracket notation (`api['my-resour
 
 **Nav entry:** see `.claude/rules/basalt-state.md`.
 
-## Theme Toggle
-
-`useMantineColorScheme()` from Mantine — reads/writes `mantine-color-scheme-value` in localStorage. The inline script in `index.html` sets `data-mantine-color-scheme` before first paint, which does two things: it prevents the flash of the wrong scheme, and it **disarms** `basaltAppPlugin`'s anti-FOUC `<style>`, scoped `html:not([data-mantine-color-scheme])` since basalt-ui 1.21.0. After that line Mantine's own layered `color-scheme` rule owns the native controls in both schemes. The inline `style.colorScheme` this script used to write is gone — it existed only to beat the unlayered rule 1.20.0 emitted.
-
 ## Persisted UI state
 
 See `.claude/rules/basalt-state.md`.
 
-## Head metadata, manifest & service worker
-
-Owned by `basaltAppPlugin` in `vite.config.ts` — the dual `theme-color` metas, the favicon/apple-touch links, the `apple-mobile-web-app-*` set, `darkreader-lock`, the viewport tag, `site.webmanifest` (generated, **not** a file in `public/`) and the `vite-plugin-pwa` service worker. The theme colors are resolved from basalt's `SURFACE.bg` token, so **never hand-write a hex in `index.html` or a manifest** — `basalt-ui check-theme` scans both. `colorScheme: 'dark'` mirrors `BasaltProvider`'s `defaultColorScheme` in `main.tsx` — keep the two in step. `index.html` keeps only `<meta charset>`, `<title>`, the color-scheme script and the module entry (`<meta charset>` is hoisted to the top of `<head>` by the plugin as of 1.21.0, byte 52 of the built document); `public/` keeps only the icon files. See `.claude/rules/basalt-batteries.md`.
-
 ## Charts
 
 See `.claude/rules/basalt-charts.md` and `.claude/rules/charts.md`.
-
-## Commands palette & notifications
-
-See `.claude/rules/basalt-batteries.md`. `emit(kind, { message })` needs the kind registered first in
-`src/lib/notifications.ts` (the app's single `defineNotifications` registry); `toMessage` is typed
-`{ message: ReactNode }`, so `emit` checks the payload.
-
-A scrolling panel uses Mantine `ScrollArea` (`basalt/raw-scroll-container`).
-
-## Forms and dialogs
-
-A table row action is `rowActions` on `BasaltDataTable`, never a menu in a cell. A form dialog is a
-Mantine `Modal` in a `*-modal.tsx` file (the `basalt-controls` filename carve-out) holding the row in
-`useState`; `overlays.confirmDelete` covers delete confirmation. Boolean fields bind with
-`inputProps(form, path, { type: 'checkbox' })`. In a fresh worktree run `bun install` before reading
-`node_modules/basalt-ui` (`llms.txt`, `dist/**/*.d.ts`), and `oxfmt <dir>` fixes a `format:check` failure.
 
 ## Shot states (`basalt-ui shot`)
 
@@ -148,14 +104,10 @@ The dashboard uses `babel-plugin-react-compiler` through `@vitejs/plugin-react`'
 
 Read field handles with `useField(store.field.x)` (`src/lib/use-field.ts`), never `store.field.x.use()`: the compiler caches the bare call and drops the hook (React #311). `src/lib/use-field.test.ts` enforces it.
 
-## Observability (HyperDX)
+## Further reference
 
-`import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4319` (unauthed receiver, no key needed in dev); in prod the API process on the mini relays the same paths itself (`POST /v1/traces` and `/v1/logs`, same-origin with `VITE_HYPERDX_ENDPOINT` empty; the upstream credential is the process's own `OTEL_EXPORTER_OTLP_HEADERS`, the public ingestion key baked into the bundle at `make deploy` via `secrets-run`).
+Before changing anything below, Read the doc first: these sections moved out of this file verbatim.
 
-`VITE_HYPERDX_API_KEY` is a placeholder string locally (`local-dev-no-auth` in `.env.local.tpl`) — the SDK requires non-empty but `:4319` ignores the value. **Never set `VITE_HYPERDX_ENDPOINT` to a relative path** like `/` — the OTLP exporter requires absolute URLs and silently falls back to HyperDX Cloud.
-
-`__APP_VERSION__` is injected by Vite at build time (sourced from `package.json` `version`, override via `BUILD_VERSION` env). Surfaced as the `app.version` resource attribute in HyperDX for release diffs. Telemetry resource also carries `service.namespace=argo`, `deployment.environment.name` (`prod`/`dev`) and `service.version` = `VITE_APP_SHA` (short SHA, set by `make deploy`; `dev` otherwise). Its ambient declaration ships with basalt-ui (≥1.20.0) via the root barrel — there is no local `declare const` to maintain.
-
-**Finance stays out of HyperDX** (ClickStack is on the VPS, the vault's plaintext stays on the mini): `lib/hyperdx-options.ts` sets `blockClass: 'hdx-block'` and ignores `/api/finance/` URLs (no span, no `traceparent`); the finance layout root carries the class and calls `stopSessionRecorder()` on mount / `resumeSessionRecorder()` on unmount (`features/finance/lib/recorder.ts`); no `console.*` in `features/finance` (`consoleCapture` is on; `features/finance/hyperdx-isolation.test.ts` pins all of it). The SDK also stamps `location.href` on every span, so **finance filter values never appear in `window.location`**: `lib/router.ts` builds the router with `createPrivateFinanceHistory()` (`features/finance/lib/private-history.ts`), a browser history whose address bar shows a `/finance/…` href with only `month`, `from`, `to` and `year` kept; the real href (merchant, category, search, account, tag, amount, queue toggles, sort, page, focus) rides in `history.state` (`__finHref`), so the router, the search stores, Links and setters work on the real location, back/forward and a reload on the same entry restore the filters, and a URL opened fresh starts without them. Route masks were tried and do not fit (a mask's `search` function sees the current location, not the destination). A new finance filter is hidden by default (allowlist), and `private-history.test.ts` pins it.
-
-See `.claude/rules/observability.md` for the full configuration contract — first-import constraint, `tracePropagationTargets` regex rules, `ignoreUrls`, prod routing, common pitfalls.
+- Adding or changing a page: each route and what its page shows: `docs/dashboard/routes.md`
+- Theme script, head metadata, manifest, service worker, commands palette, notifications, forms and dialogs: `docs/dashboard/app-shell.md`
+- Browser telemetry (HyperDX) and its env vars: `docs/dashboard/observability.md`
