@@ -1,12 +1,12 @@
 /**
- * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ ce98dfd
- * (~/SourceRoot/finances, `fin serve`; the file last changed in a84f625). The API is
+ * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ 89ff304
+ * (~/SourceRoot/finances, `fin serve`; the file last changed in 456e951). The API is
  * `/api/finance/*` here and `/api/*` on the service. Re-copy when that file changes; do not edit the
  * types below by hand. Service status/sync types live in `./status.ts` (from the service contract,
  * finances `docs/service.md`).
  */
 /**
- * The API contract of `fin ui` and `fin serve` (docs/dashboard.md, docs/service.md, docs/data-model.md §3). Rows are the view rows
+ * The API contract of `fin serve` (docs/dashboard.md, docs/service.md, docs/data-model.md §3). Rows are the view rows
  * as the server selects them, so column names stay snake_case. Amounts are integer cents, months
  * `YYYY-MM`; income is positive, spending negative, as booked. The server imports these types.
  *
@@ -464,30 +464,182 @@ export type MonthStatus = {
   last_month_same_day: { spent_cents: number }
 }
 
-// ---- Writes: `fin serve` only (docs/service.md); `fin ui` stays GET-only ----
-
-/** `POST /api/transactions/:id/category` -> `TxRow` (source `manual`; unknown category: 400, unknown id: 404). */
-export type SetCategoryRequest = { category: string }
-
-/** `POST /api/transactions/:id/tag` -> `TxRow`. `tag: null` clears the tag; rules may then set one again. */
-export type SetTagRequest = {
-  tag: 'business' | 'tax' | 'donation' | 'private' | 'transfer' | 'investment' | 'income' | null
-  note?: string
-}
-
-/**
- * `POST /api/recurring/overrides` -> `RecurringOverride | null` (null after a clear). `mode: null` removes the override. `cadence`
- * only goes with `include`.
- */
-export type SetRecurringOverrideRequest = {
-  merchant: string
-  mode: RecurringMode | null
-  cadence?: Cadence
-  note?: string
-}
-
-/** `POST /api/merchant-rules`: needs `merchant` and/or `category`; re-categorizes at once. */
-export type AddMerchantRuleRequest = { pattern: string; merchant?: string; category?: string }
+// ---- Writes: `fin serve` only (docs/service.md) ----
 
 /** `pattern` is stored normalized (lowercase tokens); `changed` = bookings whose merchant, category or source changed. */
 export type AddMerchantRuleResponse = { pattern: string; changed: number }
+
+// ---- Chart page: market, depot, drawings (docs/service.md, docs/market.md) ----
+
+export type MarketInterval = '1m' | '5m' | '15m' | '1h' | '1d' | '1w' | '1mo'
+
+/** `GET /api/market/watchlist`. Answers while the service is locked. Coin listings (`BTC-USD`, `BTC-EUR`) follow the watchlist once they have bars. */
+export type WatchlistEntry = {
+  /** An ISIN, or a coin symbol. */
+  isin: string
+  name: string | null
+  kind: string | null
+  currency: string | null
+  last_close: number | null
+  /** The day of `last_close`, `YYYY-MM-DD`. */
+  last_day: string | null
+  first_day: string | null
+  /** `last_close` minus the close of the bar before it; null with fewer than two bars. */
+  day_change: number | null
+  /** `day_change` as a fraction of the previous close (0.012 = +1.2 %). */
+  day_change_pct: number | null
+  /** MIC of the stored US listing (USD), which `candles` reads with `mic=`; null when there is none. */
+  us_mic: string | null
+}
+
+/** One bar. `time` is epoch seconds, UTC: midnight of the day for 1d, the first day of the week or month for 1w and 1mo. */
+export type ChartBar = {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  units: number | null
+  turnover: number | null
+}
+
+/** `GET /api/market/candles?isin=&interval=&from=&to=&sys=&mic=`. `from` and `to` are days (`YYYY-MM-DD`). Answers `400` for a range of more than 5,000 bars. */
+export type CandlesResponse = {
+  isin: string
+  interval: MarketInterval
+  currency: string | null
+  /** Set for a US listing. */
+  mic: string | null
+  candles: ChartBar[]
+  /** Why the answer is short or partly from another source, in words. */
+  notes: string[]
+}
+
+/** `GET /api/market/series` without `id`: every series with what the store holds. */
+export type SeriesInfo = {
+  id: string
+  title: string
+  unit: string
+  frequency: 'daily' | 'monthly'
+  first_day: string | null
+  last_day: string | null
+  points: number
+}
+
+/** `GET /api/market/series?id=&from=&to=` (days). At most 20,000 points. */
+export type SeriesResponse = {
+  id: string
+  title: string
+  unit: string
+  frequency: 'daily' | 'monthly'
+  points: { day: string; time: number; value: number }[]
+}
+
+export type TradeSide = 'buy' | 'sell'
+
+export type QuantitySource = 'document' | 'manual' | 'derived' | 'estimated'
+
+/** `GET /api/depot/trades?isin=`: what `fin depot trades` prints. */
+export type DepotTrade = {
+  id: number
+  account_id: string
+  isin: string
+  name: string | null
+  side: TradeSide
+  booked_on: string
+  /** Cash moved by the settlement, always positive. */
+  amount_cents: number
+  settlement_ref: string
+  transaction_id: string | null
+  quantity: number | null
+  quantity_source: QuantitySource | null
+  price: number | null
+  fee_cents: number | null
+  tax_cents: number | null
+  costs_source: 'document' | 'manual' | 'implied' | null
+  /** How the quantity was read from the settlement document; the shape is the depot module's. */
+  reading: unknown
+  note: string | null
+  updated_at: string
+  /** Sales only: proceeds minus the FIFO cost of the shares sold. */
+  realised_fifo_cents: number | null
+}
+
+export type DepotPosition = {
+  isin: string
+  name: string | null
+  quantity: number
+  price: number | null
+  price_on: string | null
+  value_cents: number | null
+  cost_fifo_cents: number
+  cost_average_cents: number
+  unrealised_fifo_cents: number | null
+  unrealised_average_cents: number | null
+  unrealised_fifo_pct: number | null
+  share: number | null
+  quantity_source: QuantitySource | 'mixed'
+  lots: { acquired_on: string; quantity: number; cost_cents: number }[]
+  /** Commands that bring in the missing price, when there is none. */
+  fix?: string[]
+}
+
+/** `GET /api/depot/positions` */
+export type DepotPositions = {
+  value_cents: number
+  cost_fifo_cents: number
+  unrealised_fifo_cents: number
+  positions: DepotPosition[]
+  /** ISINs with a trade whose quantity is unknown: left out until the depot is derived. */
+  unresolved: string[]
+}
+
+export type OrderType = 'limit' | 'stop' | 'market'
+export type OrderStatus = 'open' | 'executed' | 'cancelled' | 'expired'
+
+/** `GET /api/depot/orders?status=&isin=`, and the answer of both order writes. Open orders are kept by hand. */
+export type DepotOrder = {
+  id: number
+  account_id: string | null
+  isin: string
+  name: string | null
+  side: TradeSide
+  type: OrderType
+  limit_price: number | null
+  stop_price: number | null
+  quantity: number
+  valid_until: string | null
+  status: OrderStatus
+  note: string | null
+  opened_at: string
+  closed_at: string | null
+  /** Open past its valid-until day: the bank has expired it, close it here. */
+  overdue: boolean
+}
+
+/** `GET` and `POST /api/chart/drawings/<ISIN>`. `document` is the chart library's own export; `{}` and `updated_at: null` while none is stored. */
+export type ChartDrawings = {
+  isin: string
+  document: unknown
+  updated_at: string | null
+}
+
+/** `POST /api/depot/orders`. A limit order needs `limit_price`, a stop order `stop_price`, a market order neither. */
+export type AddOrderRequest = {
+  isin: string
+  side: TradeSide
+  type: OrderType
+  quantity: number
+  limit_price?: number
+  stop_price?: number
+  /** `YYYY-MM-DD` */
+  valid_until?: string
+  account_id?: string
+  note?: string
+}
+
+/** `POST /api/depot/orders/<id>/close` */
+export type CloseOrderRequest = {
+  as: 'executed' | 'cancelled' | 'expired'
+  note?: string
+}

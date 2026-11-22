@@ -61,6 +61,7 @@ import {
   IconShieldCheck,
   IconShoe,
   IconSunHigh,
+  IconChartCandle,
 } from '@tabler/icons-react'
 
 const ICON = 18
@@ -202,6 +203,13 @@ export const NAV = defineNav({
         short: 'Net worth',
         icon: <IconServer size={ICON} />,
         link: linkOptions({ to: '/finance/net-worth', search: finStore.linkSearch }),
+      },
+      {
+        id: 'finance-depot',
+        label: 'Depot chart',
+        short: 'Depot',
+        icon: <IconChartCandle size={ICON} />,
+        link: linkOptions({ to: '/finance/depot', search: finStore.linkSearch }),
       },
       {
         id: 'finance-tax',

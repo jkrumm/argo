@@ -356,6 +356,15 @@ empty section is the correct default; do not invent deviations to fill it.
   legible in dark and light. The plate is a key, not a surface: no radius, shadow or border. The
   colours are the provider's, like the Open-Meteo entry above; the hook is not ours to build.
 
+- **The depot chart (`/finance/depot`) is built on `lightweight-charts` directly, outside basalt-ui's chart primitives.** basalt-ui's charts
+  have no candlesticks, no markers bound to a bar and no drawing tools, and building them into basalt-ui is far more work than one screen
+  earns (owner decision 2026-11-22). The exception is one component, `features/finance/components/depot-chart.tsx`, the only importer of
+  `lightweight-charts` and `lightweight-charts-drawing`; every other chart in the app stays on `basalt-ui/charts`. Colours are read from
+  `VX.*` tokens at runtime (a canvas library cannot read `var()`) and re-read when the scheme changes, so the page has no literal colour and
+  no `series.ts` row; up and down are `VX.status.good` and `VX.status.bad`, the average cost neutral ink, the drawings the accent. No lint
+  exception was needed: `basalt/chart-engine-boundary` bans `@visx` and the `@tanstack/charts` subpaths it does not list, not other
+  libraries. The screen's concept: `docs/design/depot-chart.md`.
+
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`

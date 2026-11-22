@@ -1,0 +1,134 @@
+import { Button, Group, Modal, NumberInput, Select, Stack, TextInput } from '@mantine/core'
+import { fieldKey, inputProps, useBasaltForm } from 'basalt-ui/forms'
+import { z } from 'zod'
+import { reportWriteError, useOrderWrites } from '../api/mutations'
+import type { AddOrderRequest, OrderType, TradeSide } from '../api/types'
+
+const SIDES: { value: TradeSide; label: string }[] = [
+  { value: 'buy', label: 'Buy' },
+  { value: 'sell', label: 'Sell' },
+]
+const TYPES: { value: OrderType; label: string }[] = [
+  { value: 'limit', label: 'Limit' },
+  { value: 'stop', label: 'Stop' },
+  { value: 'market', label: 'Market' },
+]
+
+const Schema = z
+  .object({
+    side: z.enum(['buy', 'sell']),
+    type: z.enum(['limit', 'stop', 'market']),
+    quantity: z.number({ error: 'Enter a quantity' }).positive('Enter a quantity'),
+    price: z.union([z.number().positive('Enter a price'), z.literal('')]),
+    valid_until: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Use a date'),
+    note: z.string().max(200),
+  })
+  .refine((v) => v.type === 'market' || v.price !== '', {
+    path: ['price'],
+    message: 'A limit or stop order needs its price',
+  })
+
+type Values = z.input<typeof Schema>
+
+/**
+ * Adds one hand-kept order to the chart. ING has no interface for orders, so the list is typed in
+ * here and closed here; nothing on this page places, changes or deletes an order at the bank.
+ */
+export function OrderModal({ isin, onClose }: { isin: string; onClose: () => void }) {
+  const orders = useOrderWrites()
+  const form = useBasaltForm<Values>({
+    initialValues: {
+      side: 'buy',
+      type: 'limit',
+      quantity: '' as never,
+      price: '',
+      valid_until: '',
+      note: '',
+    },
+    schema: Schema,
+  })
+
+  async function submit(values: Values) {
+    const parsed = Schema.parse(values)
+    const request: AddOrderRequest = {
+      isin,
+      side: parsed.side,
+      type: parsed.type,
+      quantity: parsed.quantity,
+      ...(parsed.type === 'limit' && parsed.price !== '' && { limit_price: parsed.price }),
+      ...(parsed.type === 'stop' && parsed.price !== '' && { stop_price: parsed.price }),
+      ...(parsed.valid_until !== '' && { valid_until: parsed.valid_until }),
+      ...(parsed.note !== '' && { note: parsed.note }),
+    }
+    try {
+      await orders.add(request)
+      onClose()
+    } catch (error) {
+      reportWriteError(error)
+    }
+  }
+
+  return (
+    <Modal opened onClose={onClose} title="Add an order" centered>
+      <form onSubmit={form.onSubmit((values) => void submit(values))}>
+        <Stack gap="sm">
+          <Group grow align="flex-start">
+            <Select
+              key={fieldKey(form, 'side')}
+              {...inputProps(form, 'side')}
+              label="Side"
+              data={SIDES}
+              allowDeselect={false}
+            />
+            <Select
+              key={fieldKey(form, 'type')}
+              {...inputProps(form, 'type')}
+              label="Type"
+              data={TYPES}
+              allowDeselect={false}
+            />
+          </Group>
+          <Group grow align="flex-start">
+            <NumberInput
+              key={fieldKey(form, 'quantity')}
+              {...inputProps(form, 'quantity')}
+              label="Quantity"
+              min={0}
+              decimalScale={4}
+              hideControls
+            />
+            <NumberInput
+              key={fieldKey(form, 'price')}
+              {...inputProps(form, 'price')}
+              label={form.getValues().type === 'stop' ? 'Stop price' : 'Limit price'}
+              disabled={form.getValues().type === 'market'}
+              min={0}
+              decimalScale={4}
+              hideControls
+            />
+          </Group>
+          <TextInput
+            key={fieldKey(form, 'valid_until')}
+            {...inputProps(form, 'valid_until')}
+            label="Valid until"
+            type="date"
+          />
+          <TextInput
+            key={fieldKey(form, 'note')}
+            {...inputProps(form, 'note')}
+            label="Note"
+            maxLength={200}
+          />
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={form.submitting}>
+              Add order
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
+  )
+}

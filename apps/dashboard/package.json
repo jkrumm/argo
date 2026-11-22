@@ -40,6 +40,8 @@
     "d3-scale": "4.0.2",
     "date-fns": "^4.4.0",
     "dayjs": "^1.11.23",
+    "lightweight-charts": "5.3.0",
+    "lightweight-charts-drawing": "0.11.1",
     "maplibre-contour": "0.1.1",
     "maplibre-gl": "6.10.0",
     "react": "^19.3.0",

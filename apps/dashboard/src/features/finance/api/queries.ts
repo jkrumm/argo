@@ -1,7 +1,13 @@
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
 import { FINANCE_DATA, financeGet } from './client'
 import type {
+  CandlesResponse,
   CategoryMonth,
+  ChartDrawings,
+  DepotOrder,
+  DepotPositions,
+  DepotTrade,
+  WatchlistEntry,
   Holdings,
   MerchantQuery,
   MerchantTotal,
@@ -127,3 +133,66 @@ export const useTaxYear = (year: number | null) =>
     enabled: year !== null,
     ...SESSION,
   })
+
+// ---- The depot chart (finances `docs/service.md` §Chart routes) ----
+
+/** The market routes answer while the vault is locked; the depot and drawing routes need it open. */
+export const DEPOT_KEY = [...FINANCE_DATA, 'depot'] as const
+
+/** Instruments with their last close and day change. A new close arrives with the day's sync, so a minute is fresh enough. */
+export const useWatchlist = () =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'watchlist'],
+    queryFn: () => financeGet<WatchlistEntry[]>('/market/watchlist'),
+    staleTime: 60_000,
+  })
+
+export type CandleQuery = { isin: string; interval: string; from?: string | undefined; to: string }
+
+export const useCandles = (query: CandleQuery | null) =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'candles', query],
+    queryFn: () => financeGet<CandlesResponse>('/market/candles', { ...query }),
+    enabled: query !== null,
+    // Today's bar moves; a minute keeps a chart left open honest.
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
+
+export const usePositions = () =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'positions'],
+    queryFn: () => financeGet<DepotPositions>('/depot/positions'),
+    staleTime: 60_000,
+  })
+
+export const useDepotTrades = (isin: string | null) =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'trades', isin],
+    queryFn: () => financeGet<DepotTrade[]>('/depot/trades', { isin: isin ?? undefined }),
+    enabled: isin !== null,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
+export const ORDERS_KEY = [...DEPOT_KEY, 'orders'] as const
+
+export const useOpenOrders = (isin: string | null) =>
+  useQuery({
+    queryKey: [...ORDERS_KEY, isin],
+    queryFn: () =>
+      financeGet<DepotOrder[]>('/depot/orders', { status: 'open', isin: isin ?? undefined }),
+    enabled: isin !== null,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
+/** The stored drawing document of one instrument; the chart owns it after the first read, so it never refetches by itself. */
+export const drawingsOptions = (isin: string) =>
+  queryOptions({
+    queryKey: [...DEPOT_KEY, 'drawings', isin],
+    queryFn: () => financeGet<ChartDrawings>(`/chart/drawings/${isin}`),
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: 0,
+  })
+
+export const useDrawings = (isin: string | null) =>
+  useQuery({ ...drawingsOptions(isin ?? ''), enabled: isin !== null })

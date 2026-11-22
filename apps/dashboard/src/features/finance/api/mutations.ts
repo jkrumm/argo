@@ -1,19 +1,25 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { emit } from 'basalt-ui/commands'
 import { FINANCE_DATA, FinanceApiError, financeWrite } from './client'
-import { TX_KEY, metaOptions } from './queries'
+import { ORDERS_KEY, TX_KEY, metaOptions } from './queries'
 import type {
-  AddMerchantRuleRequest,
   AddMerchantRuleResponse,
+  AddOrderRequest,
   Cadence,
+  ChartDrawings,
+  CloseOrderRequest,
+  DepotOrder,
   RecurringMode,
   RecurringOverride,
-  SetCategoryRequest,
-  SetRecurringOverrideRequest,
-  SetTagRequest,
   TxList,
   TxRow,
 } from './types'
+import type {
+  AddMerchantRuleRequest,
+  SetCategoryRequest,
+  SetRecurringOverrideRequest,
+  SetTagRequest,
+} from './write-types'
 
 type TxPatch = Partial<TxRow>
 
@@ -153,3 +159,28 @@ export function useCurate() {
 export function reportWriteError(error: unknown): void {
   emit('finance:error', { message: writeErrorMessage(error) })
 }
+
+/**
+ * The hand-kept orders of the depot chart (`POST /finance/api/depot/orders`, `…/<id>/close`). Nothing
+ * here reaches the bank. A write refetches the open orders.
+ */
+export function useOrderWrites() {
+  const queryClient = useQueryClient()
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ORDERS_KEY })
+  return {
+    async add(order: AddOrderRequest): Promise<DepotOrder> {
+      const saved = await financeWrite<DepotOrder>('/depot/orders', order)
+      await refresh()
+      return saved
+    },
+    async close(id: number, request: CloseOrderRequest): Promise<DepotOrder> {
+      const saved = await financeWrite<DepotOrder>(`/depot/orders/${id}/close`, request)
+      await refresh()
+      return saved
+    },
+  }
+}
+
+/** Stores the drawing document of one instrument (replaces the last one); the body is opaque to the server. */
+export const saveDrawings = (isin: string, document: unknown): Promise<ChartDrawings> =>
+  financeWrite<ChartDrawings>(`/chart/drawings/${isin}`, document)

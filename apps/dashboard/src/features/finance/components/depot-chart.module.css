@@ -1,0 +1,33 @@
+.frame {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 22rem;
+}
+
+@container (min-width: 480px) {
+  .frame {
+    height: 30rem;
+  }
+}
+
+.host {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+}
+
+/* The crosshair readout floats over the top-left of the price pane and never takes the pointer. */
+.readout {
+  position: absolute;
+  inset-block-start: var(--vx-space-stack-xs);
+  inset-inline-start: var(--vx-space-stack-sm);
+  z-index: 2;
+  pointer-events: none;
+  max-width: calc(100% - 4.5rem);
+}
+
+.mono {
+  font-family: var(--basalt-font-mono);
+  font-variant-numeric: tabular-nums;
+}

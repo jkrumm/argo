@@ -1,0 +1,100 @@
+/* The depot page: the watchlist beside the chart, a picker above it on a narrow container. */
+
+.page {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vx-space-stack-sm);
+  align-items: start;
+  min-width: 0;
+}
+
+@container (min-width: 800px) {
+  .layout {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+}
+
+.watch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--vx-space-stack-xs);
+}
+
+.watchScroll {
+  max-height: 10rem;
+}
+
+@container (min-width: 800px) {
+  .watch {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .watchScroll {
+    max-height: 36rem;
+  }
+}
+
+.watchItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
+  border-radius: var(--vx-radius-ctrl);
+  text-align: start;
+}
+
+.watchItem:hover {
+  background: var(--vx-surface-row-hover);
+}
+
+.watchItem[data-active='true'] {
+  background: var(--vx-surface-row-selected);
+}
+
+.watchHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-xs);
+  min-width: 0;
+}
+
+.watchName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watchFigures {
+  display: flex;
+  white-space: nowrap;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--vx-space-control-gap);
+}

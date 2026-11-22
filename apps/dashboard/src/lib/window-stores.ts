@@ -282,6 +282,26 @@ const AMOUNT_BANDS = {
   in: 'Income and refunds',
 } as const
 
+/** The depot chart's bar intervals and ranges (`features/finance/lib/depot-chart.ts` maps them to requests). */
+const DEPOT_INTERVALS = ['15m', '1h', '1d', '1w', '1mo'] as const
+const DEPOT_INTERVAL_LABELS = {
+  '15m': '15 min',
+  '1h': '1 hour',
+  '1d': 'Day',
+  '1w': 'Week',
+  '1mo': 'Month',
+}
+const DEPOT_RANGES = ['1m', '3m', '6m', '1y', '2y', '5y', 'max'] as const
+const DEPOT_RANGE_LABELS = {
+  '1m': '1 month',
+  '3m': '3 months',
+  '6m': '6 months',
+  '1y': '1 year',
+  '2y': '2 years',
+  '5y': '5 years',
+  max: 'Everything',
+}
+
 /**
  * Every filter of the finance pages, one store so each route validates the same search shape and the
  * nav links carry it by reference. URL only (`persist: false`): the vault's numbers never go to
@@ -296,6 +316,8 @@ const AMOUNT_BANDS = {
  * - `sort` / `dir` / `page` / `size`: the ledger's server-side order and page.
  * - `year`: the tax year, `''` reading as the year of the latest month.
  * - `focus`: the category row selected on the spending page; page-local.
+ * - `isin` / `ivl` / `rng`: the depot chart's instrument (`''` is the first held one, else the first
+ *   on the watchlist), bar interval and range; URL only, so a link carries the view.
  */
 export const finStore = createSearchStore({
   key: 'finance',
@@ -317,6 +339,9 @@ export const finStore = createSearchStore({
     size: field.enum(['25', '50', '100'], '50', { persist: false }),
     year: field.enum(['', ...YEAR_UNIVERSE], '', { persist: false }),
     focus: field.string({ max: 120 }, { persist: false }),
+    isin: field.string({ max: 20 }, { persist: false }),
+    ivl: field.enum(DEPOT_INTERVALS, '1d', { persist: false }),
+    rng: field.enum(DEPOT_RANGES, '1y', { persist: false }),
   },
 }).labels({
   month: { '': 'Current month', ...monthLabels },
@@ -324,6 +349,8 @@ export const finStore = createSearchStore({
   to: { '': 'Latest month', ...monthLabels },
   year: { '': 'Latest year', ...yearLabels },
   amount: AMOUNT_BANDS,
+  ivl: DEPOT_INTERVAL_LABELS,
+  rng: DEPOT_RANGE_LABELS,
 })
 
 export type FinanceFilters = ReturnType<typeof finStore.useValues>
@@ -347,6 +374,9 @@ export const FILTERS_CLEARED: FinanceFilters = {
   size: '50',
   year: '',
   focus: '',
+  isin: '',
+  ivl: '1d',
+  rng: '1y',
 }
 
 /**
