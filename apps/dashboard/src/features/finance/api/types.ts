@@ -1,5 +1,5 @@
 /**
- * PINNED CONTRACT — copied verbatim from the finances repo, `ui/src/api/types.ts` @ ce98dfd
+ * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ ce98dfd
  * (~/SourceRoot/finances, `fin serve`; the file last changed in a84f625). The API is
  * `/api/finance/*` here and `/api/*` on the service. Re-copy when that file changes; do not edit the
  * types below by hand. Service status/sync types live in `./status.ts` (from the service contract,
