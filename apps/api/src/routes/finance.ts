@@ -12,10 +12,10 @@ import { tracedFetch } from '../lib/traced-fetch.js'
  * KEY HYGIENE. `POST /finance/unlock` carries the 64-hex vault key. The body is read as raw text and
  * forwarded verbatim; it is never parsed, validated (a failed validation echoes the offending value),
  * logged, or attached to a span. Spans carry only the method and the path — the query string is
- * dropped too, because a transaction search term is financial data as well. The four typed writes
- * (`POST /finance/api/…`, `WRITE_PATHS`) follow the same rule: a merchant, a note or a rule pattern
- * in the body is forwarded verbatim and never parsed, logged or traced, and the booking id in the
- * path reaches telemetry as `:id`.
+ * dropped too, because a transaction search term is financial data as well. The typed writes
+ * (`POST /finance/api/…`, `WRITE_PATHS`) follow the same rule: a merchant, a note, a rule pattern, an
+ * order or a chart drawing in the body is forwarded verbatim and never parsed, logged or traced, and
+ * the booking id, order id and ISIN in the path reach telemetry as `:id` and `:isin`.
  */
 
 const UNAVAILABLE = { error: 'finance service unavailable' } as const
@@ -24,16 +24,25 @@ const UPSTREAM_TIMEOUT_MS = 30_000
 const MAX_UNLOCK_BODY_BYTES = 4096
 /** The service's own cap on a typed write (`docs/service.md` §Typed writes). */
 const MAX_WRITE_BODY_BYTES = 16 * 1024
+/** The service's cap on a chart drawing document (`docs/service.md`: 256 KB). */
+const MAX_DRAWINGS_BODY_BYTES = 256 * 1024
+
+/** `POST /api/chart/drawings/<ISIN or coin symbol>`: the one write with the larger cap. */
+const DRAWINGS_PATH = /^\/api\/chart\/drawings\/[A-Za-z0-9-]{1,20}$/
 
 /**
  * The typed writes of `fin serve` and nothing else: a category or a tax tag for one booking, a
- * recurring override, a merchant rule. An id is a hex hash or a prefix of one; no other segment shape
- * reaches the service.
+ * recurring override, a merchant rule, a hand-kept depot order (add, close) and a chart's drawing
+ * document. An id is a hex hash or a prefix of one, an order id digits, an ISIN letters and digits;
+ * no other segment shape reaches the service.
  */
 const WRITE_PATHS: readonly RegExp[] = [
   /^\/api\/transactions\/[A-Za-z0-9_-]{1,80}\/(?:category|tag)$/,
   /^\/api\/recurring\/overrides$/,
   /^\/api\/merchant-rules$/,
+  DRAWINGS_PATH,
+  /^\/api\/depot\/orders$/,
+  /^\/api\/depot\/orders\/\d{1,12}\/close$/,
 ]
 
 export type FinanceConfig = {
@@ -76,12 +85,16 @@ const isUnsafeRest = (rest: string): boolean =>
   rest.includes('%') || rest.split('/').some((segment) => segment === '..' || segment === '.')
 
 /**
- * A path as telemetry may see it: the booking id of `/api/transactions/<id>/…` is the vault's data
- * (which booking was edited), so spans and log lines carry `:id` instead. Also applied to error
- * messages, which a fetch failure may build from the URL.
+ * A path as telemetry may see it: the booking id of `/api/transactions/<id>/…`, the id of an order
+ * and the ISIN of a chart's drawings are the vault's data (what was edited, what is held), so spans
+ * and log lines carry `:id` and `:isin` instead. Also applied to error messages, which a fetch
+ * failure may build from the URL.
  */
 const telemetryText = (text: string): string =>
-  text.replace(/\/api\/transactions\/[^/\s?]+/g, '/api/transactions/:id')
+  text
+    .replace(/\/api\/transactions\/[^/\s?]+/g, '/api/transactions/:id')
+    .replace(/\/api\/depot\/orders\/[^/\s?]+/g, '/api/depot/orders/:id')
+    .replace(/\/api\/chart\/drawings\/[^/\s?]+/g, '/api/chart/drawings/:isin')
 
 /**
  * A failed upstream call as a span may record it: name and message only. Bun's connection errors
@@ -273,7 +286,7 @@ export function createFinanceRoutes(config: FinanceConfig) {
         detail: {
           tags: ['Finance'],
           summary: 'Finance dashboard data (read-only)',
-          description: `Read-only views over the finance vault, relayed to \`fin serve\` with the query string unchanged. Amounts are integer cents, months \`YYYY-MM\`, income positive, spending negative. Paths: \`/finance/api/meta\` (first/last budget month, accounts, categories — start here), \`overview?from&to\`, \`month-status?month\`, \`categories?from&to\`, \`merchants?from&to&category\`, \`recurring?all=1\`, \`recurring/overrides\`, \`net-worth\`, \`holdings\`, \`transactions?from&to&account&category&tag&merchant&search&min&max&uncategorized&untagged&sort&dir&offset&limit\` (answers \`{ rows, total }\`), \`tax-year?year\`. ${lockedNote}`,
+          description: `Read-only views over the finance vault, relayed to \`fin serve\` with the query string unchanged. Amounts are integer cents, months \`YYYY-MM\`, income positive, spending negative. Paths: \`/finance/api/meta\` (first/last budget month, accounts, categories — start here), \`overview?from&to\`, \`month-status?month\`, \`categories?from&to\`, \`merchants?from&to&category\`, \`recurring?all=1\`, \`recurring/overrides\`, \`net-worth\`, \`holdings\`, \`transactions?from&to&account&category&tag&merchant&search&min&max&uncategorized&untagged&sort&dir&offset&limit\` (answers \`{ rows, total }\`), \`tax-year?year\`, and the depot chart: \`market/watchlist\`, \`market/candles?isin&interval=1m|5m|15m|1h|1d|1w|1mo&from&to\` and \`market/series\` (public market store, they answer while the vault is locked), \`depot/positions\`, \`depot/trades?isin\`, \`depot/orders?status&isin\`, \`chart/drawings/{isin}\`. ${lockedNote}`,
           security,
           responses: {
             200: { description: 'JSON view rows.' },
@@ -291,7 +304,8 @@ export function createFinanceRoutes(config: FinanceConfig) {
         if (isUnsafeRest(rest) || !WRITE_PATHS.some((pattern) => pattern.test(rest))) {
           return invalidPath()
         }
-        const text = await readCapped(request, MAX_WRITE_BODY_BYTES)
+        const cap = DRAWINGS_PATH.test(rest) ? MAX_DRAWINGS_BODY_BYTES : MAX_WRITE_BODY_BYTES
+        const text = await readCapped(request, cap)
         if (text === null) return tooLarge()
         return forward('POST', rest, { body: text })
       },
@@ -302,13 +316,13 @@ export function createFinanceRoutes(config: FinanceConfig) {
         detail: {
           tags: ['Finance'],
           summary: 'Finance vault edits (typed writes)',
-          description: `Exactly four writes, relayed to \`fin serve\` with the JSON body verbatim (max 16 KB, else 413; any other POST path is 400): \`/finance/api/transactions/{id}/category\` \`{ category }\` sets a booking's category by hand and returns the booking row; \`/finance/api/transactions/{id}/tag\` \`{ tag | null, note? }\` sets or clears its tax tag; \`/finance/api/recurring/overrides\` \`{ merchant, mode | null, cadence?, note? }\` includes or excludes a merchant in the recurring list; \`/finance/api/merchant-rules\` \`{ pattern, merchant?, category? }\` stores a merchant rule and re-applies categories. The service answers 400 with \`{ error }\` for bad input and 404 for an unknown booking. These change the user's books: do not call them unprompted. ${lockedNote}`,
+          description: `Exactly seven writes, relayed to \`fin serve\` with the JSON body verbatim (max 16 KB, 256 KB for a drawing document, else 413; any other POST path is 400): \`/finance/api/transactions/{id}/category\` \`{ category }\` sets a booking's category by hand and returns the booking row; \`/finance/api/transactions/{id}/tag\` \`{ tag | null, note? }\` sets or clears its tax tag; \`/finance/api/recurring/overrides\` \`{ merchant, mode | null, cadence?, note? }\` includes or excludes a merchant in the recurring list; \`/finance/api/merchant-rules\` \`{ pattern, merchant?, category? }\` stores a merchant rule and re-applies categories; \`/finance/api/depot/orders\` \`{ isin, side, type, quantity, limit_price?, stop_price?, valid_until?, account_id?, note? }\` adds a hand-kept order and returns it; \`/finance/api/depot/orders/{id}/close\` \`{ as, note? }\` closes one as executed, cancelled or expired; \`/finance/api/chart/drawings/{isin}\` any JSON object or array stores the chart drawing document of one instrument. Nothing here reaches the bank. The service answers 400 with \`{ error }\` for bad input and 404 for an unknown booking. These change the user's books: do not call them unprompted. ${lockedNote}`,
           security,
           responses: {
             200: { description: 'The updated row, override or `{ pattern, changed }`.' },
             400: { description: 'Not an allowed write path, or the service refused the input.' },
             404: { description: 'Unknown booking.' },
-            413: { description: 'Body over 16 KB.' },
+            413: { description: 'Body over 16 KB (256 KB for a drawing document).' },
             423: { description: 'Vault locked.' },
             503: unavailableResponse,
           },

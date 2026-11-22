@@ -406,6 +406,10 @@ describe('POST /finance/api/* (typed writes)', () => {
     ['/finance/api/transactions/ab12cd34ef/tag', '/api/transactions/ab12cd34ef/tag'],
     ['/finance/api/recurring/overrides', '/api/recurring/overrides'],
     ['/finance/api/merchant-rules', '/api/merchant-rules'],
+    ['/finance/api/chart/drawings/DE0007164600', '/api/chart/drawings/DE0007164600'],
+    ['/finance/api/chart/drawings/BTC-USD', '/api/chart/drawings/BTC-USD'],
+    ['/finance/api/depot/orders', '/api/depot/orders'],
+    ['/finance/api/depot/orders/42/close', '/api/depot/orders/42/close'],
   ])('relays %s with the body verbatim and the service bearer', async (path, upstream) => {
     reply = () => Response.json({ ok: true }, { status: 200 })
     const body = JSON.stringify({ category: 'food/groceries', note: 'Müller ✓' })
@@ -436,6 +440,18 @@ describe('POST /finance/api/* (typed writes)', () => {
       '/finance/api/transactions/ab..12/tag/../../merchant-rules',
       '/finance/api/transactions/%2e%2e/tag',
       '/finance/api/transactions/a%2fb/category',
+      // The chart and depot writes are exactly three shapes: a fourth never reaches the service.
+      '/finance/api/chart/drawings',
+      '/finance/api/chart/drawings/',
+      '/finance/api/chart/drawings/DE0007164600/extra',
+      '/finance/api/chart/drawings/DE00%2e%2e',
+      '/finance/api/depot/orders/42',
+      '/finance/api/depot/orders/42/cancel',
+      '/finance/api/depot/orders/abc/close',
+      '/finance/api/depot/orders/42/close/extra',
+      '/finance/api/depot/positions',
+      '/finance/api/depot/trades',
+      '/finance/api/market/candles',
     ]) {
       const res = await post(path, '{}')
       expect([path, res.status]).toEqual([path, 400])
@@ -555,6 +571,33 @@ describe('POST /finance/api/* (typed writes)', () => {
     )
     expect(sink.length).toBeGreaterThan(0)
     expect(logged).not.toContain(id)
+  })
+
+  it('takes a drawing document up to 256 KB and every other write up to 16 KB', async () => {
+    const doc = JSON.stringify({ v: 1, drawings: [{ note: 'x'.repeat(100 * 1024) }] })
+    expect((await post('/finance/api/chart/drawings/DE0007164600', doc)).status).toBe(200)
+    const huge = JSON.stringify({ v: 1, drawings: [{ note: 'x'.repeat(260 * 1024) }] })
+    expect((await post('/finance/api/chart/drawings/DE0007164600', huge)).status).toBe(413)
+    expect((await post('/finance/api/depot/orders', doc)).status).toBe(413)
+    expect(seen).toHaveLength(1)
+  })
+
+  it('masks the ISIN of a drawing document and the id of an order in telemetry', async () => {
+    const isin = 'DE000SECRET99'
+    reply = () => Response.json({ ok: true })
+    await post(`/finance/api/chart/drawings/${isin}`, '{}')
+    await call(`/finance/api/chart/drawings/${isin}`)
+    await post('/finance/api/depot/orders/987654/close', '{}')
+    await post(
+      `/finance/api/chart/drawings/${isin}`,
+      '{}',
+      appFor({ baseUrl: 'http://127.0.0.1:1', token: SERVICE_TOKEN }),
+    )
+    const spanText = JSON.stringify(spans)
+    expect(spanText).toContain('/api/chart/drawings/:isin')
+    expect(spanText).toContain('/api/depot/orders/:id/close')
+    expect(spanText).not.toContain(isin)
+    expect(spanText).not.toContain('987654')
   })
 
   it('keeps the query string of a write off the upstream span', async () => {
