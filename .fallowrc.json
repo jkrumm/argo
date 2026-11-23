@@ -5,6 +5,7 @@
     "scripts/design-shot/index.ts",
     "scripts/design-shot/fixture-proxy.ts",
     "scripts/design-shot/models-fixture.ts",
+    "scripts/design-shot/depot.ts",
     "apps/api/scripts/*.ts"
   ],
   "ignorePatterns": [
