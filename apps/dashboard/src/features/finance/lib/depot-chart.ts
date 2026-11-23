@@ -203,8 +203,6 @@ export function pickInstrument(
  */
 export type DrawingsDocument = { v: 1; drawings: unknown[]; foreign: unknown[] }
 
-export const EMPTY_DRAWINGS: DrawingsDocument = { v: 1, drawings: [], foreign: [] }
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 

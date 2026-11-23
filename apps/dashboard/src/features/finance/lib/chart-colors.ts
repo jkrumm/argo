@@ -10,7 +10,7 @@ let probe: CanvasRenderingContext2D | null = null
 const hex = (n: number | undefined): string => (n ?? 0).toString(16).padStart(2, '0')
 
 /** The colour a CSS value (a token, a `color-mix()`, a keyword) paints in `host`, as `#rrggbb` or `#rrggbbaa`. */
-export function resolveColor(value: string, host: HTMLElement): string {
+function resolveColor(value: string, host: HTMLElement): string {
   probe ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true })
   if (probe === null) return value
   const el = document.createElement('span')
@@ -28,7 +28,7 @@ export function resolveColor(value: string, host: HTMLElement): string {
 }
 
 /** `token` at `percent` opacity over nothing: the translucent form of a token (volume bars, a range fill). */
-export const faded = (token: string, percent: number): string =>
+const faded = (token: string, percent: number): string =>
   `color-mix(in srgb, ${token} ${percent}%, transparent)`
 
 export type ChartPalette = {

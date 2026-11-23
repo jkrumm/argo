@@ -5,7 +5,7 @@ import { drawingsOptions } from '../api/queries'
 import type { DrawingsDocument } from './depot-chart'
 
 /** The quiet time after the last change before the document is stored. */
-export const SAVE_DELAY_MS = 500
+const SAVE_DELAY_MS = 500
 
 /**
  * Stores the drawing document of one instrument about half a second after its last change. What is

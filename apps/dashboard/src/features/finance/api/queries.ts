@@ -137,7 +137,7 @@ export const useTaxYear = (year: number | null) =>
 // ---- The depot chart (finances `docs/service.md` §Chart routes) ----
 
 /** The market routes answer while the vault is locked; the depot and drawing routes need it open. */
-export const DEPOT_KEY = [...FINANCE_DATA, 'depot'] as const
+const DEPOT_KEY = [...FINANCE_DATA, 'depot'] as const
 
 /** Instruments with their last close and day change. A new close arrives with the day's sync, so a minute is fresh enough. */
 export const useWatchlist = () =>
