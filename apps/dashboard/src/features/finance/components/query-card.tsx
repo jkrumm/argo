@@ -5,6 +5,9 @@ import type { ChartFact } from 'basalt-ui/charts'
 
 type QueryCardProps = {
   title: string
+  subtitle?: string
+  /** The `data-shot` anchor; the title's slug when absent. */
+  shot?: string
   info?: string
   query: Pick<UseQueryResult, 'isPending' | 'error' | 'refetch' | 'isRefetching'>
   /** True (or the copy to show) when the query answered with nothing to draw. */
@@ -27,16 +30,20 @@ export function QueryCard({
   facts,
   ghost,
   content = false,
+  shot,
   children,
   ...rest
 }: QueryCardProps) {
   return (
     <ChartCard
       {...rest}
-      data-shot={rest.title
-        ?.toLowerCase()
-        .replaceAll(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')}
+      data-shot={
+        shot ??
+        rest.title
+          ?.toLowerCase()
+          .replaceAll(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+      }
       facts={facts}
       state={{ pending: query.isPending, error: query.error ?? undefined, empty }}
       onRetry={() => void query.refetch()}

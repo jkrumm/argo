@@ -14,13 +14,15 @@ import {
   useDrawings,
   useOpenOrders,
   usePositions,
+  useSeriesCatalog,
   useWatchlist,
 } from '../api/queries'
-import type { DepotOrder, DepotTrade, WatchlistEntry } from '../api/types'
+import type { DepotOrder, DepotTrade, SeriesInfo, WatchlistEntry } from '../api/types'
 import { DepotChart } from '../components/depot-chart'
 import type { DepotChartHandle, DepotSelection, DrawTool } from '../components/depot-chart'
 import { LinePriceField } from '../components/line-price-field'
 import { FinanceBar } from '../components/finance-bar'
+import { IndexHistoryCard, IndexOverlayCard } from '../components/index-charts'
 import { NoDataState } from '../components/no-data-state'
 import { OrderModal } from '../components/order-modal'
 import classes from '../components/depot.module.css'
@@ -39,11 +41,17 @@ import {
 } from '../lib/depot-chart'
 import type { DepotInterval, PriceLine } from '../lib/depot-chart'
 import { deltaEur, eur, eurExact, signedEur, toneProp } from '../lib/format'
+import { INDEX_SERIES, indexById } from '../lib/index-series'
+import type { IndexSeries } from '../lib/index-series'
 import { isoDay } from '../lib/time'
 import { useDrawingsSaver } from '../lib/use-drawings-saver'
 import { useField } from '../../../lib/use-field'
 import { useNow } from '../../../lib/use-now'
 import { finStore } from '../../../lib/window-stores'
+
+/** How far back a stored series reaches, as the watchlist says it. */
+const sinceText = (firstDay: string | null | undefined): string =>
+  firstDay == null ? '—' : `MSCI · EUR · since ${firstDay.slice(0, 4)}`
 
 const tradeCol = createColumnHelper<DepotTrade>()
 const orderCol = createColumnHelper<DepotOrder>()
@@ -53,6 +61,7 @@ const quantityText = (n: number): string => n.toLocaleString('en-US', { maximumF
 
 export function DepotPage() {
   const watchlist = useWatchlist()
+  const catalog = useSeriesCatalog()
   const positions = usePositions()
   const [requested, setRequested] = useField(finStore.field.isin)
   const [interval] = useField(finStore.field.ivl)
@@ -62,7 +71,12 @@ export function DepotPage() {
 
   const entries = watchlist.data ?? []
   const held = heldRows(entries, positions.data?.positions ?? [])
-  const isin = pickInstrument(requested, entries, held)
+  // The URL names an index series or an instrument: an index has no position, trades or orders.
+  const index = indexById(requested)
+  const isin = index === undefined ? pickInstrument(requested, entries, held) : null
+  const indices = INDEX_SERIES.filter((s) =>
+    (catalog.data ?? []).some((info) => info.id === s.id && info.points > 0),
+  )
   const entry = entries.find((e) => e.isin === isin)
   // A row may stand for instruments charted as it (a Bitcoin ETP on `BTC-USD`): the depot is theirs.
   const instruments = entry === undefined ? [] : instrumentsOf(entry)
@@ -152,11 +166,18 @@ export function DepotPage() {
         <Watchlist
           entries={entries}
           held={held}
-          active={isin}
+          indices={indices}
+          catalog={catalog.data ?? []}
+          active={index?.id ?? isin}
           pending={watchlist.isPending}
           error={watchlist.error}
           onPick={setRequested}
         />
+        {index !== undefined && (
+          <Stack key={index.id} className={classes.main} gap="sm">
+            <IndexHistoryCard index={index} range={range} today={today} />
+          </Stack>
+        )}
         {isin !== null && entry !== undefined && (
           <Stack key={isin} className={classes.main} gap="sm">
             <ChartPanel
@@ -170,6 +191,9 @@ export function DepotPage() {
               candles={candles}
               drawings={drawings}
             />
+            {entry.kind !== 'coin' && entry.us_mic == null && (
+              <IndexOverlayCard isin={isin} name={entry.name ?? isin} range={range} today={today} />
+            )}
             <Box data-shot="depot-position">
               <StatGroup variant="strip" label="The position at a glance" cols={4} cells={cells} />
             </Box>
@@ -195,6 +219,8 @@ export function DepotPage() {
 function Watchlist({
   entries,
   held,
+  indices,
+  catalog,
   active,
   pending,
   error,
@@ -202,6 +228,9 @@ function Watchlist({
 }: {
   entries: readonly WatchlistEntry[]
   held: ReadonlySet<string>
+  /** The stored index series to list, in the order the page names them. */
+  indices: readonly IndexSeries[]
+  catalog: readonly SeriesInfo[]
   active: string | null
   pending: boolean
   error: Error | null
@@ -256,6 +285,29 @@ function Watchlist({
                 {signedPercent(e.day_change_pct)}
               </Text>
             </Box>
+          </UnstyledButton>
+        ))}
+        {indices.length > 0 && (
+          <Text size="xs" c="dimmed" className={classes.watchGroup}>
+            Indices
+          </Text>
+        )}
+        {indices.map((s) => (
+          <UnstyledButton
+            key={s.id}
+            className={classes.watchItem}
+            data-active={s.id === active}
+            aria-pressed={s.id === active}
+            onClick={() => onPick(s.id)}
+          >
+            <Box className={classes.watchHead}>
+              <Text size="sm" fw={500} className={classes.watchName}>
+                {s.name}
+              </Text>
+            </Box>
+            <Text span size="xs" c="dimmed">
+              {sinceText(catalog.find((info) => info.id === s.id)?.first_day)}
+            </Text>
           </UnstyledButton>
         ))}
       </Box>

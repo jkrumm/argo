@@ -225,6 +225,17 @@ const FINANCE_ACCOUNT_MAP = defineSeries({
 } satisfies SeriesMap)
 
 /**
+ * Finance — the depot page's index lines. The index alone is the subject of its card, so it takes the
+ * accent; set against an ETF the fund keeps the accent and the index is the neutral reference, one kind
+ * of thing per hue.
+ */
+const FINANCE_INDEX_MAP = defineSeries({
+  index: p(BP.blue),
+  fund: p(BP.blue),
+  benchmark: p(BP.gray, 1, 2),
+} satisfies SeriesMap)
+
+/**
  * Models page — the three vendors the owner's slots run on, by the colour the reader already knows
  * them by (OpenAI green, Anthropic orange, Google blue). Every other creator stays neutral.
  */
@@ -244,6 +255,7 @@ export const LP = groupTokens('lp', LP_MAP)
 export const FINANCE_SPLIT = groupTokens('finsplit', FINANCE_SPLIT_MAP)
 const FINANCE_ACCOUNT = groupTokens('finacct', FINANCE_ACCOUNT_MAP)
 export const MODEL_CREATOR = groupTokens('model', MODEL_CREATOR_MAP)
+export const FINANCE_INDEX = groupTokens('finindex', FINANCE_INDEX_MAP)
 
 const FINANCE_ACCOUNT_SLOTS = [
   FINANCE_ACCOUNT.account1,
@@ -271,6 +283,7 @@ export const argoPaletteGroups = [
   LP,
   FINANCE_SPLIT,
   FINANCE_ACCOUNT,
+  FINANCE_INDEX,
   MODEL_CREATOR,
 ]
 
@@ -298,6 +311,9 @@ export const ARGO_DERIVED = [
 
 declare module 'basalt-ui' {
   interface BasaltRegister {
-    series: typeof SERIES_MAP & typeof FINANCE_SPLIT_MAP & typeof FINANCE_ACCOUNT_MAP
+    series: typeof SERIES_MAP &
+      typeof FINANCE_SPLIT_MAP &
+      typeof FINANCE_ACCOUNT_MAP &
+      typeof FINANCE_INDEX_MAP
   }
 }

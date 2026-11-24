@@ -47,11 +47,14 @@ type Instrument = {
   usMic?: string
   /** The ISINs charted as this row (`--chart-as`). */
   chartedAs?: string[]
+  /** How many calendar days of bars it has; a fund that launched recently has few. Default 1800. */
+  days?: number
 }
 
 const RATE = 1.08 // synthetic USD per EUR
 const US_STOCK = 'US0000000001'
 const BTC_ETP = 'XX0000000005'
+const ALL_CAP = 'XX0000000006'
 
 const INSTRUMENTS: Instrument[] = [
   {
@@ -69,6 +72,16 @@ const INSTRUMENTS: Instrument[] = [
     start: 7.4,
     drift: 0.0007,
     vol: 0.016,
+  },
+  {
+    // A global all-cap fund launched about four months ago: its history is short, its index is old.
+    isin: ALL_CAP,
+    name: 'Global all-cap ETF',
+    kind: 'etf',
+    start: 100,
+    drift: 0.0005,
+    vol: 0.008,
+    days: 100,
   },
   { isin: 'XX0000000003', name: 'Dividend ETF', kind: 'etf', start: 31, drift: 0.0002, vol: 0.007 },
   {
@@ -131,6 +144,7 @@ function rng(seed: number): () => number {
   }
 }
 
+const dayOf = (time: number): string => new Date(time * 1000).toISOString().slice(0, 10)
 const midnight = (ms: number): number => Math.floor(ms / 1000 / DAY_S) * DAY_S
 const round = (n: number, places = 2): number => Math.round(n * 10 ** places) / 10 ** places
 
@@ -138,7 +152,7 @@ function dailyBars(instrument: Instrument, seed: number): Bar[] {
   const random = rng(seed)
   const today = midnight(Date.now())
   const days: number[] = []
-  for (let t = today - 1800 * DAY_S; t <= today; t += DAY_S) {
+  for (let t = today - (instrument.days ?? 1800) * DAY_S; t <= today; t += DAY_S) {
     const weekday = new Date(t * 1000).getUTCDay()
     if (instrument.kind === 'coin' || (weekday !== 0 && weekday !== 6)) days.push(t)
   }
@@ -164,6 +178,79 @@ function dailyBars(instrument: Instrument, seed: number): Bar[] {
 }
 
 const DAILY = new Map(SERIES.map((i, n) => [i.isin, dailyBars(i, 1000 + n)]))
+
+// ---- Synthetic long-run index series -----------------------------------------------------------
+
+type IndexRow = {
+  id: string
+  title: string
+  first: string
+  start: number
+  drift: number
+  vol: number
+}
+
+/** The stored MSCI series of the market store (net return, euros), with the day each one starts on. */
+const INDEX_ROWS: IndexRow[] = [
+  {
+    id: 'msci-acwi-imi-net-eur',
+    title: 'MSCI ACWI IMI, net, EUR',
+    first: '1998-12-31',
+    start: 100,
+    drift: 0.00032,
+    vol: 0.0095,
+  },
+  {
+    id: 'msci-world-net-eur',
+    title: 'MSCI World, net, EUR',
+    first: '1998-12-31',
+    start: 100,
+    drift: 0.00033,
+    vol: 0.0095,
+  },
+  {
+    id: 'msci-em-net-eur',
+    title: 'MSCI Emerging Markets, net, EUR',
+    first: '2000-12-29',
+    start: 100,
+    drift: 0.00036,
+    vol: 0.011,
+  },
+  {
+    id: 'msci-world-small-cap-net-eur',
+    title: 'MSCI World Small Cap, net, EUR',
+    first: '2000-12-29',
+    start: 100,
+    drift: 0.00038,
+    vol: 0.01,
+  },
+  {
+    id: 'msci-europe-net-eur',
+    title: 'MSCI Europe, net, EUR',
+    first: '1998-12-31',
+    start: 100,
+    drift: 0.00026,
+    vol: 0.0105,
+  },
+]
+
+type Level = { day: string; time: number; value: number }
+
+function indexLevels(row: IndexRow, seed: number): Level[] {
+  const random = rng(seed)
+  const today = midnight(Date.now())
+  const levels: Level[] = []
+  let value = row.start
+  for (let t = Date.parse(`${row.first}T00:00:00Z`) / 1000; t <= today; t += DAY_S) {
+    const weekday = new Date(t * 1000).getUTCDay()
+    if (weekday === 0 || weekday === 6) continue
+    value *= 1 + row.drift + (random() - 0.5) * 2 * row.vol
+    levels.push({ day: dayOf(t), time: t, value: round(value, 2) })
+  }
+  return levels
+}
+
+const INDEX_LEVELS = new Map(INDEX_ROWS.map((row, n) => [row.id, indexLevels(row, 7000 + n)]))
 
 function aggregate(bars: Bar[], keyOf: (time: number) => number): Bar[] {
   const groups = new Map<number, Bar[]>()
@@ -203,7 +290,6 @@ function candles(isin: string, interval: string, from: string | null, to: string
 
 // ---- Synthetic depot ----------------------------------------------------------------------
 
-const dayOf = (time: number): string => new Date(time * 1000).toISOString().slice(0, 10)
 const closeOn = (key: string, day: string): number =>
   (DAILY.get(key) ?? []).findLast((b) => b.time <= Date.parse(`${day}T00:00:00Z`) / 1000)?.close ??
   0
@@ -439,6 +525,36 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
         }),
       )
     }
+    if (rest === '/market/series') {
+      const id = q.get('id')
+      if (id === null) {
+        return json(
+          INDEX_ROWS.map((row) => {
+            const levels = INDEX_LEVELS.get(row.id) ?? []
+            return {
+              id: row.id,
+              title: row.title,
+              unit: 'index points',
+              frequency: 'daily',
+              first_day: levels[0]?.day ?? null,
+              last_day: levels.at(-1)?.day ?? null,
+              points: levels.length,
+            }
+          }),
+        )
+      }
+      const row = INDEX_ROWS.find((r) => r.id === id)
+      if (row === undefined) return json({ error: `unknown series ${id}` }, 400)
+      const from = q.get('from') ?? '0000-00-00'
+      const to = q.get('to') ?? '9999-99-99'
+      return json({
+        id,
+        title: row.title,
+        unit: 'index points',
+        frequency: 'daily',
+        points: (INDEX_LEVELS.get(id) ?? []).filter((p) => p.day >= from && p.day <= to),
+      })
+    }
     if (rest === '/market/candles') {
       // The US listing is a second series, in dollars; a coin listing is in dollars too.
       const isin = q.get('isin') ?? ''
@@ -654,6 +770,71 @@ const storedCount = (page: Page): Promise<number> =>
     return doc.document.drawings?.length ?? 0
   })
 
+/**
+ * The Indices group, the index line back to 1998 and the overlay of a young fund against its index:
+ * checked on the page and shot per element, the overlay at two indices.
+ */
+async function checkIndices(
+  page: Page,
+  origin: string,
+  scheme: string,
+  device: string,
+  out: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  const shoot = async (name: string, shot: string) => {
+    const card = page.locator(`[data-shot="${shot}"]`)
+    await card.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(500)
+    await card.screenshot({ path: join(out, `depot--${scheme}--${device}--${name}.png`) })
+  }
+  await page.goto(`${origin}/finance/depot?isin=msci-acwi-imi-net-eur&rng=max`, {
+    waitUntil: 'networkidle',
+  })
+  const index = page.locator('[data-shot="depot-index"]')
+  await index.waitFor()
+  await page.waitForTimeout(700)
+  if ((await page.getByText('Indices', { exact: true }).count()) === 0) {
+    failures.push(`${where}: the watchlist has no Indices group`)
+  }
+  if ((await index.getByText('MSCI ACWI IMI · EUR').count()) === 0) {
+    failures.push(`${where}: the index card does not name its series`)
+  }
+  if ((await index.getByText('MSCI · net return · EUR').count()) === 0) {
+    failures.push(`${where}: the index card does not name its source`)
+  }
+  if ((await index.getByText(/since .*1998/).count()) === 0) {
+    failures.push(`${where}: the index line does not start in 1998`)
+  }
+  if ((await index.locator('path[stroke]').count()) === 0) {
+    failures.push(`${where}: the index card draws no line`)
+  }
+  await shoot('index-max', 'depot-index')
+
+  await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}&rng=max`, { waitUntil: 'networkidle' })
+  await page.locator('canvas').first().waitFor()
+  const overlay = page.locator('[data-shot="depot-overlay"]')
+  await overlay.waitFor()
+  await page.waitForTimeout(900)
+  for (const text of ['Global all-cap ETF vs MSCI ACWI IMI', 'MSCI · net return · EUR']) {
+    if ((await overlay.getByText(text).count()) === 0) {
+      failures.push(`${where}: the overlay card lacks "${text}"`)
+    }
+  }
+  if ((await overlay.locator('path[stroke]').count()) < 2) {
+    failures.push(`${where}: the overlay draws fewer than two lines`)
+  }
+  await shoot('overlay', 'depot-overlay')
+  // A held ETF with a long history reads against another index.
+  await page.goto(`${origin}/finance/depot?isin=${WORLD}&rng=max&cmp=msci-world-net-eur`, {
+    waitUntil: 'networkidle',
+  })
+  await page.locator('[data-shot="depot-overlay"]').waitFor()
+  await page.waitForTimeout(900)
+  await shoot('overlay-world', 'depot-overlay')
+}
+
 async function main(): Promise<number> {
   const { values } = parseArgs({ options: { out: { type: 'string' }, serve: { type: 'boolean' } } })
   if (values.serve === true) {
@@ -773,6 +954,7 @@ async function main(): Promise<number> {
             spacings.push(await spacingOf(page))
           await page.screenshot({ path: join(out, `depot--${scheme}--${device}--${name}.png`) })
         }
+        await checkIndices(page, origin, scheme, device, out, failures)
         const [day, ...others] = spacings
         if (day === undefined || others.some((other) => Math.abs(other - day) > 0.05)) {
           failures.push(

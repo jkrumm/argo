@@ -42,6 +42,12 @@
   }
 }
 
+/* The Indices group heading spans both columns of the narrow grid. */
+.watchGroup {
+  grid-column: 1 / -1;
+  padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm) 0;
+}
+
 .watchItem {
   display: flex;
   flex-direction: column;

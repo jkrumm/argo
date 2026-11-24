@@ -1,4 +1,11 @@
-import type { ChartBar, DepotOrder, DepotPosition, DepotTrade, WatchlistEntry } from '../api/types'
+import type {
+  ChartBar,
+  DepotOrder,
+  DepotPosition,
+  DepotTrade,
+  SeriesResponse,
+  WatchlistEntry,
+} from '../api/types'
 import { eurExact } from './format'
 
 /** The bar intervals the page offers and the service knows: there is no intraday. */
@@ -43,6 +50,56 @@ export function candleWindow(
   const days = range === 'max' ? undefined : RANGE_DAYS[range]
   const span = Math.min(days ?? DAILY_MAX_DAYS, DAILY_MAX_DAYS)
   return { from: isoDay(Date.parse(`${today}T00:00:00Z`) - span * DAY_MS), to: today }
+}
+
+/** The first day a range shows, `YYYY-MM-DD`; undefined for the whole stored history. */
+export function rangeStart(range: DepotRange, today: string): string | undefined {
+  if (range === 'max') return undefined
+  return isoDay(Date.parse(`${today}T00:00:00Z`) - RANGE_DAYS[range] * DAY_MS)
+}
+
+/** `YYYY-MM-DD` of a day `days` before `day`. */
+export const daysBefore = (day: string, days: number): string =>
+  isoDay(Date.parse(`${day}T00:00:00Z`) - days * DAY_MS)
+
+/** An index level: points, no unit, so one decimal at most and a thousands separator. */
+export const levelText = (level: number): string =>
+  level.toLocaleString('en-US', {
+    minimumFractionDigits: level < 1000 ? 1 : 0,
+    maximumFractionDigits: level < 1000 ? 1 : 0,
+  })
+
+/** How old an index level may be and still stand for a day: a holiday gap, not a stale series. */
+const MAX_STALE_DAYS = 10
+
+/** One day of the comparison: both lines rebased to 100 on the first common day. */
+export type RebasedRow = { day: string; etf: number; index: number }
+
+/**
+ * The selected instrument and an index on one scale: 100 at the first day both have a value. A bar's
+ * index value is the last level on or before its day (an exchange holiday is not an index holiday and
+ * the other way round), as long as that level is at most ten days old. `points` ascend by day.
+ */
+export function rebasedPair(
+  bars: readonly ChartBar[],
+  points: SeriesResponse['points'],
+): RebasedRow[] {
+  const rows: { day: string; etf: number; index: number }[] = []
+  let at = -1
+  for (const bar of bars) {
+    const day = isoDay(bar.time * 1000)
+    while (points[at + 1] !== undefined && (points[at + 1]?.day ?? '') <= day) at++
+    const level = points[at]
+    if (level === undefined || level.day < daysBefore(day, MAX_STALE_DAYS)) continue
+    rows.push({ day, etf: bar.close, index: level.value })
+  }
+  const [first] = rows
+  if (first === undefined || first.etf === 0 || first.index === 0) return []
+  return rows.map((row) => ({
+    day: row.day,
+    etf: (row.etf / first.etf) * 100,
+    index: (row.index / first.index) * 100,
+  }))
 }
 
 /** How far a bar reaches past its own time (daily: a weekend or a holiday): a booking inside it belongs to it. */

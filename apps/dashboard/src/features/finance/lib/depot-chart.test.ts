@@ -16,6 +16,8 @@ import {
   mergedPosition,
   orderLine,
   pickInstrument,
+  rangeStart,
+  rebasedPair,
   storedEntries,
   tradeMarks,
   tradeReadout,
@@ -300,5 +302,54 @@ describe('the drawings document', () => {
   it('writes the exported drawings and every unread entry back', () => {
     const doc = buildDrawingsDocument(JSON.stringify([{ id: 'a' }]), [{ id: 'b' }])
     expect(doc).toEqual({ v: 1, drawings: [{ id: 'a' }], foreign: [{ id: 'b' }] })
+  })
+})
+
+describe('rangeStart', () => {
+  it('reads one year back for 1y and everything for max', () => {
+    expect(rangeStart('1y', '2026-11-24')).toBe('2025-11-23')
+    expect(rangeStart('max', '2026-11-24')).toBeUndefined()
+  })
+})
+
+describe('rebasedPair', () => {
+  const point = (d: string, value: number) => ({ day: d, time: day(d), value })
+
+  it('sets both lines to 100 on the first bar that has an index level', () => {
+    const bars = [
+      bar(day('2026-08-18'), 50),
+      bar(day('2026-08-19'), 55),
+      bar(day('2026-08-20'), 45),
+    ]
+    const points = [point('2026-08-14', 1000), point('2026-08-19', 1100), point('2026-08-20', 1200)]
+    const rows = rebasedPair(bars, points)
+    expect(rows.map((r) => r.day)).toEqual(['2026-08-18', '2026-08-19', '2026-08-20'])
+    expect(rows[0]).toEqual({ day: '2026-08-18', etf: 100, index: 100 })
+    expect(rows[1]?.etf).toBeCloseTo(110)
+    expect(rows[1]?.index).toBeCloseTo(110)
+    expect(rows[2]?.etf).toBeCloseTo(90)
+    expect(rows[2]?.index).toBeCloseTo(120)
+  })
+
+  it('carries an index level over a day it has none (an exchange holiday)', () => {
+    const bars = [bar(day('2026-08-18'), 10), bar(day('2026-08-21'), 10)]
+    const points = [point('2026-08-18', 100), point('2026-08-19', 104)]
+    expect(rebasedPair(bars, points)[1]?.index).toBeCloseTo(104)
+  })
+
+  it('starts at the first day the index has a level, skipping the bars before it', () => {
+    const bars = [bar(day('2026-08-10'), 10), bar(day('2026-08-18'), 20)]
+    const rows = rebasedPair(bars, [point('2026-08-18', 500)])
+    expect(rows).toEqual([{ day: '2026-08-18', etf: 100, index: 100 }])
+  })
+
+  it('does not stand a stale level in for a day', () => {
+    const bars = [bar(day('2026-09-30'), 10)]
+    expect(rebasedPair(bars, [point('2026-08-18', 500)])).toEqual([])
+  })
+
+  it('is empty without bars or levels', () => {
+    expect(rebasedPair([], [point('2026-08-18', 500)])).toEqual([])
+    expect(rebasedPair([bar(day('2026-08-18'), 10)], [])).toEqual([])
   })
 })

@@ -18,6 +18,8 @@ import type {
   Overview,
   RangeQuery,
   RecurringRow,
+  SeriesInfo,
+  SeriesResponse,
   TaxYearRow,
   TxList,
   TxQuery,
@@ -163,6 +165,27 @@ export const useCandles = (query: CandleQuery | null) =>
     enabled: query !== null,
     // Today's bar moves; a minute keeps a chart left open honest.
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
+
+/** What the market store holds of its long-run series; the Indices group lists the ones it has. */
+export const useSeriesCatalog = () =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'series-catalog'],
+    queryFn: () => financeGet<SeriesInfo[]>('/market/series'),
+    staleTime: 300_000,
+  })
+
+/** One stored series from `from` (no `from`: everything). At most 20,000 points: about 80 years of days. */
+export const useIndexSeries = (
+  id: string | null,
+  window: { from?: string | undefined; to: string },
+) =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'series', id, window],
+    queryFn: () => financeGet<SeriesResponse>('/market/series', { id: id ?? undefined, ...window }),
+    enabled: id !== null,
+    staleTime: 300_000,
     placeholderData: keepPreviousData,
   })
 

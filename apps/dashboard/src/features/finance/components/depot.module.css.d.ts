@@ -7,6 +7,7 @@ declare const classes: {
   readonly layout: string
   readonly watch: string
   readonly watchScroll: string
+  readonly watchGroup: string
   readonly watchItem: string
   readonly watchHead: string
   readonly watchName: string
