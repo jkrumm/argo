@@ -6,7 +6,7 @@ import { installStaleBuildRecovery } from './stale-build'
 // Must be the FIRST import in main.tsx so the fetch patch is in place
 // before Eden Treaty or TanStack Query capture the original fetch.
 if (typeof window !== 'undefined') {
-  // Before HyperDX.init: its capturing `error` listener must come second to miss the swallowed link errors.
+  // Before HyperDX.init: this window capture listener must run ahead of HyperDX's document one.
   installStaleBuildRecovery(window, window.sessionStorage)
 
   const apiKey = import.meta.env['VITE_HYPERDX_API_KEY']

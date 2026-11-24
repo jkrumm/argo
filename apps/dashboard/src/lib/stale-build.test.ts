@@ -19,22 +19,34 @@ function setup(startAt = 1_000_000) {
     { getItem: (k) => values.get(k) ?? null, setItem: (k, v) => void values.set(k, v) },
     () => clock,
   )
-  const fire = (type: string, event: object) => listeners.get(type)!.fn(event as Event)
   return {
     listeners,
-    fire,
+    values,
     reloads: () => reloads,
     advance: (ms: number) => void (clock += ms),
-    values,
+    linkError() {
+      const event = {
+        target: { tagName: 'LINK', rel: 'modulepreload', href: 'https://x/assets/a.js' },
+        stopped: false,
+        stopImmediatePropagation() {
+          this.stopped = true
+        },
+      }
+      listeners.get('error')!.fn(event as unknown as Event)
+      return event
+    },
+    preloadError() {
+      const event = {
+        prevented: false,
+        preventDefault() {
+          this.prevented = true
+        },
+      }
+      listeners.get('vite:preloadError')!.fn(event as unknown as Event)
+      return event
+    },
   }
 }
-
-const preloadEvent = () => ({
-  prevented: false,
-  preventDefault() {
-    this.prevented = true
-  },
-})
 
 describe('isBuildAssetLink', () => {
   test('matches the links Vite injects for built chunks and styles', () => {
@@ -59,43 +71,64 @@ describe('isBuildAssetLink', () => {
 })
 
 describe('installStaleBuildRecovery', () => {
-  test('swallows build-asset link errors in the capture phase, before the HyperDX listener', () => {
-    const { listeners, fire } = setup()
-    expect(listeners.get('error')!.capture).toBe(true)
-    let stopped = 0
-    const stop = () => void stopped++
-    fire('error', {
-      target: { tagName: 'LINK', rel: 'modulepreload', href: 'https://x/assets/a.js' },
-      stopImmediatePropagation: stop,
-    })
-    fire('error', { target: { tagName: 'IMG', href: '' }, stopImmediatePropagation: stop })
-    expect(stopped).toBe(1)
+  test('listens on the capture phase so it runs before the HyperDX listener', () => {
+    expect(setup().listeners.get('error')!.capture).toBe(true)
   })
 
-  test('reloads once on a preload failure and takes the failure as handled', () => {
-    const { fire, reloads, values } = setup()
-    const event = preloadEvent()
-    fire('vite:preloadError', event)
-    expect(event.prevented).toBe(true)
-    expect(reloads()).toBe(1)
-    expect(values.has(STALE_BUILD_RELOAD_KEY)).toBe(true)
+  test('the first failing link reloads and still reaches its target and HyperDX', () => {
+    const t = setup()
+    const first = t.linkError()
+    expect(t.reloads()).toBe(1)
+    expect(first.stopped).toBe(false)
+    expect(t.values.has(STALE_BUILD_RELOAD_KEY)).toBe(true)
   })
 
-  test('a second failure inside the guard window is a broken release: no reload, error surfaces', () => {
-    const { fire, reloads, advance } = setup()
-    fire('vite:preloadError', preloadEvent())
-    advance(STALE_BUILD_GUARD_MS - 1)
-    const again = preloadEvent()
-    fire('vite:preloadError', again)
-    expect(again.prevented).toBe(false)
-    expect(reloads()).toBe(1)
+  test('the rest of the burst is stopped before HyperDX and reloads only once', () => {
+    const t = setup()
+    t.linkError()
+    const rest = Array.from({ length: 19 }, () => t.linkError())
+    expect(rest.every((e) => e.stopped)).toBe(true)
+    expect(t.reloads()).toBe(1)
+  })
+
+  test('vite:preloadError after the reload started is taken as handled', () => {
+    const t = setup()
+    t.linkError()
+    expect(t.preloadError().prevented).toBe(true)
+    expect(t.reloads()).toBe(1)
+  })
+
+  test('a preload failure with no link error (e.g. a script chunk) reloads too', () => {
+    const t = setup()
+    expect(t.preloadError().prevented).toBe(true)
+    expect(t.reloads()).toBe(1)
+  })
+
+  test('other elements failing are never touched', () => {
+    const t = setup()
+    const event = {
+      target: { tagName: 'IMG' },
+      stopImmediatePropagation: () => {
+        throw new Error('must not stop')
+      },
+    }
+    t.listeners.get('error')!.fn(event as unknown as Event)
+    expect(t.reloads()).toBe(0)
+  })
+
+  test('a failure inside the guard window is a broken release: no reload, nothing swallowed', () => {
+    const t = setup()
+    t.values.set(STALE_BUILD_RELOAD_KEY, String(1_000_000 - STALE_BUILD_GUARD_MS + 1))
+    const link = t.linkError()
+    expect(link.stopped).toBe(false)
+    expect(t.preloadError().prevented).toBe(false)
+    expect(t.reloads()).toBe(0)
   })
 
   test('a failure after the guard window reloads again', () => {
-    const { fire, reloads, advance } = setup()
-    fire('vite:preloadError', preloadEvent())
-    advance(STALE_BUILD_GUARD_MS)
-    fire('vite:preloadError', preloadEvent())
-    expect(reloads()).toBe(2)
+    const t = setup()
+    t.values.set(STALE_BUILD_RELOAD_KEY, String(1_000_000 - STALE_BUILD_GUARD_MS))
+    t.linkError()
+    expect(t.reloads()).toBe(1)
   })
 })

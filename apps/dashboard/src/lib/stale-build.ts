@@ -4,10 +4,10 @@
  * `<link>` it injected, ~20 per route change) and the page is stuck on the old build. One reload
  * fetches the new index and its chunks.
  *
- * The per-link errors are swallowed before HyperDX's capturing `error` listener sees them (so one
- * stale tab is not twenty error spans and a false browser-errors alert); `vite:preloadError`
- * carries the real failure. A second failure inside the guard window is a broken release, not a
- * stale tab: it is left alone and surfaces as an unhandled rejection.
+ * The first failing link reloads at once. HyperDX records that one error; the rest of the burst
+ * arrives while the page is leaving and is stopped before HyperDX's listener (so one stale tab is
+ * not twenty error spans and a false browser-errors alert). A failure inside the guard window of an
+ * earlier reload is a broken release, not a stale tab: it is left alone and surfaces normally.
  */
 
 export const STALE_BUILD_RELOAD_KEY = 'argo:stale-build-reload'
@@ -33,19 +33,34 @@ export function installStaleBuildRecovery(
   store: Store,
   now: () => number = Date.now,
 ): void {
+  let reloading = false
+
+  /** True when this call started a reload, false inside the guard window. */
+  const reloadOnce = (): boolean => {
+    if (reloading) return true
+    if (now() - Number(store.getItem(STALE_BUILD_RELOAD_KEY) ?? 0) < STALE_BUILD_GUARD_MS) {
+      return false
+    }
+    reloading = true
+    store.setItem(STALE_BUILD_RELOAD_KEY, String(now()))
+    win.location.reload()
+    return true
+  }
+
+  // Capture phase on the window runs before HyperDX's listener on the document element. The first
+  // failing link must reach its target (Vite's helper rejects on it); the rest of the burst only
+  // reaches HyperDX, so they stop here.
   win.addEventListener(
     'error',
     (event) => {
-      if (isBuildAssetLink(event.target)) event.stopImmediatePropagation()
+      if (!isBuildAssetLink(event.target)) return
+      const alreadyReloading = reloading
+      if (reloadOnce() && alreadyReloading) event.stopImmediatePropagation()
     },
     true,
   )
 
   win.addEventListener('vite:preloadError', (event) => {
-    const last = Number(store.getItem(STALE_BUILD_RELOAD_KEY) ?? 0)
-    if (now() - last < STALE_BUILD_GUARD_MS) return
-    store.setItem(STALE_BUILD_RELOAD_KEY, String(now()))
-    event.preventDefault()
-    win.location.reload()
+    if (reloadOnce()) event.preventDefault()
   })
 }
