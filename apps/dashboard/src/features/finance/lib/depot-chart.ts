@@ -1,7 +1,8 @@
-import type { ChartBar, DepotOrder, DepotPosition, DepotTrade } from '../api/types'
+import type { ChartBar, DepotOrder, DepotPosition, DepotTrade, WatchlistEntry } from '../api/types'
+import { eurExact } from './format'
 
-/** The bar intervals the page offers; the service also knows 1m and 5m. */
-export type DepotInterval = '15m' | '1h' | '1d' | '1w' | '1mo'
+/** The bar intervals the page offers and the service knows: there is no intraday. */
+export type DepotInterval = '1d' | '1w' | '1mo'
 export type DepotRange = '1m' | '3m' | '6m' | '1y' | '2y' | '5y' | 'max'
 
 const DAY_MS = 86_400_000
@@ -16,17 +17,14 @@ const RANGE_DAYS: Record<Exclude<DepotRange, 'max'>, number> = {
   '5y': 1827,
 }
 
-/** Intraday ticks exist for recent days only, and the service refuses more than 5,000 bars. */
-const INTRADAY_MAX_DAYS: Partial<Record<DepotInterval, number>> = { '15m': 10, '1h': 30 }
+/** The service refuses a request of more than 5,000 bars; only daily bars of a long history can reach it. */
+const DAILY_MAX_DAYS = 4990
 
-const OFFERED = new Set<string>(['15m', '1h', '1d', '1w', '1mo'])
+const OFFERED = new Set<string>(['1d', '1w', '1mo'])
 
 /** The interval an answer carries, when the page offers it; else `fallback`. */
 export const depotInterval = (value: string | undefined, fallback: DepotInterval): DepotInterval =>
   value !== undefined && OFFERED.has(value) ? (value as DepotInterval) : fallback
-
-export const isIntraday = (interval: DepotInterval): boolean =>
-  interval === '15m' || interval === '1h'
 
 const isoDay = (ms: number): string => new Date(ms).toISOString().slice(0, 10)
 
@@ -39,15 +37,16 @@ export function candleWindow(
   interval: DepotInterval,
   today: string,
 ): { from?: string; to: string } {
-  const cap = INTRADAY_MAX_DAYS[interval]
+  // Week and month bars are few and drawn as wide as a day: they load the whole history and open at the
+  // newest bar, so the chart is full and the owner scrolls back instead of the range deciding what exists.
+  if (interval !== '1d') return { to: today }
   const days = range === 'max' ? undefined : RANGE_DAYS[range]
-  const span = cap === undefined ? days : Math.min(days ?? cap, cap)
-  if (span === undefined) return { to: today }
+  const span = Math.min(days ?? DAILY_MAX_DAYS, DAILY_MAX_DAYS)
   return { from: isoDay(Date.parse(`${today}T00:00:00Z`) - span * DAY_MS), to: today }
 }
 
 /** How far a bar reaches past its own time (daily: a weekend or a holiday): a booking inside it belongs to it. */
-const BAR_SPAN_S: Record<'1d' | '1w' | '1mo', number> = {
+const BAR_SPAN_S: Record<DepotInterval, number> = {
   '1d': 4 * DAY_S,
   '1w': 7 * DAY_S,
   '1mo': 31 * DAY_S,
@@ -71,8 +70,7 @@ function lastBarAtOrBefore(bars: readonly ChartBar[], at: number): number {
 /**
  * The bar a trade booked on `day` is drawn on: on a daily chart the bar of that day (the last one
  * before it when the day has none, a weekend booking), on a weekly or monthly chart the bar that
- * contains it, on an intraday chart the last bar of that day. `null` when the chart does not reach
- * back to it, or a day with no bar of an intraday chart.
+ * contains it. `null` when the chart does not reach back to it.
  */
 export function barOfDay(
   bars: readonly ChartBar[],
@@ -80,14 +78,8 @@ export function barOfDay(
   interval: DepotInterval,
 ): number | null {
   const start = dayToSeconds(day)
-  if (isIntraday(interval)) {
-    const bar = bars[lastBarAtOrBefore(bars, start + DAY_S - 1)]
-    return bar !== undefined && bar.time >= start ? bar.time : null
-  }
   const bar = bars[lastBarAtOrBefore(bars, start)]
-  return bar !== undefined && bar.time > start - BAR_SPAN_S[interval as '1d' | '1w' | '1mo']
-    ? bar.time
-    : null
+  return bar !== undefined && bar.time > start - BAR_SPAN_S[interval] ? bar.time : null
 }
 
 export type TradeMark = {
@@ -125,6 +117,70 @@ export function marksByBar(marks: readonly TradeMark[]): Map<number, TradeMark[]
   return byBar
 }
 
+/** One marker on the chart: the trades of one side on one bar, so a week of savings-plan buys is one arrow with a count. */
+export type MarkGroup = {
+  time: number
+  side: DepotTrade['side']
+  count: number
+  /** Every quantity in it is a guess: drawn as a circle. */
+  estimated: boolean
+}
+
+/** The markers to draw, oldest first: one per bar and side. */
+export function markGroups(marks: readonly TradeMark[]): MarkGroup[] {
+  const groups = new Map<string, MarkGroup>()
+  for (const mark of marks) {
+    const key = `${mark.time}:${mark.side}`
+    const group = groups.get(key)
+    groups.set(
+      key,
+      group === undefined
+        ? { time: mark.time, side: mark.side, count: 1, estimated: mark.estimated }
+        : { ...group, count: group.count + 1, estimated: group.estimated && mark.estimated },
+    )
+  }
+  return [...groups.values()].toSorted((a, b) => a.time - b.time)
+}
+
+const quantityOf = (n: number): string => n.toLocaleString('en-US', { maximumFractionDigits: 4 })
+
+/** A price in dollars, the way the chart reads one. */
+const usdText = (price: number): string =>
+  `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+function oneTradeText(mark: TradeMark, usd: boolean): string {
+  const { trade } = mark
+  const side = trade.side === 'buy' ? 'Bought' : 'Sold'
+  const quantity =
+    trade.quantity === null
+      ? 'quantity unknown'
+      : `${mark.estimated ? '≈ ' : ''}${quantityOf(trade.quantity)}`
+  const dollars = usd && trade.price_usd !== null ? ` · at ${usdText(trade.price_usd)}` : ''
+  return `${side} ${quantity} · ${eurExact(trade.amount_cents)}${dollars}${mark.estimated ? ' · estimated quantity' : ''}`
+}
+
+/**
+ * The readout lines of the trades on one bar: a line per trade, and a line per side once a side has
+ * several (a savings plan and a top-up in one week): count, units and amount together.
+ */
+export function tradeReadout(marks: readonly TradeMark[], usd: boolean): string[] {
+  return (['buy', 'sell'] as const).flatMap((side) => {
+    const own = marks.filter((mark) => mark.side === side)
+    const [first] = own
+    if (first === undefined) return []
+    if (own.length === 1) return [oneTradeText(first, usd)]
+    const unknown = own.some((mark) => mark.trade.quantity === null)
+    const estimated = own.some((mark) => mark.estimated)
+    const units = own.reduce((sum, mark) => sum + (mark.trade.quantity ?? 0), 0)
+    const amount = own.reduce((sum, mark) => sum + mark.trade.amount_cents, 0)
+    return [
+      `${side === 'buy' ? 'Bought' : 'Sold'} ${own.length} trades · ${
+        unknown ? 'quantity unknown' : `${estimated ? '≈ ' : ''}${quantityOf(units)}`
+      } · ${eurExact(amount)}`,
+    ]
+  })
+}
+
 /** A horizontal line on the chart: an open order at its limit or stop, or the average cost. */
 export type PriceLine = {
   id: string
@@ -156,6 +212,91 @@ export function costLine(position: DepotPosition | undefined): PriceLine | null 
     price: perUnit,
     title: `Average cost ${trimmed(Math.round(perUnit * 100) / 100)}`,
     kind: 'cost',
+  }
+}
+
+/**
+ * The average cost per unit in dollars, for an instrument charted in USD: every open lot is priced
+ * at the dollar price of the buy it came from (`price_usd`, the rate of its booking day). `null`
+ * when a lot has no such buy, so no line is better than a wrong one.
+ */
+export function costLineUsd(
+  position: DepotPosition | undefined,
+  trades: readonly DepotTrade[],
+): PriceLine | null {
+  if (position === undefined || position.quantity <= 0 || position.lots.length === 0) return null
+  let cost = 0
+  let quantity = 0
+  for (const lot of position.lots) {
+    const buys = trades.filter(
+      (trade) =>
+        trade.side === 'buy' &&
+        trade.booked_on === lot.acquired_on &&
+        trade.price_usd !== null &&
+        (trade.quantity ?? 0) > 0,
+    )
+    const bought = buys.reduce((sum, trade) => sum + (trade.quantity ?? 0), 0)
+    if (bought <= 0) return null
+    const average =
+      buys.reduce((sum, trade) => sum + (trade.quantity ?? 0) * (trade.price_usd ?? 0), 0) / bought
+    cost += lot.quantity * average
+    quantity += lot.quantity
+  }
+  if (quantity <= 0) return null
+  const perUnit = cost / quantity
+  return {
+    id: 'cost',
+    price: perUnit,
+    title: `Average cost $${trimmed(Math.round(perUnit * 100) / 100)}`,
+    kind: 'cost',
+  }
+}
+
+/** The ISINs a watchlist row stands for: its own, or those charted as it (`BTC-USD`). */
+export const instrumentsOf = (entry: Pick<WatchlistEntry, 'isin' | 'instruments'>): string[] =>
+  entry.instruments.length > 0 ? entry.instruments : [entry.isin]
+
+/** The rows of the watchlist the owner holds: a row counts through any instrument charted as it. */
+export function heldRows(
+  entries: readonly Pick<WatchlistEntry, 'isin' | 'instruments'>[],
+  positions: readonly DepotPosition[],
+): Set<string> {
+  const owned = new Set(positions.filter((p) => p.quantity > 0).map((p) => p.isin))
+  return new Set(
+    entries.filter((e) => instrumentsOf(e).some((isin) => owned.has(isin))).map((e) => e.isin),
+  )
+}
+
+/**
+ * The position behind a chart: the one of the instrument, or the sum of those charted as one row. The
+ * money adds up; `price` does not and stays empty for a sum.
+ */
+export function mergedPosition(positions: readonly DepotPosition[]): DepotPosition | undefined {
+  const [first, ...rest] = positions
+  if (first === undefined || rest.length === 0) return first
+  const sum = (pick: (p: DepotPosition) => number): number =>
+    positions.reduce((n, p) => n + pick(p), 0)
+  const all = (pick: (p: DepotPosition) => number | null): number | null =>
+    positions.some((p) => pick(p) === null) ? null : sum((p) => pick(p) ?? 0)
+  const unrealised = all((p) => p.unrealised_fifo_cents)
+  const cost = sum((p) => p.cost_fifo_cents)
+  return {
+    ...first,
+    name: null,
+    quantity: sum((p) => p.quantity),
+    price: null,
+    price_on: null,
+    value_cents: all((p) => p.value_cents),
+    cost_fifo_cents: cost,
+    cost_average_cents: sum((p) => p.cost_average_cents),
+    unrealised_fifo_cents: unrealised,
+    unrealised_average_cents: all((p) => p.unrealised_average_cents),
+    unrealised_fifo_pct: unrealised === null || cost === 0 ? null : unrealised / cost,
+    share: null,
+    quantity_source: positions.every((p) => p.quantity_source === first.quantity_source)
+      ? first.quantity_source
+      : 'mixed',
+    lots: positions.flatMap((p) => p.lots),
   }
 }
 

@@ -147,7 +147,14 @@ export const useWatchlist = () =>
     staleTime: 60_000,
   })
 
-export type CandleQuery = { isin: string; interval: string; from?: string | undefined; to: string }
+export type CandleQuery = {
+  isin: string
+  interval: string
+  from?: string | undefined
+  to: string
+  /** The US listing to read (USD bars), for a row that has one. */
+  mic?: string | undefined
+}
 
 export const useCandles = (query: CandleQuery | null) =>
   useQuery({

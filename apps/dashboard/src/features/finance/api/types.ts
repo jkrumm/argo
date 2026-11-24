@@ -471,9 +471,13 @@ export type AddMerchantRuleResponse = { pattern: string; changed: number }
 
 // ---- Chart page: market, depot, drawings (docs/service.md, docs/market.md) ----
 
-export type MarketInterval = '1m' | '5m' | '15m' | '1h' | '1d' | '1w' | '1mo'
+/** Daily bars and up: the market store has no intraday. */
+export type MarketInterval = '1d' | '1w' | '1mo'
 
-/** `GET /api/market/watchlist`. Answers while the service is locked. Coin listings (`BTC-USD`, `BTC-EUR`) follow the watchlist once they have bars. */
+/**
+ * `GET /api/market/watchlist`. Answers while the service is locked. `BTC-USD` follows the watchlist once
+ * it has bars or an instrument is charted as it (`BTC-EUR` is never listed: Bitcoin is shown in dollars only).
+ */
 export type WatchlistEntry = {
   /** An ISIN, or a coin symbol. */
   isin: string
@@ -490,6 +494,8 @@ export type WatchlistEntry = {
   day_change_pct: number | null
   /** MIC of the stored US listing (USD), which `candles` reads with `mic=`; null when there is none. */
   us_mic: string | null
+  /** The ISINs this row stands for: its own, or the ones set with `--chart-as` (a Bitcoin ETP is in `BTC-USD`'s). */
+  instruments: string[]
 }
 
 /** One bar. `time` is epoch seconds, UTC: midnight of the day for 1d, the first day of the week or month for 1w and 1mo. */
@@ -563,6 +569,11 @@ export type DepotTrade = {
   updated_at: string
   /** Sales only: proceeds minus the FIFO cost of the shares sold. */
   realised_fifo_cents: number | null
+  /**
+   * The price at the ECB EUR/USD rate of the booking day, for an instrument charted as a coin or with a US
+   * listing; null for the rest and where there is no price or rate.
+   */
+  price_usd: number | null
 }
 
 export type DepotPosition = {

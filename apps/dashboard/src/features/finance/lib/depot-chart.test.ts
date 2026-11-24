@@ -6,12 +6,19 @@ import {
   candleWindow,
   changeOf,
   costLine,
+  costLineUsd,
   dayToSeconds,
+  depotInterval,
+  heldRows,
+  instrumentsOf,
+  markGroups,
   marksByBar,
+  mergedPosition,
   orderLine,
   pickInstrument,
   storedEntries,
   tradeMarks,
+  tradeReadout,
   unreadEntries,
 } from './depot-chart'
 
@@ -29,6 +36,22 @@ const day = (d: string) => dayToSeconds(d)
 const trade = (id: number, booked_on: string, over: Partial<DepotTrade> = {}): DepotTrade =>
   ({ id, booked_on, side: 'buy', quantity_source: 'document', ...over }) as DepotTrade
 
+const buy = (id: number, booked_on: string, quantity: number, price_usd: number | null) =>
+  trade(id, booked_on, { quantity, price_usd })
+
+const heldPosition = (isin: string, quantity: number, value: number, cost: number) =>
+  ({
+    isin,
+    quantity,
+    value_cents: value,
+    cost_fifo_cents: cost,
+    cost_average_cents: cost,
+    unrealised_fifo_cents: value - cost,
+    unrealised_average_cents: value - cost,
+    quantity_source: 'document',
+    lots: [],
+  }) as unknown as DepotPosition
+
 const order = (over: Partial<DepotOrder>): DepotOrder =>
   ({
     id: 7,
@@ -42,14 +65,20 @@ const order = (over: Partial<DepotOrder>): DepotOrder =>
   }) as DepotOrder
 
 describe('candleWindow', () => {
-  it('counts back from today and leaves the history open for everything', () => {
+  it('counts back from today at day; week and month load the whole history', () => {
     expect(candleWindow('1y', '1d', '2026-11-22')).toEqual({ from: '2025-11-21', to: '2026-11-22' })
-    expect(candleWindow('max', '1d', '2026-11-22')).toEqual({ to: '2026-11-22' })
+    expect(candleWindow('1m', '1w', '2026-11-22')).toEqual({ to: '2026-11-22' })
+    expect(candleWindow('1y', '1mo', '2026-11-22')).toEqual({ to: '2026-11-22' })
   })
-  it('caps an intraday request at the days that exist, whatever the range', () => {
-    expect(candleWindow('5y', '15m', '2026-11-22').from).toBe('2026-11-12')
-    expect(candleWindow('max', '1h', '2026-11-22').from).toBe('2026-10-23')
-    expect(candleWindow('1m', '15m', '2026-11-22').from).toBe('2026-11-12')
+  it('keeps a daily request under the 5,000 bars the service allows', () => {
+    expect(candleWindow('max', '1d', '2026-11-22').from).toBe('2013-03-25')
+    expect(candleWindow('5y', '1d', '2026-11-22').from).toBe('2021-11-21')
+  })
+  it('offers day, week and month only', () => {
+    expect(depotInterval('1w', '1d')).toBe('1w')
+    expect(depotInterval('15m', '1d')).toBe('1d')
+    expect(depotInterval('1h', '1d')).toBe('1d')
+    expect(depotInterval(undefined, '1mo')).toBe('1mo')
   })
 })
 
@@ -69,16 +98,6 @@ describe('barOfDay', () => {
     expect(barOfDay(weeks, '2026-11-19', '1w')).toBe(day('2026-11-16'))
     const months = [day('2026-10-01'), day('2026-11-01')].map((t) => bar(t))
     expect(barOfDay(months, '2026-10-30', '1mo')).toBe(day('2026-10-01'))
-  })
-  it('uses the last bar of the day on an intraday chart and none for a day without one', () => {
-    const intraday = [
-      day('2026-11-19') + 8 * 3600,
-      day('2026-11-19') + 9 * 3600,
-      day('2026-11-20') + 8 * 3600,
-    ].map((t) => bar(t))
-    expect(barOfDay(intraday, '2026-11-19', '1h')).toBe(day('2026-11-19') + 9 * 3600)
-    expect(barOfDay(intraday, '2026-11-18', '1h')).toBeNull()
-    expect(barOfDay(intraday, '2026-11-21', '1h')).toBeNull()
   })
 })
 
@@ -104,6 +123,65 @@ describe('tradeMarks', () => {
   })
 })
 
+describe('markGroups', () => {
+  const bars = [day('2026-11-02'), day('2026-11-09')].map((t) => bar(t))
+  const marks = tradeMarks(
+    [
+      trade(1, '2026-11-03'),
+      trade(2, '2026-11-05'),
+      trade(3, '2026-11-06', { side: 'sell' }),
+      trade(4, '2026-11-10', { quantity_source: 'estimated' }),
+    ],
+    bars,
+    '1w',
+  )
+  it('draws one marker per bar and side, with the number of trades in it', () => {
+    expect(markGroups(marks)).toEqual([
+      { time: day('2026-11-02'), side: 'buy', count: 2, estimated: false },
+      { time: day('2026-11-02'), side: 'sell', count: 1, estimated: false },
+      { time: day('2026-11-09'), side: 'buy', count: 1, estimated: true },
+    ])
+  })
+  it('is a circle only when every quantity in it is a guess', () => {
+    const mixed = tradeMarks(
+      [trade(1, '2026-11-03', { quantity_source: 'estimated' }), trade(2, '2026-11-04')],
+      bars,
+      '1w',
+    )
+    expect(markGroups(mixed)[0]?.estimated).toBe(false)
+  })
+})
+
+describe('tradeReadout', () => {
+  const bars = [bar(day('2026-11-02'))]
+  const readout = (trades: DepotTrade[], usd = false) =>
+    tradeReadout(tradeMarks(trades, bars, '1w'), usd)
+  it('writes a trade per line, with the dollar price on a dollar chart', () => {
+    const one = trade(1, '2026-11-03', {
+      quantity: 0.5,
+      amount_cents: 3_200_000,
+      price_usd: 67_200,
+    })
+    expect(readout([one])).toEqual(['Bought 0.5 · €32,000.00'])
+    expect(readout([one], true)).toEqual(['Bought 0.5 · €32,000.00 · at $67,200.00'])
+  })
+  it('sums the trades of one side into one line', () => {
+    const lines = readout([
+      trade(1, '2026-11-03', { quantity: 2, amount_cents: 10_000 }),
+      trade(2, '2026-11-04', { quantity: 1.5, amount_cents: 7_500, quantity_source: 'estimated' }),
+      trade(3, '2026-11-05', { side: 'sell', quantity: 1, amount_cents: 5_100 }),
+    ])
+    expect(lines).toEqual(['Bought 2 trades · ≈ 3.5 · €175.00', 'Sold 1 · €51.00'])
+  })
+  it('says so when a quantity is unknown', () => {
+    const lines = readout([
+      trade(1, '2026-11-03', { quantity: null, amount_cents: 100 }),
+      trade(2, '2026-11-04', { quantity: 1, amount_cents: 100 }),
+    ])
+    expect(lines).toEqual(['Bought 2 trades · quantity unknown · €2.00'])
+  })
+})
+
 describe('lines', () => {
   it('puts a limit order at its limit and a stop order at its stop', () => {
     expect(orderLine(order({}))).toMatchObject({
@@ -124,6 +202,60 @@ describe('lines', () => {
     expect(costLine(position)).toMatchObject({ price: 50, kind: 'cost' })
     expect(costLine({ ...position, quantity: 0 })).toBeNull()
     expect(costLine(undefined)).toBeNull()
+  })
+})
+
+describe('costLineUsd', () => {
+  const position = {
+    quantity: 3,
+    lots: [
+      { acquired_on: '2026-10-01', quantity: 1, cost_cents: 0 },
+      { acquired_on: '2026-11-03', quantity: 2, cost_cents: 0 },
+    ],
+  } as DepotPosition
+  it('prices every open lot at the dollar price of its buy', () => {
+    const line = costLineUsd(position, [
+      buy(1, '2026-10-01', 1, 60_000),
+      buy(2, '2026-11-03', 2, 69_000),
+    ])
+    expect(line?.price).toBeCloseTo(66_000)
+    expect(line?.title).toBe('Average cost $66,000')
+  })
+  it('has no line when a lot has no dollar price, or the position no lots', () => {
+    expect(
+      costLineUsd(position, [buy(1, '2026-10-01', 1, 60_000), buy(2, '2026-11-03', 2, null)]),
+    ).toBeNull()
+    expect(costLineUsd({ ...position, lots: [] }, [])).toBeNull()
+    expect(costLineUsd(undefined, [])).toBeNull()
+  })
+})
+
+describe('instruments charted as one row', () => {
+  it('is its own instrument unless the row lists others', () => {
+    expect(instrumentsOf({ isin: 'A', instruments: [] })).toEqual(['A'])
+    expect(instrumentsOf({ isin: 'BTC-USD', instruments: ['E1', 'E2'] })).toEqual(['E1', 'E2'])
+  })
+  it('marks a row held through any of its instruments', () => {
+    const entries = [
+      { isin: 'BTC-USD', instruments: ['E1'] },
+      { isin: 'A', instruments: ['A'] },
+    ]
+    expect([
+      ...heldRows(entries, [heldPosition('E1', 2, 1, 1), heldPosition('A', 0, 0, 0)]),
+    ]).toEqual(['BTC-USD'])
+  })
+  it('adds the money of several positions and keeps one as it is', () => {
+    const a = heldPosition('E1', 2, 300, 200)
+    expect(mergedPosition([a])).toBe(a)
+    expect(mergedPosition([])).toBeUndefined()
+    const sum = mergedPosition([a, heldPosition('E2', 1, 100, 100)])
+    expect(sum).toMatchObject({
+      value_cents: 400,
+      cost_fifo_cents: 300,
+      unrealised_fifo_cents: 100,
+      price: null,
+    })
+    expect(sum?.unrealised_fifo_pct).toBeCloseTo(1 / 3)
   })
 })
 

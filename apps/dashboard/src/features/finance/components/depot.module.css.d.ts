@@ -12,6 +12,7 @@ declare const classes: {
   readonly watchName: string
   readonly watchFigures: string
   readonly main: string
+  readonly priceField: string
   readonly tools: string
 }
 export default classes

@@ -13,12 +13,17 @@ import type {
   IPriceLine,
   ISeriesApi,
   ISeriesMarkersPluginApi,
+  Logical,
   Time,
   UTCTimestamp,
 } from 'lightweight-charts'
 import { VX } from 'basalt-ui/tokens'
-import { DrawingManager } from 'lightweight-charts-drawing'
-import type { Drawing, DrawingKind } from 'lightweight-charts-drawing'
+import {
+  DrawingManager,
+  factoryStyleFor,
+  setDefaultStyleOverride,
+} from 'lightweight-charts-drawing'
+import type { Drawing, DrawingKind, DrawingStyle } from 'lightweight-charts-drawing'
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import type { ChartBar, DepotTrade } from '../api/types'
@@ -27,16 +32,16 @@ import type { ChartPalette } from '../lib/chart-colors'
 import {
   buildDrawingsDocument,
   changeOf,
-  isIntraday,
+  markGroups,
   marksByBar,
   priceText,
   signedPercent,
   storedEntries,
   tradeMarks,
+  tradeReadout,
   unreadEntries,
 } from '../lib/depot-chart'
 import type { DepotInterval, DrawingsDocument, PriceLine, TradeMark } from '../lib/depot-chart'
-import { eurExact } from '../lib/format'
 import classes from './depot-chart.module.css'
 
 /**
@@ -50,14 +55,30 @@ import classes from './depot-chart.module.css'
 /** The two tools of this row; the package has 86. */
 export type DrawTool = Extract<DrawingKind, 'horizontal-line' | 'price-range'>
 
+/** What is selected on the chart: how many drawings, and the one horizontal line when that is all there is. */
+export type DepotSelection = { count: number; line: { id: string; price: number } | null }
+
 export type DepotChartHandle = {
   /** Deletes the selected drawings. */
   removeSelected(): void
+  /** Moves a horizontal line to an exact price. */
+  setLinePrice(id: string, price: number): void
 }
+
+/**
+ * The distance between two bars, in px, at every interval: a week or a month is drawn as wide as a day,
+ * the view starts at the newest bar, and the owner zooms out for more. Fitting the range instead squeezed
+ * a long history into hairlines.
+ */
+const BAR_SPACING = 7
+/** Empty bars right of the newest one. */
+const RIGHT_OFFSET = 4
 
 export type DepotChartProps = {
   bars: readonly ChartBar[]
   interval: DepotInterval
+  /** The currency of the bars; USD adds the dollar price to the trades in the readout. */
+  currency: string | null
   trades: readonly DepotTrade[]
   lines: readonly PriceLine[]
   /** The stored drawing document once loaded; `undefined` while it loads (nothing is drawn or saved before). */
@@ -65,25 +86,12 @@ export type DepotChartProps = {
   loadedDrawings: boolean
   tool: DrawTool | null
   onToolChange(tool: DrawTool | null): void
-  onSelectionChange(count: number): void
+  onSelectionChange(selection: DepotSelection): void
   /** Every change of the drawings, with the library's export and the entries it could not read. */
   onDrawingsChange(document: DrawingsDocument): void
   ref?: Ref<DepotChartHandle>
 }
 
-const BERLIN = 'Europe/Berlin'
-const berlin = (options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat('en-GB', { timeZone: BERLIN, ...options })
-const intradayTime = berlin({ hour: '2-digit', minute: '2-digit', hour12: false })
-const intradayDay = berlin({ day: '2-digit', month: 'short' })
-const intradayFull = berlin({
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
 const dayFull = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
   day: '2-digit',
@@ -94,29 +102,51 @@ const dayFull = new Intl.DateTimeFormat('en-GB', {
 const asDate = (time: number) => new Date(time * 1000)
 
 /** A bar's time as the readout and the crosshair label write it. */
-const barLabel = (time: number, interval: DepotInterval): string =>
-  isIntraday(interval) ? intradayFull.format(asDate(time)) : dayFull.format(asDate(time))
+const barLabel = (time: number): string => dayFull.format(asDate(time))
+
+/** The accent look of a drawing: the preview while it is placed, the drawing once it is, and again after a scheme change. */
+function accentStyle(kind: string, palette: ChartPalette): Partial<DrawingStyle> {
+  return {
+    color: palette.accent,
+    backgroundColor: palette.accent,
+    textColor: kind === 'price-range' ? palette.onAccent : palette.accent,
+    labelBackgroundColor: palette.accentFill,
+  }
+}
+
+const DRAWN = new Set<string>(['horizontal-line', 'price-range'])
+
+/** What is selected now, as the page needs it. */
+function selectionOf(manager: DrawingManager): DepotSelection {
+  const ids = manager.selection()
+  const only = ids.length === 1 ? manager.get(ids[0] ?? '') : undefined
+  const point = only?.kind === 'horizontal-line' ? only.points[0] : undefined
+  return {
+    count: ids.length,
+    line: only === undefined || point === undefined ? null : { id: only.id, price: point.price },
+  }
+}
 
 type Engine = {
-  setBars(bars: readonly ChartBar[], interval: DepotInterval, viewKey: string): void
+  setBars(bars: readonly ChartBar[], viewKey: string): void
   setMarks(marks: readonly TradeMark[]): void
   setLines(lines: readonly PriceLine[]): void
   setTool(tool: DrawTool | null): void
   loadDrawings(stored: unknown): void
   removeSelected(): void
+  setLinePrice(id: string, price: number): void
   destroy(): void
 }
 
 type Callbacks = {
   onCrosshair(time: number | null): void
   onToolChange(tool: DrawTool | null): void
-  onSelectionChange(count: number): void
+  onSelectionChange(selection: DepotSelection): void
   onDrawingsChange(document: DrawingsDocument): void
 }
 
 function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let palette = readPalette(host)
-  let interval: DepotInterval = '1d'
   let viewKey = ''
   let marks: readonly TradeMark[] = []
   let lines: readonly PriceLine[] = []
@@ -136,7 +166,8 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     grid: { vertLines: { color: palette.grid }, horzLines: { color: palette.grid } },
     crosshair: { mode: CrosshairMode.Normal },
     rightPriceScale: { borderColor: palette.grid },
-    timeScale: { borderColor: palette.grid, rightOffset: 4 },
+    timeScale: { borderColor: palette.grid, rightOffset: RIGHT_OFFSET, barSpacing: BAR_SPACING },
+    localization: { timeFormatter: (time: Time) => barLabel(Number(time)) },
     handleScale: { axisPressedMouseMove: true },
   })
   const candles: ISeriesApi<'Candlestick'> = chart.addSeries(
@@ -168,23 +199,47 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     dragToPlace: true,
     clampToPane: true,
     touchHitTolerance: 22,
-    timeInfo: () => ({
-      timeZone: isIntraday(interval) ? BERLIN : 'UTC',
-      intraday: isIntraday(interval),
-    }),
+    timeInfo: () => ({ timeZone: 'UTC', intraday: false }),
   })
+  // The package draws a placement in its own blue until the drawing exists: give both the accent.
+  setDefaultStyleOverride((kind) =>
+    DRAWN.has(kind)
+      ? { ...factoryStyleFor(kind as DrawingKind), ...accentStyle(kind, palette) }
+      : undefined,
+  )
+
+  let lastSelection = ''
+  const emitSelection = () => {
+    const selection = selectionOf(manager)
+    const key = `${selection.count}:${selection.line?.id ?? ''}:${selection.line?.price ?? ''}`
+    if (key === lastSelection) return
+    lastSelection = key
+    callbacks.onSelectionChange(selection)
+  }
 
   const emitDrawings = () => {
     if (!ready || quiet) return
     callbacks.onDrawingsChange(buildDrawingsDocument(manager.exportJSON(), foreign))
   }
   const offs = [
-    manager.on('change', emitDrawings),
-    manager.on('selection', (ids) => callbacks.onSelectionChange(ids.length)),
+    manager.on('change', () => {
+      emitDrawings()
+      if (!quiet) emitSelection()
+    }),
+    manager.on('selection', emitSelection),
     manager.on('tool', (kind) =>
       callbacks.onToolChange(kind === 'horizontal-line' || kind === 'price-range' ? kind : null),
     ),
   ]
+
+  // The design shot reads the distance between two bars off the host: it is the same at every interval.
+  const reportSpacing = () => {
+    const scale = chart.timeScale()
+    const first = scale.logicalToCoordinate(0 as Logical)
+    const second = scale.logicalToCoordinate(1 as Logical)
+    if (first !== null && second !== null) host.dataset['barSpacing'] = (second - first).toFixed(2)
+  }
+  chart.timeScale().subscribeVisibleLogicalRangeChange(reportSpacing)
 
   chart.subscribeCrosshairMove((param) => {
     callbacks.onCrosshair(typeof param.time === 'number' ? param.time : null)
@@ -217,16 +272,9 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     quiet = true
     try {
       for (const drawing of list) {
-        const label = drawing.kind === 'price-range'
         manager.update({
           ...drawing,
-          style: {
-            ...drawing.style,
-            color: palette.accent,
-            backgroundColor: palette.accent,
-            textColor: label ? palette.onAccent : palette.accent,
-            labelBackgroundColor: palette.accentFill,
-          },
+          style: { ...drawing.style, ...accentStyle(drawing.kind, palette) },
         })
       }
     } finally {
@@ -251,15 +299,17 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         axisLabelVisible: true,
       }),
     )
+    // One marker per bar and side: the count says how many trades it holds.
     markers.setMarkers(
-      marks.map((mark) => {
-        const buy = mark.side === 'buy'
+      markGroups(marks).map((group) => {
+        const buy = group.side === 'buy'
         return {
-          time: mark.time as UTCTimestamp,
+          time: group.time as UTCTimestamp,
           position: buy ? 'belowBar' : 'aboveBar',
           color: buy ? palette.buy : palette.sell,
-          shape: mark.estimated ? 'circle' : buy ? 'arrowUp' : 'arrowDown',
+          shape: group.estimated ? 'circle' : buy ? 'arrowUp' : 'arrowDown',
           size: 1.2,
+          ...(group.count > 1 && { text: String(group.count) }),
         }
       }),
     )
@@ -313,26 +363,12 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   })
 
   return {
-    setBars(next, nextInterval, nextViewKey) {
+    setBars(next, nextViewKey) {
       barList = next
-      interval = nextInterval
-      const intraday = isIntraday(nextInterval)
-      chart.applyOptions({
-        localization: { timeFormatter: (time: Time) => barLabel(Number(time), nextInterval) },
-        timeScale: {
-          timeVisible: intraday,
-          tickMarkFormatter: intraday
-            ? (time: Time, type: number) =>
-                type >= 3
-                  ? intradayTime.format(asDate(Number(time)))
-                  : intradayDay.format(asDate(Number(time)))
-            : () => null,
-        },
-      })
       paintData()
       if (viewKey !== nextViewKey) {
         viewKey = nextViewKey
-        chart.timeScale().fitContent()
+        chart.timeScale().applyOptions({ barSpacing: BAR_SPACING, rightOffset: RIGHT_OFFSET })
       }
     },
     setMarks(next) {
@@ -360,7 +396,13 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       ready = true
     },
     removeSelected,
+    setLinePrice(id, price) {
+      const drawing = manager.get(id)
+      if (drawing?.kind !== 'horizontal-line') return
+      manager.update({ ...drawing, points: [{ ...drawing.points[0], price }] })
+    },
     destroy() {
+      setDefaultStyleOverride(() => undefined)
       observer.disconnect()
       window.removeEventListener('keydown', onKey)
       for (const off of offs) off()
@@ -380,7 +422,7 @@ const candleColors = (palette: ChartPalette) => ({
 })
 
 export function DepotChart(props: DepotChartProps) {
-  const { bars, interval, trades, lines, storedDrawings, loadedDrawings, tool } = props
+  const { bars, interval, currency, trades, lines, storedDrawings, loadedDrawings, tool } = props
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<Engine | null>(null)
   const callbacksRef = useRef<Callbacks | null>(null)
@@ -413,10 +455,10 @@ export function DepotChart(props: DepotChartProps) {
     }
   }, [])
 
-  // The view fits again when the bars are another series: another interval, or a range that starts elsewhere.
+  // The view returns to the newest bars when they are another series: another interval, or a range that starts elsewhere.
   const viewKey = `${interval}:${bars[0]?.time ?? ''}`
   const marks = tradeMarks(trades, bars, interval)
-  useEffect(() => engineRef.current?.setBars(bars, interval, viewKey), [bars, interval, viewKey])
+  useEffect(() => engineRef.current?.setBars(bars, viewKey), [bars, viewKey])
   useEffect(() => engineRef.current?.setMarks(marks), [marks])
   useEffect(() => engineRef.current?.setLines(lines), [lines])
   useEffect(() => engineRef.current?.setTool(tool), [tool])
@@ -427,7 +469,10 @@ export function DepotChart(props: DepotChartProps) {
   }, [loadedDrawings])
   useImperativeHandle(
     props.ref,
-    () => ({ removeSelected: () => engineRef.current?.removeSelected() }),
+    () => ({
+      removeSelected: () => engineRef.current?.removeSelected(),
+      setLinePrice: (id, price) => engineRef.current?.setLinePrice(id, price),
+    }),
     [],
   )
 
@@ -446,16 +491,16 @@ export function DepotChart(props: DepotChartProps) {
       {shown !== undefined && (
         <Stack className={classes.readout} gap={0}>
           <Text size="xs" c="dimmed" className={classes.mono}>
-            {barLabel(shown.time, interval)}
+            {barLabel(shown.time)}
           </Text>
           <Text size="xs" className={classes.mono}>
             O {priceText(shown.open)} H {priceText(shown.high)} L {priceText(shown.low)} C{' '}
             {priceText(shown.close)}
             <ChangeText change={changeOf(bars, index)} />
           </Text>
-          {(byBar.get(shown.time) ?? []).map((mark) => (
-            <Text key={mark.trade.id} size="xs" className={classes.mono}>
-              {tradeText(mark)}
+          {tradeReadout(byBar.get(shown.time) ?? [], currency === 'USD').map((line) => (
+            <Text key={line} size="xs" className={classes.mono}>
+              {line}
             </Text>
           ))}
         </Stack>
@@ -472,15 +517,4 @@ function ChangeText({ change }: { change: number | null }) {
       {signedPercent(change)}
     </Text>
   )
-}
-
-/** One trade as the readout writes it: side, quantity (a guess says so) and what it moved. */
-function tradeText(mark: TradeMark): string {
-  const { trade } = mark
-  const side = trade.side === 'buy' ? 'Bought' : 'Sold'
-  const quantity =
-    trade.quantity === null
-      ? 'quantity unknown'
-      : `${mark.estimated ? '≈ ' : ''}${trade.quantity.toLocaleString('en-US', { maximumFractionDigits: 4 })}`
-  return `${side} ${quantity} · ${eurExact(trade.amount_cents)}${mark.estimated ? ' · estimated quantity' : ''}`
 }

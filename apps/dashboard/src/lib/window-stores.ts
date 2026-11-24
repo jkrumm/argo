@@ -283,10 +283,8 @@ const AMOUNT_BANDS = {
 } as const
 
 /** The depot chart's bar intervals and ranges (`features/finance/lib/depot-chart.ts` maps them to requests). */
-const DEPOT_INTERVALS = ['15m', '1h', '1d', '1w', '1mo'] as const
+const DEPOT_INTERVALS = ['1d', '1w', '1mo'] as const
 const DEPOT_INTERVAL_LABELS = {
-  '15m': '15 min',
-  '1h': '1 hour',
   '1d': 'Day',
   '1w': 'Week',
   '1mo': 'Month',

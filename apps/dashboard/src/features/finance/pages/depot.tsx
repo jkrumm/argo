@@ -18,7 +18,8 @@ import {
 } from '../api/queries'
 import type { DepotOrder, DepotTrade, WatchlistEntry } from '../api/types'
 import { DepotChart } from '../components/depot-chart'
-import type { DepotChartHandle, DrawTool } from '../components/depot-chart'
+import type { DepotChartHandle, DepotSelection, DrawTool } from '../components/depot-chart'
+import { LinePriceField } from '../components/line-price-field'
 import { FinanceBar } from '../components/finance-bar'
 import { NoDataState } from '../components/no-data-state'
 import { OrderModal } from '../components/order-modal'
@@ -26,13 +27,17 @@ import classes from '../components/depot.module.css'
 import {
   candleWindow,
   costLine,
+  costLineUsd,
   depotInterval,
+  heldRows,
+  instrumentsOf,
+  mergedPosition,
   orderLine,
   pickInstrument,
   priceText,
   signedPercent,
 } from '../lib/depot-chart'
-import type { PriceLine } from '../lib/depot-chart'
+import type { DepotInterval, PriceLine } from '../lib/depot-chart'
 import { deltaEur, eur, eurExact, signedEur, toneProp } from '../lib/format'
 import { isoDay } from '../lib/time'
 import { useDrawingsSaver } from '../lib/use-drawings-saver'
@@ -56,28 +61,42 @@ export function DepotPage() {
   const today = isoDay(new Date(useNow()))
 
   const entries = watchlist.data ?? []
-  const held = new Set(
-    (positions.data?.positions ?? []).filter((p) => p.quantity > 0).map((p) => p.isin),
-  )
+  const held = heldRows(entries, positions.data?.positions ?? [])
   const isin = pickInstrument(requested, entries, held)
   const entry = entries.find((e) => e.isin === isin)
-  const position = positions.data?.positions.find((p) => p.isin === isin)
+  // A row may stand for instruments charted as it (a Bitcoin ETP on `BTC-USD`): the depot is theirs.
+  const instruments = entry === undefined ? [] : instrumentsOf(entry)
+  const owned = (positions.data?.positions ?? []).filter((p) => instruments.includes(p.isin))
+  const position = mergedPosition(owned)
+  // Orders are kept per ISIN: those of the held instrument, else the first charted as this row.
+  const orderIsin = owned.find((p) => p.quantity > 0)?.isin ?? instruments[0] ?? isin
 
   const candles = useCandles(
-    isin === null ? null : { isin, interval, ...candleWindow(range, interval, today) },
+    isin === null
+      ? null
+      : {
+          isin,
+          interval,
+          ...candleWindow(range, interval, today),
+          // A US stock is charted on its US listing, in dollars.
+          mic: entry?.us_mic ?? undefined,
+        },
   )
   const trades = useDepotTrades(isin)
-  const orders = useOpenOrders(isin)
+  const orders = useOpenOrders(orderIsin)
   const drawings = useDrawings(isin)
 
   if (watchlist.isSuccess && entries.length === 0) return <NoDataState />
 
   const bars = candles.data?.candles ?? []
-  const euro =
-    candles.data === undefined || candles.data.currency === null || candles.data.currency === 'EUR'
-  const lines: PriceLine[] = euro
-    ? [...(orders.data ?? []).map(orderLine), costLine(position)].filter((l) => l !== null)
-    : []
+  const currency = candles.data?.currency ?? null
+  const euro = currency === null || currency === 'EUR'
+  // Orders and the cost have euro prices: in dollars only the cost has one (from the dollar price of its buys).
+  const lines: PriceLine[] = (
+    euro
+      ? [...(orders.data ?? []).map(orderLine), costLine(position)]
+      : [owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null]
+  ).filter((l) => l !== null)
 
   const cells: StatStripCell[] = [
     {
@@ -144,6 +163,7 @@ export function DepotPage() {
               name={entry.name ?? isin}
               isin={isin}
               interval={interval}
+              currency={currency}
               bars={bars}
               trades={trades.data ?? []}
               lines={lines}
@@ -157,7 +177,7 @@ export function DepotPage() {
               <TradesTable trades={trades.data ?? []} query={trades} />
             </Box>
             <OrdersSection
-              isin={isin}
+              isin={orderIsin ?? isin}
               orders={orders.data ?? []}
               query={orders}
               onAdd={() => setAdding(true)}
@@ -165,7 +185,9 @@ export function DepotPage() {
           </Stack>
         )}
       </Box>
-      {adding && isin !== null && <OrderModal isin={isin} onClose={() => setAdding(false)} />}
+      {adding && orderIsin !== null && (
+        <OrderModal isin={orderIsin} onClose={() => setAdding(false)} />
+      )}
     </Box>
   )
 }
@@ -245,6 +267,7 @@ function ChartPanel({
   name,
   isin,
   interval,
+  currency,
   bars,
   trades,
   lines,
@@ -253,7 +276,8 @@ function ChartPanel({
 }: {
   name: string
   isin: string
-  interval: '15m' | '1h' | '1d' | '1w' | '1mo'
+  interval: DepotInterval
+  currency: string | null
   bars: React.ComponentProps<typeof DepotChart>['bars']
   trades: readonly DepotTrade[]
   lines: readonly PriceLine[]
@@ -261,7 +285,7 @@ function ChartPanel({
   drawings: ReturnType<typeof useDrawings>
 }) {
   const [tool, setTool] = useState<DrawTool | null>(null)
-  const [selected, setSelected] = useState(0)
+  const [selection, setSelection] = useState<DepotSelection>({ count: 0, line: null })
   const chart = useRef<DepotChartHandle>(null)
   const save = useDrawingsSaver(isin)
   const notes = candles.data?.notes ?? []
@@ -273,7 +297,7 @@ function ChartPanel({
     <ChartCard
       data-shot="depot-chart"
       title={candles.data?.currency == null ? name : `${name} · ${candles.data.currency}`}
-      info="Candles in the instrument's currency, with turnover in euros below. Day, week and month cover the range; 15 minutes and 1 hour show the last 10 and 30 days whatever the range. An arrow marks a trade on the candle of its day, a circle one whose quantity is an estimate."
+      info="Candles in the instrument's currency (Bitcoin and US stocks in dollars), with turnover below. Candles are as wide at day, week and month: the chart opens at the newest and the range is there to zoom out to. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate."
       state={{
         pending: candles.isPending,
         error: candles.error ?? undefined,
@@ -310,10 +334,17 @@ function ChartPanel({
           >
             <IconRulerMeasure />
           </ActionIcon>
+          {selection.line !== null && (
+            <LinePriceField
+              key={`${selection.line.id}:${selection.line.price}`}
+              price={selection.line.price}
+              onApply={(price) => chart.current?.setLinePrice(selection.line?.id ?? '', price)}
+            />
+          )}
           <ActionIcon
             variant="default"
             aria-label="Delete the selected drawing"
-            disabled={selected === 0}
+            disabled={selection.count === 0}
             onClick={() => chart.current?.removeSelected()}
           >
             <IconTrash />
@@ -325,13 +356,14 @@ function ChartPanel({
         ref={chart}
         bars={bars}
         interval={shown}
+        currency={currency}
         trades={trades}
         lines={lines}
         storedDrawings={drawings.data?.document}
         loadedDrawings={drawings.isSuccess}
         tool={tool}
         onToolChange={setTool}
-        onSelectionChange={setSelected}
+        onSelectionChange={setSelection}
         onDrawingsChange={save}
       />
     </ChartCard>
@@ -373,6 +405,17 @@ function TradesTable({
       meta: { align: 'right', priority: 2 },
       cell: (c) => (c.row.original.price === null ? '—' : priceText(c.getValue())),
     }),
+    ...(trades.some((t) => t.price_usd !== null)
+      ? [
+          tradeCol.accessor((t) => t.price_usd ?? 0, {
+            id: 'price_usd',
+            header: 'Price (USD)',
+            sortFn: 'basic',
+            meta: { align: 'right', priority: 3 },
+            cell: (c) => (c.row.original.price_usd === null ? '—' : priceText(c.getValue())),
+          }),
+        ]
+      : []),
     tradeCol.accessor('amount_cents', {
       header: 'Amount',
       sortFn: 'basic',
@@ -418,6 +461,7 @@ function TradesTable({
               ? 'quantity unknown'
               : `${t.quantity_source === 'estimated' ? '≈ ' : ''}${quantityText(t.quantity)} units`}
             {t.price === null ? '' : ` at ${priceText(t.price)}`}
+            {t.price_usd === null ? '' : ` ($${priceText(t.price_usd)})`}
           </Text>
         </Stack>
       )}
