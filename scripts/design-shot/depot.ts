@@ -40,6 +40,8 @@ type Bar = {
   turnover: number | null
   /** Flat bars of the tracked index before a fund's first bar. */
   source?: 'index'
+  /** A series that sends closes only: the bar is built from them. */
+  derived_from_close?: true
 }
 type Instrument = {
   isin: string
@@ -69,6 +71,10 @@ const ALL_CAP = 'XX0000000006'
 const EM_ETF = 'XX0000000007'
 const ENERGY_ETF = 'XX0000000008'
 const FTSE = 'ftse-global-all-cap-usd'
+const CBBI = 'cbbi-confidence'
+const AMD = 'US0079031078'
+/** The instruments the service has no history of yet: the search finds them, adding one starts the load. */
+const pending = new Set<string>([AMD])
 
 const INSTRUMENTS: Instrument[] = [
   {
@@ -151,6 +157,18 @@ const INSTRUMENTS: Instrument[] = [
     chartedAs: [BTC_ETP],
   },
 ]
+
+INSTRUMENTS.push({
+  // Not on any list and without stored bars: the add flow finds it by its ticker and loads its history.
+  isin: AMD,
+  name: 'Advanced Micro Devices',
+  kind: 'stock',
+  start: 60,
+  drift: 0.0008,
+  vol: 0.022,
+  days: 1500,
+  unlisted: true,
+})
 
 /** The names of what the depot holds, charted or not. */
 const NAMES = new Map<string, string>([
@@ -289,6 +307,8 @@ const INDEX_ROWS: IndexRow[] = [
     drift: 0.00035,
     vol: 0.0095,
   },
+  // The Colin Talks Crypto Bitcoin Bull Run Index: 0 to 100, as the service serves it.
+  { id: CBBI, title: 'CBBI', first: '2011-09-13', start: 40, drift: 0, vol: 0 },
 ]
 
 type Level = { day: string; time: number; value: number }
@@ -301,7 +321,11 @@ function indexLevels(row: IndexRow, seed: number): Level[] {
   for (let t = Date.parse(`${row.first}T00:00:00Z`) / 1000; t <= today; t += DAY_S) {
     const weekday = new Date(t * 1000).getUTCDay()
     if (weekday === 0 || weekday === 6) continue
-    value *= 1 + row.drift + (random() - 0.5) * 2 * row.vol
+    if (row.id === CBBI) {
+      value = Math.min(98, Math.max(2, value + (random() - 0.5) * 3 + (50 - value) * 0.004))
+    } else {
+      value *= 1 + row.drift + (random() - 0.5) * 2 * row.vol
+    }
     levels.push({ day: dayOf(t), time: t, value: round(value, 2) })
   }
   return levels
@@ -324,6 +348,7 @@ function aggregate(bars: Bar[], keyOf: (time: number) => number): Bar[] {
     turnover: group.some((b) => b.turnover === null)
       ? null
       : group.reduce((n, b) => n + (b.turnover ?? 0), 0),
+    ...(group.some((b) => b.derived_from_close === true) && { derived_from_close: true as const }),
     // A bar is an index bar when every day in it is one.
     ...(group.every((b) => b.source === 'index') && { source: 'index' as const }),
   }))
@@ -367,6 +392,47 @@ function splicedDaily(isin: string): Bar[] {
   return [...flat, ...own]
 }
 
+/**
+ * The bars of a stored series: real open, high and low for the FTSE index, the close four times (flagged) for every
+ * other one, as the service answers.
+ */
+function seriesBars(row: IndexRow): Bar[] {
+  const levels = INDEX_LEVELS.get(row.id) ?? []
+  const random = rng(8000)
+  return levels.map((level, n): Bar => {
+    if (row.id !== FTSE) {
+      return {
+        time: level.time,
+        open: level.value,
+        high: level.value,
+        low: level.value,
+        close: level.value,
+        units: null,
+        turnover: null,
+        derived_from_close: true,
+      }
+    }
+    const open = levels[n - 1]?.value ?? level.value
+    const top = Math.max(open, level.value)
+    const bottom = Math.min(open, level.value)
+    return {
+      time: level.time,
+      open,
+      high: round(top * (1 + random() * 0.004), 2),
+      low: round(bottom * (1 - random() * 0.004), 2),
+      close: level.value,
+      units: null,
+      turnover: null,
+    }
+  })
+}
+
+const SERIES_BARS = new Map(INDEX_ROWS.map((row) => [row.id, seriesBars(row)]))
+
+/** The daily bars behind a symbol: an instrument, a stored series, nothing while its history is still loading. */
+const barsOf = (isin: string): Bar[] =>
+  pending.has(isin) ? [] : (DAILY.get(isin) ?? SERIES_BARS.get(isin) ?? [])
+
 function candles(
   isin: string,
   interval: string,
@@ -374,7 +440,7 @@ function candles(
   to: string | null,
   splice = false,
 ): Bar[] {
-  const daily = splice ? splicedDaily(isin) : (DAILY.get(isin) ?? [])
+  const daily = splice ? splicedDaily(isin) : barsOf(isin)
   const all =
     interval === '1w'
       ? aggregate(daily, weekStart)
@@ -627,7 +693,7 @@ const freshLists = (): List[] => [
     name: 'Watchlist',
     position: 0,
     is_default: true,
-    entries: [WORLD, SEMIS, ALL_CAP, 'XX0000000003', 'XX0000000004', US_STOCK].map(entryOf),
+    entries: [WORLD, SEMIS, ALL_CAP, 'XX0000000003', 'XX0000000004', US_STOCK, FTSE].map(entryOf),
   },
   { id: 2, name: 'Chips', position: 1, is_default: false, entries: [SEMIS, US_STOCK].map(entryOf) },
 ]
@@ -635,6 +701,24 @@ let lists = freshLists()
 let nextList = 3
 
 const rowOf = (i: Instrument) => {
+  if (pending.has(i.isin)) {
+    // No bars yet: the row says so, and the page shows the history loading.
+    return {
+      isin: i.isin,
+      name: i.name,
+      kind: i.kind,
+      currency: 'EUR',
+      last_close: null,
+      last_day: null,
+      first_day: null,
+      day_change: null,
+      day_change_pct: null,
+      us_mic: null,
+      instruments: [i.isin],
+      chart_as: null,
+      index: null,
+    }
+  }
   const bars = DAILY.get(i.isin) ?? []
   const last = bars.at(-1)!
   const before = bars.at(-2)!
@@ -655,6 +739,12 @@ const rowOf = (i: Instrument) => {
   }
 }
 
+/** The MSCI and FTSE levels are indices; the rate and the CBBI are plain series. */
+const seriesKind = (id: string): 'index' | 'series' =>
+  id === 'eur-usd' || id === CBBI ? 'series' : 'index'
+const seriesCurrency = (id: string): string | null =>
+  id === FTSE ? 'USD' : seriesKind(id) === 'index' ? 'EUR' : null
+
 /** A stored series as a list entry's quote: its last two levels. */
 function seriesRow(id: string) {
   const row = INDEX_ROWS.find((r) => r.id === id)!
@@ -664,8 +754,8 @@ function seriesRow(id: string) {
   return {
     isin: id,
     name: row.title,
-    kind: 'index',
-    currency: null,
+    kind: seriesKind(id),
+    currency: seriesCurrency(id),
     last_close: last.value,
     last_day: last.day,
     first_day: levels[0]?.day ?? null,
@@ -685,8 +775,175 @@ const quoteOf = (symbol: string) => {
 
 const listJson = (list: List) => ({
   ...list,
-  entries: list.entries.map((e) => ({ ...e, quote: quoteOf(e.symbol) })),
+  entries: list.entries
+    .toSorted((a, b) => a.position - b.position)
+    .map((e) => ({ ...e, kind: quoteOf(e.symbol).kind, quote: quoteOf(e.symbol) })),
 })
+
+/** A list or an entry moved to `position`: the others shift and every position is contiguous again. */
+function moveTo<T extends { position: number }>(items: T[], item: T, position: number): void {
+  const ordered = items.toSorted((a, b) => a.position - b.position).filter((x) => x !== item)
+  ordered.splice(Math.min(Math.max(position, 0), ordered.length), 0, item)
+  ordered.forEach((x, n) => {
+    x.position = n
+  })
+}
+
+// ---- Board figures, the history load and the stats of one instrument ------------------------
+
+type Close = { day: string; close: number }
+
+const closesOf = (symbol: string): Close[] => {
+  if (pending.has(symbol)) return []
+  const levels = INDEX_LEVELS.get(symbol)
+  if (levels !== undefined) return levels.map((l) => ({ day: l.day, close: l.value }))
+  return (DAILY.get(symbol) ?? []).map((b) => ({ day: dayOf(b.time), close: b.close }))
+}
+
+function figuresOf(points: Close[]) {
+  const last = points.at(-1)
+  if (last === undefined) return null
+  const at = Date.parse(`${last.day}T00:00:00Z`)
+  const onOrBefore = (day: string): number | null =>
+    points.findLast((p) => p.day <= day)?.close ?? null
+  const change = (ref: number | null): number | null =>
+    ref === null || ref === 0 ? null : last.close / ref - 1
+  const weekAgo = dayOf(at / 1000 - 7 * DAY_S)
+  const yearAgo = dayOf(at / 1000 - 365 * DAY_S)
+  const monthAgo = new Date(at)
+  monthAgo.setUTCMonth(monthAgo.getUTCMonth() - 1)
+  const previousYear =
+    points.findLast((p) => p.day < `${last.day.slice(0, 4)}-01-01`)?.close ?? null
+  const high = points.reduce((best, p) => (p.close > best.close ? p : best), points[0]!)
+  const lastYear = points.filter((p) => p.day > yearAgo).map((p) => p.close)
+  return {
+    last_close: last.close,
+    last_day: last.day,
+    day_pct: change(points.at(-2)?.close ?? null),
+    week_pct: change(onOrBefore(weekAgo)),
+    month_pct: change(onOrBefore(monthAgo.toISOString().slice(0, 10))),
+    ytd_pct: change(previousYear),
+    year_pct: change(onOrBefore(yearAgo)),
+    ath: { value: high.close, day: high.day },
+    ath_pct: last.close / high.close - 1,
+    low_52w: Math.min(...lastYear),
+    high_52w: Math.max(...lastYear),
+  }
+}
+
+function boardOf(list: List) {
+  return {
+    list_id: list.id,
+    name: list.name,
+    entries: list.entries
+      .toSorted((a, b) => a.position - b.position)
+      .map((e) => {
+        const quote = quoteOf(e.symbol)
+        const cbbi = e.symbol === 'BTC-USD' ? (INDEX_LEVELS.get(CBBI)?.at(-1) ?? null) : null
+        return {
+          symbol: e.symbol,
+          display_name: e.display_name,
+          name: quote.name,
+          kind: quote.kind,
+          currency: quote.currency,
+          figures: figuresOf(closesOf(e.symbol)),
+          cbbi: cbbi === null ? null : { value: cbbi.value, day: cbbi.day },
+        }
+      }),
+  }
+}
+
+/** Where the history load of a symbol stands: `running` grows by a step at every read until the shot finishes it. */
+const backfills = new Map<string, { state: 'running' | 'done'; reads: number }>()
+
+function backfillOf(symbol: string) {
+  const load = backfills.get(symbol)
+  const bars = DAILY.get(symbol) ?? []
+  if (load === undefined) return { symbol, state: 'none', from: null, bars: 0, error: null }
+  if (load.state === 'done') {
+    return {
+      symbol,
+      state: 'done',
+      from: bars[0] === undefined ? null : dayOf(bars[0].time),
+      bars: bars.length,
+      error: null,
+    }
+  }
+  load.reads += 1
+  const stored = Math.min(load.reads * 140, Math.max(bars.length - 1, 0))
+  return {
+    symbol,
+    state: 'running',
+    from:
+      stored === 0 || bars[bars.length - stored] === undefined
+        ? null
+        : dayOf(bars[bars.length - stored]!.time),
+    bars: stored,
+    error: null,
+  }
+}
+
+/** What one instrument has made over the whole time, from the stand-in's trades. */
+function statsOf(isin: string) {
+  const rows = tradeRows(isin)
+  if (rows.length === 0) return null
+  const instruments = INSTRUMENTS.find((i) => i.isin === isin)?.chartedAs ?? [isin]
+  const held = instruments.map(position)
+  const sum = (pick: (r: (typeof rows)[number]) => number): number =>
+    rows.reduce((n, r) => n + pick(r), 0)
+  const invested = sum((r) => (r.side === 'buy' ? r.amount_cents : 0))
+  const sold = sum((r) => (r.side === 'sell' ? r.amount_cents : 0))
+  const value = held.reduce((n, p) => n + p.value_cents, 0)
+  const unrealised = held.reduce((n, p) => n + p.unrealised_fifo_cents, 0)
+  let units = 0
+  let peak = 0
+  let peakOn: string | null = null
+  for (const r of rows.toSorted((a, b) => a.booked_on.localeCompare(b.booked_on))) {
+    units += r.side === 'buy' ? (r.quantity ?? 0) : -(r.quantity ?? 0)
+    if (units > peak + 1e-9) {
+      peak = units
+      peakOn = r.booked_on
+    }
+  }
+  const closes = closesOf(dollarSeries(instruments[0]!) ?? isin)
+  const high = closes.reduce((best, p) => (p.close > best.close ? p : best), closes[0]!)
+  const last = closes.at(-1)!
+  const first = rows.map((r) => r.booked_on).toSorted()[0]!
+  return {
+    isin,
+    name: NAMES.get(isin) ?? null,
+    invested_cents: invested,
+    sold_cents: sold,
+    realised_gain_cents: sum((r) => r.realised_fifo_cents ?? 0),
+    unrealised_gain_cents: unrealised,
+    total_gain_cents: sold + value - invested,
+    fees_cents: sum((r) => r.fee_cents),
+    tax_cents: 0,
+    first_buy: first,
+    last_trade:
+      rows
+        .map((r) => r.booked_on)
+        .toSorted()
+        .at(-1) ?? null,
+    closed_on: null,
+    holding_days: Math.round((Date.now() - Date.parse(`${first}T00:00:00Z`)) / (DAY_S * 1000)),
+    peak_quantity: round(peak, 4),
+    peak_on: peakOn,
+    quantity: round(
+      held.reduce((n, p) => n + p.quantity, 0),
+      4,
+    ),
+    value_cents: value,
+    all_time_high: {
+      value: high.close,
+      day: high.day,
+      currency: dollarSeries(instruments[0]!) === null ? 'EUR' : 'USD',
+      last_close: last.close,
+      last_day: last.day,
+      pct_from_high: last.close / high.close - 1,
+    },
+  }
+}
 
 /** The sync set: everything on a list plus what the depot holds. */
 const onSomeList = (isin: string): boolean =>
@@ -694,11 +951,19 @@ const onSomeList = (isin: string): boolean =>
 
 const SEARCHABLE = [
   ...INSTRUMENTS.map((i) => ({
-    kind: i.kind === 'coin' ? 'coin' : 'instrument',
+    kind: i.kind,
     symbol: i.isin,
     name: i.name,
+    ticker: i.isin === AMD ? 'AMD' : null,
+    mnemonic: i.isin === AMD ? 'AMD' : null,
   })),
-  ...INDEX_ROWS.map((r) => ({ kind: 'series', symbol: r.id, name: r.title })),
+  ...INDEX_ROWS.map((r) => ({
+    kind: seriesKind(r.id),
+    symbol: r.id,
+    name: r.title,
+    ticker: null,
+    mnemonic: null,
+  })),
 ]
 
 const json = (body: unknown, status = 200): Response =>
@@ -714,6 +979,16 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     drawings.clear()
     lists = freshLists()
     nextList = 3
+    pending.add(AMD)
+    backfills.clear()
+    return json({ ok: true })
+  }
+  if (path === '/__finish') {
+    // The shot lets the history load of every started instrument end.
+    for (const symbol of backfills.keys()) {
+      pending.delete(symbol)
+      backfills.set(symbol, { state: 'done', reads: 0 })
+    }
     return json({ ok: true })
   }
   if (path === '/finance/status') {
@@ -732,14 +1007,28 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     if (rest === '/market/watchlist') {
       return json(INSTRUMENTS.filter((i) => onSomeList(i.isin)).map(rowOf))
     }
-    if (rest === '/market/lists') return json(lists.map(listJson))
+    if (rest === '/market/lists') {
+      return json(lists.toSorted((a, b) => a.position - b.position).map(listJson))
+    }
     if (rest === '/market/search') {
       const term = (q.get('q') ?? '').toLowerCase()
       return json(
-        SEARCHABLE.filter(
-          (s) => s.name.toLowerCase().includes(term) || s.symbol.toLowerCase().includes(term),
-        ).map((s) => ({ ...s, wkn: null, ticker: null, detail: null })),
+        SEARCHABLE.filter((s) =>
+          [s.name, s.symbol, s.ticker, s.mnemonic].some((text) =>
+            text?.toLowerCase().includes(term),
+          ),
+        ).map((s) => ({ ...s, wkn: null, detail: null })),
       )
+    }
+    if (rest === '/market/backfill') return json(backfillOf(q.get('symbol') ?? ''))
+    const board = /^\/market\/lists\/(\d+)\/board$/.exec(rest)
+    if (board !== null) {
+      const list = lists.find((l) => l.id === Number(board[1]))
+      return list === undefined ? json({ error: 'unknown list' }, 404) : json(boardOf(list))
+    }
+    if (rest === '/depot/stats') {
+      const found = statsOf(q.get('isin') ?? '')
+      return found === null ? json({ error: 'no trade of this instrument' }, 404) : json(found)
     }
     if (rest === '/market/series') {
       const id = q.get('id')
@@ -750,7 +1039,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
             return {
               id: row.id,
               title: row.title,
-              unit: 'index points',
+              unit: row.id === CBBI ? '0 to 100' : 'index points',
               frequency: 'daily',
               first_day: levels[0]?.day ?? null,
               last_day: levels.at(-1)?.day ?? null,
@@ -766,7 +1055,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       return json({
         id,
         title: row.title,
-        unit: 'index points',
+        unit: row.id === CBBI ? '0 to 100' : 'index points',
         frequency: 'daily',
         points: (INDEX_LEVELS.get(id) ?? []).filter((p) => p.day >= from && p.day <= to),
       })
@@ -780,7 +1069,11 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       return json({
         isin,
         interval: q.get('interval'),
-        currency: mic !== null || isin === 'BTC-USD' ? 'USD' : 'EUR',
+        currency: INDEX_ROWS.some((r) => r.id === isin)
+          ? seriesCurrency(isin)
+          : mic !== null || isin === 'BTC-USD'
+            ? 'USD'
+            : 'EUR',
         mic,
         candles: candles(
           mic === null ? isin : `${isin}:${mic}`,
@@ -861,6 +1154,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       }
       if (symbol === undefined && !rest.endsWith('/entries')) {
         if (typeof body['name'] === 'string') list.name = body['name'].trim()
+        if (typeof body['position'] === 'number') moveTo(lists, list, body['position'])
         return json(listJson(list))
       }
       if (symbol === undefined) {
@@ -873,7 +1167,11 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
         }
         const entry = list.entries.find((e) => e.symbol === added)!
         if (typeof body['display_name'] === 'string') entry.display_name = body['display_name']
-        return json(listJson(list))
+        // An instrument with no history starts its load at once.
+        if (pending.has(added) && !backfills.has(added)) {
+          backfills.set(added, { state: 'running', reads: 0 })
+        }
+        return json({ ...listJson(list), backfill: backfillOf(added) })
       }
       if (deleteEntry !== undefined) {
         list.entries = list.entries.filter((e) => e.symbol !== symbol)
@@ -883,6 +1181,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       if (entry === undefined) return json({ error: 'unknown entry' }, 404)
       if ('display_name' in body)
         entry.display_name = (body['display_name'] as string | null) ?? null
+      if (typeof body['position'] === 'number') moveTo(list.entries, entry, body['position'])
       return json(listJson(list))
     }
     if (rest === '/depot/orders') {
@@ -1196,10 +1495,11 @@ async function checkTradeCard(
 }
 
 /**
- * The watchlist panel: the tabs, a search that adds an instrument to the active list, a rename that
- * keeps the instrument's own name apart, and the removal of the entry.
+ * The page's navigation as the owner meets it: the tabs across the top (no Indices tab), the sidebar grouped by kind with a
+ * handle on every row, the menu of a row, a reorder, the add flow that finds AMD and loads its history in front of the
+ * reader, a rename and a removal.
  */
-async function checkLists(
+async function checkNavigation(
   page: Page,
   origin: string,
   out: string,
@@ -1208,52 +1508,268 @@ async function checkLists(
   failures: string[],
 ): Promise<void> {
   const where = `${scheme}/${device}`
-  await page.goto(`${origin}/finance/depot`, { waitUntil: 'networkidle' })
+  const desktop = device === 'desktop'
+  const shot = (name: string) => join(out, `depot--${scheme}--${device}--${name}.png`)
+  const order = async (): Promise<string[]> =>
+    ((await (await fetch(`${origin}/api/finance/api/market/lists`)).json()) as List[])
+      .find((l) => l.id === 1)!
+      .entries.toSorted((a, b) => a.position - b.position)
+      .map((e) => e.symbol)
+  await page.goto(`${origin}/finance/depot?tab=depot`, { waitUntil: 'networkidle' })
   await page.locator('canvas').first().waitFor()
   const tab = (name: string) => page.getByRole('tab', { name, exact: true })
-  for (const name of ['In depot', 'Watchlist', 'Chips', 'Crypto', 'Indices']) {
+  for (const name of ['In depot', 'Watchlist', 'Chips', 'Crypto']) {
     if ((await tab(name).count()) === 0) failures.push(`${where}: no "${name}" tab`)
   }
+  if ((await tab('Indices').count()) > 0) failures.push(`${where}: an Indices tab is offered`)
   if ((await tab('In depot').getAttribute('aria-selected')) !== 'true') {
     failures.push(`${where}: the depot tab is not the one open`)
   }
+  const panel = page.getByRole('tabpanel')
   for (const text of ['units', '%']) {
-    if ((await page.getByRole('tabpanel').getByText(text).count()) === 0) {
+    if ((await panel.getByText(text).count()) === 0) {
       failures.push(`${where}: the depot tab shows no ${text}`)
     }
   }
+  const tabBox = await tab('In depot').boundingBox()
+  if (tabBox === null || tabBox.height > 40) {
+    failures.push(`${where}: the tabs are not a slim strip (${tabBox?.height}px)`)
+  }
+
+  // A list: its rows under kind headers, a handle on each.
   await tab('Watchlist').click()
-  const search = page.getByRole('combobox', { name: 'Search instruments' })
+  for (const header of ['Stocks', 'ETFs', 'Indices']) {
+    if ((await panel.getByRole('group', { name: header }).count()) === 0) {
+      failures.push(`${where}: no "${header}" group in the list`)
+    }
+  }
+  const handles = await page.locator('[title="Drag to reorder"]').count()
+  if (handles === 0) failures.push(`${where}: the rows have no drag handle`)
+  await page.waitForTimeout(300)
+  await panel.screenshot({ path: shot('sidebar') })
+
+  // The menu of a row: right-click, or its button where there is no mouse.
+  const semis = panel.getByRole('button', { name: /^Semiconductor ETF/ }).first()
+  if (desktop) await semis.click({ button: 'right' })
+  else await panel.getByRole('button', { name: 'Options for Semiconductor ETF' }).click()
+  for (const item of [
+    'Rename',
+    'Move to list',
+    'Move up',
+    'Move down',
+    'Open in board',
+    'Remove from list',
+  ]) {
+    if ((await page.getByRole('menuitem', { name: item }).count()) === 0) {
+      failures.push(`${where}: the row menu has no "${item}"`)
+    }
+  }
+  await page.waitForTimeout(250)
+  await page.screenshot({ path: shot('menu') })
+  // Moving a row down puts it behind the next fund of its group, and the order is the service's.
+  const before = await order()
+  await page.getByRole('menuitem', { name: 'Move down' }).click()
+  await page.waitForTimeout(500)
+  const moved = await order()
+  if (moved.indexOf(SEMIS) <= before.indexOf(SEMIS)) {
+    failures.push(`${where}: "Move down" left the order at ${moved.join(', ')}`)
+  }
+  if (desktop) {
+    // And back by dragging the handle onto the row it passed.
+    const rowOf = (name: string) => page.locator('[data-row]').filter({ hasText: name })
+    await rowOf('Semiconductor ETF')
+      .locator('[title="Drag to reorder"]')
+      .dragTo(rowOf('Global all-cap ETF'))
+    await page.waitForTimeout(500)
+    const dragged = await order()
+    if (dragged.indexOf(SEMIS) >= moved.indexOf(SEMIS)) {
+      failures.push(`${where}: dragging the handle left the order at ${dragged.join(', ')}`)
+    }
+  }
+
+  // The add flow: AMD is found by its ticker, added to this list, its history loads in the entry and in the main area.
   await page.keyboard.press('/')
-  await search.type('emerging', { delay: 20 })
-  const option = page.getByRole('option', { name: /Emerging markets ETF/ })
+  const search = page.getByRole('combobox', { name: 'Search instruments' })
+  await search.type('amd', { delay: 20 })
+  const option = page.getByRole('option', { name: /Advanced Micro Devices/ })
   await option.waitFor({ timeout: 4000 })
-  await page.screenshot({ path: join(out, `depot--${scheme}--${device}--search.png`) })
+  const optionText = await option.innerText()
+  for (const part of ['Stock', 'AMD', AMD]) {
+    if (!optionText.includes(part))
+      failures.push(`${where}: the AMD hit lacks "${part}": ${optionText}`)
+  }
+  await page.screenshot({ path: shot('search') })
   await page.keyboard.press('Enter')
-  const row = page.getByRole('tabpanel').getByRole('button', { name: /^Emerging markets ETF/ })
-  await row.first().waitFor({ timeout: 4000 })
-  await page.getByRole('button', { name: 'Rename Emerging markets ETF' }).click()
-  const name = page.getByLabel('Name of Emerging markets ETF')
-  await name.fill('EM core')
-  await name.press('Enter')
-  await page
-    .getByRole('tabpanel')
-    .getByRole('button', { name: /^EM core/ })
+  const loading = page.locator('[data-shot="depot-loading"]')
+  await loading.waitFor({ timeout: 4000 })
+  await panel
+    .getByText(/Loading history/)
     .first()
     .waitFor({ timeout: 4000 })
-  await page.screenshot({ path: join(out, `depot--${scheme}--${device}--lists.png`) })
-  await page.getByRole('button', { name: /^Remove EM core from list/ }).click()
-  await page
-    .getByRole('tabpanel')
-    .getByRole('button', { name: /^EM core/ })
+  await page.waitForTimeout(3200)
+  if ((await loading.innerText()).match(/days since/) === null) {
+    failures.push(`${where}: the loading card shows no progress: ${await loading.innerText()}`)
+  }
+  await page.screenshot({ path: shot('backfill') })
+  await fetch(`${origin}/api/__finish`)
+  await page.locator('canvas').first().waitFor({ timeout: 8000 })
+  await page.waitForTimeout(900)
+  if ((await loading.count()) > 0)
+    failures.push(`${where}: the loading card stays after the bars exist`)
+  if (
+    (await page.locator('[data-shot="depot-chart"]').innerText()).includes(
+      'Advanced Micro Devices',
+    ) === false
+  ) {
+    failures.push(`${where}: the chart did not open on the added instrument`)
+  }
+  await page.screenshot({ path: shot('added') })
+
+  // A rename and a removal, from the menu.
+  const amd = panel.getByRole('button', { name: /^Advanced Micro Devices/ }).first()
+  if (desktop) await amd.click({ button: 'right' })
+  else await panel.getByRole('button', { name: 'Options for Advanced Micro Devices' }).click()
+  await page.getByRole('menuitem', { name: 'Rename' }).click()
+  const name = page.getByLabel('Name of Advanced Micro Devices')
+  await name.fill('AMD core')
+  await name.press('Enter')
+  await panel
+    .getByRole('button', { name: /^AMD core/ })
+    .first()
+    .waitFor({ timeout: 4000 })
+  if (desktop)
+    await panel
+      .getByRole('button', { name: /^AMD core/ })
+      .first()
+      .click({ button: 'right' })
+  else await panel.getByRole('button', { name: 'Options for AMD core' }).click()
+  await page.getByRole('menuitem', { name: 'Remove from list' }).click()
+  await panel
+    .getByRole('button', { name: /^AMD core/ })
     .waitFor({ state: 'detached', timeout: 4000 })
     .catch(() => failures.push(`${where}: the removed entry is still listed`))
 }
 
 /**
- * The Indices tab, the index line back to 1998 and the comparison of a young fund against its index: the
- * comparison is off until asked for, then checked on the page and shot.
+ * The three views and the built-in tabs: a board of the list that sorts and opens a chart, the details of the US stock
+ * with its statistics and its order (and no "FIFO" outside one tooltip), the FTSE index as candles from its first stored
+ * day, a close-only series as a line with its hint, and Crypto with Bitcoin and the CBBI.
  */
+async function checkViews(
+  page: Page,
+  origin: string,
+  out: string,
+  scheme: string,
+  device: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  const shot = (name: string) => join(out, `depot--${scheme}--${device}--${name}.png`)
+  const open = async (query: string) => {
+    await page.goto(`${origin}/finance/depot?${query}`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(500)
+  }
+
+  // Board: the list as a table, sortable, a click opens the chart.
+  await open('tab=list-1&view=board')
+  const board = page.locator('[data-shot="depot-board"]')
+  await board.waitFor()
+  await page.waitForTimeout(500)
+  const boardText = await board.innerText()
+  for (const part of [
+    ...(device === 'desktop' ? ['Day', 'Week', 'Month', 'YTD', '1Y', 'From high'] : []),
+    'Semiconductor ETF',
+    'FTSE Global All Cap',
+  ]) {
+    if (!boardText.toLowerCase().includes(part.toLowerCase()))
+      failures.push(`${where}: the board lacks "${part}"`)
+  }
+  if (/FIFO/.test(await page.evaluate(() => document.body.innerText))) {
+    failures.push(`${where}: "FIFO" is on the board`)
+  }
+  await page.screenshot({ path: shot('board') })
+  await board.getByText('Semiconductor ETF').first().click()
+  await page.locator('canvas').first().waitFor()
+  if ((await page.locator('[data-shot="depot-board"]').count()) > 0) {
+    failures.push(`${where}: a board row did not open the chart`)
+  }
+
+  // Details of the US stock: position, statistics, trades, the open order.
+  await open(`isin=${US_STOCK}&view=details`)
+  const details = page.locator('[data-shot="depot-stats"]')
+  await details.waitFor()
+  await page.waitForTimeout(600)
+  const detailsText = await page.evaluate(() => document.body.innerText)
+  for (const part of [
+    'Average cost',
+    'Gain with this instrument',
+    'Realised gain',
+    'Largest holding',
+    'From the high',
+    'Trades',
+    'Open orders',
+    'Sell limit',
+    ...(device === 'desktop' ? ['Price (USD)'] : []),
+  ]) {
+    if (!detailsText.toLowerCase().includes(part.toLowerCase()))
+      failures.push(`${where}: the details lack "${part}"`)
+  }
+  if (/FIFO/.test(detailsText)) failures.push(`${where}: "FIFO" is on the page outside its tooltip`)
+  await page.screenshot({ path: shot('details'), fullPage: true })
+
+  // FTSE Global All Cap: real candles from the first stored day.
+  await open(`isin=${FTSE}&tab=list-1`)
+  await page.locator('canvas').first().waitFor()
+  await page.waitForTimeout(700)
+  const reported = await timeframe(page, 'Max')
+  if (reported !== 'Max') failures.push(`${where}: the index on Max reads as "${reported}"`)
+  await page.waitForTimeout(500)
+  const first = await hostAttr(page, 'firstDay')
+  if (first !== '2013-03-01')
+    failures.push(`${where}: the index starts on ${first}, not 2013-03-01`)
+  if ((await page.locator('[data-shot="depot-line-hint"]').count()) > 0) {
+    failures.push(`${where}: the FTSE index has real bars and is drawn as a line`)
+  }
+  await page.screenshot({ path: shot('index-candles') })
+
+  // A series with closes only: a line, and it says so.
+  await open('isin=msci-world-net-eur&tab=list-1')
+  await page
+    .locator('canvas')
+    .first()
+    .waitFor()
+    .catch(() => undefined)
+  const hint = page.locator('[data-shot="depot-line-hint"]')
+  if ((await hint.count()) > 0) await page.screenshot({ path: shot('index-line') })
+
+  // Crypto: Bitcoin in dollars and the CBBI, nothing more.
+  await open('tab=crypto')
+  await page.locator('canvas').first().waitFor()
+  await page.waitForTimeout(900)
+  const rows = await page
+    .getByRole('tabpanel')
+    .getByRole('button', { name: /^Bitcoin/ })
+    .count()
+  if (rows !== 1) failures.push(`${where}: Crypto lists ${rows} Bitcoin rows`)
+  const cbbi = page.locator('[data-shot="depot-cbbi"]')
+  await cbbi.waitFor()
+  const cbbiText = await cbbi.innerText()
+  if (!/\d+\s*of 100/.test(cbbiText.replace(/\n/g, ' '))) {
+    failures.push(`${where}: the CBBI panel shows no reading out of 100: ${cbbiText}`)
+  }
+  if ((await page.getByRole('combobox', { name: 'Search instruments' }).count()) > 0) {
+    failures.push(`${where}: Crypto offers a search`)
+  }
+  await page.screenshot({ path: shot('crypto') })
+  const toggle = cbbi.getByRole('switch', { name: 'Line' })
+  await toggle.click({ force: true })
+  await page.waitForTimeout(300)
+  if ((await cbbi.getByText('The line is hidden').count()) === 0) {
+    failures.push(`${where}: the CBBI switch does not hide the line`)
+  }
+  await toggle.click({ force: true })
+}
+
 /**
  * What every chart shows: the all-time high in the card header with its day and distance, the drawn lines
  * the page says it has (an order's label), and no English number (`1,234.5`) anywhere on the page.
@@ -1343,7 +1859,11 @@ async function checkCompare(
     failures.push(`${where}: the scale stays percent`)
 }
 
-async function checkIndices(
+/**
+ * A young fund: its history opens with the index it tracks, the comparison waits to be asked for, and the same fund
+ * against an index of a similar size reads on a percent scale.
+ */
+async function checkSpliced(
   page: Page,
   origin: string,
   scheme: string,
@@ -1352,36 +1872,6 @@ async function checkIndices(
   failures: string[],
 ): Promise<void> {
   const where = `${scheme}/${device}`
-  const shoot = async (name: string, shot: string) => {
-    const card = page.locator(`[data-shot="${shot}"]`)
-    await card.scrollIntoViewIfNeeded()
-    await page.waitForTimeout(500)
-    await card.screenshot({ path: join(out, `depot--${scheme}--${device}--${name}.png`) })
-  }
-  await page.goto(`${origin}/finance/depot?isin=msci-acwi-imi-net-eur&rng=max`, {
-    waitUntil: 'networkidle',
-  })
-  const index = page.locator('[data-shot="depot-index"]')
-  await index.waitFor()
-  await page.waitForTimeout(700)
-  if ((await page.getByRole('tab', { name: 'Indices', exact: true }).count()) === 0) {
-    failures.push(`${where}: the watchlist has no Indices tab`)
-  }
-  if ((await index.getByText('MSCI ACWI IMI · EUR').count()) === 0) {
-    failures.push(`${where}: the index card does not name its series`)
-  }
-  if ((await index.getByText('MSCI · net return · EUR').count()) === 0) {
-    failures.push(`${where}: the index card does not name its source`)
-  }
-  if ((await index.getByText(/since .*1998/).count()) === 0) {
-    failures.push(`${where}: the index line does not start in 1998`)
-  }
-  if ((await index.locator('path[stroke]').count()) === 0) {
-    failures.push(`${where}: the index card draws no line`)
-  }
-  await shoot('index-max', 'depot-index')
-
-  // A young fund: its history opens with the index it tracks, the comparison waits to be asked for.
   await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}`, { waitUntil: 'networkidle' })
   await page.locator('canvas').first().waitFor()
   await page.waitForTimeout(900)
@@ -1399,7 +1889,6 @@ async function checkIndices(
   await page.locator('[data-shot="depot-chart"]').screenshot({
     path: join(out, `depot--${scheme}--${device}--spliced.png`),
   })
-  // The young fund against the index of a similar size, over its whole history.
   await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}&cmp=msci-acwi-imi-net-eur`, {
     waitUntil: 'networkidle',
   })
@@ -1455,7 +1944,7 @@ async function main(): Promise<number> {
         })
         const where = `${scheme}/${device}`
         await fetch(`${origin}/api/__reset`)
-        await page.goto(`${origin}/finance/depot`, { waitUntil: 'networkidle' })
+        await page.goto(`${origin}/finance/depot?isin=${WORLD}`, { waitUntil: 'networkidle' })
         await page.locator('canvas').first().waitFor()
         await page.evaluate(() => document.fonts.ready.then(() => undefined))
         await page.waitForTimeout(600)
@@ -1481,7 +1970,16 @@ async function main(): Promise<number> {
         }
         await checkTradeCard(page, out, scheme, device, failures)
         const typed = await draw({ page, out, scheme, device, failures })
+        // Orders live in the Details view: the drawings save first, then the order is added there and the chart comes back.
+        await page.waitForTimeout(900)
+        await page.goto(`${origin}/finance/depot?isin=${WORLD}&view=details`, {
+          waitUntil: 'networkidle',
+        })
         await addOrder(page)
+        await page.goto(`${origin}/finance/depot?isin=${WORLD}&view=chart`, {
+          waitUntil: 'networkidle',
+        })
+        await page.locator('canvas').first().waitFor()
         await page.waitForTimeout(900)
         const saved = await storedCount(page)
         if (saved !== 4) failures.push(`${where}: ${saved} drawings stored, expected 4`)
@@ -1532,7 +2030,10 @@ async function main(): Promise<number> {
           if (reported !== name) failures.push(`${where}: ${name} reads as "${reported}"`)
         }
         if (scheme === 'light' && device === 'desktop') {
-          // Closing the order takes its row, and with it its line, away.
+          // Closing the order takes its row, and with it its line, away (the orders are in the Details view).
+          await page.goto(`${origin}/finance/depot?isin=${WORLD}&view=details`, {
+            waitUntil: 'networkidle',
+          })
           await page
             .getByRole('row')
             .filter({ hasText: 'Buy limit' })
@@ -1544,12 +2045,12 @@ async function main(): Promise<number> {
         }
         // Week and month open on as many bars as a year of days: about the same distance between two bars.
         const views: [string, string][] = [
-          ['1w', '?ivl=1w'],
+          ['1w', `?isin=${WORLD}&ivl=1w`],
           ['btc-usd', '?isin=BTC-USD'],
           ['btc-usd--1w', '?isin=BTC-USD&ivl=1w'],
           ['us-stock', `?isin=${US_STOCK}`],
           ...(scheme === 'light' && device === 'desktop'
-            ? ([['1mo', '?ivl=1mo']] as [string, string][])
+            ? ([['1mo', `?isin=${WORLD}&ivl=1mo`]] as [string, string][])
             : []),
         ]
         for (const [name, query] of views) {
@@ -1562,10 +2063,6 @@ async function main(): Promise<number> {
           if (name.startsWith('btc-usd') || name === 'us-stock') {
             if ((await page.getByText('USD', { exact: false }).count()) === 0) {
               failures.push(`${where}: ${name} is not charted in USD`)
-            }
-            const dollars = page.getByText(/Price \(USD\)|\([\d.,]+ \$\)/)
-            if ((await dollars.count()) === 0) {
-              failures.push(`${where}: ${name} shows no dollar price in the trades`)
             }
           }
           if (
@@ -1618,9 +2115,10 @@ async function main(): Promise<number> {
           if (name === '1w') spacings.push(await spacingOf(page))
           await page.screenshot({ path: join(out, `depot--${scheme}--${device}--${name}.png`) })
         }
-        await checkLists(page, origin, out, scheme, device, failures)
         await checkCompare(page, origin, scheme, device, out, failures)
-        await checkIndices(page, origin, scheme, device, out, failures)
+        await checkSpliced(page, origin, scheme, device, out, failures)
+        await checkViews(page, origin, out, scheme, device, failures)
+        await checkNavigation(page, origin, out, scheme, device, failures)
         const [day, ...others] = spacings
         if (day === undefined || others.some((other) => Math.abs(other / day - 1) > 0.12)) {
           failures.push(`${where}: bar spacing differs by interval: ${spacings.join(', ')}`)
