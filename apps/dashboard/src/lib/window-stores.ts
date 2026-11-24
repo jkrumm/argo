@@ -283,23 +283,15 @@ const AMOUNT_BANDS = {
   in: 'Income and refunds',
 } as const
 
-/** The depot chart's bar intervals and ranges (`features/finance/lib/depot-chart.ts` maps them to requests). */
+/** The depot chart's bar intervals (`features/finance/lib/depot-chart.ts` maps them to requests) and the three views of the depot page. */
 const DEPOT_INTERVALS = ['1d', '1w', '1mo'] as const
 const DEPOT_INTERVAL_LABELS = {
   '1d': 'Day',
   '1w': 'Week',
   '1mo': 'Month',
 }
-const DEPOT_RANGES = ['1m', '3m', '6m', '1y', '2y', '5y', 'max'] as const
-const DEPOT_RANGE_LABELS = {
-  '1m': '1 month',
-  '3m': '3 months',
-  '6m': '6 months',
-  '1y': '1 year',
-  '2y': '2 years',
-  '5y': '5 years',
-  max: 'Everything',
-}
+const DEPOT_VIEWS = ['chart', 'details', 'board'] as const
+const DEPOT_VIEW_LABELS = { chart: 'Chart', details: 'Details', board: 'Board' }
 
 /**
  * Every filter of the finance pages, one store so each route validates the same search shape and the
@@ -315,10 +307,9 @@ const DEPOT_RANGE_LABELS = {
  * - `sort` / `dir` / `page` / `size`: the ledger's server-side order and page.
  * - `year`: the tax year, `''` reading as the year of the latest month.
  * - `focus`: the category row selected on the spending page; page-local.
- * - `isin` / `ivl` / `rng` / `cmp` / `tab`: the depot chart's instrument (`''` is the first held one, else the first
- *   on the watchlist; a stored index series id charts that index), bar interval, the range of an index card and
- *   of the overlay, the index an instrument is compared with (`''`: none, the overlay is off) and the watchlist
- *   panel's tab; URL only, so a link carries the view.
+ * - `isin` / `ivl` / `view` / `cmp` / `tab`: the depot page's instrument (an ISIN, a coin symbol or a series id; `''`
+ *   is the first row of the tab), bar interval, view (chart, details or board), the index an instrument is
+ *   compared with (`''`: none) and the tab (`depot`, `crypto` or `list-<id>`); URL only, so a link carries the view.
  */
 export const finStore = createSearchStore({
   key: 'finance',
@@ -345,8 +336,8 @@ export const finStore = createSearchStore({
     cmp: field.enum(['', ...INDEX_IDS], '', { persist: false }),
     // The watchlist panel's tab: `depot`, `crypto`, `indices` or `list-<id>`; `''` is the first one there is.
     tab: field.string({ max: 40 }, { persist: false }),
+    view: field.enum(DEPOT_VIEWS, 'chart', { persist: false }),
     ivl: field.enum(DEPOT_INTERVALS, '1d', { persist: false }),
-    rng: field.enum(DEPOT_RANGES, '1y', { persist: false }),
   },
 }).labels({
   month: { '': 'Current month', ...monthLabels },
@@ -355,7 +346,7 @@ export const finStore = createSearchStore({
   year: { '': 'Latest year', ...yearLabels },
   amount: AMOUNT_BANDS,
   ivl: DEPOT_INTERVAL_LABELS,
-  rng: DEPOT_RANGE_LABELS,
+  view: DEPOT_VIEW_LABELS,
   cmp: {
     '': 'Compare with…',
     ...Object.fromEntries(INDEX_SERIES.map((s) => [s.id, s.name])),
@@ -386,8 +377,8 @@ export const FILTERS_CLEARED: FinanceFilters = {
   isin: '',
   cmp: '',
   tab: '',
+  view: 'chart',
   ivl: '1d',
-  rng: '1y',
 }
 
 /**

@@ -1,6 +1,6 @@
 /**
- * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ 670e8dd
- * (~/SourceRoot/finances, `fin serve`; the file last changed in a68675a). The API is
+ * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ 492ea8c
+ * (~/SourceRoot/finances, `fin serve`; the file last changed in 9ce622c). The API is
  * `/api/finance/*` here and `/api/*` on the service. Re-copy when that file changes; do not edit the
  * types below by hand. Service status/sync types live in `./status.ts` (from the service contract,
  * finances `docs/service.md`).
@@ -479,11 +479,14 @@ export type MarketInterval = '1d' | '1w' | '1mo'
  * instrument is charted as it; `BTC-EUR` is not listed. An instrument charted as a coin (`fin market watch add <ISIN> --chart-as BTC-USD`) has no row
  * of its own: it is listed in `instruments` of the coin's row.
  */
+export type MarketKind = 'stock' | 'etf' | 'etc' | 'index' | 'coin' | 'series'
+
 export type WatchlistEntry = {
   /** An ISIN, or a coin symbol. */
   isin: string
   name: string | null
-  kind: string | null
+  /** `stock`, `etf`, `etc` (ETCs and ETNs), `index`, `coin` or `series`; null where nothing says. */
+  kind: MarketKind | null
   currency: string | null
   last_close: number | null
   /** The day of `last_close`, `YYYY-MM-DD`. */
@@ -503,9 +506,11 @@ export type WatchlistEntry = {
   index: string | null
 }
 
-/** One entry of a list. `symbol` is an ISIN, a coin symbol (`BTC-USD`) or a series id; `quote` is its row as `/api/market/watchlist` gives it (a series: `kind: 'index'`, the last two levels). */
+/** One entry of a list. `symbol` is an ISIN, a coin symbol (`BTC-USD`) or a series id; `quote` is its row as `/api/market/watchlist` gives it (a series: `kind: 'index'` for an index level or `'series'`, the last two levels). */
 export type WatchListEntry = {
   symbol: string
+  /** `quote.kind`, for grouping a list. */
+  kind: MarketKind | null
   /** The name the user gave this entry in this list, or null. */
   display_name: string | null
   /** 0-based, contiguous. */
@@ -525,17 +530,75 @@ export type WatchList = {
   entries: WatchListEntry[]
 }
 
-/** `GET /api/market/search?q=&limit=`: instruments, coins and stored series that match, exact matches first. The store only: no outbound request. */
+/**
+ * `GET /api/market/search?q=&limit=`: every tradable instrument on Xetra (the exchange's list, refreshed daily), the coins and the stored series that match
+ * by name words, ticker, ISIN or WKN; an exact ISIN, WKN or ticker first. Reads the store; the first search of an empty store, and one after the list is a day
+ * old, fetches the list.
+ */
 export type SearchHit = {
-  kind: 'instrument' | 'coin' | 'series'
+  kind: MarketKind | null
   /** What a list entry is keyed by. */
   symbol: string
   name: string | null
   wkn: string | null
-  /** Ticker of the US listing. */
+  /** Ticker of the US listing, where the store knows one. */
   ticker: string | null
+  /** The exchange's ticker (many US stocks have the US one, AMD; Apple's is APC). */
+  mnemonic: string | null
+  /** The exchange's type (CS, ETF, ETC, ETN), the unit of a series, or a coin's currency. */
   detail: string | null
 }
+
+export type BackfillState = 'none' | 'queued' | 'running' | 'done' | 'failed'
+
+/** Where the history load of an ISIN stands (`GET /api/market/backfill?symbol=`, and `backfill` of an entry write). `bars` and `from` grow while it runs. */
+export type Backfill = {
+  symbol: string
+  state: BackfillState
+  /** The first stored day, null with no bars. */
+  from: string | null
+  bars: number
+  /** Why it failed. */
+  error: string | null
+}
+
+/** The answer of `POST /api/market/lists/<id>/entries`: the list, and for an ISIN the state of its history load (started at once when the ISIN has none). */
+export type WatchListWrite = WatchList & { backfill: Backfill }
+
+/** Changes are fractions (0.012 = +1.2 %); null where the stored history starts later than the reference day. */
+export type BoardFigures = {
+  last_close: number
+  last_day: string
+  day_pct: number | null
+  week_pct: number | null
+  month_pct: number | null
+  /** Since the last close of the previous year. */
+  ytd_pct: number | null
+  year_pct: number | null
+  /** The highest close stored. */
+  ath: { value: number; day: string }
+  /** The last close against `ath`: 0 at the high, -0.2 is 20 % below it. */
+  ath_pct: number
+  /** Lowest and highest close of the 365 days up to the last day. */
+  low_52w: number
+  high_52w: number
+}
+
+export type BoardEntry = {
+  symbol: string
+  display_name: string | null
+  name: string | null
+  kind: MarketKind | null
+  /** The chart currency: an ISIN in EUR, BTC-USD in USD, a series its own (null for points and rates). */
+  currency: string | null
+  /** Null while nothing is stored. */
+  figures: BoardFigures | null
+  /** The BTC-USD row only: the latest CBBI (0 to 100) and its day. */
+  cbbi: { value: number; day: string } | null
+}
+
+/** `GET /api/market/lists/<id>/board`: key figures of each entry, in list order. Answers while the service is locked. */
+export type WatchBoard = { list_id: number; name: string; entries: BoardEntry[] }
 
 /** One bar. `time` is epoch seconds, UTC: midnight of the day for 1d, the first day of the week or month for 1w and 1mo. */
 export type ChartBar = {
@@ -545,9 +608,21 @@ export type ChartBar = {
   low: number
   close: number
   units: number | null
+  /**
+   * The one volume figure of a chart: money turned over in the bar's currency. Present on an official bar and on a website bar alike; a weekly or
+   * monthly bar sums it whenever every day has it, whatever the source. `null` on an index or series bar and on a US listing's bar.
+   */
   turnover: number | null
-  /** `'index'` on a bar that comes from the tracked index (flat: open = high = low = close), absent on the instrument's own bars. */
-  source?: 'index'
+  /**
+   * Where the bar came from: `xetra` (the exchange's own files, `units` set), `dbg` or `onvista` (website history, `units` null on a Xetra ETF), `index` (the
+   * tracked index spliced in), the source of a series, `nasdaq` or `bitstamp`; `mixed` on a weekly or monthly bar of several. `units` of such a bar are
+   * summed only when every day has them from one source.
+   */
+  source: string | null
+  /** Weekly and monthly bars: the days in the bar. */
+  days?: number
+  /** `true` on a bar of a series that sends the close only (or a bar with such a day): open, high and low are built from the closes. */
+  derived_from_close?: true
 }
 
 /**
@@ -593,7 +668,7 @@ export type TradeSide = 'buy' | 'sell'
 
 export type QuantitySource = 'document' | 'manual' | 'derived' | 'estimated'
 
-/** `GET /api/depot/trades?isin=`: what `fin depot trades` prints. `isin` may be a coin symbol (`BTC-USD`): the trades of the instruments charted as it. */
+/** `GET /api/depot/trades?isin=`: what `fin depot trades` prints. `isin` may be a coin symbol (`BTC-USD`): the trades of the instruments charted as it and of the coin itself (key `BTC`). */
 export type DepotTrade = {
   id: number
   account_id: string
@@ -621,6 +696,51 @@ export type DepotTrade = {
   price_usd: number | null
 }
 
+/**
+ * `GET /api/depot/stats?isin=`: what one instrument has made over the whole time the depot held it, from the stored trades (FIFO). Needs the vault.
+ * `isin` may be a coin symbol (`BTC-USD`): the coin's own trades (key `BTC`), not the ETPs charted as it. Money is euro cents; every trade amount is the settlement
+ * cash, so fees and tax are in the gains already. A `404` for an instrument with no trade.
+ */
+export type DepotStats = {
+  /** The trade key: an ISIN, or `BTC`. */
+  isin: string
+  name: string | null
+  /** Cash that went in: the buys, fees included. */
+  invested_cents: number
+  /** Cash that came out: the sales, after fees and tax. */
+  sold_cents: number
+  /** Proceeds minus the FIFO cost of the units sold; null while a quantity of the instrument is unknown. */
+  realised_gain_cents: number | null
+  /** Value at the latest close minus the FIFO cost of what is held (0 once closed); null without a price. */
+  unrealised_gain_cents: number | null
+  /** Realised plus unrealised, fees and tax paid included. */
+  total_gain_cents: number | null
+  fees_cents: number
+  tax_cents: number
+  first_buy: string | null
+  last_trade: string | null
+  /** The day the position went to zero; null while it is held. */
+  closed_on: string | null
+  /** From the first buy to the closing sale, or to today while it is held. */
+  holding_days: number | null
+  /** The most units held at once and the first day it was reached. */
+  peak_quantity: number | null
+  peak_on: string | null
+  quantity: number | null
+  value_cents: number | null
+  /** A coin held directly: how much can be sold tax-free today (section 23 EStG). */
+  tax_free_quantity?: number
+  /** The highest stored close of the instrument's chart (an ISIN in EUR, a coin in USD) and the last close against it; null with no bars stored. */
+  all_time_high: {
+    value: number
+    day: string
+    currency: string | null
+    last_close: number
+    last_day: string
+    pct_from_high: number
+  } | null
+}
+
 export type DepotPosition = {
   isin: string
   name: string | null
@@ -635,9 +755,24 @@ export type DepotPosition = {
   unrealised_fifo_pct: number | null
   share: number | null
   quantity_source: QuantitySource | 'mixed'
-  lots: { acquired_on: string; quantity: number; cost_cents: number }[]
+  lots: DepotLot[]
+  /** A coin held directly (BTC, key = ticker) only: price and value in dollars, from the latest close of the dollar listing the chart draws. */
+  price_usd?: number | null
+  value_usd_cents?: number | null
+  /** A coin held directly only: the part of the position that can be sold tax-free today (section 23 EStG, one year after the purchase). */
+  tax_free_quantity?: number
   /** Commands that bring in the missing price, when there is none. */
   fix?: string[]
+}
+
+export type DepotLot = {
+  acquired_on: string
+  quantity: number
+  cost_cents: number
+  /** A coin only: the first day the lot can be sold tax-free. */
+  tax_free_on?: string
+  /** A coin only: no purchase is known for the lot (coins deposited from outside), so the day is the deposit day, not the real one. */
+  acquisition_unknown?: true
 }
 
 /** `GET /api/depot/positions` */

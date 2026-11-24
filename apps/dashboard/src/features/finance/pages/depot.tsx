@@ -1,13 +1,10 @@
-import { Box, Button, Group, Stack, Text, Tooltip } from '@mantine/core'
-import { Section, StatGroup } from 'basalt-ui'
-import type { StatStripCell } from 'basalt-ui'
-import { ChartCard } from 'basalt-ui/charts'
-import { FilterSet, SelectFilter, ViewTabs } from 'basalt-ui/controls'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
-import { useRef, useState } from 'react'
-import { reportWriteError, useOrderWrites } from '../api/mutations'
+import { Box, Stack } from '@mantine/core'
+import { EmptyState } from 'basalt-ui'
+import { useState } from 'react'
+import { useLists } from '../api/lists'
 import {
   useCandles,
+  useDepotStats,
   useDepotTrades,
   useDrawings,
   useIndexSeries,
@@ -16,113 +13,114 @@ import {
   useSeriesCatalog,
   useWatchlist,
 } from '../api/queries'
-import type { DepotOrder, DepotTrade, WatchlistEntry } from '../api/types'
-import { DepotChart, SPLICE_LABEL } from '../components/depot-chart'
-import type {
-  CompareLine,
-  DepotChartHandle,
-  DepotSelection,
-  DrawTool,
-} from '../components/depot-chart'
-import { ComparePopover } from '../components/compare-popover'
-import { DrawToolbar } from '../components/draw-toolbar'
-import { DrawingEditor } from '../components/drawing-editor'
-import { FinanceBar } from '../components/finance-bar'
-import { IndexHistoryCard } from '../components/index-charts'
+import { CbbiPanel } from '../components/cbbi-panel'
+import { ChartPanel } from '../components/depot-chart-panel'
+import { DepotBackfillPanel } from '../components/depot-backfill-panel'
+import { DepotBoard } from '../components/depot-board'
+import { DepotDetails } from '../components/depot-details'
+import { DepotSidebarPanel } from '../components/depot-sidebar-panel'
+import { DepotTabsPanel } from '../components/depot-tabs-panel'
+import { DepotBar } from '../components/depot-bar'
 import { NoDataState } from '../components/no-data-state'
 import { OrderModal } from '../components/order-modal'
-import { WatchPanel } from '../components/watch-panel'
 import classes from '../components/depot.module.css'
 import {
   allTimeHigh,
   costLine,
   costLineUsd,
   daysBefore,
-  depotInterval,
-  distanceFromHigh,
-  hasTurnover,
   heldRows,
   instrumentsOf,
-  levelsAtBars,
-  logByDefault,
   mergedPosition,
   orderLine,
-  pickInstrument,
-  priceText,
-  signedPercent,
-  TIMEFRAMES,
-  timeframeFits,
-  volumeByDefault,
 } from '../lib/depot-chart'
-import type {
-  AllTimeHigh,
-  ColorRole,
-  DepotInterval,
-  PriceLine,
-  RangeChange,
-  Timeframe,
-} from '../lib/depot-chart'
+import type { PriceLine } from '../lib/depot-chart'
 import {
-  dayDe,
-  deltaEurDe,
-  eurDe,
-  isoDayDe,
-  percentDe,
-  priceDe,
-  quantityDe,
-  signedEurDe,
-} from '../lib/depot-number'
-import { toneProp } from '../lib/format'
-import { INDEX_IDS, INDEX_SERIES, seriesOf } from '../lib/index-series'
-import type { IndexSeries } from '../lib/index-series'
+  awaitsHistory,
+  closeOnlyDaily,
+  defaultTabId,
+  DEPOT_TAB,
+  hiddenTabs,
+  navTabs,
+  pickSymbol,
+  resolveTab,
+  tabHolding,
+  tabItems,
+} from '../lib/depot-nav'
+import { useHiddenTabs } from '../lib/depot-prefs'
+import { INDEX_IDS, INDEX_SERIES } from '../lib/index-series'
 import { isoDay } from '../lib/time'
-import { useDrawingsSaver } from '../lib/use-drawings-saver'
-import { useViewPrefs } from '../lib/view-prefs'
+import type { WatchlistEntry } from '../api/types'
 import { useField } from '../../../lib/use-field'
 import { useNow } from '../../../lib/use-now'
 import { finStore } from '../../../lib/window-stores'
-
-const tradeCol = createColumnHelper<DepotTrade>()
-const orderCol = createColumnHelper<DepotOrder>()
-
-/** Quantities are fractional for savings plans; four places is the finest the depot keeps. */
-const quantityText = quantityDe
 
 /** An ETF with a tracked index and no US listing is asked for its history with the index in front of it. */
 const splicedHistory = (entry: WatchlistEntry | undefined): boolean =>
   entry !== undefined && entry.index !== null && entry.us_mic === null && entry.kind !== 'coin'
 
+const BITCOIN = 'BTC-USD'
+
 export function DepotPage() {
   const watchlist = useWatchlist()
+  const lists = useLists()
   const catalog = useSeriesCatalog()
   const positions = usePositions()
   const [requested, setRequested] = useField(finStore.field.isin)
+  const [requestedTab, setTab] = useField(finStore.field.tab)
+  const [view, setView] = useField(finStore.field.view)
   const [interval] = useField(finStore.field.ivl)
-  const [range] = useField(finStore.field.rng)
   const [compare, setCompare] = useField(finStore.field.cmp)
+  const [hiddenIds, setHidden] = useHiddenTabs()
   const [adding, setAdding] = useState(false)
   const today = isoDay(new Date(useNow()))
 
   const entries = watchlist.data ?? []
-  const held = heldRows(entries, positions.data?.positions ?? [])
-  // The URL names an index series or an instrument: an index has no position, trades or orders.
-  const index = seriesOf(requested, catalog.data ?? [])
-  const isin = index === undefined ? pickInstrument(requested, entries, held) : null
+  const userLists = lists.data ?? []
+  const allPositions = positions.data?.positions ?? []
+  const held = heldRows(entries, allPositions)
+
+  // The tab, its rows as the sidebar lists them, and the one the main area shows.
+  const tabs = navTabs(userLists, hiddenIds)
+  const preferred = resolveTab(tabs, requestedTab, defaultTabId(tabs, held.size > 0))
+  // A link that names an instrument and no tab opens on the first tab that lists it.
+  const holding =
+    requestedTab === '' && requested !== ''
+      ? tabHolding(
+          [...tabs.filter((t) => t.id === preferred), ...tabs.filter((t) => t.id !== preferred)],
+          requested,
+          userLists,
+          entries,
+          allPositions,
+        )
+      : null
+  const tabId = holding ?? preferred
+  const tab = tabs.find((t) => t.id === tabId)
+  const items = tabItems(tab, userLists, entries, allPositions)
+  const symbol = pickSymbol(requested, items, tabId === DEPOT_TAB)
+  const entry = items.find((item) => item.symbol === symbol)?.quote
+  const isin = entry === undefined ? null : symbol
+  // An index or a series is a price history only: it has no position, trades or orders.
+  const tradable = entry !== undefined && entry.kind !== 'index' && entry.kind !== 'series'
+  const awaiting = entry !== undefined && awaitsHistory(entry)
   const indices = INDEX_SERIES.filter((s) =>
     (catalog.data ?? []).some((info) => info.id === s.id && info.points > 0),
   )
-  const entry = entries.find((e) => e.isin === isin)
+
   // A row may stand for instruments charted as it (a Bitcoin ETP on `BTC-USD`): the depot is theirs.
-  const instruments = entry === undefined ? [] : instrumentsOf(entry)
-  const owned = (positions.data?.positions ?? []).filter((p) => instruments.includes(p.isin))
+  const instruments = entry === undefined || !tradable ? [] : instrumentsOf(entry)
+  const owned = allPositions.filter((p) => instruments.includes(p.isin))
   const position = mergedPosition(owned)
   // Orders are kept per ISIN: those of the held instrument, else the first charted as this row.
-  const orderIsin = owned.find((p) => p.quantity > 0)?.isin ?? instruments[0] ?? isin
+  const orderIsin = tradable
+    ? (owned.find((p) => p.quantity > 0)?.isin ?? instruments[0] ?? isin)
+    : null
 
+  const charting = view === 'chart' && !awaiting
   // Every stored daily bar at once (the timeframes only move the view); an ETF with a tracked index
   // comes with that index in front of its first bar.
   const candles = useCandles(
-    isin === null
+    isin === null || !charting
       ? null
       : {
           isin,
@@ -132,17 +130,19 @@ export function DepotPage() {
           splice: splicedHistory(entry) ? 'index' : undefined,
         },
   )
-  const trades = useDepotTrades(isin)
-  const orders = useOpenOrders(orderIsin)
-  const drawings = useDrawings(isin)
+  const trades = useDepotTrades(tradable && view !== 'board' ? isin : null)
+  const orders = useOpenOrders(view === 'board' ? null : orderIsin)
+  const drawings = useDrawings(charting ? isin : null)
+  const stats = useDepotStats(tradable && view === 'details' ? isin : null)
 
   const bars = candles.data?.candles ?? []
   const currency = candles.data?.currency ?? null
   const euro = currency === null || currency === 'EUR'
+  const asLine = closeOnlyDaily(bars, interval)
   // An order has a euro price. A US stock charted in dollars shows it at the latest ECB rate, labelled in both
   // currencies; a coin's order belongs to a product whose price is not the coin's, so it has no line there.
   const stockInDollars = !euro && entry?.us_mic != null
-  const rate = useIndexSeries(stockInDollars ? 'eur-usd' : null, {
+  const rate = useIndexSeries(stockInDollars && charting ? 'eur-usd' : null, {
     from: daysBefore(today, 14),
     to: today,
   })
@@ -159,11 +159,12 @@ export function DepotPage() {
           owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null,
         ]
   ).filter((l) => l !== null)
-  const comparable = entry !== undefined && entry.kind !== 'coin' && entry.us_mic === null
+  const comparable =
+    entry !== undefined && tradable && entry.kind !== 'coin' && entry.us_mic === null
 
   // The all-time high comes from the full daily history: the chart's own bars at day, one more request at week and month.
   const daily = useCandles(
-    isin === null || interval === '1d'
+    isin === null || !charting || interval === '1d'
       ? null
       : { isin, interval: '1d', mic: entry?.us_mic ?? undefined },
   )
@@ -172,519 +173,122 @@ export function DepotPage() {
   const high = dailyReady && dailyBars !== undefined ? allTimeHigh(dailyBars) : null
   const lastClose = dailyBars?.findLast((bar) => bar.source !== 'index')?.close ?? null
 
-  if (watchlist.isSuccess && entries.length === 0) return <NoDataState />
+  if (
+    watchlist.isSuccess &&
+    entries.length === 0 &&
+    userLists.every((l) => l.entries.length === 0)
+  ) {
+    return <NoDataState />
+  }
 
-  const cells: StatStripCell[] = [
-    {
-      key: 'quantity',
-      caption: 'Position',
-      qualifier: 'units held',
-      value: position === undefined ? 'Not held' : quantityText(position.quantity),
-      ...(entry?.name != null && { footer: entry.name }),
-      loading: positions.isPending,
-    },
-    {
-      key: 'value',
-      caption: 'Value',
-      qualifier: position?.price_on == null ? '' : `as of ${isoDayDe(position.price_on)}`,
-      value: position?.value_cents == null ? null : eurDe(position.value_cents),
-      loading: positions.isPending,
-    },
-    {
-      key: 'cost',
-      caption: 'Cost',
-      qualifier: 'FIFO',
-      value: position === undefined ? null : eurDe(position.cost_fifo_cents),
-      ...(position !== undefined &&
-        position.quantity > 0 && {
-          footer: `${priceText(position.cost_average_cents / 100 / position.quantity)} per unit on average`,
-        }),
-      loading: positions.isPending,
-    },
-    {
-      key: 'gain',
-      caption: 'Gain',
-      qualifier: 'unrealised, FIFO',
-      value:
-        position?.unrealised_fifo_cents == null ? null : deltaEurDe(position.unrealised_fifo_cents),
-      ...(position?.unrealised_fifo_cents != null && {
-        ...toneProp(position.unrealised_fifo_cents),
-        footer: signedPercent(position.unrealised_fifo_pct),
-      }),
-      loading: positions.isPending,
-    },
-  ]
+  const name = entry?.name ?? isin ?? ''
+  const openChart = (next: string) => {
+    setRequested(next)
+    setView('chart')
+  }
+
+  const main = (() => {
+    if (view === 'board' && tab !== undefined) {
+      return <DepotBoard tab={tab} lists={userLists} held={held} onOpen={openChart} />
+    }
+    if (isin === null || entry === undefined) {
+      return (
+        <EmptyState
+          tier="section"
+          title="Nothing to show on this tab"
+          description="Press / and search to add an instrument to a list."
+        />
+      )
+    }
+    if (view === 'details') {
+      return (
+        <DepotDetails
+          name={name}
+          tradable={tradable}
+          position={position}
+          positionPending={positions.isPending}
+          stats={stats}
+          trades={trades}
+          orders={orders}
+          orderIsin={orderIsin ?? isin}
+          onAddOrder={() => setAdding(true)}
+        />
+      )
+    }
+    if (awaiting) return <DepotBackfillPanel symbol={isin} name={name} lists={userLists} />
+    return (
+      <>
+        <ChartPanel
+          name={name}
+          isin={isin}
+          kind={entry.kind}
+          interval={interval}
+          currency={currency}
+          bars={bars}
+          trades={trades.data ?? []}
+          lines={lines}
+          candles={candles}
+          drawings={drawings}
+          comparable={comparable}
+          indices={indices}
+          compareId={compare}
+          onCompare={(id) => setCompare(INDEX_IDS.find((known) => known === id) ?? '')}
+          high={high}
+          lastClose={lastClose}
+          today={today}
+          line={asLine}
+        />
+        {isin === BITCOIN && <CbbiPanel today={today} />}
+      </>
+    )
+  })()
 
   return (
     <Box className={classes.page}>
-      <FinanceBar
-        // The chart zooms by timeframe; the range is only for the index card.
-        filters={
-          index !== undefined ? (
-            <FilterSet>
-              <SelectFilter field={finStore.field.rng} label="Range" />
-            </FilterSet>
-          ) : undefined
-        }
+      <DepotBar />
+      <DepotTabsPanel
+        tabs={tabs}
+        active={tabId}
+        lists={userLists}
+        hidden={hiddenTabs(hiddenIds)}
+        onSelect={setTab}
+        onHide={(id) => {
+          setHidden(id, true)
+          if (id === tabId) setTab('')
+        }}
+        onShow={(id) => {
+          setHidden(id, false)
+          setTab(id)
+        }}
       />
       <Box className={classes.layout}>
-        <WatchPanel
-          entries={entries}
-          positions={positions.data?.positions ?? []}
-          indices={indices}
-          catalog={catalog.data ?? []}
-          active={index?.id ?? isin}
-          pending={watchlist.isPending}
-          error={watchlist.error}
-          onPick={setRequested}
-        />
-        {index !== undefined && (
-          <Stack key={index.id} className={classes.main} gap="sm">
-            <IndexHistoryCard index={index} range={range} today={today} />
-          </Stack>
+        {tab !== undefined && (
+          <DepotSidebarPanel
+            tab={tab}
+            lists={userLists}
+            items={items}
+            active={isin}
+            pending={watchlist.isPending}
+            error={watchlist.error}
+            listsError={lists.error}
+            onPick={openChart}
+            onBoard={(next) => {
+              setRequested(next)
+              setView('board')
+            }}
+            onAdded={(next, nextTab) => {
+              setTab(nextTab)
+              openChart(next)
+            }}
+          />
         )}
-        {isin !== null && entry !== undefined && (
-          <Stack key={isin} className={classes.main} gap="sm">
-            <ChartPanel
-              name={entry.name ?? isin}
-              isin={isin}
-              kind={entry.kind}
-              interval={interval}
-              currency={currency}
-              bars={bars}
-              trades={trades.data ?? []}
-              lines={lines}
-              candles={candles}
-              drawings={drawings}
-              comparable={comparable}
-              indices={indices}
-              compareId={compare}
-              onCompare={(id) => setCompare(INDEX_IDS.find((known) => known === id) ?? '')}
-              high={high}
-              lastClose={lastClose}
-              today={today}
-            />
-            <Box data-shot="depot-position">
-              <StatGroup variant="strip" label="The position at a glance" cols={4} cells={cells} />
-            </Box>
-            <Box data-shot="depot-trades">
-              <TradesTable trades={trades.data ?? []} query={trades} />
-            </Box>
-            <OrdersSection
-              isin={orderIsin ?? isin}
-              orders={orders.data ?? []}
-              query={orders}
-              onAdd={() => setAdding(true)}
-            />
-          </Stack>
-        )}
+        <Stack key={`${view}:${isin}`} className={classes.main} gap="sm">
+          {main}
+        </Stack>
       </Box>
       {adding && orderIsin !== null && (
         <OrderModal isin={orderIsin} onClose={() => setAdding(false)} />
       )}
     </Box>
-  )
-}
-
-function ChartPanel({
-  name,
-  isin,
-  kind,
-  interval,
-  currency,
-  bars,
-  trades,
-  lines,
-  candles,
-  drawings,
-  comparable,
-  indices,
-  compareId,
-  onCompare,
-  high,
-  lastClose,
-  today,
-}: {
-  name: string
-  isin: string
-  kind: string | null
-  interval: DepotInterval
-  currency: string | null
-  bars: React.ComponentProps<typeof DepotChart>['bars']
-  trades: readonly DepotTrade[]
-  lines: readonly PriceLine[]
-  candles: ReturnType<typeof useCandles>
-  drawings: ReturnType<typeof useDrawings>
-  comparable: boolean
-  indices: readonly IndexSeries[]
-  compareId: string
-  onCompare: (id: string) => void
-  high: AllTimeHigh | null
-  lastClose: number | null
-  today: string
-}) {
-  const [tool, setTool] = useState<DrawTool | null>(null)
-  const [role, setRole] = useState<ColorRole>('accent')
-  const [selection, setSelection] = useState<DepotSelection>({ count: 0, line: null, single: null })
-  const [timeframe, setTimeframe] = useState<Timeframe | null>(null)
-  const [change, setChange] = useState<RangeChange | null>(null)
-  const [prefs, setPrefs] = useViewPrefs(isin)
-  const chart = useRef<DepotChartHandle>(null)
-  const save = useDrawingsSaver(isin)
-  const notes = candles.data?.notes ?? []
-  // The bars on screen may still be the last request's while the next one loads: they say which interval they are.
-  const shown = depotInterval(candles.data?.interval, interval)
-  const armed = drawings.isSuccess
-  const log = prefs.log ?? logByDefault(kind)
-  const turnover = hasTurnover(bars)
-  const volume = turnover && (prefs.volume ?? volumeByDefault(kind, bars))
-  const spliced = bars.some((bar) => bar.source === 'index')
-
-  // The compared index, as a line on the bars' own times: the chart rebases it with the candles.
-  const picked = comparable ? indices.find((index) => index.id === compareId) : undefined
-  const levels = useIndexSeries(picked?.id ?? null, { to: today })
-  const line =
-    picked === undefined || levels.data === undefined || levels.data.id !== picked.id
-      ? null
-      : levelsAtBars(bars, levels.data.points)
-  const compare: CompareLine | null =
-    picked === undefined || line === null || line.length === 0
-      ? null
-      : { name: picked.name, points: line }
-  const comparing = compare !== null
-
-  // A line is coloured from the toolbar: the colour of the next one drawn, or the selected line's own.
-  const pick = (next: ColorRole) => {
-    setRole(next)
-    if (tool === null) chart.current?.setSelectionRole(next)
-  }
-  const currentRole = tool === null ? (selection.single?.role ?? role) : role
-  const symbol = currency === 'USD' ? 'USD' : 'EUR'
-  const distance =
-    high === null || lastClose === null ? null : distanceFromHigh(lastClose, high.price)
-
-  return (
-    <ChartCard
-      data-shot="depot-chart"
-      title={candles.data?.currency == null ? name : `${name} · ${candles.data.currency}`}
-      {...(high !== null && {
-        facts: [
-          {
-            value: priceDe(high.price),
-            unit: symbol === 'USD' ? '$' : '€',
-            period: ['All-time high', dayDe(high.time)],
-          },
-          ...(distance === null
-            ? []
-            : [
-                {
-                  // A node keeps the real minus sign (a text comparison would take a direction glyph instead).
-                  value: <>{percentDe(distance, true)}</>,
-                  unit: 'last close vs. high',
-                },
-              ]),
-        ],
-      })}
-      info={`Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, a US stock's in dollars at the latest ECB rate. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the grey line is the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
-      state={{
-        pending: candles.isPending,
-        error: candles.error ?? undefined,
-        empty:
-          bars.length === 0 ? notes.join(' ') || 'No bars stored for this instrument yet.' : false,
-      }}
-      onRetry={() => void candles.refetch()}
-      actions={
-        <Box className={classes.tools}>
-          <ViewTabs field={finStore.field.ivl} label="Bar interval" />
-          <DrawToolbar
-            tool={tool}
-            armed={armed}
-            role={currentRole}
-            canDelete={selection.count > 0}
-            onTool={setTool}
-            onRole={pick}
-            onDelete={() => chart.current?.removeSelected()}
-          />
-        </Box>
-      }
-    >
-      <Box className={classes.stage}>
-        <DepotChart
-          ref={chart}
-          bars={bars}
-          interval={shown}
-          currency={currency}
-          trades={trades}
-          lines={lines}
-          storedDrawings={drawings.data?.document}
-          loadedDrawings={drawings.isSuccess}
-          tool={tool}
-          role={role}
-          logScale={log}
-          showVolume={volume}
-          compare={compare}
-          onToolChange={setTool}
-          onSelectionChange={setSelection}
-          onDrawingsChange={save}
-          onTimeframeChange={setTimeframe}
-          onRangeChange={setChange}
-        />
-        {tool === null && (
-          <DrawingEditor
-            selection={selection}
-            onRole={pick}
-            onLabel={(label) => chart.current?.setSelectionLabel(label)}
-            onPrice={(id, price) => chart.current?.setLinePrice(id, price)}
-            onDelete={() => chart.current?.removeSelected()}
-          />
-        )}
-      </Box>
-      <Box className={classes.toolbar} data-shot="depot-toolbar">
-        <Group gap={4} role="group" aria-label="Timeframe">
-          {TIMEFRAMES.map((frame) => (
-            <Button
-              key={frame}
-              variant={timeframe === frame ? 'filled' : 'default'}
-              color="gray"
-              aria-pressed={timeframe === frame}
-              disabled={bars.length === 0 || !timeframeFits(frame, shown)}
-              onClick={() => chart.current?.setTimeframe(frame)}
-            >
-              {frame}
-            </Button>
-          ))}
-        </Group>
-        <Group gap={4} role="group" aria-label="Chart view">
-          {comparable && (
-            <ComparePopover
-              options={indices}
-              value={picked?.id ?? ''}
-              name={name}
-              change={comparing ? change : null}
-              onPick={onCompare}
-            />
-          )}
-          <Tooltip
-            label="The scale reads in percent while comparing"
-            disabled={!comparing}
-            withArrow
-          >
-            <Box component="span">
-              <Button
-                variant={log && !comparing ? 'filled' : 'default'}
-                color="gray"
-                aria-pressed={log && !comparing}
-                aria-label="Logarithmic price scale"
-                disabled={comparing}
-                onClick={() => setPrefs({ log: !log })}
-              >
-                Log
-              </Button>
-            </Box>
-          </Tooltip>
-          <Button
-            variant={volume ? 'filled' : 'default'}
-            color="gray"
-            aria-pressed={volume}
-            aria-label="Show turnover"
-            disabled={!turnover}
-            onClick={() => setPrefs({ volume: !volume })}
-          >
-            Volume
-          </Button>
-        </Group>
-      </Box>
-    </ChartCard>
-  )
-}
-
-function TradesTable({
-  trades,
-  query,
-}: {
-  trades: readonly DepotTrade[]
-  query: ReturnType<typeof useDepotTrades>
-}) {
-  const columns = [
-    tradeCol.accessor('booked_on', { header: 'Booked', cell: (c) => isoDayDe(c.getValue()) }),
-    tradeCol.accessor('side', {
-      header: 'Side',
-      cell: (c) => (
-        <Text span inherit c={c.getValue() === 'buy' ? 'green' : 'red'}>
-          {c.getValue() === 'buy' ? 'Buy' : 'Sell'}
-        </Text>
-      ),
-    }),
-    tradeCol.accessor((t) => t.quantity ?? 0, {
-      id: 'quantity',
-      header: 'Units',
-      sortFn: 'basic',
-      meta: { align: 'right' },
-      cell: (c) => {
-        const t = c.row.original
-        if (t.quantity === null) return '—'
-        return `${t.quantity_source === 'estimated' ? '≈ ' : ''}${quantityText(t.quantity)}`
-      },
-    }),
-    tradeCol.accessor((t) => t.price ?? 0, {
-      id: 'price',
-      header: 'Price',
-      sortFn: 'basic',
-      meta: { align: 'right', priority: 2 },
-      cell: (c) => (c.row.original.price === null ? '—' : priceText(c.getValue())),
-    }),
-    ...(trades.some((t) => t.price_usd !== null)
-      ? [
-          tradeCol.accessor((t) => t.price_usd ?? 0, {
-            id: 'price_usd',
-            header: 'Price (USD)',
-            sortFn: 'basic',
-            meta: { align: 'right', priority: 3 },
-            cell: (c) => (c.row.original.price_usd === null ? '—' : priceText(c.getValue())),
-          }),
-        ]
-      : []),
-    tradeCol.accessor('amount_cents', {
-      header: 'Amount',
-      sortFn: 'basic',
-      meta: { align: 'right' },
-      cell: (c) => eurDe(c.getValue(), true),
-    }),
-    tradeCol.accessor((t) => t.realised_fifo_cents ?? 0, {
-      id: 'realised',
-      header: 'Realised',
-      sortFn: 'basic',
-      meta: { align: 'right', priority: 3 },
-      cell: (c) =>
-        c.row.original.realised_fifo_cents === null ? (
-          '—'
-        ) : (
-          <Text span inherit c={c.getValue() >= 0 ? 'green' : 'red'}>
-            {signedEurDe(c.getValue())}
-          </Text>
-        ),
-    }),
-  ]
-  return (
-    <BasaltDataTable
-      title="Trades"
-      subtitle="Read from the settlement documents; ≈ marks a quantity that is an estimate."
-      data={[...trades]}
-      columns={columns}
-      getRowId={(t) => String(t.id)}
-      query={query}
-      skeletonRows={3}
-      emptyState="No trades in this instrument."
-      initialSorting={[{ id: 'booked_on', desc: true }]}
-      renderCard={(t) => (
-        <Stack gap={2}>
-          <Group justify="space-between" wrap="nowrap" gap="sm">
-            <Text size="sm" fw={500}>
-              {isoDayDe(t.booked_on)} · {t.side === 'buy' ? 'Buy' : 'Sell'}
-            </Text>
-            <Text size="sm">{eurDe(t.amount_cents, true)}</Text>
-          </Group>
-          <Text size="xs" c="dimmed">
-            {t.quantity === null
-              ? 'quantity unknown'
-              : `${t.quantity_source === 'estimated' ? '≈ ' : ''}${quantityText(t.quantity)} units`}
-            {t.price === null ? '' : ` at ${priceText(t.price)}`}
-            {t.price_usd === null ? '' : ` (${priceText(t.price_usd)} $)`}
-          </Text>
-        </Stack>
-      )}
-    />
-  )
-}
-
-function OrdersSection({
-  isin,
-  orders,
-  query,
-  onAdd,
-}: {
-  isin: string
-  orders: readonly DepotOrder[]
-  query: ReturnType<typeof useOpenOrders>
-  onAdd: () => void
-}) {
-  const writes = useOrderWrites()
-  const close = (order: DepotOrder, as: 'executed' | 'cancelled' | 'expired') =>
-    writes.close(order.id, { as }).catch(reportWriteError)
-  const columns = [
-    orderCol.accessor('side', {
-      header: 'Order',
-      cell: (c) => {
-        const o = c.row.original
-        return `${o.side === 'buy' ? 'Buy' : 'Sell'} ${o.type}`
-      },
-    }),
-    orderCol.accessor('quantity', {
-      header: 'Units',
-      meta: { align: 'right' },
-      cell: (c) => quantityText(c.getValue()),
-    }),
-    orderCol.accessor((o) => (o.type === 'stop' ? o.stop_price : o.limit_price) ?? 0, {
-      id: 'price',
-      header: 'Price',
-      meta: { align: 'right' },
-      cell: (c) => (c.getValue() === 0 ? 'Market' : priceText(c.getValue())),
-    }),
-    orderCol.accessor((o) => o.valid_until ?? '', {
-      id: 'valid',
-      header: 'Valid until',
-      meta: { priority: 2 },
-      cell: (c) => {
-        const o = c.row.original
-        if (o.valid_until === null) return '—'
-        return o.overdue ? `${isoDayDe(o.valid_until)} · past, close it` : isoDayDe(o.valid_until)
-      },
-    }),
-  ]
-  return (
-    <Section
-      title="Open orders"
-      subtitle="Kept by hand: ING has no interface for orders. Nothing here reaches the bank."
-      actions={[{ key: 'add', label: 'Add order', onClick: onAdd, mobile: 'bar' }]}
-    >
-      <BasaltDataTable
-        data={[...orders]}
-        columns={columns}
-        getRowId={(o) => String(o.id)}
-        query={query}
-        skeletonRows={2}
-        emptyState={`No open orders in ${isin}.`}
-        rowLabel={(o) => `${o.side} ${o.type} order`}
-        renderCard={(o) => (
-          <Stack gap={2}>
-            <Text size="sm" fw={500}>
-              {o.side === 'buy' ? 'Buy' : 'Sell'} {o.type}
-              {o.type === 'market'
-                ? ''
-                : ` at ${priceText((o.type === 'stop' ? o.stop_price : o.limit_price) ?? 0)}`}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {quantityText(o.quantity)} units
-              {o.valid_until === null
-                ? ''
-                : ` · until ${isoDayDe(o.valid_until)}${o.overdue ? ', past: close it' : ''}`}
-            </Text>
-          </Stack>
-        )}
-        rowActions={[
-          {
-            key: 'executed',
-            label: 'Close as executed',
-            onClick: (o) => void close(o, 'executed'),
-          },
-          {
-            key: 'cancelled',
-            label: 'Close as cancelled',
-            onClick: (o) => void close(o, 'cancelled'),
-          },
-          { key: 'expired', label: 'Close as expired', onClick: (o) => void close(o, 'expired') },
-        ]}
-      />
-    </Section>
   )
 }

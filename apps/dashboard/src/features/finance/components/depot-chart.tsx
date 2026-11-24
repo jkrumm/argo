@@ -137,6 +137,8 @@ export type DepotChartProps = {
   role: ColorRole
   logScale: boolean
   showVolume: boolean
+  /** The bars are the close of a daily series: one line, no candles. */
+  line?: boolean
   /** An index drawn as a line on the same price scale: the scale turns to percent and both start at 0 % at the left edge. */
   compare: CompareLine | null
   onToolChange(tool: DrawTool | null): void
@@ -205,7 +207,13 @@ function selectionOf(
 }
 
 type Engine = {
-  setBars(bars: readonly ChartBar[], viewKey: string, interval: DepotInterval): void
+  /** `asLine`: the bars are closes only (a daily series), so they are drawn as one line and there are no candles. */
+  setBars(
+    bars: readonly ChartBar[],
+    viewKey: string,
+    interval: DepotInterval,
+    asLine: boolean,
+  ): void
   setMarks(marks: readonly TradeMark[]): void
   setLines(lines: readonly PriceLine[]): void
   setTool(tool: DrawTool | null): void
@@ -649,14 +657,14 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   })
 
   return {
-    setBars(next, nextViewKey, interval) {
-      const parts = splitSpliced(next)
+    setBars(next, nextViewKey, interval, asLine) {
+      const parts = asLine ? { own: [], spliced: [...next] } : splitSpliced(next)
       own = parts.own
       spliced = parts.spliced
       allBars = next
-      launch = launchTime(next)
+      launch = asLine ? null : launchTime(next)
       closes = next.map((bar) => ({ time: bar.time, value: bar.close }))
-      const last = own.at(-1)
+      const last = next.at(-1)
       if (last !== undefined) {
         const format = { priceFormat: priceFormat(minMoveOf(last.close)) }
         candles.applyOptions(format)
@@ -789,6 +797,7 @@ const candleColors = (palette: ChartPalette) => ({
 export function DepotChart(props: DepotChartProps) {
   const { bars, interval, currency, trades, lines, storedDrawings, loadedDrawings, tool } = props
   const { role, logScale, showVolume, compare } = props
+  const asLine = props.line === true
   const hostRef = useRef<HTMLDivElement>(null)
   const tipRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<Engine | null>(null)
@@ -840,7 +849,10 @@ export function DepotChart(props: DepotChartProps) {
     }
   }, [])
 
-  useEffect(() => engineRef.current?.setBars(bars, viewKey, interval), [bars, viewKey, interval])
+  useEffect(
+    () => engineRef.current?.setBars(bars, viewKey, interval, asLine),
+    [bars, viewKey, interval, asLine],
+  )
   useEffect(() => engineRef.current?.setMarks(marks), [marks])
   useEffect(() => engineRef.current?.setLines(lines), [lines])
   useEffect(() => engineRef.current?.setTool(tool), [tool])
@@ -877,7 +889,7 @@ export function DepotChart(props: DepotChartProps) {
 
   const index = bars.findIndex((bar) => bar.time === (hover?.time ?? bars.at(-1)?.time))
   const shown = bars[index]
-  const spliced = bars.some((bar) => bar.source === 'index')
+  const spliced = !asLine && bars.some((bar) => bar.source === 'index')
 
   // The card of a bar's trades: under the pointer while it is on a marker, and where a tap or click pinned it.
   const cardAt =
@@ -918,7 +930,9 @@ export function DepotChart(props: DepotChartProps) {
             {barLabel(shown.time)}
           </Text>
           <Text size="xs" className={classes.mono}>
-            {shown.source === 'index' ? (
+            {asLine ? (
+              <>Close {priceText(shown.close)}</>
+            ) : shown.source === 'index' ? (
               <>Index {priceText(shown.close)}</>
             ) : (
               <>

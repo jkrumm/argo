@@ -1,7 +1,12 @@
-/* The watchlist panel beside the depot chart: tabs and search above the rows of the active tab. */
+/* The tabs across the page and the sidebar of the active tab beside the main area. */
 
-.panel {
+.tabStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--vx-space-control-gap);
   min-width: 0;
+  padding-block-end: var(--vx-space-stack-xs);
+  border-block-end: 1px solid var(--vx-divider);
 }
 
 .tabScroll {
@@ -23,6 +28,14 @@
   background: var(--vx-surface-row-selected);
 }
 
+.panel {
+  min-width: 0;
+}
+
+.rows {
+  min-width: 0;
+}
+
 .name {
   min-width: 0;
   overflow: hidden;
@@ -31,7 +44,7 @@
 }
 
 .results {
-  max-height: 18rem;
+  max-height: 20rem;
 }
 
 .hit {
@@ -50,20 +63,25 @@
   background: var(--vx-surface-row-hover);
 }
 
-/* The narrow container shows two columns; a wide one (the 15rem column of the page) one. */
+.groupHeader {
+  padding-block: var(--vx-space-stack-xs) 2px;
+  padding-inline: var(--vx-space-stack-sm);
+}
+
+/* The narrow container shows two columns of rows above the chart; a wide one (the column beside it) shows one. */
 .scroll {
-  max-height: 10rem;
+  max-height: 16rem;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--vx-space-stack-xs);
+  gap: 2px;
 }
 
 @container (min-width: 800px) {
   .scroll {
-    max-height: 36rem;
+    max-height: 40rem;
   }
 
   .grid {
@@ -73,41 +91,74 @@
 
 .row {
   position: relative;
+  display: flex;
+  align-items: stretch;
   min-width: 0;
+  border-radius: var(--vx-radius-ctrl);
 }
 
-/* Rename and remove show on hover or focus; a touch screen has no hover, so they stay. */
-.actions {
-  position: absolute;
-  top: var(--vx-space-stack-xs);
-  right: var(--vx-space-stack-xs);
-  padding-inline-start: var(--vx-space-stack-xs);
-  border-radius: var(--vx-radius-ctrl);
-  background: var(--vx-surface-row-hover);
+/* Where a dragged row would land: a rule on the side of the row it goes to. */
+.row[data-drop='before'] {
+  box-shadow: inset 0 2px 0 var(--vx-accent);
+}
+
+.row[data-drop='after'] {
+  box-shadow: inset 0 -2px 0 var(--vx-accent);
+}
+
+.row[data-dragging='true'] {
+  opacity: 0.45;
+}
+
+/* The grip shows on hover or focus; a touch screen has no hover, so it stays (and the menu moves rows too). */
+.handle {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding-inline: 2px;
+  color: var(--vx-muted);
+  cursor: grab;
   opacity: 0;
 }
 
-.row:hover .actions,
-.row:focus-within .actions {
+.handle:active {
+  cursor: grabbing;
+}
+
+.row:hover .handle,
+.row:focus-within .handle {
+  opacity: 0.7;
+}
+
+@media (hover: none) {
+  .handle {
+    opacity: 0.5;
+  }
+}
+
+.more {
+  position: absolute;
+  inset-block-start: var(--vx-space-stack-xs);
+  inset-inline-end: var(--vx-space-stack-xs);
+  opacity: 0;
+}
+
+.row:hover .more,
+.row:focus-within .more {
   opacity: 1;
 }
 
 @media (hover: none) {
-  .actions {
+  .more {
     opacity: 1;
-  }
-
-  .row .head {
-    /* theme-allow inline-spacing — the width of the two row icons that never hide on touch, not a gap */
-    padding-inline-end: 3.4rem;
   }
 }
 
 .item {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 2px;
-  width: 100%;
   min-width: 0;
   padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
   border-radius: var(--vx-radius-ctrl);
@@ -128,6 +179,8 @@
   justify-content: space-between;
   gap: var(--vx-space-stack-xs);
   min-width: 0;
+  /* theme-allow inline-spacing — the width of the options button that sits over the row's right edge, not a gap */
+  padding-inline-end: 1.5rem;
 }
 
 .figures {

@@ -47,6 +47,7 @@ const bar = (time: number, close = 10): ChartBar => ({
   close,
   units: null,
   turnover: null,
+  source: null,
 })
 const day = (d: string) => dayToSeconds(d)
 

@@ -1,0 +1,9 @@
+/* The point a context menu opens at: nothing to see, only a place for the menu to attach to. */
+.anchor {
+  position: fixed;
+  inset-inline-start: var(--menu-x, 0);
+  inset-block-start: var(--menu-y, 0);
+  inline-size: 0;
+  block-size: 0;
+  pointer-events: none;
+}

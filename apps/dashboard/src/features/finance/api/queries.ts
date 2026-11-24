@@ -1,11 +1,12 @@
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
-import { FINANCE_DATA, financeGet } from './client'
+import { FINANCE_DATA, FinanceApiError, financeGet } from './client'
 import type {
   CandlesResponse,
   CategoryMonth,
   ChartDrawings,
   DepotOrder,
   DepotPositions,
+  DepotStats,
   DepotTrade,
   WatchlistEntry,
   Holdings,
@@ -205,6 +206,17 @@ export const useDepotTrades = (isin: string | null) =>
     queryFn: () => financeGet<DepotTrade[]>('/depot/trades', { isin: isin ?? undefined }),
     enabled: isin !== null,
     staleTime: Number.POSITIVE_INFINITY,
+  })
+
+/** What an instrument has made over all time. A 404 is an instrument with no trade: the page says so, it is no failure. */
+export const useDepotStats = (isin: string | null) =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'stats', isin],
+    queryFn: () => financeGet<DepotStats>('/depot/stats', { isin: isin ?? undefined }),
+    enabled: isin !== null,
+    staleTime: 60_000,
+    retry: (count, error) =>
+      !(error instanceof FinanceApiError && error.status === 404) && count < 2,
   })
 
 export const ORDERS_KEY = [...DEPOT_KEY, 'orders'] as const
