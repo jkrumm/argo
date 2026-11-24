@@ -295,7 +295,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let own: readonly ChartBar[] = []
   let spliced: readonly ChartBar[] = []
   let launch: number | null = null
-  /** The instrument's own closes as a line's points: the base of its change over the visible range. */
+  /** The instrument's closes, a spliced index's included, as a line's points: its change over the visible range, over the span the index line covers. */
   let closes: readonly LevelPoint[] = []
 
   /** An open order within reach of the price stays on screen: the scale stretches to hold its line. */
@@ -655,7 +655,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       spliced = parts.spliced
       allBars = next
       launch = launchTime(next)
-      closes = own.map((bar) => ({ time: bar.time, value: bar.close }))
+      closes = next.map((bar) => ({ time: bar.time, value: bar.close }))
       const last = own.at(-1)
       if (last !== undefined) {
         const format = { priceFormat: priceFormat(minMoveOf(last.close)) }

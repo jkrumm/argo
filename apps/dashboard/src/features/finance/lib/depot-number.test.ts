@@ -68,6 +68,7 @@ describe('parseDecimal', () => {
     expect(parseDecimal('150.5')).toBe(150.5)
     expect(parseDecimal('4.81')).toBe(4.81)
     expect(parseDecimal('0.5')).toBe(0.5)
+    expect(parseDecimal('0.125')).toBe(0.125)
   })
   test('a currency sign and spaces are ignored', () => {
     expect(parseDecimal(' 182,40 € ')).toBe(182.4)

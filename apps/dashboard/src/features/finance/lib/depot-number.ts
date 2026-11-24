@@ -82,8 +82,8 @@ export const dayDe = (seconds: number): string => day.format(new Date(seconds * 
 
 /**
  * A price typed by the owner. A comma is the decimal separator and dots are grouping (`95.000,5`); without a
- * comma, a dot followed by exactly three digits per group is a thousands separator (`95.000`) and any other dot
- * is a decimal point (`150.5`). `null` for nothing or something that is not a positive number.
+ * comma, a dot followed by exactly three digits per group is a thousands separator (`95.000`, never after a
+ * leading zero) and any other dot is a decimal point (`150.5`, `0.125`). `null` for nothing or something that is not a positive number.
  */
 export function parseDecimal(text: string): number | null {
   const typed = text.replaceAll(/[\s€$]/g, '')
@@ -92,7 +92,7 @@ export function parseDecimal(text: string): number | null {
   if (typed.includes(',')) {
     if (typed.split(',').length > 2) return null
     plain = typed.replaceAll('.', '').replace(',', '.')
-  } else if (/^\d{1,3}(\.\d{3})+$/.test(typed)) {
+  } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(typed)) {
     plain = typed.replaceAll('.', '')
   } else {
     plain = typed
