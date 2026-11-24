@@ -1,13 +1,13 @@
 import HyperDX from '@hyperdx/browser'
 import { HYPERDX_BLOCK_CLASS, HYPERDX_IGNORE_URLS } from './hyperdx-options'
-import { installStaleBuildRecovery } from './stale-build'
+import { installStaleBuildRecovery, sessionStore } from './stale-build'
 
 // Self-initializing side-effect module — patches window.fetch on import.
 // Must be the FIRST import in main.tsx so the fetch patch is in place
 // before Eden Treaty or TanStack Query capture the original fetch.
 if (typeof window !== 'undefined') {
   // Before HyperDX.init: this window capture listener must run ahead of HyperDX's document one.
-  installStaleBuildRecovery(window, window.sessionStorage)
+  installStaleBuildRecovery(window, sessionStore(window))
 
   const apiKey = import.meta.env['VITE_HYPERDX_API_KEY']
   if (apiKey) {

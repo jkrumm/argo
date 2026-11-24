@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   installStaleBuildRecovery,
   isBuildAssetLink,
+  sessionStore,
   STALE_BUILD_GUARD_MS,
   STALE_BUILD_RELOAD_KEY,
 } from './stale-build'
@@ -67,6 +68,25 @@ describe('isBuildAssetLink', () => {
       isBuildAssetLink({ tagName: 'LINK', rel: 'stylesheet', href: 'https://fonts.example/a.css' }),
     ).toBe(false)
     expect(isBuildAssetLink(null)).toBe(false)
+  })
+})
+
+describe('sessionStore', () => {
+  test('returns the real storage when it is readable', () => {
+    const storage = { getItem: () => null, setItem: () => {} }
+    expect(sessionStore({ sessionStorage: storage })).toBe(storage)
+  })
+
+  test('falls back to an in-memory store when storage access throws', () => {
+    const win = {
+      get sessionStorage(): never {
+        throw new DOMException('blocked', 'SecurityError')
+      },
+    }
+    const store = sessionStore(win)
+    expect(store.getItem('k')).toBeNull()
+    store.setItem('k', '1')
+    expect(store.getItem('k')).toBe('1')
   })
 })
 

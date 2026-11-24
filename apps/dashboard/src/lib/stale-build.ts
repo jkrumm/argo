@@ -28,6 +28,19 @@ export function isBuildAssetLink(target: unknown): boolean {
   return (link.href ?? '').includes('/assets/')
 }
 
+/** `sessionStorage` throws on access where storage is blocked; the guard then lives in memory only. */
+export function sessionStore(win: { sessionStorage: Store }): Store {
+  try {
+    return win.sessionStorage
+  } catch {
+    const memory = new Map<string, string>()
+    return {
+      getItem: (key) => memory.get(key) ?? null,
+      setItem: (key, value) => void memory.set(key, value),
+    }
+  }
+}
+
 export function installStaleBuildRecovery(
   win: Target,
   store: Store,
