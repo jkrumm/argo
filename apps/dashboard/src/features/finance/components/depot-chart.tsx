@@ -11,6 +11,7 @@ import {
   PriceScaleMode,
 } from 'lightweight-charts'
 import type {
+  AutoscaleInfo,
   IChartApi,
   IPriceLine,
   ISeriesApi,
@@ -42,6 +43,7 @@ import {
   launchTime,
   markGroups,
   marksByBar,
+  changeFrom,
   priceText,
   signedPercent,
   splitSpliced,
@@ -56,10 +58,13 @@ import type {
   ColorRole,
   DepotInterval,
   DrawingsDocument,
+  LevelPoint,
   PriceLine,
+  RangeChange,
   Timeframe,
   TradeMark,
 } from '../lib/depot-chart'
+import { compactDe, dayDe, percentDe, priceDe, priceDigits } from '../lib/depot-number'
 import classes from './depot-chart.module.css'
 
 /**
@@ -132,26 +137,31 @@ export type DepotChartProps = {
   role: ColorRole
   logScale: boolean
   showVolume: boolean
+  /** An index drawn as a line on the same price scale: the scale turns to percent and both start at 0 % at the left edge. */
+  compare: CompareLine | null
   onToolChange(tool: DrawTool | null): void
   onSelectionChange(selection: DepotSelection): void
   /** Every change of the drawings, with the library's export and the entries it could not read. */
   onDrawingsChange(document: DrawingsDocument): void
   /** The timeframe the visible range matches, or null after a zoom to something else. */
   onTimeframeChange(timeframe: Timeframe | null): void
+  /** How the instrument and the compared index changed over the visible range; null without a comparison. */
+  onRangeChange(change: RangeChange | null): void
   ref?: Ref<DepotChartHandle>
 }
 
-const dayFull = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'UTC',
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-})
-
-const asDate = (time: number) => new Date(time * 1000)
+/** The compared index: its name and its levels on the chart's bar times. */
+export type CompareLine = { name: string; points: readonly LevelPoint[] }
 
 /** A bar's time as the readout and the crosshair label write it. */
-const barLabel = (time: number): string => dayFull.format(asDate(time))
+const barLabel = dayDe
+
+/** The smallest step of the price axis for a price: its own precision. */
+const minMoveOf = (price: number): number => 10 ** -priceDigits(price)
+
+/** The price axis and crosshair write prices by magnitude, German style. */
+const priceFormat = (minMove: number) =>
+  ({ type: 'custom', formatter: (price: number) => priceDe(price), minMove }) as const
 
 const solid = (role: ColorRole, palette: ChartPalette) =>
   role === 'buy'
@@ -201,6 +211,7 @@ type Engine = {
   setTool(tool: DrawTool | null): void
   setRole(role: ColorRole): void
   setLog(on: boolean): void
+  setCompare(compare: CompareLine | null): void
   setVolume(on: boolean): void
   setTimeframe(timeframe: Timeframe): void
   loadDrawings(stored: unknown): void
@@ -218,6 +229,7 @@ type Callbacks = {
   onSelectionChange(selection: DepotSelection): void
   onDrawingsChange(document: DrawingsDocument): void
   onTimeframeChange(timeframe: Timeframe | null): void
+  onRangeChange(change: RangeChange | null): void
 }
 
 function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
@@ -230,6 +242,10 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let quiet = false
   let defaultRole: ColorRole = 'accent'
   let alive = true
+  let logOn = false
+  let compare: CompareLine | null = null
+  let other: ISeriesApi<'Line'> | null = null
+  let lastChange = ''
   const roles = new Map<string, ColorRole>()
 
   const chart: IChartApi = createChart(host, {
@@ -246,12 +262,16 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     rightPriceScale: { borderColor: palette.grid },
     // A history of thousands of bars still fits on Max: the library's default minimum (half a pixel) stops short of it.
     timeScale: { borderColor: palette.grid, rightOffset: RIGHT_OFFSET, minBarSpacing: 0.01 },
-    localization: { timeFormatter: (time: Time) => barLabel(Number(time)) },
+    localization: {
+      timeFormatter: (time: Time) => barLabel(Number(time)),
+      // The scale in percent mode (a comparison) reads `+12,3 %`.
+      percentageFormatter: (value: number) => percentDe(value / 100, true),
+    },
     handleScale: { axisPressedMouseMove: true },
   })
   const candles: ISeriesApi<'Candlestick'> = chart.addSeries(
     CandlestickSeries,
-    { priceLineVisible: false, lastValueVisible: true },
+    { priceLineVisible: false, lastValueVisible: true, priceFormat: priceFormat(0.01) },
     0,
   )
   // The tracked index before the instrument's own history: a muted line, never candles.
@@ -263,6 +283,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       priceLineVisible: false,
       lastValueVisible: false,
       crosshairMarkerVisible: false,
+      priceFormat: priceFormat(0.01),
     },
     0,
   )
@@ -274,15 +295,40 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let own: readonly ChartBar[] = []
   let spliced: readonly ChartBar[] = []
   let launch: number | null = null
+  /** The instrument's own closes as a line's points: the base of its change over the visible range. */
+  let closes: readonly LevelPoint[] = []
+
+  /** An open order within reach of the price stays on screen: the scale stretches to hold its line. */
+  const withOrders = (original: () => AutoscaleInfo | null): AutoscaleInfo | null => {
+    const base = original()
+    const last = own.at(-1)?.close
+    if (base === null || base.priceRange === null || last === undefined) return base
+    const prices = lines
+      .filter((line) => line.kind !== 'cost' && line.price > last / 2 && line.price < last * 2)
+      .map((line) => line.price)
+    if (prices.length === 0) return base
+    return {
+      ...base,
+      priceRange: {
+        minValue: Math.min(base.priceRange.minValue, ...prices),
+        maxValue: Math.max(base.priceRange.maxValue, ...prices),
+      },
+    }
+  }
+  candles.applyOptions({ autoscaleInfoProvider: withOrders })
 
   const manager = new DrawingManager(chart, candles, {
     fontFamily: palette.sansFamily,
-    // The range's third figure is its number of bars; say so.
+    // German numbers on the drawings; the range's closing figure is its number of bars.
     formatLabel: (label) => {
       if (label.id === 'bars-range') return `${label.bars} bars`
-      if (label.id !== 'price-range' && label.id !== 'stats-row') return undefined
+      if (label.id === 'price') return priceDe(label.price)
+      if (label.id !== 'price-range') return undefined
       // "4.10 (3.33%) 410": the closing figure is the number of bars.
-      return label.text.replace(/(\)\s+)(\d[\d,.]*)$/, '$1$2 bars')
+      const bars = /(\d+)$/.exec(label.text)?.[1]
+      const change = `${label.change > 0 ? '+' : ''}${priceDe(label.change)}`
+      const percent = label.percent === null ? '' : ` (${percentDe(label.percent / 100, true)})`
+      return `${change}${percent}${bars === undefined ? '' : ` ${bars} bars`}`
     },
     keyboard: false,
     dragToPlace: true,
@@ -330,6 +376,10 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       if (!quiet) emitSelection()
     }),
     manager.on('selection', emitSelection),
+    // One drawing, then the pointer: the next click selects instead of placing another line.
+    manager.on('add', () => {
+      if (!quiet && manager.tool() !== null) manager.setTool(null)
+    }),
     manager.on('tool', (kind) =>
       callbacks.onToolChange(
         kind === 'horizontal-line' || kind === 'vertical-line' || kind === 'price-range'
@@ -357,6 +407,19 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   chart.subscribeCrosshairMove((param) => callbacks.onCrosshair(pointerOf(param)))
   chart.subscribeClick((param) => callbacks.onClick(pointerOf(param)))
 
+  /** The change of both lines over the visible range (each from its first visible bar): what the comparison chip says. */
+  function reportChange(from: number) {
+    const change: RangeChange | null =
+      compare === null
+        ? null
+        : { own: changeFrom(closes, from), other: changeFrom(compare.points, from) }
+    const key = change === null ? '' : `${change.own?.toFixed(4)}:${change.other?.toFixed(4)}`
+    if (key === lastChange) return
+    lastChange = key
+    host.dataset['rangeChange'] = key
+    callbacks.onRangeChange(change)
+  }
+
   // The design shot reads the distance between two bars off the host; the page reads the timeframe off the range.
   let lastFrame: Timeframe | null | undefined
   const reportView = () => {
@@ -375,6 +438,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       lastBar.time,
       firstBar.time,
     )
+    reportChange(allBars[index]?.time ?? firstBar.time)
     host.dataset['timeframe'] = frame ?? ''
     host.dataset['bars'] = String(allBars.length)
     host.dataset['logicalFrom'] = range.from.toFixed(1)
@@ -444,6 +508,10 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         axisLabelVisible: true,
       }),
     )
+    // The scale follows the lines that count: stretch it again for the new set.
+    candles.applyOptions({ autoscaleInfoProvider: withOrders })
+    // The design shot finds the drawn lines by their titles.
+    host.dataset['lines'] = lines.map((line) => line.title).join('|')
     // One marker per bar and side: the count says how many trades it holds. The id lets the pointer name it.
     const trades: SeriesMarker<Time>[] = markGroups(marks).map((group) => {
       const buy = group.side === 'buy'
@@ -519,6 +587,37 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     })
   }
 
+  /** A comparison turns the price scale to percent (each line starts at 0 % at the left edge); else linear or log. */
+  function applyScaleMode() {
+    const mode =
+      compare !== null
+        ? PriceScaleMode.Percentage
+        : logOn
+          ? PriceScaleMode.Logarithmic
+          : PriceScaleMode.Normal
+    chart.priceScale('right', 0).applyOptions({ mode })
+    // The design shot reads the scale off the host.
+    host.dataset['scale'] = compare !== null ? 'percent' : logOn ? 'log' : 'linear'
+  }
+
+  /** The compared index as a line on the candles' own price scale; removed when the comparison ends. */
+  function paintCompare() {
+    if (compare === null) {
+      if (other !== null) chart.removeSeries(other)
+      other = null
+      return
+    }
+    other ??= chart.addSeries(
+      LineSeries,
+      { color: palette.ink, lineWidth: 2, priceLineVisible: false, lastValueVisible: true },
+      0,
+    )
+    other.applyOptions({ title: compare.name })
+    other.setData(
+      compare.points.map((point) => ({ time: point.time as UTCTimestamp, value: point.value })),
+    )
+  }
+
   function applyTheme() {
     palette = readPalette(host)
     chart.applyOptions({
@@ -534,6 +633,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     })
     candles.applyOptions(candleColors(palette))
     splice.applyOptions({ color: palette.text })
+    other?.applyOptions({ color: palette.ink })
     paintData()
     paintOverlays()
     retheme(manager.drawings())
@@ -555,8 +655,16 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       spliced = parts.spliced
       allBars = next
       launch = launchTime(next)
+      closes = own.map((bar) => ({ time: bar.time, value: bar.close }))
+      const last = own.at(-1)
+      if (last !== undefined) {
+        const format = { priceFormat: priceFormat(minMoveOf(last.close)) }
+        candles.applyOptions(format)
+        splice.applyOptions(format)
+      }
       paintData()
       paintOverlays()
+      paintCompare()
       if (viewKey !== nextViewKey) {
         viewKey = nextViewKey
         showFrom(defaultViewStart(next, interval))
@@ -577,17 +685,33 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       defaultRole = role
     },
     setLog(on) {
-      chart.priceScale('right', 0).applyOptions({
-        mode: on ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
-      })
+      logOn = on
+      applyScaleMode()
+    },
+    setCompare(next) {
+      compare = next
+      paintCompare()
+      applyScaleMode()
+      lastChange = ''
+      reportView()
     },
     setVolume(on) {
       if (on && volume === null) {
         volume = chart.addSeries(
           HistogramSeries,
-          { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false },
+          {
+            priceFormat: {
+              type: 'custom',
+              formatter: (value: number) => compactDe(value),
+              minMove: 1,
+            },
+            priceLineVisible: false,
+            lastValueVisible: false,
+          },
           1,
         )
+        // A new pane starts from the chart's own scale options, which a comparison may have turned to percent.
+        chart.priceScale('right', 1).applyOptions({ mode: PriceScaleMode.Normal })
         chart.panes()[0]?.setStretchFactor(4)
         chart.panes()[1]?.setStretchFactor(1)
         paintData()
@@ -664,7 +788,7 @@ const candleColors = (palette: ChartPalette) => ({
 
 export function DepotChart(props: DepotChartProps) {
   const { bars, interval, currency, trades, lines, storedDrawings, loadedDrawings, tool } = props
-  const { role, logScale, showVolume } = props
+  const { role, logScale, showVolume, compare } = props
   const hostRef = useRef<HTMLDivElement>(null)
   const tipRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<Engine | null>(null)
@@ -678,7 +802,8 @@ export function DepotChart(props: DepotChartProps) {
   const byBar = marksByBar(marks)
 
   // The engine calls the latest callbacks of the page, not the ones of the render it was created in.
-  const { onToolChange, onSelectionChange, onDrawingsChange, onTimeframeChange } = props
+  const { onToolChange, onSelectionChange, onDrawingsChange, onTimeframeChange, onRangeChange } =
+    props
   useEffect(() => {
     callbacksRef.current = {
       onCrosshair: setHover,
@@ -692,8 +817,9 @@ export function DepotChart(props: DepotChartProps) {
       onSelectionChange,
       onDrawingsChange,
       onTimeframeChange,
+      onRangeChange,
     }
-  }, [byBar, onToolChange, onSelectionChange, onDrawingsChange, onTimeframeChange])
+  }, [byBar, onToolChange, onSelectionChange, onDrawingsChange, onTimeframeChange, onRangeChange])
 
   useEffect(() => {
     const host = hostRef.current
@@ -705,6 +831,7 @@ export function DepotChart(props: DepotChartProps) {
       onSelectionChange: (selection) => callbacksRef.current?.onSelectionChange(selection),
       onDrawingsChange: (document) => callbacksRef.current?.onDrawingsChange(document),
       onTimeframeChange: (frame) => callbacksRef.current?.onTimeframeChange(frame),
+      onRangeChange: (change) => callbacksRef.current?.onRangeChange(change),
     })
     engineRef.current = engine
     return () => {
@@ -719,6 +846,17 @@ export function DepotChart(props: DepotChartProps) {
   useEffect(() => engineRef.current?.setTool(tool), [tool])
   useEffect(() => engineRef.current?.setRole(role), [role])
   useEffect(() => engineRef.current?.setLog(logScale), [logScale])
+  // After the bars: the comparison's points sit on the bars' times. The page builds the line on every render, so the
+  // effect follows what identifies it, not the object: a new identity per render would repaint and report forever.
+  const compareKey =
+    compare === null
+      ? ''
+      : `${compare.name}:${compare.points.length}:${compare.points.at(0)?.time}:${compare.points.at(-1)?.time}:${bars.length}`
+  useEffect(
+    () => engineRef.current?.setCompare(compare),
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [compareKey],
+  )
   useEffect(() => engineRef.current?.setVolume(showVolume), [showVolume])
   useEffect(() => {
     if (loadedDrawings) engineRef.current?.loadDrawings(storedDrawings)

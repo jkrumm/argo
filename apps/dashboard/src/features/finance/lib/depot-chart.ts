@@ -6,7 +6,16 @@ import type {
   SeriesResponse,
   WatchlistEntry,
 } from '../api/types'
-import { eurExact, signedEur } from './format'
+import {
+  dayDe,
+  eurDe,
+  levelDe,
+  moneyDe,
+  percentDe,
+  priceDe,
+  quantityDe,
+  signedEurDe,
+} from './depot-number'
 
 /** The bar intervals the page offers and the service knows: there is no intraday. */
 export type DepotInterval = '1d' | '1w' | '1mo'
@@ -62,44 +71,68 @@ export const daysBefore = (day: string, days: number): string =>
   isoDay(Date.parse(`${day}T00:00:00Z`) - days * DAY_MS)
 
 /** An index level: points, no unit, so one decimal at most and a thousands separator. */
-export const levelText = (level: number): string =>
-  level.toLocaleString('en-US', {
-    minimumFractionDigits: level < 1000 ? 1 : 0,
-    maximumFractionDigits: level < 1000 ? 1 : 0,
-  })
+export const levelText = levelDe
 
 /** How old an index level may be and still stand for a day: a holiday gap, not a stale series. */
 const MAX_STALE_DAYS = 10
 
-/** One day of the comparison: both lines rebased to 100 on the first common day. */
-export type RebasedRow = { day: string; etf: number; index: number }
+/** One point of the compared index, on a bar time of the chart. */
+export type LevelPoint = { time: number; value: number }
 
 /**
- * The selected instrument and an index on one scale: 100 at the first day both have a value. A bar's
- * index value is the last level on or before its day (an exchange holiday is not an index holiday and
- * the other way round), as long as that level is at most ten days old. `points` ascend by day.
+ * The compared index as a line on the chart's own bar times: each bar takes the last level on or before its day
+ * (an exchange holiday is not an index holiday and the other way round), as long as that level is at most ten
+ * days old. A line on bar times keeps week and month charts evenly spaced. `points` ascend by day.
  */
-export function rebasedPair(
-  bars: readonly ChartBar[],
+export function levelsAtBars(
+  bars: readonly { time: number }[],
   points: SeriesResponse['points'],
-): RebasedRow[] {
-  const rows: { day: string; etf: number; index: number }[] = []
+): LevelPoint[] {
+  const out: LevelPoint[] = []
   let at = -1
   for (const bar of bars) {
     const day = isoDay(bar.time * 1000)
     while (points[at + 1] !== undefined && (points[at + 1]?.day ?? '') <= day) at++
     const level = points[at]
     if (level === undefined || level.day < daysBefore(day, MAX_STALE_DAYS)) continue
-    rows.push({ day, etf: bar.close, index: level.value })
+    out.push({ time: bar.time, value: level.value })
   }
-  const [first] = rows
-  if (first === undefined || first.etf === 0 || first.index === 0) return []
-  return rows.map((row) => ({
-    day: row.day,
-    etf: (row.etf / first.etf) * 100,
-    index: (row.index / first.index) * 100,
-  }))
+  return out
 }
+
+/** How a comparison reads over the visible range: each side's change from its first visible value to the newest. */
+export type RangeChange = { own: number | null; other: number | null }
+
+/** The change of a series over the points from `from` on, as a fraction; null with fewer than two points or a zero start. */
+export function changeFrom(
+  points: readonly { time: number; value: number }[],
+  from: number,
+): number | null {
+  const visible = points.filter((point) => point.time >= from)
+  const first = visible[0]
+  const last = visible.at(-1)
+  if (first === undefined || last === undefined || visible.length < 2 || first.value === 0) {
+    return null
+  }
+  return last.value / first.value - 1
+}
+
+/** The highest price of an instrument's own history and the day it was reached. */
+export type AllTimeHigh = { price: number; time: number }
+
+/** The all-time high of the day bars' highs, own bars only (a spliced index does not count); the first day it was reached. */
+export function allTimeHigh(bars: readonly ChartBar[]): AllTimeHigh | null {
+  let best: AllTimeHigh | null = null
+  for (const bar of bars) {
+    if (bar.source === 'index') continue
+    if (best === null || bar.high > best.price) best = { price: bar.high, time: bar.time }
+  }
+  return best
+}
+
+/** The distance of the last close from the all-time high, as a fraction (negative below it). */
+export const distanceFromHigh = (close: number, high: number): number | null =>
+  high > 0 ? close / high - 1 : null
 
 // ---- Timeframes, the spliced history, defaults ---------------------------------------------------
 
@@ -285,18 +318,7 @@ export function markGroups(marks: readonly TradeMark[]): MarkGroup[] {
   return [...groups.values()].toSorted((a, b) => a.time - b.time)
 }
 
-const quantityOf = (n: number): string => n.toLocaleString('en-US', { maximumFractionDigits: 4 })
-
-/** A price in dollars, the way the chart reads one. */
-const usdText = (price: number): string =>
-  `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
-const dayLabel = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'UTC',
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-})
+const quantityOf = quantityDe
 
 /** One line of a trade card: a caption, its value and, where the figure is good or bad news, its tone. */
 export type TradeCardRow = { label: string; value: string; tone?: 'good' | 'bad' }
@@ -327,17 +349,17 @@ export function tradeCards(marks: readonly TradeMark[], usd: boolean): TradeCard
             ? 'unknown'
             : `${mark.estimated ? '≈ ' : ''}${quantityOf(trade.quantity)}`,
       },
-      { label: 'Price', value: trade.price === null ? '—' : `€${priceText(trade.price)}` },
+      { label: 'Price', value: trade.price === null ? '—' : `${priceText(trade.price)} €` },
       ...(usd && trade.price_usd !== null
-        ? [{ label: 'Price (USD)', value: usdText(trade.price_usd) }]
+        ? [{ label: 'Price (USD)', value: `${priceText(trade.price_usd)} $` }]
         : []),
-      { label: 'Amount', value: eurExact(trade.amount_cents) },
-      ...(trade.fee_cents === null ? [] : [{ label: 'Fee', value: eurExact(trade.fee_cents) }]),
+      { label: 'Amount', value: eurDe(trade.amount_cents, true) },
+      ...(trade.fee_cents === null ? [] : [{ label: 'Fee', value: eurDe(trade.fee_cents, true) }]),
       ...(trade.side === 'sell' && trade.realised_fifo_cents !== null
         ? [
             {
               label: 'Realised gain',
-              value: signedEur(trade.realised_fifo_cents),
+              value: signedEurDe(trade.realised_fifo_cents),
               tone: trade.realised_fifo_cents >= 0 ? ('good' as const) : ('bad' as const),
             },
           ]
@@ -347,7 +369,7 @@ export function tradeCards(marks: readonly TradeMark[], usd: boolean): TradeCard
     return {
       id: trade.id,
       side: trade.side,
-      title: `${trade.side === 'buy' ? 'Bought' : 'Sold'} · ${dayLabel.format(new Date(dayToSeconds(trade.booked_on) * 1000))}`,
+      title: `${trade.side === 'buy' ? 'Bought' : 'Sold'} · ${dayDe(dayToSeconds(trade.booked_on))}`,
       rows,
     }
   })
@@ -361,16 +383,24 @@ export type PriceLine = {
   kind: 'order-buy' | 'order-sell' | 'cost'
 }
 
-const trimmed = (n: number): string => n.toLocaleString('en-US', { maximumFractionDigits: 4 })
+const SIDE_WORD = { buy: 'Buy', sell: 'Sell' } as const
 
-/** An open order as a line; a market order has no price and so no line. */
-export function orderLine(order: DepotOrder): PriceLine | null {
+/**
+ * An open order as a line; a market order has no price and so no line. Prices are euros: with `usdPerEur` the line
+ * sits at the converted dollar price of a dollar chart and its label names both amounts.
+ */
+export function orderLine(order: DepotOrder, usdPerEur?: number | null): PriceLine | null {
   const price = order.type === 'stop' ? order.stop_price : order.limit_price
   if (order.status !== 'open' || price === null) return null
+  const dollars = usdPerEur === undefined || usdPerEur === null ? null : price * usdPerEur
+  const amount =
+    dollars === null
+      ? moneyDe(price, 'EUR')
+      : `${moneyDe(price, 'EUR')} (${moneyDe(dollars, 'USD')})`
   return {
     id: `order-${order.id}`,
-    price,
-    title: `${order.side === 'buy' ? 'Buy' : 'Sell'} ${trimmed(order.quantity)} ${order.type}`,
+    price: dollars ?? price,
+    title: `${SIDE_WORD[order.side]} ${order.type} ${amount}`,
     kind: order.side === 'buy' ? 'order-buy' : 'order-sell',
   }
 }
@@ -382,7 +412,7 @@ export function costLine(position: DepotPosition | undefined): PriceLine | null 
   return {
     id: 'cost',
     price: perUnit,
-    title: `Average cost ${trimmed(Math.round(perUnit * 100) / 100)}`,
+    title: `Average cost ${moneyDe(perUnit, 'EUR')}`,
     kind: 'cost',
   }
 }
@@ -419,7 +449,7 @@ export function costLineUsd(
   return {
     id: 'cost',
     price: perUnit,
-    title: `Average cost $${trimmed(Math.round(perUnit * 100) / 100)}`,
+    title: `Average cost ${moneyDe(perUnit, 'USD')}`,
     kind: 'cost',
   }
 }
@@ -472,18 +502,12 @@ export function mergedPosition(positions: readonly DepotPosition[]): DepotPositi
   }
 }
 
-/** A fraction as a signed percent with a real minus sign; `—` when there is none. */
+/** A fraction as a signed percent with a real minus sign: `+5,1 %`, `−18,3 %`; `—` when there is none. */
 export const signedPercent = (fraction: number | null | undefined): string =>
-  fraction === null || fraction === undefined
-    ? '—'
-    : `${fraction >= 0 ? '+' : '−'}${(Math.abs(fraction) * 100).toFixed(2)} %`
+  fraction === null || fraction === undefined ? '—' : percentDe(fraction, true)
 
-/** A price as the chart reads it: two decimals, four below 1. */
-export const priceText = (price: number): string =>
-  price.toLocaleString('en-US', {
-    minimumFractionDigits: Math.abs(price) < 1 ? 4 : 2,
-    maximumFractionDigits: Math.abs(price) < 1 ? 4 : 2,
-  })
+/** A price as the chart reads it: by magnitude, German grouping and decimals. */
+export const priceText = priceDe
 
 /** The change of a bar's close against the close before it, as a fraction. */
 export function changeOf(bars: readonly ChartBar[], index: number): number | null {

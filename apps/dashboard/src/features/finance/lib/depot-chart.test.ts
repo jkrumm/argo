@@ -4,13 +4,16 @@ import {
   barOfDay,
   activeTimeframe,
   buildDrawingsDocument,
+  allTimeHigh,
   candleWindow,
+  changeFrom,
   changeOf,
   costLine,
   costLineUsd,
   dayToSeconds,
   defaultViewStart,
   depotInterval,
+  distanceFromHigh,
   firstBarFrom,
   hasTurnover,
   heldRows,
@@ -23,7 +26,8 @@ import {
   orderLine,
   pickInstrument,
   rangeStart,
-  rebasedPair,
+  levelsAtBars,
+  signedPercent,
   splitSpliced,
   storedEntries,
   storedRoles,
@@ -184,12 +188,12 @@ describe('tradeCards', () => {
       ],
       true,
     )
-    expect(card?.title).toBe('Bought · 03 Nov 2026')
-    expect(value(card?.rows ?? [], 'Units')).toBe('0.5')
-    expect(value(card?.rows ?? [], 'Price')).toBe('€64,000.00')
-    expect(value(card?.rows ?? [], 'Price (USD)')).toBe('$67,200.00')
-    expect(value(card?.rows ?? [], 'Amount')).toBe('€32,000.00')
-    expect(value(card?.rows ?? [], 'Fee')).toBe('€4.90')
+    expect(card?.title).toBe('Bought · 03.11.2026')
+    expect(value(card?.rows ?? [], 'Units')).toBe('0,5')
+    expect(value(card?.rows ?? [], 'Price')).toBe('64.000 €')
+    expect(value(card?.rows ?? [], 'Price (USD)')).toBe('67.200 $')
+    expect(value(card?.rows ?? [], 'Amount')).toBe('32.000,00 €')
+    expect(value(card?.rows ?? [], 'Fee')).toBe('4,90 €')
     expect(value(card?.rows ?? [], 'Realised gain')).toBeUndefined()
   })
   it('marks an estimated quantity and shows the realised gain of a sale with its tone', () => {
@@ -204,7 +208,7 @@ describe('tradeCards', () => {
         realised_fifo_cents: -1_250,
       }),
     ])
-    expect(card?.title).toBe('Sold · 04 Nov 2026')
+    expect(card?.title).toBe('Sold · 04.11.2026')
     expect(value(card?.rows ?? [], 'Units')).toBe('≈ 3')
     expect(card?.rows.some((row) => row.label === 'Fee')).toBe(false)
     expect(card?.rows.find((row) => row.label === 'Realised gain')).toMatchObject({ tone: 'bad' })
@@ -224,11 +228,11 @@ describe('lines', () => {
     expect(orderLine(order({}))).toMatchObject({
       price: 41.5,
       kind: 'order-buy',
-      title: 'Buy 10 limit',
+      title: 'Buy limit 41,5 €',
     })
     expect(
       orderLine(order({ type: 'stop', side: 'sell', stop_price: 38, limit_price: null })),
-    ).toMatchObject({ price: 38, kind: 'order-sell', title: 'Sell 10 stop' })
+    ).toMatchObject({ price: 38, kind: 'order-sell', title: 'Sell stop 38 €' })
   })
   it('draws no line for a market order or a closed one', () => {
     expect(orderLine(order({ type: 'market', limit_price: null }))).toBeNull()
@@ -256,7 +260,7 @@ describe('costLineUsd', () => {
       buy(2, '2026-11-03', 2, 69_000),
     ])
     expect(line?.price).toBeCloseTo(66_000)
-    expect(line?.title).toBe('Average cost $66,000')
+    expect(line?.title).toBe('Average cost 66.000 $')
   })
   it('has no line when a lot has no dollar price, or the position no lots', () => {
     expect(
@@ -364,45 +368,96 @@ describe('rangeStart', () => {
   })
 })
 
-describe('rebasedPair', () => {
+describe('levelsAtBars', () => {
   const point = (d: string, value: number) => ({ day: d, time: day(d), value })
 
-  it('sets both lines to 100 on the first bar that has an index level', () => {
-    const bars = [
-      bar(day('2026-08-18'), 50),
-      bar(day('2026-08-19'), 55),
-      bar(day('2026-08-20'), 45),
-    ]
+  it('gives each bar the last index level on or before its day', () => {
+    const bars = [bar(day('2026-08-18')), bar(day('2026-08-19')), bar(day('2026-08-20'))]
     const points = [point('2026-08-14', 1000), point('2026-08-19', 1100), point('2026-08-20', 1200)]
-    const rows = rebasedPair(bars, points)
-    expect(rows.map((r) => r.day)).toEqual(['2026-08-18', '2026-08-19', '2026-08-20'])
-    expect(rows[0]).toEqual({ day: '2026-08-18', etf: 100, index: 100 })
-    expect(rows[1]?.etf).toBeCloseTo(110)
-    expect(rows[1]?.index).toBeCloseTo(110)
-    expect(rows[2]?.etf).toBeCloseTo(90)
-    expect(rows[2]?.index).toBeCloseTo(120)
+    expect(levelsAtBars(bars, points)).toEqual([
+      { time: day('2026-08-18'), value: 1000 },
+      { time: day('2026-08-19'), value: 1100 },
+      { time: day('2026-08-20'), value: 1200 },
+    ])
   })
 
-  it('carries an index level over a day it has none (an exchange holiday)', () => {
-    const bars = [bar(day('2026-08-18'), 10), bar(day('2026-08-21'), 10)]
+  it('carries a level over a day it has none (an exchange holiday)', () => {
+    const bars = [bar(day('2026-08-18')), bar(day('2026-08-21'))]
     const points = [point('2026-08-18', 100), point('2026-08-19', 104)]
-    expect(rebasedPair(bars, points)[1]?.index).toBeCloseTo(104)
+    expect(levelsAtBars(bars, points)[1]?.value).toBe(104)
   })
 
-  it('starts at the first day the index has a level, skipping the bars before it', () => {
-    const bars = [bar(day('2026-08-10'), 10), bar(day('2026-08-18'), 20)]
-    const rows = rebasedPair(bars, [point('2026-08-18', 500)])
-    expect(rows).toEqual([{ day: '2026-08-18', etf: 100, index: 100 }])
+  it('skips the bars before the index starts', () => {
+    const bars = [bar(day('2026-08-10')), bar(day('2026-08-18'))]
+    expect(levelsAtBars(bars, [point('2026-08-18', 500)])).toEqual([
+      { time: day('2026-08-18'), value: 500 },
+    ])
   })
 
   it('does not stand a stale level in for a day', () => {
-    const bars = [bar(day('2026-09-30'), 10)]
-    expect(rebasedPair(bars, [point('2026-08-18', 500)])).toEqual([])
+    expect(levelsAtBars([bar(day('2026-09-30'))], [point('2026-08-18', 500)])).toEqual([])
   })
 
   it('is empty without bars or levels', () => {
-    expect(rebasedPair([], [point('2026-08-18', 500)])).toEqual([])
-    expect(rebasedPair([bar(day('2026-08-18'), 10)], [])).toEqual([])
+    expect(levelsAtBars([], [point('2026-08-18', 500)])).toEqual([])
+    expect(levelsAtBars([bar(day('2026-08-18'))], [])).toEqual([])
+  })
+})
+
+describe('changeFrom', () => {
+  const pts = [
+    { time: 1, value: 100 },
+    { time: 2, value: 110 },
+    { time: 3, value: 90 },
+  ]
+  it('measures from the first point at or after the left edge to the newest', () => {
+    expect(changeFrom(pts, 1)).toBeCloseTo(-0.1)
+    expect(changeFrom(pts, 2)).toBeCloseTo(90 / 110 - 1)
+  })
+  it('is null with fewer than two points in view', () => {
+    expect(changeFrom(pts, 3)).toBeNull()
+    expect(changeFrom([], 0)).toBeNull()
+  })
+})
+
+describe('allTimeHigh', () => {
+  const ohlc = (time: number, high: number, source?: 'index'): ChartBar => ({
+    ...bar(time, high),
+    high,
+    ...(source !== undefined && { source }),
+  })
+  it('is the highest high of the own bars and the day it was reached', () => {
+    const high = allTimeHigh([ohlc(1, 10), ohlc(2, 30), ohlc(3, 20), ohlc(4, 30)])
+    expect(high).toEqual({ price: 30, time: 2 })
+  })
+  it('ignores the spliced index bars', () => {
+    expect(allTimeHigh([ohlc(1, 99, 'index'), ohlc(2, 10)])).toEqual({ price: 10, time: 2 })
+  })
+  it('is null without own bars', () => {
+    expect(allTimeHigh([])).toBeNull()
+    expect(allTimeHigh([ohlc(1, 5, 'index')])).toBeNull()
+  })
+})
+
+describe('distanceFromHigh and signedPercent', () => {
+  it('reads below the high as a negative fraction', () => {
+    expect(distanceFromHigh(82, 100)).toBeCloseTo(-0.18)
+    expect(distanceFromHigh(100, 100)).toBe(0)
+    expect(distanceFromHigh(1, 0)).toBeNull()
+  })
+  it('writes a percent the German way with a real minus', () => {
+    expect(signedPercent(-0.183)).toBe('−18,3 %')
+    expect(signedPercent(0.0512)).toBe('+5,1 %')
+    expect(signedPercent(null)).toBe('—')
+  })
+})
+
+describe('orderLine in dollars', () => {
+  it('converts a euro limit at the rate and names both amounts', () => {
+    const line = orderLine(order({ side: 'sell', limit_price: 182 }), 1.08)
+    expect(line?.price).toBeCloseTo(196.56)
+    expect(line?.title).toBe('Sell limit 182 € (196,56 $)')
+    expect(line?.kind).toBe('order-sell')
   })
 })
 

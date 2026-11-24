@@ -34,6 +34,7 @@ import type {
 } from '../api/types'
 import { eur } from '../lib/format'
 import { heldRows, priceText, signedPercent } from '../lib/depot-chart'
+import { quantityDe } from '../lib/depot-number'
 import type { IndexSeries } from '../lib/index-series'
 import {
   addTargetList,
@@ -227,7 +228,7 @@ export function WatchPanel(props: WatchPanelProps) {
                 </Text>
               </Box>
               <Text span size="xs" c="dimmed">
-                {`${line.quantity.toLocaleString('en-US', { maximumFractionDigits: 4 })} units`}
+                {`${quantityDe(line.quantity)} units`}
               </Text>
             </PickRow>
           ))}

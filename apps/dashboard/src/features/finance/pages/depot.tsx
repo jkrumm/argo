@@ -1,16 +1,8 @@
-import { ActionIcon, Box, Button, Group, Stack, Text } from '@mantine/core'
-import {
-  IconMinus,
-  IconPointer,
-  IconRulerMeasure,
-  IconSeparatorVertical,
-  IconTrash,
-} from '@tabler/icons-react'
+import { Box, Button, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { Section, StatGroup } from 'basalt-ui'
 import type { StatStripCell } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, SelectFilter, ViewTabs } from 'basalt-ui/controls'
-import { date } from 'basalt-ui/format'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { useRef, useState } from 'react'
 import { reportWriteError, useOrderWrites } from '../api/mutations'
@@ -18,6 +10,7 @@ import {
   useCandles,
   useDepotTrades,
   useDrawings,
+  useIndexSeries,
   useOpenOrders,
   usePositions,
   useSeriesCatalog,
@@ -25,21 +18,32 @@ import {
 } from '../api/queries'
 import type { DepotOrder, DepotTrade, WatchlistEntry } from '../api/types'
 import { DepotChart, SPLICE_LABEL } from '../components/depot-chart'
-import type { DepotChartHandle, DepotSelection, DrawTool } from '../components/depot-chart'
-import { DrawingStyleBar } from '../components/drawing-style-bar'
+import type {
+  CompareLine,
+  DepotChartHandle,
+  DepotSelection,
+  DrawTool,
+} from '../components/depot-chart'
+import { ComparePopover } from '../components/compare-popover'
+import { DrawToolbar } from '../components/draw-toolbar'
+import { DrawingEditor } from '../components/drawing-editor'
 import { FinanceBar } from '../components/finance-bar'
-import { IndexHistoryCard, IndexOverlayCard } from '../components/index-charts'
+import { IndexHistoryCard } from '../components/index-charts'
 import { NoDataState } from '../components/no-data-state'
 import { OrderModal } from '../components/order-modal'
 import { WatchPanel } from '../components/watch-panel'
 import classes from '../components/depot.module.css'
 import {
+  allTimeHigh,
   costLine,
   costLineUsd,
+  daysBefore,
   depotInterval,
+  distanceFromHigh,
   hasTurnover,
   heldRows,
   instrumentsOf,
+  levelsAtBars,
   logByDefault,
   mergedPosition,
   orderLine,
@@ -50,9 +54,27 @@ import {
   timeframeFits,
   volumeByDefault,
 } from '../lib/depot-chart'
-import type { ColorRole, DepotInterval, PriceLine, Timeframe } from '../lib/depot-chart'
-import { deltaEur, eur, eurExact, signedEur, toneProp } from '../lib/format'
-import { INDEX_SERIES, seriesOf } from '../lib/index-series'
+import type {
+  AllTimeHigh,
+  ColorRole,
+  DepotInterval,
+  PriceLine,
+  RangeChange,
+  Timeframe,
+} from '../lib/depot-chart'
+import {
+  dayDe,
+  deltaEurDe,
+  eurDe,
+  isoDayDe,
+  percentDe,
+  priceDe,
+  quantityDe,
+  signedEurDe,
+} from '../lib/depot-number'
+import { toneProp } from '../lib/format'
+import { INDEX_IDS, INDEX_SERIES, seriesOf } from '../lib/index-series'
+import type { IndexSeries } from '../lib/index-series'
 import { isoDay } from '../lib/time'
 import { useDrawingsSaver } from '../lib/use-drawings-saver'
 import { useViewPrefs } from '../lib/view-prefs'
@@ -64,7 +86,7 @@ const tradeCol = createColumnHelper<DepotTrade>()
 const orderCol = createColumnHelper<DepotOrder>()
 
 /** Quantities are fractional for savings plans; four places is the finest the depot keeps. */
-const quantityText = (n: number): string => n.toLocaleString('en-US', { maximumFractionDigits: 4 })
+const quantityText = quantityDe
 
 /** An ETF with a tracked index and no US listing is asked for its history with the index in front of it. */
 const splicedHistory = (entry: WatchlistEntry | undefined): boolean =>
@@ -77,7 +99,7 @@ export function DepotPage() {
   const [requested, setRequested] = useField(finStore.field.isin)
   const [interval] = useField(finStore.field.ivl)
   const [range] = useField(finStore.field.rng)
-  const [compare] = useField(finStore.field.cmp)
+  const [compare, setCompare] = useField(finStore.field.cmp)
   const [adding, setAdding] = useState(false)
   const today = isoDay(new Date(useNow()))
 
@@ -114,19 +136,43 @@ export function DepotPage() {
   const orders = useOpenOrders(orderIsin)
   const drawings = useDrawings(isin)
 
-  if (watchlist.isSuccess && entries.length === 0) return <NoDataState />
-
   const bars = candles.data?.candles ?? []
   const currency = candles.data?.currency ?? null
   const euro = currency === null || currency === 'EUR'
-  // Orders and the cost have euro prices: in dollars only the cost has one (from the dollar price of its buys).
+  // An order has a euro price. A US stock charted in dollars shows it at the latest ECB rate, labelled in both
+  // currencies; a coin's order belongs to a product whose price is not the coin's, so it has no line there.
+  const stockInDollars = !euro && entry?.us_mic != null
+  const rate = useIndexSeries(stockInDollars ? 'eur-usd' : null, {
+    from: daysBefore(today, 14),
+    to: today,
+  })
+  const usdPerEur = rate.data?.points.at(-1)?.value ?? null
+  // A locked vault answers the orders with 423: no data, so no line and no error on the chart.
+  const open = orders.data ?? []
   const lines: PriceLine[] = (
     euro
-      ? [...(orders.data ?? []).map(orderLine), costLine(position)]
-      : [owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null]
+      ? [...open.map((order) => orderLine(order)), costLine(position)]
+      : [
+          ...(stockInDollars && usdPerEur !== null
+            ? open.map((order) => orderLine(order, usdPerEur))
+            : []),
+          owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null,
+        ]
   ).filter((l) => l !== null)
   const comparable = entry !== undefined && entry.kind !== 'coin' && entry.us_mic === null
-  const comparing = comparable && compare !== ''
+
+  // The all-time high comes from the full daily history: the chart's own bars at day, one more request at week and month.
+  const daily = useCandles(
+    isin === null || interval === '1d'
+      ? null
+      : { isin, interval: '1d', mic: entry?.us_mic ?? undefined },
+  )
+  const dailyBars = interval === '1d' ? bars : daily.data?.candles
+  const dailyReady = interval === '1d' ? !candles.isPlaceholderData : !daily.isPlaceholderData
+  const high = dailyReady && dailyBars !== undefined ? allTimeHigh(dailyBars) : null
+  const lastClose = dailyBars?.findLast((bar) => bar.source !== 'index')?.close ?? null
+
+  if (watchlist.isSuccess && entries.length === 0) return <NoDataState />
 
   const cells: StatStripCell[] = [
     {
@@ -140,15 +186,15 @@ export function DepotPage() {
     {
       key: 'value',
       caption: 'Value',
-      qualifier: position?.price_on == null ? '' : `as of ${date(position.price_on)}`,
-      value: position?.value_cents == null ? null : eur(position.value_cents),
+      qualifier: position?.price_on == null ? '' : `as of ${isoDayDe(position.price_on)}`,
+      value: position?.value_cents == null ? null : eurDe(position.value_cents),
       loading: positions.isPending,
     },
     {
       key: 'cost',
       caption: 'Cost',
       qualifier: 'FIFO',
-      value: position === undefined ? null : eur(position.cost_fifo_cents),
+      value: position === undefined ? null : eurDe(position.cost_fifo_cents),
       ...(position !== undefined &&
         position.quantity > 0 && {
           footer: `${priceText(position.cost_average_cents / 100 / position.quantity)} per unit on average`,
@@ -160,7 +206,7 @@ export function DepotPage() {
       caption: 'Gain',
       qualifier: 'unrealised, FIFO',
       value:
-        position?.unrealised_fifo_cents == null ? null : deltaEur(position.unrealised_fifo_cents),
+        position?.unrealised_fifo_cents == null ? null : deltaEurDe(position.unrealised_fifo_cents),
       ...(position?.unrealised_fifo_cents != null && {
         ...toneProp(position.unrealised_fifo_cents),
         footer: signedPercent(position.unrealised_fifo_pct),
@@ -172,9 +218,9 @@ export function DepotPage() {
   return (
     <Box className={classes.page}>
       <FinanceBar
-        // The chart zooms by timeframe; the range is only for the index card and the comparison.
+        // The chart zooms by timeframe; the range is only for the index card.
         filters={
-          index !== undefined || comparing ? (
+          index !== undefined ? (
             <FilterSet>
               <SelectFilter field={finStore.field.rng} label="Range" />
             </FilterSet>
@@ -211,10 +257,13 @@ export function DepotPage() {
               candles={candles}
               drawings={drawings}
               comparable={comparable}
+              indices={indices}
+              compareId={compare}
+              onCompare={(id) => setCompare(INDEX_IDS.find((known) => known === id) ?? '')}
+              high={high}
+              lastClose={lastClose}
+              today={today}
             />
-            {comparing && (
-              <IndexOverlayCard isin={isin} name={entry.name ?? isin} range={range} today={today} />
-            )}
             <Box data-shot="depot-position">
               <StatGroup variant="strip" label="The position at a glance" cols={4} cells={cells} />
             </Box>
@@ -249,6 +298,12 @@ function ChartPanel({
   candles,
   drawings,
   comparable,
+  indices,
+  compareId,
+  onCompare,
+  high,
+  lastClose,
+  today,
 }: {
   name: string
   isin: string
@@ -261,11 +316,18 @@ function ChartPanel({
   candles: ReturnType<typeof useCandles>
   drawings: ReturnType<typeof useDrawings>
   comparable: boolean
+  indices: readonly IndexSeries[]
+  compareId: string
+  onCompare: (id: string) => void
+  high: AllTimeHigh | null
+  lastClose: number | null
+  today: string
 }) {
   const [tool, setTool] = useState<DrawTool | null>(null)
   const [role, setRole] = useState<ColorRole>('accent')
   const [selection, setSelection] = useState<DepotSelection>({ count: 0, line: null, single: null })
   const [timeframe, setTimeframe] = useState<Timeframe | null>(null)
+  const [change, setChange] = useState<RangeChange | null>(null)
   const [prefs, setPrefs] = useViewPrefs(isin)
   const chart = useRef<DepotChartHandle>(null)
   const save = useDrawingsSaver(isin)
@@ -277,33 +339,53 @@ function ChartPanel({
   const turnover = hasTurnover(bars)
   const volume = turnover && (prefs.volume ?? volumeByDefault(kind, bars))
   const spliced = bars.some((bar) => bar.source === 'index')
-  const styling =
-    (tool !== null && tool !== 'price-range') || (tool === null && selection.single !== null)
 
-  // While a tool is armed the colour is for the next line drawn and the selection is left alone; with the cursor it recolours the selected line.
-  const editing: DepotSelection = tool === null ? selection : { count: 0, line: null, single: null }
+  // The compared index, as a line on the bars' own times: the chart rebases it with the candles.
+  const picked = comparable ? indices.find((index) => index.id === compareId) : undefined
+  const levels = useIndexSeries(picked?.id ?? null, { to: today })
+  const line =
+    picked === undefined || levels.data === undefined || levels.data.id !== picked.id
+      ? null
+      : levelsAtBars(bars, levels.data.points)
+  const compare: CompareLine | null =
+    picked === undefined || line === null || line.length === 0
+      ? null
+      : { name: picked.name, points: line }
+  const comparing = compare !== null
+
+  // A line is coloured from the toolbar: the colour of the next one drawn, or the selected line's own.
   const pick = (next: ColorRole) => {
     setRole(next)
     if (tool === null) chart.current?.setSelectionRole(next)
   }
-  const toolButton = (own: DrawTool, label: string, icon: React.ReactNode) => (
-    <ActionIcon
-      variant={tool === own ? 'filled' : 'default'}
-      color="gray"
-      aria-label={label}
-      aria-pressed={tool === own}
-      disabled={!armed}
-      onClick={() => setTool(own)}
-    >
-      {icon}
-    </ActionIcon>
-  )
+  const currentRole = tool === null ? (selection.single?.role ?? role) : role
+  const symbol = currency === 'USD' ? 'USD' : 'EUR'
+  const distance =
+    high === null || lastClose === null ? null : distanceFromHigh(lastClose, high.price)
 
   return (
     <ChartCard
       data-shot="depot-chart"
       title={candles.data?.currency == null ? name : `${name} · ${candles.data.currency}`}
-      info={`Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the grey line is the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
+      {...(high !== null && {
+        facts: [
+          {
+            value: priceDe(high.price),
+            unit: symbol === 'USD' ? '$' : '€',
+            period: ['All-time high', dayDe(high.time)],
+          },
+          ...(distance === null
+            ? []
+            : [
+                {
+                  // A node keeps the real minus sign (a text comparison would take a direction glyph instead).
+                  value: <>{percentDe(distance, true)}</>,
+                  unit: 'last close vs. high',
+                },
+              ]),
+        ],
+      })}
+      info={`Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, a US stock's in dollars at the latest ECB rate. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the grey line is the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
       state={{
         pending: candles.isPending,
         error: candles.error ?? undefined,
@@ -313,50 +395,50 @@ function ChartPanel({
       onRetry={() => void candles.refetch()}
       actions={
         <Box className={classes.tools}>
-          {comparable && <SelectFilter field={finStore.field.cmp} label="Compare with…" />}
           <ViewTabs field={finStore.field.ivl} label="Bar interval" />
-          <ActionIcon
-            variant={tool === null ? 'filled' : 'default'}
-            color="gray"
-            aria-label="Cursor"
-            aria-pressed={tool === null}
-            disabled={!armed}
-            onClick={() => setTool(null)}
-          >
-            <IconPointer />
-          </ActionIcon>
-          {toolButton('horizontal-line', 'Horizontal line', <IconMinus />)}
-          {toolButton('vertical-line', 'Vertical line', <IconSeparatorVertical />)}
-          {toolButton('price-range', 'Price range', <IconRulerMeasure />)}
-          <ActionIcon
-            variant="default"
-            aria-label="Delete the selected drawing"
-            disabled={selection.count === 0}
-            onClick={() => chart.current?.removeSelected()}
-          >
-            <IconTrash />
-          </ActionIcon>
+          <DrawToolbar
+            tool={tool}
+            armed={armed}
+            role={currentRole}
+            canDelete={selection.count > 0}
+            onTool={setTool}
+            onRole={pick}
+            onDelete={() => chart.current?.removeSelected()}
+          />
         </Box>
       }
     >
-      <DepotChart
-        ref={chart}
-        bars={bars}
-        interval={shown}
-        currency={currency}
-        trades={trades}
-        lines={lines}
-        storedDrawings={drawings.data?.document}
-        loadedDrawings={drawings.isSuccess}
-        tool={tool}
-        role={role}
-        logScale={log}
-        showVolume={volume}
-        onToolChange={setTool}
-        onSelectionChange={setSelection}
-        onDrawingsChange={save}
-        onTimeframeChange={setTimeframe}
-      />
+      <Box className={classes.stage}>
+        <DepotChart
+          ref={chart}
+          bars={bars}
+          interval={shown}
+          currency={currency}
+          trades={trades}
+          lines={lines}
+          storedDrawings={drawings.data?.document}
+          loadedDrawings={drawings.isSuccess}
+          tool={tool}
+          role={role}
+          logScale={log}
+          showVolume={volume}
+          compare={compare}
+          onToolChange={setTool}
+          onSelectionChange={setSelection}
+          onDrawingsChange={save}
+          onTimeframeChange={setTimeframe}
+          onRangeChange={setChange}
+        />
+        {tool === null && (
+          <DrawingEditor
+            selection={selection}
+            onRole={pick}
+            onLabel={(label) => chart.current?.setSelectionLabel(label)}
+            onPrice={(id, price) => chart.current?.setLinePrice(id, price)}
+            onDelete={() => chart.current?.removeSelected()}
+          />
+        )}
+      </Box>
       <Box className={classes.toolbar} data-shot="depot-toolbar">
         <Group gap={4} role="group" aria-label="Timeframe">
           {TIMEFRAMES.map((frame) => (
@@ -373,15 +455,33 @@ function ChartPanel({
           ))}
         </Group>
         <Group gap={4} role="group" aria-label="Chart view">
-          <Button
-            variant={log ? 'filled' : 'default'}
-            color="gray"
-            aria-pressed={log}
-            aria-label="Logarithmic price scale"
-            onClick={() => setPrefs({ log: !log })}
+          {comparable && (
+            <ComparePopover
+              options={indices}
+              value={picked?.id ?? ''}
+              name={name}
+              change={comparing ? change : null}
+              onPick={onCompare}
+            />
+          )}
+          <Tooltip
+            label="The scale reads in percent while comparing"
+            disabled={!comparing}
+            withArrow
           >
-            Log
-          </Button>
+            <Box component="span">
+              <Button
+                variant={log && !comparing ? 'filled' : 'default'}
+                color="gray"
+                aria-pressed={log && !comparing}
+                aria-label="Logarithmic price scale"
+                disabled={comparing}
+                onClick={() => setPrefs({ log: !log })}
+              >
+                Log
+              </Button>
+            </Box>
+          </Tooltip>
           <Button
             variant={volume ? 'filled' : 'default'}
             color="gray"
@@ -394,15 +494,6 @@ function ChartPanel({
           </Button>
         </Group>
       </Box>
-      {styling && (
-        <DrawingStyleBar
-          role={role}
-          onRole={pick}
-          selection={editing}
-          onLabel={(label) => chart.current?.setSelectionLabel(label)}
-          onPrice={(id, price) => chart.current?.setLinePrice(id, price)}
-        />
-      )}
     </ChartCard>
   )
 }
@@ -415,7 +506,7 @@ function TradesTable({
   query: ReturnType<typeof useDepotTrades>
 }) {
   const columns = [
-    tradeCol.accessor('booked_on', { header: 'Booked', cell: (c) => date(c.getValue()) }),
+    tradeCol.accessor('booked_on', { header: 'Booked', cell: (c) => isoDayDe(c.getValue()) }),
     tradeCol.accessor('side', {
       header: 'Side',
       cell: (c) => (
@@ -457,7 +548,7 @@ function TradesTable({
       header: 'Amount',
       sortFn: 'basic',
       meta: { align: 'right' },
-      cell: (c) => eurExact(c.getValue()),
+      cell: (c) => eurDe(c.getValue(), true),
     }),
     tradeCol.accessor((t) => t.realised_fifo_cents ?? 0, {
       id: 'realised',
@@ -469,7 +560,7 @@ function TradesTable({
           '—'
         ) : (
           <Text span inherit c={c.getValue() >= 0 ? 'green' : 'red'}>
-            {signedEur(c.getValue())}
+            {signedEurDe(c.getValue())}
           </Text>
         ),
     }),
@@ -489,16 +580,16 @@ function TradesTable({
         <Stack gap={2}>
           <Group justify="space-between" wrap="nowrap" gap="sm">
             <Text size="sm" fw={500}>
-              {date(t.booked_on)} · {t.side === 'buy' ? 'Buy' : 'Sell'}
+              {isoDayDe(t.booked_on)} · {t.side === 'buy' ? 'Buy' : 'Sell'}
             </Text>
-            <Text size="sm">{eurExact(t.amount_cents)}</Text>
+            <Text size="sm">{eurDe(t.amount_cents, true)}</Text>
           </Group>
           <Text size="xs" c="dimmed">
             {t.quantity === null
               ? 'quantity unknown'
               : `${t.quantity_source === 'estimated' ? '≈ ' : ''}${quantityText(t.quantity)} units`}
             {t.price === null ? '' : ` at ${priceText(t.price)}`}
-            {t.price_usd === null ? '' : ` ($${priceText(t.price_usd)})`}
+            {t.price_usd === null ? '' : ` (${priceText(t.price_usd)} $)`}
           </Text>
         </Stack>
       )}
@@ -546,7 +637,7 @@ function OrdersSection({
       cell: (c) => {
         const o = c.row.original
         if (o.valid_until === null) return '—'
-        return o.overdue ? `${date(o.valid_until)} · past, close it` : date(o.valid_until)
+        return o.overdue ? `${isoDayDe(o.valid_until)} · past, close it` : isoDayDe(o.valid_until)
       },
     }),
   ]
@@ -576,7 +667,7 @@ function OrdersSection({
               {quantityText(o.quantity)} units
               {o.valid_until === null
                 ? ''
-                : ` · until ${date(o.valid_until)}${o.overdue ? ', past: close it' : ''}`}
+                : ` · until ${isoDayDe(o.valid_until)}${o.overdue ? ', past: close it' : ''}`}
             </Text>
           </Stack>
         )}

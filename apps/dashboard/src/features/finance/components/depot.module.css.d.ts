@@ -9,8 +9,13 @@ declare const classes: {
   readonly priceField: string
   readonly labelField: string
   readonly toolbar: string
-  readonly styleBar: string
   readonly swatch: string
   readonly tools: string
+  readonly drawTools: string
+  readonly separator: string
+  readonly stage: string
+  readonly editor: string
+  readonly chip: string
+  readonly chipNote: string
 }
 export default classes

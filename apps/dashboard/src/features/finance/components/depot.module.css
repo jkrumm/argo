@@ -47,14 +47,6 @@
   padding-block-start: var(--vx-space-stack-xs);
 }
 
-.styleBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--vx-space-control-gap);
-  padding-block-start: var(--vx-space-stack-xs);
-}
-
 .swatch {
   cursor: pointer;
 }
@@ -70,4 +62,44 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--vx-space-control-gap);
+}
+
+/* The drawing toolbar: pointer, tools, colours, delete in one compact row. */
+.drawTools {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--vx-space-control-gap);
+}
+
+.separator {
+  inline-size: 1px;
+  block-size: 1.25rem;
+  background: var(--vx-divider);
+}
+
+/* A selected line's editor floats over the top of the chart, clear of the price axis. */
+.stage {
+  position: relative;
+  min-width: 0;
+}
+
+.editor {
+  position: absolute;
+  z-index: 4;
+  inset-block-start: var(--vx-space-stack-xs);
+  inset-inline-end: 4.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vx-space-control-gap);
+  max-width: calc(100% - 5rem);
+}
+
+.chip {
+  white-space: nowrap;
+}
+
+.chipNote {
+  white-space: nowrap;
 }

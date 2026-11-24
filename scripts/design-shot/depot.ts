@@ -11,7 +11,9 @@
  * the distance between bars at day, week and month, and horizontal overflow; lines are drawn (a red one with
  * a label set to a typed price, a green one with a label, a vertical one) and a price range drawn with the
  * mouse; Bitcoin is read from 2011 on a log scale without turnover; a fund's history opens with its index and
- * a launch marker, its comparison is off until asked for; an instrument is searched, added to a list,
+ * a launch marker; "Compare with…" turns the scale to percent (6M and 1Y read differently, the chip's x removes it);
+ * the toolbar's tooltips, the line editor and the pointer coming back after one drawing, the all-time high in the header, the
+ * US stock's hand-kept sell order on its dollar chart; an instrument is searched, added to a list,
  * renamed and removed; a trade card is pinned; and PNGs per combination are written (default
  * `.design-shots/depot`).
  */
@@ -227,8 +229,17 @@ type IndexRow = {
   vol: number
 }
 
-/** The stored MSCI series of the market store (net return, euros), with the day each one starts on. */
+/** The stored MSCI series of the market store (net return, euros), with the day each one starts on; the ECB rate is one too. */
 const INDEX_ROWS: IndexRow[] = [
+  // USD per EUR: the page converts a euro order of a dollar-charted stock with its latest value.
+  {
+    id: 'eur-usd',
+    title: 'ECB EUR/USD reference rate',
+    first: '1999-01-04',
+    start: 1.1,
+    drift: 0,
+    vol: 0.0012,
+  },
   {
     id: 'msci-acwi-imi-net-eur',
     title: 'MSCI ACWI IMI, net, EUR',
@@ -564,6 +575,29 @@ type Order = {
 }
 const orders: Order[] = []
 let nextOrder = 1
+
+/** The hand-kept sell order of the US stock: a limit about 15 % above its last euro close. */
+function seedOrders(): void {
+  const last = DAILY.get(US_STOCK)?.at(-1)?.close ?? 100
+  orders.push({
+    id: nextOrder++,
+    account_id: null,
+    isin: US_STOCK,
+    name: NAMES.get(US_STOCK) ?? null,
+    side: 'sell',
+    type: 'limit',
+    limit_price: Math.round(last * 1.15),
+    stop_price: null,
+    quantity: 10,
+    valid_until: null,
+    status: 'open',
+    note: null,
+    opened_at: new Date().toISOString(),
+    closed_at: null,
+    overdue: false,
+  })
+}
+seedOrders()
 const drawings = new Map<string, { isin: string; document: unknown; updated_at: string }>()
 
 // ---- The lists of the stand-in -------------------------------------------------------------
@@ -675,6 +709,8 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   const q = url.searchParams
   if (path === '/__reset') {
     orders.length = 0
+    nextOrder = 1
+    seedOrders()
     drawings.clear()
     lists = freshLists()
     nextList = 3
@@ -977,19 +1013,62 @@ async function timeframe(page: Page, name: string): Promise<string> {
   return hostAttr(page, 'timeframe')
 }
 
+type Shot = { page: Page; out: string; scheme: string; device: string; failures: string[] }
+
+/** A German number (`1.234,5`) as a JS number. */
+const german = (text: string): number =>
+  Number.parseFloat(text.replaceAll('.', '').replace(',', '.'))
+
 /**
- * Draws a red horizontal line with a label, selects it again by a click on the line and types its price;
- * then a green one with a label, a blue vertical one and a price range. The typed price is what the
- * service must hold. Returns the typed price.
+ * Draws a red horizontal line with a label, selects it again by a click on the line and types its price (with a
+ * German comma); then a green one with a label, a blue vertical one and a price range. Every tool must hand the
+ * pointer back after one drawing. The typed price is what the service must hold. Returns the typed price.
  */
-async function draw(page: Page): Promise<number> {
+async function draw({ page, out, scheme, device, failures }: Shot): Promise<number> {
+  const where = `${scheme}/${device}`
   const plot = page.locator(CHART)
   const box = await plot.boundingBox()
   if (box === null) throw new Error('the chart has no box')
-  await page.getByRole('button', { name: 'Horizontal line' }).click()
-  await page.getByRole('button', { name: /^Red/ }).click()
+  const tools = page.getByRole('toolbar', { name: 'Drawing tools' })
+  const pointerBack = async (what: string) => {
+    await page.waitForTimeout(250)
+    const pressed = await tools
+      .getByRole('button', { name: 'Pointer' })
+      .getAttribute('aria-pressed')
+    if (pressed !== 'true') failures.push(`${where}: the pointer does not come back after ${what}`)
+  }
+  // The tools name themselves in a tooltip.
+  if (device === 'desktop') {
+    for (const [name, text] of [
+      ['Horizontal line', 'Horizontal line: marks a price'],
+      ['Vertical line', 'Vertical line: marks a day'],
+      ['Price range', 'Price range: measures a move'],
+    ] as const) {
+      await tools.getByRole('button', { name }).hover()
+      const tip = page.getByRole('tooltip').filter({ hasText: text })
+      await tip.waitFor({ timeout: 2500 }).catch(() => undefined)
+      if ((await tip.count()) === 0) failures.push(`${where}: no tooltip "${text}"`)
+      if (name === 'Horizontal line') {
+        const bar = await tools.boundingBox()
+        if (bar !== null) {
+          await page.screenshot({
+            path: join(out, `depot--${scheme}--${device}--toolbar.png`),
+            clip: {
+              x: Math.max(0, bar.x - 160),
+              y: Math.max(0, bar.y - 60),
+              width: Math.min(bar.width + 200, 1440),
+              height: bar.height + 90,
+            },
+          })
+        }
+      }
+    }
+    await page.mouse.move(2, 2)
+  }
+  await tools.getByRole('button', { name: 'Horizontal line' }).click()
+  await tools.getByRole('button', { name: /^Red/ }).click()
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.3)
-  await page.getByRole('button', { name: 'Cursor' }).click()
+  await pointerBack('a horizontal line')
   // Placed, the line is selected; a click on empty plot deselects it, a click on the line selects it again.
   const field = page.getByLabel('Price of the selected line')
   await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.6)
@@ -1002,36 +1081,37 @@ async function draw(page: Page): Promise<number> {
     if ((await field.count()) > 0) break
   }
   await field.waitFor({ timeout: 3000 })
-  const typed =
-    Math.round(Number.parseFloat((await field.inputValue()).replaceAll(',', '')) * 97) / 100
-  await field.fill(String(typed))
+  const typed = Math.round(german(await field.inputValue()) * 97) / 100
+  await field.fill(String(typed).replace('.', ','))
   await field.press('Enter')
   await page.waitForTimeout(900)
   const label = page.getByLabel('Label of the selected line')
   await label.fill('Resistance')
   await label.press('Enter')
   await page.waitForTimeout(500)
+  await page.locator('[data-shot="depot-chart"]').screenshot({
+    path: join(out, `depot--${scheme}--${device}--line-editor.png`),
+  })
   // A green line with a label, drawn lower on the plot.
-  await page.getByRole('button', { name: 'Horizontal line' }).click()
-  await page.getByRole('button', { name: /^Green/ }).click()
+  await tools.getByRole('button', { name: 'Horizontal line' }).click()
+  await tools.getByRole('button', { name: /^Green/ }).click()
   await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.72)
-  await page.getByRole('button', { name: 'Cursor' }).click()
-  await page.waitForTimeout(300)
+  await pointerBack('a second line')
   await label.fill('Buy level')
   await label.press('Enter')
   await page.waitForTimeout(500)
   // A vertical line in the accent.
-  await page.getByRole('button', { name: 'Vertical line' }).click()
-  await page.getByRole('button', { name: /^Blue/ }).click()
+  await tools.getByRole('button', { name: 'Vertical line' }).click()
+  await tools.getByRole('button', { name: /^Blue/ }).click()
   await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.5)
-  await page.getByRole('button', { name: 'Cursor' }).click()
-  await page.getByRole('button', { name: 'Price range' }).click()
+  await pointerBack('a vertical line')
+  await tools.getByRole('button', { name: 'Price range' }).click()
   await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.35)
   await page.mouse.down()
   await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.2, { steps: 8 })
   await page.mouse.up()
-  await page.getByRole('button', { name: 'Cursor' }).click()
-  // Nothing selected: the style bar is gone with the tools.
+  await pointerBack('a price range')
+  // Nothing selected: the editor is gone.
   await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.9)
   return typed
 }
@@ -1171,9 +1251,98 @@ async function checkLists(
 }
 
 /**
- * The Indices tab, the index line back to 1998 and the overlay of a young fund against its index: the
- * overlay is off until asked for, then checked on the page and shot per element at two indices.
+ * The Indices tab, the index line back to 1998 and the comparison of a young fund against its index: the
+ * comparison is off until asked for, then checked on the page and shot.
  */
+/**
+ * What every chart shows: the all-time high in the card header with its day and distance, the drawn lines
+ * the page says it has (an order's label), and no English number (`1,234.5`) anywhere on the page.
+ */
+async function checkFacts(
+  page: Page,
+  where: string,
+  failures: string[],
+  expect: { orderLine?: string | RegExp },
+): Promise<void> {
+  const card = page.locator('[data-shot="depot-chart"]')
+  const text = await card.innerText()
+  if (!/All-time high/.test(text)) failures.push(`${where}: the header has no all-time high`)
+  else if (!/\d{2}\.\d{2}\.\d{4}/.test(text) || !/(−\d+,\d %|at the high)/.test(text)) {
+    failures.push(
+      `${where}: the all-time high lacks its day or its distance: ${text.slice(0, 160)}`,
+    )
+  }
+  if (expect.orderLine !== undefined) {
+    const lines = (await hostAttr(page, 'lines')).split('|')
+    const found = lines.some((line) =>
+      typeof expect.orderLine === 'string'
+        ? line === expect.orderLine
+        : expect.orderLine?.test(line),
+    )
+    if (!found)
+      failures.push(
+        `${where}: no order line ${String(expect.orderLine)} among: ${lines.join(' | ')}`,
+      )
+  }
+  const body = await page.evaluate(() => document.body.innerText)
+  const english = /\d,\d{3}\.\d/.exec(body)
+  if (english !== null) failures.push(`${where}: an English number on the page: ${english[0]}`)
+}
+
+/**
+ * The comparison: "Compare with…" sits in the bottom toolbar, the index draws on the chart's own scale (percent),
+ * the chip names it and follows the visible range (6M and 1Y differ), and the x removes it.
+ */
+async function checkCompare(
+  page: Page,
+  origin: string,
+  scheme: string,
+  device: string,
+  out: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  await page.goto(`${origin}/finance/depot?isin=${WORLD}`, { waitUntil: 'networkidle' })
+  await page.locator('canvas').first().waitFor()
+  await page.waitForTimeout(800)
+  const bar = page.locator('[data-shot="depot-toolbar"]')
+  if ((await page.locator('[data-shot="depot-overlay"]').count()) > 0) {
+    failures.push(`${where}: a separate comparison card is on the page`)
+  }
+  await bar.getByRole('button', { name: 'Compare with an index' }).click()
+  await page.getByRole('menuitem', { name: 'MSCI World', exact: true }).click()
+  const chip = bar.locator('[data-shot="depot-compare-chip"]')
+  await chip.waitFor()
+  await page.waitForTimeout(900)
+  if ((await hostAttr(page, 'scale')) !== 'percent')
+    failures.push(`${where}: the scale is not percent`)
+  if (!(await bar.getByRole('button', { name: 'Logarithmic price scale' }).isDisabled())) {
+    failures.push(`${where}: Log stays enabled while comparing`)
+  }
+  const seen: string[] = []
+  for (const frame of ['6M', '1Y']) {
+    const reported = await timeframe(page, frame)
+    if (reported !== frame)
+      failures.push(`${where}: ${frame} reads as "${reported}" while comparing`)
+    await page.waitForTimeout(700)
+    const reading = `${await chip.innerText()} | ${await hostAttr(page, 'rangeChange')}`
+    seen.push(reading)
+    if (!/MSCI World\s+[+−]?\d+,\d %/.test(reading)) {
+      failures.push(`${where}: the chip lacks the index and its change: ${reading}`)
+    }
+    await page.locator('[data-shot="depot-chart"]').screenshot({
+      path: join(out, `depot--${scheme}--${device}--compare-${frame.toLowerCase()}.png`),
+    })
+  }
+  if (seen[0] === seen[1])
+    failures.push(`${where}: the comparison does not follow the timeframe: ${seen[0]}`)
+  await chip.getByRole('button', { name: /^Remove the comparison/ }).click()
+  await chip.waitFor({ state: 'detached' })
+  await page.waitForTimeout(400)
+  if ((await hostAttr(page, 'scale')) !== 'linear')
+    failures.push(`${where}: the scale stays percent`)
+}
+
 async function checkIndices(
   page: Page,
   origin: string,
@@ -1222,7 +1391,7 @@ async function checkIndices(
   if ((await page.getByText('Index, scaled to the ETF price').count()) === 0) {
     failures.push(`${where}: the spliced history is not labelled`)
   }
-  if ((await page.locator('[data-shot="depot-overlay"]').count()) > 0) {
+  if ((await hostAttr(page, 'scale')) !== 'linear') {
     failures.push(`${where}: the comparison is on without being asked for`)
   }
   await timeframe(page, 'Max')
@@ -1230,29 +1399,21 @@ async function checkIndices(
   await page.locator('[data-shot="depot-chart"]').screenshot({
     path: join(out, `depot--${scheme}--${device}--spliced.png`),
   })
-  await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}&cmp=msci-acwi-imi-net-eur&rng=max`, {
+  // The young fund against the index of a similar size, over its whole history.
+  await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}&cmp=msci-acwi-imi-net-eur`, {
     waitUntil: 'networkidle',
   })
   await page.locator('canvas').first().waitFor()
-  const overlay = page.locator('[data-shot="depot-overlay"]')
-  await overlay.waitFor()
+  await page.locator('[data-shot="depot-compare-chip"]').waitFor()
   await page.waitForTimeout(900)
-  for (const text of ['Global all-cap ETF vs MSCI ACWI IMI', 'MSCI · net return · EUR']) {
-    if ((await overlay.getByText(text).count()) === 0) {
-      failures.push(`${where}: the overlay card lacks "${text}"`)
-    }
+  if ((await hostAttr(page, 'scale')) !== 'percent') {
+    failures.push(`${where}: the young fund's comparison is not on a percent scale`)
   }
-  if ((await overlay.locator('path[stroke]').count()) < 2) {
-    failures.push(`${where}: the overlay draws fewer than two lines`)
-  }
-  await shoot('overlay', 'depot-overlay')
-  // A held ETF with a long history reads against another index.
-  await page.goto(`${origin}/finance/depot?isin=${WORLD}&rng=max&cmp=msci-world-net-eur`, {
-    waitUntil: 'networkidle',
+  await timeframe(page, 'Max')
+  await page.waitForTimeout(500)
+  await page.locator('[data-shot="depot-chart"]').screenshot({
+    path: join(out, `depot--${scheme}--${device}--compare-young.png`),
   })
-  await page.locator('[data-shot="depot-overlay"]').waitFor()
-  await page.waitForTimeout(900)
-  await shoot('overlay-world', 'depot-overlay')
 }
 
 async function main(): Promise<number> {
@@ -1319,7 +1480,7 @@ async function main(): Promise<number> {
           failures.push(`${where}: an ETF opens on the log scale`)
         }
         await checkTradeCard(page, out, scheme, device, failures)
-        const typed = await draw(page)
+        const typed = await draw({ page, out, scheme, device, failures })
         await addOrder(page)
         await page.waitForTimeout(900)
         const saved = await storedCount(page)
@@ -1343,6 +1504,7 @@ async function main(): Promise<number> {
         if (!prices.some((price) => Math.abs(price - typed) < 0.005)) {
           failures.push(`${where}: the line holds ${prices.join(', ')}, typed ${typed}`)
         }
+        await checkFacts(page, where, failures, { orderLine: 'Buy limit 112 €' })
         const overflow = await page.evaluate(() =>
           Math.max(
             ...[...document.querySelectorAll<HTMLElement>('*')].map(
@@ -1385,11 +1547,9 @@ async function main(): Promise<number> {
           ['1w', '?ivl=1w'],
           ['btc-usd', '?isin=BTC-USD'],
           ['btc-usd--1w', '?isin=BTC-USD&ivl=1w'],
+          ['us-stock', `?isin=${US_STOCK}`],
           ...(scheme === 'light' && device === 'desktop'
-            ? ([
-                ['1mo', '?ivl=1mo'],
-                ['us-stock', `?isin=${US_STOCK}`],
-              ] as [string, string][])
+            ? ([['1mo', '?ivl=1mo']] as [string, string][])
             : []),
         ]
         for (const [name, query] of views) {
@@ -1403,7 +1563,7 @@ async function main(): Promise<number> {
             if ((await page.getByText('USD', { exact: false }).count()) === 0) {
               failures.push(`${where}: ${name} is not charted in USD`)
             }
-            const dollars = page.getByText(/Price \(USD\)|\(\$[\d,]+\.\d\d\)/)
+            const dollars = page.getByText(/Price \(USD\)|\([\d.,]+ \$\)/)
             if ((await dollars.count()) === 0) {
               failures.push(`${where}: ${name} shows no dollar price in the trades`)
             }
@@ -1437,10 +1597,29 @@ async function main(): Promise<number> {
             }
             await page.waitForTimeout(400)
           }
+          if (name === 'us-stock') {
+            // The hand-kept sell order sits on the dollar chart at the latest rate, named in both currencies.
+            await checkFacts(page, where, failures, {
+              orderLine: /^Sell limit [\d.,]+ € \([\d.,]+ \$\)$/,
+            })
+          } else {
+            await checkFacts(page, where, failures, {})
+          }
+          if (name === 'btc-usd') {
+            // Bitcoin runs into five figures: thousands grouped with a dot, no decimals.
+            const read = await page
+              .getByText(/^O [\d.,]+ H /)
+              .first()
+              .innerText()
+            if (!/C \d{1,3}(?:\.\d{3})+(?![\d,])/.test(read)) {
+              failures.push(`${where}: the Bitcoin readout is not whole German numbers: ${read}`)
+            }
+          }
           if (name === '1w') spacings.push(await spacingOf(page))
           await page.screenshot({ path: join(out, `depot--${scheme}--${device}--${name}.png`) })
         }
         await checkLists(page, origin, out, scheme, device, failures)
+        await checkCompare(page, origin, scheme, device, out, failures)
         await checkIndices(page, origin, scheme, device, out, failures)
         const [day, ...others] = spacings
         if (day === undefined || others.some((other) => Math.abs(other / day - 1) > 0.12)) {
