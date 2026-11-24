@@ -410,6 +410,23 @@ describe('POST /finance/api/* (typed writes)', () => {
     ['/finance/api/chart/drawings/BTC-USD', '/api/chart/drawings/BTC-USD'],
     ['/finance/api/depot/orders', '/api/depot/orders'],
     ['/finance/api/depot/orders/42/close', '/api/depot/orders/42/close'],
+    ['/finance/api/market/lists', '/api/market/lists'],
+    ['/finance/api/market/lists/3', '/api/market/lists/3'],
+    ['/finance/api/market/lists/3/delete', '/api/market/lists/3/delete'],
+    ['/finance/api/market/lists/3/entries', '/api/market/lists/3/entries'],
+    [
+      '/finance/api/market/lists/3/entries/IE000VAHT5T0',
+      '/api/market/lists/3/entries/IE000VAHT5T0',
+    ],
+    [
+      '/finance/api/market/lists/3/entries/BTC-USD/delete',
+      '/api/market/lists/3/entries/BTC-USD/delete',
+    ],
+    [
+      '/finance/api/market/lists/3/entries/msci-acwi-imi-net-eur',
+      '/api/market/lists/3/entries/msci-acwi-imi-net-eur',
+    ],
+    ['/finance/api/market/instruments/IE000VAHT5T0', '/api/market/instruments/IE000VAHT5T0'],
   ])('relays %s with the body verbatim and the service bearer', async (path, upstream) => {
     reply = () => Response.json({ ok: true }, { status: 200 })
     const body = JSON.stringify({ category: 'food/groceries', note: 'Müller ✓' })
@@ -449,6 +466,16 @@ describe('POST /finance/api/* (typed writes)', () => {
       '/finance/api/depot/orders/42/cancel',
       '/finance/api/depot/orders/abc/close',
       '/finance/api/depot/orders/42/close/extra',
+      '/finance/api/market/lists/abc',
+      '/finance/api/market/lists/3/rename',
+      '/finance/api/market/lists/3/entries/',
+      '/finance/api/market/lists/3/entries/A/B',
+      '/finance/api/market/lists/3/entries/A/delete/x',
+      '/finance/api/market/lists/3/entries/A%2e',
+      '/finance/api/market/instruments',
+      '/finance/api/market/instruments/IE000VAHT5T0/x',
+      '/finance/api/market/search',
+      '/finance/api/market/watchlist',
       '/finance/api/depot/positions',
       '/finance/api/depot/trades',
       '/finance/api/market/candles',
@@ -598,6 +625,17 @@ describe('POST /finance/api/* (typed writes)', () => {
     expect(spanText).toContain('/api/depot/orders/:id/close')
     expect(spanText).not.toContain(isin)
     expect(spanText).not.toContain('987654')
+  })
+
+  it('masks the symbol of a list entry and the ISIN of an instrument in telemetry', async () => {
+    reply = () => Response.json({ ok: true })
+    await post('/finance/api/market/lists/3/entries/DE000SECRET99', '{}')
+    await post('/finance/api/market/instruments/DE000SECRET98', '{}')
+    const spanText = JSON.stringify(spans)
+    expect(spanText).toContain('/api/market/lists/3/entries/:symbol')
+    expect(spanText).toContain('/api/market/instruments/:isin')
+    expect(spanText).not.toContain('DE000SECRET99')
+    expect(spanText).not.toContain('DE000SECRET98')
   })
 
   it('keeps the query string of a write off the upstream span', async () => {

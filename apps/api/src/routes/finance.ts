@@ -15,7 +15,7 @@ import { tracedFetch } from '../lib/traced-fetch.js'
  * dropped too, because a transaction search term is financial data as well. The typed writes
  * (`POST /finance/api/…`, `WRITE_PATHS`) follow the same rule: a merchant, a note, a rule pattern, an
  * order or a chart drawing in the body is forwarded verbatim and never parsed, logged or traced, and
- * the booking id, order id and ISIN in the path reach telemetry as `:id` and `:isin`.
+ * the booking id, order id, ISIN and list symbol in the path reach telemetry as `:id`, `:isin` and `:symbol`.
  */
 
 const UNAVAILABLE = { error: 'finance service unavailable' } as const
@@ -32,9 +32,11 @@ const DRAWINGS_PATH = /^\/api\/chart\/drawings\/[A-Za-z0-9-]{1,20}$/
 
 /**
  * The typed writes of `fin serve` and nothing else: a category or a tax tag for one booking, a
- * recurring override, a merchant rule, a hand-kept depot order (add, close) and a chart's drawing
- * document. An id is a hex hash or a prefix of one, an order id digits, an ISIN letters and digits;
- * no other segment shape reaches the service.
+ * recurring override, a merchant rule, a hand-kept depot order (add, close), a chart's drawing
+ * document, and the watchlist writes of the market store (a list: create, rename, move, delete; an
+ * entry: add, rename, move, remove; the index an ETF tracks). An id is a hex hash or a prefix of one,
+ * an order or list id digits, an ISIN, coin symbol or series id letters, digits and hyphens; no other
+ * segment shape reaches the service.
  */
 const WRITE_PATHS: readonly RegExp[] = [
   /^\/api\/transactions\/[A-Za-z0-9_-]{1,80}\/(?:category|tag)$/,
@@ -43,6 +45,11 @@ const WRITE_PATHS: readonly RegExp[] = [
   DRAWINGS_PATH,
   /^\/api\/depot\/orders$/,
   /^\/api\/depot\/orders\/\d{1,12}\/close$/,
+  /^\/api\/market\/lists$/,
+  /^\/api\/market\/lists\/\d{1,9}(?:\/delete)?$/,
+  /^\/api\/market\/lists\/\d{1,9}\/entries$/,
+  /^\/api\/market\/lists\/\d{1,9}\/entries\/[A-Za-z0-9-]{1,60}(?:\/delete)?$/,
+  /^\/api\/market\/instruments\/[A-Za-z0-9-]{1,20}$/,
 ]
 
 export type FinanceConfig = {
@@ -95,6 +102,8 @@ const telemetryText = (text: string): string =>
     .replace(/\/api\/transactions\/[^/\s?]+/g, '/api/transactions/:id')
     .replace(/\/api\/depot\/orders\/[^/\s?]+/g, '/api/depot/orders/:id')
     .replace(/\/api\/chart\/drawings\/[^/\s?]+/g, '/api/chart/drawings/:isin')
+    .replace(/(\/api\/market\/lists\/\d+\/entries)\/[^/\s?]+/g, '$1/:symbol')
+    .replace(/\/api\/market\/instruments\/[^/\s?]+/g, '/api/market/instruments/:isin')
 
 /**
  * A failed upstream call as a span may record it: name and message only. Bun's connection errors
@@ -286,7 +295,7 @@ export function createFinanceRoutes(config: FinanceConfig) {
         detail: {
           tags: ['Finance'],
           summary: 'Finance dashboard data (read-only)',
-          description: `Read-only views over the finance vault, relayed to \`fin serve\` with the query string unchanged. Amounts are integer cents, months \`YYYY-MM\`, income positive, spending negative. Paths: \`/finance/api/meta\` (first/last budget month, accounts, categories — start here), \`overview?from&to\`, \`month-status?month\`, \`categories?from&to\`, \`merchants?from&to&category\`, \`recurring?all=1\`, \`recurring/overrides\`, \`net-worth\`, \`holdings\`, \`transactions?from&to&account&category&tag&merchant&search&min&max&uncategorized&untagged&sort&dir&offset&limit\` (answers \`{ rows, total }\`), \`tax-year?year\`, and the depot chart: \`market/watchlist\`, \`market/candles?isin&interval=1d|1w|1mo&from&to&mic\` and \`market/series\` (public market store, they answer while the vault is locked), \`depot/positions\`, \`depot/trades?isin\`, \`depot/orders?status&isin\`, \`chart/drawings/{isin}\`. ${lockedNote}`,
+          description: `Read-only views over the finance vault, relayed to \`fin serve\` with the query string unchanged. Amounts are integer cents, months \`YYYY-MM\`, income positive, spending negative. Paths: \`/finance/api/meta\` (first/last budget month, accounts, categories — start here), \`overview?from&to\`, \`month-status?month\`, \`categories?from&to\`, \`merchants?from&to&category\`, \`recurring?all=1\`, \`recurring/overrides\`, \`net-worth\`, \`holdings\`, \`transactions?from&to&account&category&tag&merchant&search&min&max&uncategorized&untagged&sort&dir&offset&limit\` (answers \`{ rows, total }\`), \`tax-year?year\`, and the depot chart: \`market/watchlist\`, \`market/lists\`, \`market/search?q\`, \`market/candles?isin&interval=1d|1w|1mo&from&to&limit&splice=index&mic\` and \`market/series\` (public market store, they answer while the vault is locked), \`depot/positions\`, \`depot/trades?isin\`, \`depot/orders?status&isin\`, \`chart/drawings/{isin}\`. ${lockedNote}`,
           security,
           responses: {
             200: { description: 'JSON view rows.' },
@@ -316,7 +325,7 @@ export function createFinanceRoutes(config: FinanceConfig) {
         detail: {
           tags: ['Finance'],
           summary: 'Finance vault edits (typed writes)',
-          description: `Exactly seven writes, relayed to \`fin serve\` with the JSON body verbatim (max 16 KB, 256 KB for a drawing document, else 413; any other POST path is 400): \`/finance/api/transactions/{id}/category\` \`{ category }\` sets a booking's category by hand and returns the booking row; \`/finance/api/transactions/{id}/tag\` \`{ tag | null, note? }\` sets or clears its tax tag; \`/finance/api/recurring/overrides\` \`{ merchant, mode | null, cadence?, note? }\` includes or excludes a merchant in the recurring list; \`/finance/api/merchant-rules\` \`{ pattern, merchant?, category? }\` stores a merchant rule and re-applies categories; \`/finance/api/depot/orders\` \`{ isin, side, type, quantity, limit_price?, stop_price?, valid_until?, account_id?, note? }\` adds a hand-kept order and returns it; \`/finance/api/depot/orders/{id}/close\` \`{ as, note? }\` closes one as executed, cancelled or expired; \`/finance/api/chart/drawings/{isin}\` any JSON object or array stores the chart drawing document of one instrument. Nothing here reaches the bank. The service answers 400 with \`{ error }\` for bad input and 404 for an unknown booking. These change the user's books: do not call them unprompted. ${lockedNote}`,
+          description: `Exactly these writes, relayed to \`fin serve\` with the JSON body verbatim (max 16 KB, 256 KB for a drawing document, else 413; any other POST path is 400): \`/finance/api/transactions/{id}/category\` \`{ category }\` sets a booking's category by hand and returns the booking row; \`/finance/api/transactions/{id}/tag\` \`{ tag | null, note? }\` sets or clears its tax tag; \`/finance/api/recurring/overrides\` \`{ merchant, mode | null, cadence?, note? }\` includes or excludes a merchant in the recurring list; \`/finance/api/merchant-rules\` \`{ pattern, merchant?, category? }\` stores a merchant rule and re-applies categories; \`/finance/api/depot/orders\` \`{ isin, side, type, quantity, limit_price?, stop_price?, valid_until?, account_id?, note? }\` adds a hand-kept order and returns it; \`/finance/api/depot/orders/{id}/close\` \`{ as, note? }\` closes one as executed, cancelled or expired; \`/finance/api/chart/drawings/{isin}\` any JSON object or array stores the chart drawing document of one instrument; the watchlist writes of the public market store (no vault, they answer while it is locked): \`/finance/api/market/lists\` \`{ name }\` creates a list, \`/finance/api/market/lists/{id}\` \`{ name?, position? }\` renames or moves it, \`…/lists/{id}/delete\` deletes it (not the default one), \`…/lists/{id}/entries\` \`{ symbol, display_name? }\` adds an entry (an ISIN, a coin symbol or a series id), \`…/lists/{id}/entries/{symbol}\` \`{ display_name?, position? }\` renames or moves it, \`…/entries/{symbol}/delete\` removes it, \`/finance/api/market/instruments/{isin}\` \`{ index }\` sets the series id an ETF tracks. Removing an entry never deletes prices or trades. Nothing here reaches the bank. The service answers 400 with \`{ error }\` for bad input and 404 for an unknown booking. These change the user's books: do not call them unprompted. ${lockedNote}`,
           security,
           responses: {
             200: { description: 'The updated row, override or `{ pattern, changed }`.' },
