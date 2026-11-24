@@ -28,16 +28,16 @@ export function isBuildAssetLink(target: unknown): boolean {
   return (link.href ?? '').includes('/assets/')
 }
 
-/** `sessionStorage` throws on access where storage is blocked; the guard then lives in memory only. */
+/**
+ * `sessionStorage` throws on access where storage is blocked. A reload discards anything held in
+ * memory, so no guard could survive it: the fallback reports a reload as just done, which turns
+ * the recovery off (the failure surfaces as it did before) instead of risking a reload loop.
+ */
 export function sessionStore(win: { sessionStorage: Store }): Store {
   try {
     return win.sessionStorage
   } catch {
-    const memory = new Map<string, string>()
-    return {
-      getItem: (key) => memory.get(key) ?? null,
-      setItem: (key, value) => void memory.set(key, value),
-    }
+    return { getItem: () => String(Date.now()), setItem: () => {} }
   }
 }
 

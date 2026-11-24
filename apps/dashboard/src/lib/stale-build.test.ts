@@ -77,16 +77,24 @@ describe('sessionStore', () => {
     expect(sessionStore({ sessionStorage: storage })).toBe(storage)
   })
 
-  test('falls back to an in-memory store when storage access throws', () => {
+  test('with storage blocked the guard is always tripped: no reload that could loop', () => {
     const win = {
       get sessionStorage(): never {
         throw new DOMException('blocked', 'SecurityError')
       },
     }
-    const store = sessionStore(win)
-    expect(store.getItem('k')).toBeNull()
-    store.setItem('k', '1')
-    expect(store.getItem('k')).toBe('1')
+    let reloads = 0
+    const target = new Map<string, (e: Event) => void>()
+    installStaleBuildRecovery(
+      {
+        addEventListener: (type, fn) => void target.set(type, fn),
+        location: { reload: () => void reloads++ },
+      },
+      sessionStore(win),
+    )
+    const event = { preventDefault: () => {} } as unknown as Event
+    target.get('vite:preloadError')!(event)
+    expect(reloads).toBe(0)
   })
 })
 
