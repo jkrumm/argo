@@ -346,6 +346,10 @@ describe('the drawings document', () => {
     expect(doc.roles).toEqual({ a: 'sell' })
     expect(storedRoles(doc)).toEqual({ a: 'sell' })
   })
+  it('keeps the colour of an entry the library could not read', () => {
+    const doc = buildDrawingsDocument(JSON.stringify([]), [{ id: 'f' }], { f: 'buy' })
+    expect(doc.roles).toEqual({ f: 'buy' })
+  })
   it('reads no colour from a document without one, and drops a role it does not know', () => {
     expect(storedRoles({})).toEqual({})
     expect(storedRoles(null)).toEqual({})

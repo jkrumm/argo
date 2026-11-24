@@ -572,7 +572,8 @@ export function buildDrawingsDocument(
 ): DrawingsDocument {
   const parsed: unknown = JSON.parse(exported)
   const drawings = Array.isArray(parsed) ? parsed : []
-  const ids = new Set(drawings.map(idOf))
+  // A colour outlives the library not reading its drawing for a while: foreign entries keep theirs.
+  const ids = new Set([...drawings, ...foreign].map(idOf))
   return {
     v: 1,
     drawings,
