@@ -1,10 +1,14 @@
 import HyperDX from '@hyperdx/browser'
 import { HYPERDX_BLOCK_CLASS, HYPERDX_IGNORE_URLS } from './hyperdx-options'
+import { installStaleBuildRecovery } from './stale-build'
 
 // Self-initializing side-effect module — patches window.fetch on import.
 // Must be the FIRST import in main.tsx so the fetch patch is in place
 // before Eden Treaty or TanStack Query capture the original fetch.
 if (typeof window !== 'undefined') {
+  // Before HyperDX.init: its capturing `error` listener must come second to miss the swallowed link errors.
+  installStaleBuildRecovery(window, window.sessionStorage)
+
   const apiKey = import.meta.env['VITE_HYPERDX_API_KEY']
   if (apiKey) {
     // Dev-only: filter Vite HMR client errors before HyperDX's unhandledrejection
