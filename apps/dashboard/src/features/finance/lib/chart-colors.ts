@@ -49,9 +49,12 @@ export type ChartPalette = {
   /** A filled label on the accent, and the ink on it. */
   accentFill: string
   onAccent: string
-  /** An open order's line: the side's colour. */
+  /** An open order's line and a buy or sell level: the side's colour. */
   buy: string
   sell: string
+  /** A filled label in the side's colour (the ink on it is `onAccent`). */
+  buyFill: string
+  sellFill: string
   fontFamily: string
   /** The body font, for the drawings' labels. */
   sansFamily: string
@@ -75,6 +78,8 @@ export function readPalette(host: HTMLElement): ChartPalette {
     onAccent: at(VX.onAccent),
     buy: at(VX.status.good),
     sell: at(VX.status.bad),
+    buyFill: at(VX.goodSolid),
+    sellFill: at(VX.badSolid),
     fontFamily: getComputedStyle(host).getPropertyValue('--basalt-font-mono').trim(),
     sansFamily: getComputedStyle(host).fontFamily,
   }

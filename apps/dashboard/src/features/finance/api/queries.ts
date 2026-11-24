@@ -139,7 +139,7 @@ export const useTaxYear = (year: number | null) =>
 // ---- The depot chart (finances `docs/service.md` §Chart routes) ----
 
 /** The market routes answer while the vault is locked; the depot and drawing routes need it open. */
-const DEPOT_KEY = [...FINANCE_DATA, 'depot'] as const
+export const DEPOT_KEY = [...FINANCE_DATA, 'depot'] as const
 
 /** Instruments with their last close and day change. A new close arrives with the day's sync, so a minute is fresh enough. */
 export const useWatchlist = () =>
@@ -152,10 +152,13 @@ export const useWatchlist = () =>
 export type CandleQuery = {
   isin: string
   interval: string
+  /** No `from` and no `to`: every stored bar (the service answers up to 20,000). */
   from?: string | undefined
-  to: string
+  to?: string | undefined
   /** The US listing to read (USD bars), for a row that has one. */
   mic?: string | undefined
+  /** `index`: an ETF's history starts with the index it tracks (flagged bars). */
+  splice?: 'index' | undefined
 }
 
 export const useCandles = (query: CandleQuery | null) =>

@@ -1,6 +1,6 @@
 /**
- * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ 89ff304
- * (~/SourceRoot/finances, `fin serve`; the file last changed in 456e951). The API is
+ * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ 670e8dd
+ * (~/SourceRoot/finances, `fin serve`; the file last changed in a68675a). The API is
  * `/api/finance/*` here and `/api/*` on the service. Re-copy when that file changes; do not edit the
  * types below by hand. Service status/sync types live in `./status.ts` (from the service contract,
  * finances `docs/service.md`).
@@ -471,12 +471,13 @@ export type AddMerchantRuleResponse = { pattern: string; changed: number }
 
 // ---- Chart page: market, depot, drawings (docs/service.md, docs/market.md) ----
 
-/** Daily bars and up: the market store has no intraday. */
+/** Daily, weekly and monthly bars only: intraday candles are not kept. */
 export type MarketInterval = '1d' | '1w' | '1mo'
 
 /**
- * `GET /api/market/watchlist`. Answers while the service is locked. `BTC-USD` follows the watchlist once
- * it has bars or an instrument is charted as it (`BTC-EUR` is never listed: Bitcoin is shown in dollars only).
+ * `GET /api/market/watchlist`. Answers while the service is locked. The USD coin listing (`BTC-USD`) follows the watchlist once it has bars or an
+ * instrument is charted as it; `BTC-EUR` is not listed. An instrument charted as a coin (`fin market watch add <ISIN> --chart-as BTC-USD`) has no row
+ * of its own: it is listed in `instruments` of the coin's row.
  */
 export type WatchlistEntry = {
   /** An ISIN, or a coin symbol. */
@@ -494,8 +495,46 @@ export type WatchlistEntry = {
   day_change_pct: number | null
   /** MIC of the stored US listing (USD), which `candles` reads with `mic=`; null when there is none. */
   us_mic: string | null
-  /** The ISINs this row stands for: its own, or the ones set with `--chart-as` (a Bitcoin ETP is in `BTC-USD`'s). */
+  /** The watchlist ISINs whose trades belong on this chart: the row's own ISIN, or the ISINs charted as this coin (a Bitcoin ETP); empty for a coin nothing is charted as. Held or not follows from `/api/depot/positions`. */
   instruments: string[]
+  /** The coin symbol this instrument is charted as (a Bitcoin ETP on `BTC-USD`), or null. */
+  chart_as: string | null
+  /** The series id of the index an ETF tracks (`ftse-global-all-cap-usd`): `candles?splice=index` puts its history before the ETF's first bar. Null for anything else. */
+  index: string | null
+}
+
+/** One entry of a list. `symbol` is an ISIN, a coin symbol (`BTC-USD`) or a series id; `quote` is its row as `/api/market/watchlist` gives it (a series: `kind: 'index'`, the last two levels). */
+export type WatchListEntry = {
+  symbol: string
+  /** The name the user gave this entry in this list, or null. */
+  display_name: string | null
+  /** 0-based, contiguous. */
+  position: number
+  added_at: string
+  quote: WatchlistEntry
+}
+
+/** `GET /api/market/lists` and the answer of every list write. Answers while the service is locked. */
+export type WatchList = {
+  id: number
+  name: string
+  /** 0-based, contiguous. */
+  position: number
+  /** `fin market watch add` puts an ISIN on it; it cannot be deleted. */
+  is_default: boolean
+  entries: WatchListEntry[]
+}
+
+/** `GET /api/market/search?q=&limit=`: instruments, coins and stored series that match, exact matches first. The store only: no outbound request. */
+export type SearchHit = {
+  kind: 'instrument' | 'coin' | 'series'
+  /** What a list entry is keyed by. */
+  symbol: string
+  name: string | null
+  wkn: string | null
+  /** Ticker of the US listing. */
+  ticker: string | null
+  detail: string | null
 }
 
 /** One bar. `time` is epoch seconds, UTC: midnight of the day for 1d, the first day of the week or month for 1w and 1mo. */
@@ -507,9 +546,14 @@ export type ChartBar = {
   close: number
   units: number | null
   turnover: number | null
+  /** `'index'` on a bar that comes from the tracked index (flat: open = high = low = close), absent on the instrument's own bars. */
+  source?: 'index'
 }
 
-/** `GET /api/market/candles?isin=&interval=&from=&to=&sys=&mic=`. `from` and `to` are days (`YYYY-MM-DD`). Answers `400` for a range of more than 5,000 bars. */
+/**
+ * `GET /api/market/candles?isin=&interval=&from=&to=&limit=&splice=index&sys=&mic=`. `from` and `to` are days (`YYYY-MM-DD`). With no `limit` every stored bar of
+ * the range comes back, up to 20,000 (`400` above). `limit` gives the newest bars of the range, ascending; page older ones with `to` = the day before the first.
+ */
 export type CandlesResponse = {
   isin: string
   interval: MarketInterval
@@ -517,6 +561,10 @@ export type CandlesResponse = {
   /** Set for a US listing. */
   mic: string | null
   candles: ChartBar[]
+  /** Only with `limit`: bars older than the first one returned are stored; ask again with `to` = the day before it. */
+  more: boolean
+  /** The series id of the index spliced in (`splice=index`), or null. */
+  index: string | null
   /** Why the answer is short or partly from another source, in words. */
   notes: string[]
 }
@@ -545,7 +593,7 @@ export type TradeSide = 'buy' | 'sell'
 
 export type QuantitySource = 'document' | 'manual' | 'derived' | 'estimated'
 
-/** `GET /api/depot/trades?isin=`: what `fin depot trades` prints. */
+/** `GET /api/depot/trades?isin=`: what `fin depot trades` prints. `isin` may be a coin symbol (`BTC-USD`): the trades of the instruments charted as it. */
 export type DepotTrade = {
   id: number
   account_id: string
@@ -569,10 +617,7 @@ export type DepotTrade = {
   updated_at: string
   /** Sales only: proceeds minus the FIFO cost of the shares sold. */
   realised_fifo_cents: number | null
-  /**
-   * The price at the ECB EUR/USD rate of the booking day, for an instrument charted as a coin or with a US
-   * listing; null for the rest and where there is no price or rate.
-   */
+  /** `price` in USD at the ECB EUR/USD rate of `booked_on` (the latest earlier day for a weekend), for an instrument charted as a coin or with a US listing; null otherwise. Computed at read. */
   price_usd: number | null
 }
 

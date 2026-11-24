@@ -7,7 +7,7 @@ import { FINANCE_INDEX } from '../../../lib/series'
 import { useField } from '../../../lib/use-field'
 import { finStore } from '../../../lib/window-stores'
 import { gainTone } from '../lib/format'
-import { INDEX_SERIES, INDEX_SOURCE, indexById } from '../lib/index-series'
+import { INDEX_SOURCE, indexById } from '../lib/index-series'
 import type { IndexSeries } from '../lib/index-series'
 import {
   candleWindow,
@@ -89,9 +89,9 @@ export function IndexHistoryCard({
   return (
     <QueryCard
       shot="depot-index"
-      title={`${index.name} · EUR`}
-      subtitle={INDEX_SOURCE}
-      info={`The official ${index.name} index, net return (dividends reinvested after withholding tax), in euros, from the market store: index points, not a price. Before 2001 some series hold month ends only. Over the whole history the axis is logarithmic, so equal steps are equal percentages; over a range it is linear.`}
+      title={index.other === undefined ? `${index.name} · EUR` : index.name}
+      subtitle={index.other?.unit ?? INDEX_SOURCE}
+      info={`${index.other === undefined ? `The official ${index.name} index, net return (dividends reinvested after withholding tax), in euros, from the market store: index points, not a price. Before 2001 some series hold month ends only.` : `${index.name} from the market store (${index.other.unit}): index points, not a price.`} Over the whole history the axis is logarithmic, so equal steps are equal percentages; over a range it is linear.`}
       query={query}
       empty={
         points.length === 0
@@ -103,7 +103,7 @@ export function IndexHistoryCard({
     >
       <Lines<Point, Date>
         data={points}
-        ariaLabel={`${index.name} net return index in euros, index points`}
+        ariaLabel={`${index.name} index, index points`}
         x={(p) => asDate(p.day)}
         formatX={axisLabel(first?.day, last?.day)}
         series={series}
@@ -128,7 +128,7 @@ export function IndexOverlayCard({
   today: string
 }) {
   const [chosen] = useField(finStore.field.cmp)
-  const index = indexById(chosen) ?? INDEX_SERIES[0]
+  const index = indexById(chosen)
   const bars = useCandles({ isin, interval: '1d', ...candleWindow(range, '1d', today) })
   const closes = bars.data?.candles ?? []
   const firstBar = closes[0]

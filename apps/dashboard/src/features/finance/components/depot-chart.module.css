@@ -27,6 +27,23 @@
   max-width: calc(100% - 4.5rem);
 }
 
+/* The trade card: beside the pointer on the side with room, over the chart, never taking the pointer. */
+.tip {
+  position: absolute;
+  z-index: 3;
+  inset-inline-start: var(--tip-x, 0);
+  inset-block-start: var(--tip-y, 0);
+  width: 15rem;
+  max-width: calc(100% - 1rem);
+  pointer-events: none;
+}
+
+.tipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-sm);
+}
+
 .mono {
   font-family: var(--basalt-font-mono);
   font-variant-numeric: tabular-nums;

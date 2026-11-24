@@ -1,4 +1,4 @@
-import { Box, Stack, Text } from '@mantine/core'
+import { Box, Paper, Stack, Text } from '@mantine/core'
 import {
   CandlestickSeries,
   ColorType,
@@ -6,7 +6,9 @@ import {
   createSeriesMarkers,
   CrosshairMode,
   HistogramSeries,
+  LineSeries,
   LineStyle,
+  PriceScaleMode,
 } from 'lightweight-charts'
 import type {
   IChartApi,
@@ -14,6 +16,7 @@ import type {
   ISeriesApi,
   ISeriesMarkersPluginApi,
   Logical,
+  SeriesMarker,
   Time,
   UTCTimestamp,
 } from 'lightweight-charts'
@@ -24,60 +27,100 @@ import {
   setDefaultStyleOverride,
 } from 'lightweight-charts-drawing'
 import type { Drawing, DrawingKind, DrawingStyle } from 'lightweight-charts-drawing'
-import { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import type { ChartBar, DepotTrade } from '../api/types'
 import { readPalette } from '../lib/chart-colors'
 import type { ChartPalette } from '../lib/chart-colors'
 import {
+  activeTimeframe,
   buildDrawingsDocument,
+  CARD_LIMIT,
   changeOf,
+  defaultViewStart,
+  firstBarFrom,
+  launchTime,
   markGroups,
   marksByBar,
   priceText,
   signedPercent,
+  splitSpliced,
   storedEntries,
+  storedRoles,
+  timeframeStart,
+  tradeCards,
   tradeMarks,
-  tradeReadout,
   unreadEntries,
 } from '../lib/depot-chart'
-import type { DepotInterval, DrawingsDocument, PriceLine, TradeMark } from '../lib/depot-chart'
+import type {
+  ColorRole,
+  DepotInterval,
+  DrawingsDocument,
+  PriceLine,
+  Timeframe,
+  TradeMark,
+} from '../lib/depot-chart'
 import classes from './depot-chart.module.css'
 
 /**
- * The depot chart: candles, the turnover histogram, the owner's trades as markers, open orders and the
- * average cost as price lines, and two drawing tools. This file is the ONLY importer of
- * `lightweight-charts` and `lightweight-charts-drawing` (DESIGN.md, "App deviations"): the page talks
- * to props and callbacks. The chart is created once per mount (the page keys it by instrument) and
- * removed on unmount; colours are read from the theme's tokens and re-read when the scheme changes.
+ * The depot chart: candles, an optional turnover histogram, the spliced index history as a line, the
+ * owner's trades as markers, open orders and the average cost as price lines, and the drawing tools. This
+ * file is the ONLY importer of `lightweight-charts` and `lightweight-charts-drawing` (DESIGN.md, "App
+ * deviations"): the page talks to props and callbacks. The chart is created once per mount (the page keys
+ * it by instrument) and removed on unmount; colours are read from the theme's tokens and re-read when the
+ * scheme changes.
  */
 
-/** The two tools of this row; the package has 86. */
-export type DrawTool = Extract<DrawingKind, 'horizontal-line' | 'price-range'>
+/** The tools of this chart; the package has 86. */
+export type DrawTool = Extract<DrawingKind, 'horizontal-line' | 'vertical-line' | 'price-range'>
 
-/** What is selected on the chart: how many drawings, and the one horizontal line when that is all there is. */
-export type DepotSelection = { count: number; line: { id: string; price: number } | null }
+/** The kinds that take a colour of their own and a label; a price range stays the accent. */
+type LineKind = 'horizontal-line' | 'vertical-line'
+const LINE_KINDS = new Set<string>(['horizontal-line', 'vertical-line'])
+const DRAWN = new Set<string>(['horizontal-line', 'vertical-line', 'price-range'])
+
+/** What is selected on the chart. */
+export type DepotSelection = {
+  count: number
+  /** The one horizontal line when that is all there is (it has a price to type). */
+  line: { id: string; price: number } | null
+  /** The one line (horizontal or vertical) when that is all there is: its colour and label. */
+  single: { id: string; kind: LineKind; role: ColorRole; label: string } | null
+}
 
 export type DepotChartHandle = {
   /** Deletes the selected drawings. */
   removeSelected(): void
   /** Moves a horizontal line to an exact price. */
   setLinePrice(id: string, price: number): void
+  /** Shows the last stretch of the history a timeframe names. */
+  setTimeframe(timeframe: Timeframe): void
+  /** Paints the selected line in a colour. */
+  setSelectionRole(role: ColorRole): void
+  /** Sets the label of the selected line; empty clears it. */
+  setSelectionLabel(label: string): void
 }
 
-/**
- * The distance between two bars, in px, at every interval: a week or a month is drawn as wide as a day,
- * the view starts at the newest bar, and the owner zooms out for more. Fitting the range instead squeezed
- * a long history into hairlines.
- */
-const BAR_SPACING = 7
 /** Empty bars right of the newest one. */
 const RIGHT_OFFSET = 4
+/** Marker size on the candles (the library's default is 1): readable at day and week width. */
+const MARKER_SIZE = 2
+/** The line under the chart and in the readout says what the grey line before the launch is. */
+export const SPLICE_LABEL = 'Index, scaled to the ETF price'
+
+/** Where the pointer is on the chart, and the marker under it when there is one. */
+export type ChartPointer = {
+  time: number
+  x: number
+  y: number
+  width: number
+  marker: string | null
+}
 
 export type DepotChartProps = {
   bars: readonly ChartBar[]
   interval: DepotInterval
-  /** The currency of the bars; USD adds the dollar price to the trades in the readout. */
+  /** The currency of the bars; USD adds the dollar price to the trade cards. */
   currency: string | null
   trades: readonly DepotTrade[]
   lines: readonly PriceLine[]
@@ -85,10 +128,16 @@ export type DepotChartProps = {
   storedDrawings: unknown
   loadedDrawings: boolean
   tool: DrawTool | null
+  /** The colour new lines are drawn in. */
+  role: ColorRole
+  logScale: boolean
+  showVolume: boolean
   onToolChange(tool: DrawTool | null): void
   onSelectionChange(selection: DepotSelection): void
   /** Every change of the drawings, with the library's export and the entries it could not read. */
   onDrawingsChange(document: DrawingsDocument): void
+  /** The timeframe the visible range matches, or null after a zoom to something else. */
+  onTimeframeChange(timeframe: Timeframe | null): void
   ref?: Ref<DepotChartHandle>
 }
 
@@ -104,45 +153,71 @@ const asDate = (time: number) => new Date(time * 1000)
 /** A bar's time as the readout and the crosshair label write it. */
 const barLabel = (time: number): string => dayFull.format(asDate(time))
 
-/** The accent look of a drawing: the preview while it is placed, the drawing once it is, and again after a scheme change. */
-function accentStyle(kind: string, palette: ChartPalette): Partial<DrawingStyle> {
+const solid = (role: ColorRole, palette: ChartPalette) =>
+  role === 'buy'
+    ? { ink: palette.buy, fill: palette.buyFill }
+    : role === 'sell'
+      ? { ink: palette.sell, fill: palette.sellFill }
+      : { ink: palette.accent, fill: palette.accentFill }
+
+/** The look of a drawing in a colour role: the preview while it is placed, the drawing once it is, and again after a scheme change. */
+function roleStyle(kind: string, role: ColorRole, palette: ChartPalette): Partial<DrawingStyle> {
+  const { ink, fill } = solid(LINE_KINDS.has(kind) ? role : 'accent', palette)
   return {
-    color: palette.accent,
-    backgroundColor: palette.accent,
-    textColor: kind === 'price-range' ? palette.onAccent : palette.accent,
-    labelBackgroundColor: palette.accentFill,
+    color: ink,
+    backgroundColor: ink,
+    textColor: kind === 'price-range' ? palette.onAccent : ink,
+    labelBackgroundColor: fill,
   }
 }
 
-const DRAWN = new Set<string>(['horizontal-line', 'price-range'])
-
 /** What is selected now, as the page needs it. */
-function selectionOf(manager: DrawingManager): DepotSelection {
+function selectionOf(
+  manager: DrawingManager,
+  roles: ReadonlyMap<string, ColorRole>,
+): DepotSelection {
   const ids = manager.selection()
   const only = ids.length === 1 ? manager.get(ids[0] ?? '') : undefined
   const point = only?.kind === 'horizontal-line' ? only.points[0] : undefined
   return {
     count: ids.length,
     line: only === undefined || point === undefined ? null : { id: only.id, price: point.price },
+    single:
+      only !== undefined && LINE_KINDS.has(only.kind)
+        ? {
+            id: only.id,
+            kind: only.kind as LineKind,
+            role: roles.get(only.id) ?? 'accent',
+            label: only.style.text ?? '',
+          }
+        : null,
   }
 }
 
 type Engine = {
-  setBars(bars: readonly ChartBar[], viewKey: string): void
+  setBars(bars: readonly ChartBar[], viewKey: string, interval: DepotInterval): void
   setMarks(marks: readonly TradeMark[]): void
   setLines(lines: readonly PriceLine[]): void
   setTool(tool: DrawTool | null): void
+  setRole(role: ColorRole): void
+  setLog(on: boolean): void
+  setVolume(on: boolean): void
+  setTimeframe(timeframe: Timeframe): void
   loadDrawings(stored: unknown): void
   removeSelected(): void
   setLinePrice(id: string, price: number): void
+  setSelectionRole(role: ColorRole): void
+  setSelectionLabel(label: string): void
   destroy(): void
 }
 
 type Callbacks = {
-  onCrosshair(time: number | null): void
+  onCrosshair(pointer: ChartPointer | null): void
+  onClick(pointer: ChartPointer | null): void
   onToolChange(tool: DrawTool | null): void
   onSelectionChange(selection: DepotSelection): void
   onDrawingsChange(document: DrawingsDocument): void
+  onTimeframeChange(timeframe: Timeframe | null): void
 }
 
 function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
@@ -153,6 +228,9 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let foreign: unknown[] = []
   let ready = false
   let quiet = false
+  let defaultRole: ColorRole = 'accent'
+  let alive = true
+  const roles = new Map<string, ColorRole>()
 
   const chart: IChartApi = createChart(host, {
     autoSize: true,
@@ -166,7 +244,8 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     grid: { vertLines: { color: palette.grid }, horzLines: { color: palette.grid } },
     crosshair: { mode: CrosshairMode.Normal },
     rightPriceScale: { borderColor: palette.grid },
-    timeScale: { borderColor: palette.grid, rightOffset: RIGHT_OFFSET, barSpacing: BAR_SPACING },
+    // A history of thousands of bars still fits on Max: the library's default minimum (half a pixel) stops short of it.
+    timeScale: { borderColor: palette.grid, rightOffset: RIGHT_OFFSET, minBarSpacing: 0.01 },
     localization: { timeFormatter: (time: Time) => barLabel(Number(time)) },
     handleScale: { axisPressedMouseMove: true },
   })
@@ -175,16 +254,26 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     { priceLineVisible: false, lastValueVisible: true },
     0,
   )
-  const volume: ISeriesApi<'Histogram'> = chart.addSeries(
-    HistogramSeries,
-    { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false },
-    1,
+  // The tracked index before the instrument's own history: a muted line, never candles.
+  const splice: ISeriesApi<'Line'> = chart.addSeries(
+    LineSeries,
+    {
+      color: palette.text,
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    },
+    0,
   )
-  chart.panes()[0]?.setStretchFactor(4)
-  chart.panes()[1]?.setStretchFactor(1)
+  let volume: ISeriesApi<'Histogram'> | null = null
   const markers: ISeriesMarkersPluginApi<Time> = createSeriesMarkers(candles, [])
   let priceLines: IPriceLine[] = []
-  let barList: readonly ChartBar[] = []
+  /** Every bar the time scale knows: the spliced index bars and the instrument's own, ascending. */
+  let allBars: readonly ChartBar[] = []
+  let own: readonly ChartBar[] = []
+  let spliced: readonly ChartBar[] = []
+  let launch: number | null = null
 
   const manager = new DrawingManager(chart, candles, {
     fontFamily: palette.sansFamily,
@@ -201,17 +290,23 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     touchHitTolerance: 22,
     timeInfo: () => ({ timeZone: 'UTC', intraday: false }),
   })
-  // The package draws a placement in its own blue until the drawing exists: give both the accent.
+  // The package draws a placement in its own blue until the drawing exists: give both the chosen colour.
   setDefaultStyleOverride((kind) =>
     DRAWN.has(kind)
-      ? { ...factoryStyleFor(kind as DrawingKind), ...accentStyle(kind, palette) }
+      ? { ...factoryStyleFor(kind as DrawingKind), ...roleStyle(kind, defaultRole, palette) }
       : undefined,
   )
 
   let lastSelection = ''
   const emitSelection = () => {
-    const selection = selectionOf(manager)
-    const key = `${selection.count}:${selection.line?.id ?? ''}:${selection.line?.price ?? ''}`
+    const selection = selectionOf(manager, roles)
+    const key = [
+      selection.count,
+      selection.line?.id ?? '',
+      selection.line?.price ?? '',
+      selection.single?.role ?? '',
+      selection.single?.label ?? '',
+    ].join(':')
     if (key === lastSelection) return
     lastSelection = key
     callbacks.onSelectionChange(selection)
@@ -219,31 +314,78 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
 
   const emitDrawings = () => {
     if (!ready || quiet) return
-    callbacks.onDrawingsChange(buildDrawingsDocument(manager.exportJSON(), foreign))
+    callbacks.onDrawingsChange(
+      buildDrawingsDocument(manager.exportJSON(), foreign, Object.fromEntries(roles)),
+    )
   }
   const offs = [
     manager.on('change', () => {
+      if (!quiet) {
+        // A drawing the owner just placed takes the colour that was chosen for new ones.
+        for (const drawing of manager.drawings()) {
+          if (!roles.has(drawing.id)) roles.set(drawing.id, defaultRole)
+        }
+      }
       emitDrawings()
       if (!quiet) emitSelection()
     }),
     manager.on('selection', emitSelection),
     manager.on('tool', (kind) =>
-      callbacks.onToolChange(kind === 'horizontal-line' || kind === 'price-range' ? kind : null),
+      callbacks.onToolChange(
+        kind === 'horizontal-line' || kind === 'vertical-line' || kind === 'price-range'
+          ? kind
+          : null,
+      ),
     ),
   ]
 
-  // The design shot reads the distance between two bars off the host: it is the same at every interval.
-  const reportSpacing = () => {
+  const pointerOf = (param: {
+    time?: Time
+    point?: { x: number; y: number }
+    hoveredObjectId?: unknown
+  }): ChartPointer | null =>
+    typeof param.time === 'number' && param.point !== undefined
+      ? {
+          time: param.time,
+          x: param.point.x,
+          y: param.point.y,
+          width: host.clientWidth,
+          marker: typeof param.hoveredObjectId === 'string' ? param.hoveredObjectId : null,
+        }
+      : null
+
+  chart.subscribeCrosshairMove((param) => callbacks.onCrosshair(pointerOf(param)))
+  chart.subscribeClick((param) => callbacks.onClick(pointerOf(param)))
+
+  // The design shot reads the distance between two bars off the host; the page reads the timeframe off the range.
+  let lastFrame: Timeframe | null | undefined
+  const reportView = () => {
     const scale = chart.timeScale()
     const first = scale.logicalToCoordinate(0 as Logical)
     const second = scale.logicalToCoordinate(1 as Logical)
     if (first !== null && second !== null) host.dataset['barSpacing'] = (second - first).toFixed(2)
+    const range = scale.getVisibleLogicalRange()
+    const firstBar = allBars[0]
+    const lastBar = allBars.at(-1)
+    if (range === null || firstBar === undefined || lastBar === undefined) return
+    const index = Math.min(allBars.length - 1, Math.max(0, Math.ceil(range.from)))
+    const frame = activeTimeframe(
+      // Within a couple of bars of the first is the whole history (the library rounds the edge).
+      range.from <= 2 ? null : (allBars[index]?.time ?? null),
+      lastBar.time,
+      firstBar.time,
+    )
+    host.dataset['timeframe'] = frame ?? ''
+    host.dataset['bars'] = String(allBars.length)
+    host.dataset['logicalFrom'] = range.from.toFixed(1)
+    host.dataset['firstDay'] = new Date(firstBar.time * 1000).toISOString().slice(0, 10)
+    host.dataset['spliced'] = String(spliced.length)
+    if (frame !== lastFrame) {
+      lastFrame = frame
+      callbacks.onTimeframeChange(frame)
+    }
   }
-  chart.timeScale().subscribeVisibleLogicalRangeChange(reportSpacing)
-
-  chart.subscribeCrosshairMove((param) => {
-    callbacks.onCrosshair(typeof param.time === 'number' ? param.time : null)
-  })
+  chart.timeScale().subscribeVisibleLogicalRangeChange(reportView)
 
   const onKey = (event: KeyboardEvent) => {
     const target = event.target
@@ -267,14 +409,17 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     for (const id of manager.selection().slice()) manager.remove(id)
   }
 
-  /** Drawings are stored with the colour they were drawn in; the theme paints them again. */
+  /** Drawings are stored with their colour role; the theme paints them again. */
   function retheme(list: readonly Drawing[]) {
     quiet = true
     try {
       for (const drawing of list) {
         manager.update({
           ...drawing,
-          style: { ...drawing.style, ...accentStyle(drawing.kind, palette) },
+          style: {
+            ...drawing.style,
+            ...roleStyle(drawing.kind, roles.get(drawing.id) ?? 'accent', palette),
+          },
         })
       }
     } finally {
@@ -299,25 +444,46 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         axisLabelVisible: true,
       }),
     )
-    // One marker per bar and side: the count says how many trades it holds.
-    markers.setMarkers(
-      markGroups(marks).map((group) => {
-        const buy = group.side === 'buy'
-        return {
-          time: group.time as UTCTimestamp,
-          position: buy ? 'belowBar' : 'aboveBar',
-          color: buy ? palette.buy : palette.sell,
-          shape: group.estimated ? 'circle' : buy ? 'arrowUp' : 'arrowDown',
-          size: 1.2,
-          ...(group.count > 1 && { text: String(group.count) }),
-        }
-      }),
-    )
+    // One marker per bar and side: the count says how many trades it holds. The id lets the pointer name it.
+    const trades: SeriesMarker<Time>[] = markGroups(marks).map((group) => {
+      const buy = group.side === 'buy'
+      return {
+        id: `${group.time}:${group.side}`,
+        time: group.time as UTCTimestamp,
+        position: buy ? 'belowBar' : 'aboveBar',
+        color: buy ? palette.buy : palette.sell,
+        shape: group.estimated ? 'circle' : buy ? 'arrowUp' : 'arrowDown',
+        size: MARKER_SIZE,
+        ...(group.count > 1 && { text: String(group.count) }),
+      }
+    })
+    const launched: SeriesMarker<Time>[] =
+      launch === null
+        ? []
+        : [
+            {
+              id: 'launch',
+              time: launch as UTCTimestamp,
+              position: 'aboveBar',
+              color: palette.text,
+              shape: 'square',
+              size: 1,
+              text: 'ETF launch',
+            },
+          ]
+    markers.setMarkers([...trades, ...launched].toSorted((a, b) => Number(a.time) - Number(b.time)))
+    // The design shot finds a trade's bar on screen: where the first few trades sit, in px from the left.
+    host.dataset['markX'] = markGroups(marks)
+      .slice(-6)
+      .map((group) => chart.timeScale().timeToCoordinate(group.time as UTCTimestamp))
+      .filter((x) => x !== null)
+      .map((x) => Math.round(x))
+      .join(',')
   }
 
   function paintData() {
     candles.setData(
-      barList.map((bar) => ({
+      own.map((bar) => ({
         time: bar.time as UTCTimestamp,
         open: bar.open,
         high: bar.high,
@@ -325,13 +491,32 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         close: bar.close,
       })),
     )
-    volume.setData(
-      barList.map((bar) => ({
+    splice.setData(spliced.map((bar) => ({ time: bar.time as UTCTimestamp, value: bar.close })))
+    volume?.setData(
+      own.map((bar) => ({
         time: bar.time as UTCTimestamp,
         value: bar.turnover ?? 0,
         color: bar.close >= bar.open ? palette.upFaint : palette.downFaint,
       })),
     )
+  }
+
+  /** The visible range from the bar at `start` (the first bar for null) to the newest, with the empty bars to its right. */
+  function showFrom(start: number | null) {
+    const count = allBars.length
+    if (count === 0) return
+    const from = Math.min(firstBarFrom(allBars, start), count - 1)
+    const apply = () =>
+      chart.timeScale().setVisibleLogicalRange({
+        from: (from - 0.5) as Logical,
+        to: (count - 1 + RIGHT_OFFSET) as Logical,
+      })
+    apply()
+    // The price axis changes its width with the new range (its labels get longer or shorter) and takes plot width
+    // with it: once more on the next frame, so the range still holds after the layout settled.
+    requestAnimationFrame(() => {
+      if (alive) apply()
+    })
   }
 
   function applyTheme() {
@@ -348,6 +533,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       timeScale: { borderColor: palette.grid },
     })
     candles.applyOptions(candleColors(palette))
+    splice.applyOptions({ color: palette.text })
     paintData()
     paintOverlays()
     retheme(manager.drawings())
@@ -363,12 +549,17 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   })
 
   return {
-    setBars(next, nextViewKey) {
-      barList = next
+    setBars(next, nextViewKey, interval) {
+      const parts = splitSpliced(next)
+      own = parts.own
+      spliced = parts.spliced
+      allBars = next
+      launch = launchTime(next)
       paintData()
+      paintOverlays()
       if (viewKey !== nextViewKey) {
         viewKey = nextViewKey
-        chart.timeScale().applyOptions({ barSpacing: BAR_SPACING, rightOffset: RIGHT_OFFSET })
+        showFrom(defaultViewStart(next, interval))
       }
     },
     setMarks(next) {
@@ -382,13 +573,45 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     setTool(tool) {
       if (manager.tool() !== tool) manager.setTool(tool)
     },
+    setRole(role) {
+      defaultRole = role
+    },
+    setLog(on) {
+      chart.priceScale('right', 0).applyOptions({
+        mode: on ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
+      })
+    },
+    setVolume(on) {
+      if (on && volume === null) {
+        volume = chart.addSeries(
+          HistogramSeries,
+          { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false },
+          1,
+        )
+        chart.panes()[0]?.setStretchFactor(4)
+        chart.panes()[1]?.setStretchFactor(1)
+        paintData()
+      } else if (!on && volume !== null) {
+        chart.removeSeries(volume)
+        volume = null
+        if (chart.panes().length > 1) chart.removePane(1)
+      }
+    },
+    setTimeframe(timeframe) {
+      const last = allBars.at(-1)
+      if (last === undefined) return
+      showFrom(timeframeStart(timeframe, last.time))
+    },
     loadDrawings(stored) {
       const entries = storedEntries(stored)
       quiet = true
       try {
+        roles.clear()
+        for (const [id, role] of Object.entries(storedRoles(stored))) roles.set(id, role)
         manager.importJSON(entries)
         const held = new Set(manager.drawings().map((d) => d.id))
         foreign = unreadEntries(entries, held)
+        for (const id of held) if (!roles.has(id)) roles.set(id, 'accent')
         retheme(manager.drawings())
       } finally {
         quiet = false
@@ -401,7 +624,25 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       if (drawing?.kind !== 'horizontal-line') return
       manager.update({ ...drawing, points: [{ ...drawing.points[0], price }] })
     },
+    setSelectionRole(role) {
+      for (const id of manager.selection().slice()) {
+        const drawing = manager.get(id)
+        if (drawing === undefined || !LINE_KINDS.has(drawing.kind)) continue
+        roles.set(id, role)
+        manager.update({
+          ...drawing,
+          style: { ...drawing.style, ...roleStyle(drawing.kind, role, palette) },
+        })
+      }
+    },
+    setSelectionLabel(label) {
+      const [id] = manager.selection()
+      const drawing = id === undefined ? undefined : manager.get(id)
+      if (drawing === undefined || !LINE_KINDS.has(drawing.kind)) return
+      manager.update({ ...drawing, style: { ...drawing.style, text: label } })
+    },
     destroy() {
+      alive = false
       setDefaultStyleOverride(() => undefined)
       observer.disconnect()
       window.removeEventListener('keydown', onKey)
@@ -423,30 +664,47 @@ const candleColors = (palette: ChartPalette) => ({
 
 export function DepotChart(props: DepotChartProps) {
   const { bars, interval, currency, trades, lines, storedDrawings, loadedDrawings, tool } = props
+  const { role, logScale, showVolume } = props
   const hostRef = useRef<HTMLDivElement>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<Engine | null>(null)
   const callbacksRef = useRef<Callbacks | null>(null)
-  const [hover, setHover] = useState<number | null>(null)
+  const [hover, setHover] = useState<ChartPointer | null>(null)
+  const [pinned, setPinned] = useState<ChartPointer | null>(null)
+
+  // The view returns to the newest bars when they are another series: another interval, or a history that starts elsewhere.
+  const viewKey = `${interval}:${bars[0]?.time ?? ''}`
+  const marks = tradeMarks(trades, bars, interval)
+  const byBar = marksByBar(marks)
 
   // The engine calls the latest callbacks of the page, not the ones of the render it was created in.
-  const { onToolChange, onSelectionChange, onDrawingsChange } = props
+  const { onToolChange, onSelectionChange, onDrawingsChange, onTimeframeChange } = props
   useEffect(() => {
     callbacksRef.current = {
       onCrosshair: setHover,
+      onClick: (pointer) =>
+        setPinned((current) =>
+          pointer === null || !byBar.has(pointer.time) || current?.time === pointer.time
+            ? null
+            : pointer,
+        ),
       onToolChange,
       onSelectionChange,
       onDrawingsChange,
+      onTimeframeChange,
     }
-  }, [onToolChange, onSelectionChange, onDrawingsChange])
+  }, [byBar, onToolChange, onSelectionChange, onDrawingsChange, onTimeframeChange])
 
   useEffect(() => {
     const host = hostRef.current
     if (host === null) return
     const engine = createEngine(host, {
-      onCrosshair: (time) => callbacksRef.current?.onCrosshair(time),
+      onCrosshair: (pointer) => callbacksRef.current?.onCrosshair(pointer),
+      onClick: (pointer) => callbacksRef.current?.onClick(pointer),
       onToolChange: (next) => callbacksRef.current?.onToolChange(next),
-      onSelectionChange: (count) => callbacksRef.current?.onSelectionChange(count),
+      onSelectionChange: (selection) => callbacksRef.current?.onSelectionChange(selection),
       onDrawingsChange: (document) => callbacksRef.current?.onDrawingsChange(document),
+      onTimeframeChange: (frame) => callbacksRef.current?.onTimeframeChange(frame),
     })
     engineRef.current = engine
     return () => {
@@ -455,13 +713,13 @@ export function DepotChart(props: DepotChartProps) {
     }
   }, [])
 
-  // The view returns to the newest bars when they are another series: another interval, or a range that starts elsewhere.
-  const viewKey = `${interval}:${bars[0]?.time ?? ''}`
-  const marks = tradeMarks(trades, bars, interval)
-  useEffect(() => engineRef.current?.setBars(bars, viewKey), [bars, viewKey])
+  useEffect(() => engineRef.current?.setBars(bars, viewKey, interval), [bars, viewKey, interval])
   useEffect(() => engineRef.current?.setMarks(marks), [marks])
   useEffect(() => engineRef.current?.setLines(lines), [lines])
   useEffect(() => engineRef.current?.setTool(tool), [tool])
+  useEffect(() => engineRef.current?.setRole(role), [role])
+  useEffect(() => engineRef.current?.setLog(logScale), [logScale])
+  useEffect(() => engineRef.current?.setVolume(showVolume), [showVolume])
   useEffect(() => {
     if (loadedDrawings) engineRef.current?.loadDrawings(storedDrawings)
     // The document is read once per mount: after that the chart owns it and the page only stores it.
@@ -472,13 +730,41 @@ export function DepotChart(props: DepotChartProps) {
     () => ({
       removeSelected: () => engineRef.current?.removeSelected(),
       setLinePrice: (id, price) => engineRef.current?.setLinePrice(id, price),
+      setTimeframe: (timeframe) => engineRef.current?.setTimeframe(timeframe),
+      setSelectionRole: (next) => engineRef.current?.setSelectionRole(next),
+      setSelectionLabel: (label) => engineRef.current?.setSelectionLabel(label),
     }),
     [],
   )
 
-  const byBar = marksByBar(marks)
-  const index = bars.findIndex((bar) => bar.time === (hover ?? bars.at(-1)?.time))
+  const index = bars.findIndex((bar) => bar.time === (hover?.time ?? bars.at(-1)?.time))
   const shown = bars[index]
+  const spliced = bars.some((bar) => bar.source === 'index')
+
+  // The card of a bar's trades: under the pointer while it is on a marker, and where a tap or click pinned it.
+  const cardAt =
+    pinned !== null && byBar.has(pinned.time) ? pinned : hover?.marker != null ? hover : null
+  const cardMarks = cardAt === null ? [] : (byBar.get(cardAt.time) ?? [])
+  const cards = tradeCards(cardMarks.slice(0, CARD_LIMIT), currency === 'USD')
+  const hidden = cardMarks.length - cards.length
+
+  // The card sits beside the pointer, on the side with room. Its position is a pair of CSS variables.
+  useLayoutEffect(() => {
+    const tip = tipRef.current
+    if (tip === null || cardAt === null) return
+    const frame = tip.parentElement
+    const room = 4
+    // Right of the pointer, else left of it, else pinned inside the chart (a phone is narrower than the card).
+    let left = cardAt.x + 16
+    if (left + tip.offsetWidth > cardAt.width - room) left = cardAt.x - 16 - tip.offsetWidth
+    left = Math.max(room, Math.min(left, cardAt.width - tip.offsetWidth - room))
+    const top = Math.min(
+      Math.max(8, cardAt.y - 24),
+      Math.max(8, (frame?.clientHeight ?? 0) - tip.offsetHeight - room),
+    )
+    tip.style.setProperty('--tip-x', `${left}px`)
+    tip.style.setProperty('--tip-y', `${top}px`)
+  })
 
   return (
     <Box className={classes.frame}>
@@ -494,16 +780,54 @@ export function DepotChart(props: DepotChartProps) {
             {barLabel(shown.time)}
           </Text>
           <Text size="xs" className={classes.mono}>
-            O {priceText(shown.open)} H {priceText(shown.high)} L {priceText(shown.low)} C{' '}
-            {priceText(shown.close)}
-            <ChangeText change={changeOf(bars, index)} />
+            {shown.source === 'index' ? (
+              <>Index {priceText(shown.close)}</>
+            ) : (
+              <>
+                O {priceText(shown.open)} H {priceText(shown.high)} L {priceText(shown.low)} C{' '}
+                {priceText(shown.close)}
+                <ChangeText change={changeOf(bars, index)} />
+              </>
+            )}
           </Text>
-          {tradeReadout(byBar.get(shown.time) ?? [], currency === 'USD').map((line) => (
-            <Text key={line} size="xs" className={classes.mono}>
-              {line}
+          {spliced && (
+            <Text size="xs" c="dimmed" className={classes.mono}>
+              {SPLICE_LABEL}
             </Text>
-          ))}
+          )}
         </Stack>
+      )}
+      {cardAt !== null && cards.length > 0 && (
+        <Paper ref={tipRef} className={classes.tip} data-shot="depot-trade-card" role="status">
+          <Stack gap="xs">
+            {cards.map((card) => (
+              <Stack key={card.id} gap={2}>
+                <Text size="xs" fw={600} c={card.side === 'buy' ? 'green' : 'red'}>
+                  {card.title}
+                </Text>
+                {card.rows.map((row) => (
+                  <Box key={row.label} className={classes.tipRow}>
+                    <Text size="xs" c="dimmed">
+                      {row.label}
+                    </Text>
+                    <Text
+                      size="xs"
+                      className={classes.mono}
+                      {...(row.tone !== undefined && { c: row.tone === 'good' ? 'green' : 'red' })}
+                    >
+                      {row.value}
+                    </Text>
+                  </Box>
+                ))}
+              </Stack>
+            ))}
+            {hidden > 0 && (
+              <Text size="xs" c="dimmed">
+                + {hidden} more
+              </Text>
+            )}
+          </Stack>
+        </Paper>
       )}
     </Box>
   )

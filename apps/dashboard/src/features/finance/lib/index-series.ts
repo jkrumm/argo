@@ -15,8 +15,10 @@ export const INDEX_IDS = [
 export type IndexId = (typeof INDEX_IDS)[number]
 
 export type IndexSeries = {
-  id: IndexId
+  id: string
   name: string
+  /** A stored series outside the MSCI group (the owner added it from the search): what the store says of it. */
+  other?: { unit: string }
 }
 
 export const INDEX_SERIES: readonly IndexSeries[] = [
@@ -31,8 +33,18 @@ export const INDEX_SERIES: readonly IndexSeries[] = [
 export const indexById = (id: string): IndexSeries | undefined =>
   INDEX_SERIES.find((series) => series.id === id.toLowerCase())
 
+/** A stored series by its id: one of the MSCI group, else any series the store holds levels of. */
+export function seriesOf(
+  id: string,
+  catalog: readonly { id: string; title: string; unit: string; points: number }[],
+): IndexSeries | undefined {
+  const known = indexById(id)
+  if (known !== undefined) return known
+  const info = catalog.find((entry) => entry.id === id.toLowerCase() && entry.points > 0)
+  return info === undefined
+    ? undefined
+    : { id: info.id, name: info.title, other: { unit: info.unit } }
+}
+
 /** What the page says about every one of them, so a card names its source. */
 export const INDEX_SOURCE = 'MSCI · net return · EUR'
-
-/** The index an ETF is read against until the owner picks another: the stand-in for a global all-cap fund. */
-export const DEFAULT_COMPARISON: IndexId = 'msci-acwi-imi-net-eur'

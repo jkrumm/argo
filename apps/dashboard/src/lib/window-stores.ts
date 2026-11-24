@@ -26,7 +26,7 @@ import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
 import { PAYER_LABELS, USAGE_PAYERS, type IuKeyId } from '../features/usage-tracking/accounts'
 import type { LegacyView } from '../features/usage-tracking/flow-node'
 // Dependency-free month helpers (a type-only import of the pinned finance contract).
-import { DEFAULT_COMPARISON, INDEX_IDS, INDEX_SERIES } from '../features/finance/lib/index-series'
+import { INDEX_IDS, INDEX_SERIES } from '../features/finance/lib/index-series'
 import { MONTH_UNIVERSE, YEAR_UNIVERSE, monthLabel } from '../features/finance/lib/months'
 // Pure, import-free of the app but for the pinned contract types: the models page's value sets.
 import { CREATOR_LABELS, CREATOR_VALUES } from '../features/models/model'
@@ -315,9 +315,10 @@ const DEPOT_RANGE_LABELS = {
  * - `sort` / `dir` / `page` / `size`: the ledger's server-side order and page.
  * - `year`: the tax year, `''` reading as the year of the latest month.
  * - `focus`: the category row selected on the spending page; page-local.
- * - `isin` / `ivl` / `rng` / `cmp`: the depot chart's instrument (`''` is the first held one, else the first
- *   on the watchlist; a stored index series id charts that index), bar interval, range and the index an ETF is
- *   read against; URL only, so a link carries the view.
+ * - `isin` / `ivl` / `rng` / `cmp` / `tab`: the depot chart's instrument (`''` is the first held one, else the first
+ *   on the watchlist; a stored index series id charts that index), bar interval, the range of an index card and
+ *   of the overlay, the index an instrument is compared with (`''`: none, the overlay is off) and the watchlist
+ *   panel's tab; URL only, so a link carries the view.
  */
 export const finStore = createSearchStore({
   key: 'finance',
@@ -341,7 +342,9 @@ export const finStore = createSearchStore({
     focus: field.string({ max: 120 }, { persist: false }),
     // An ISIN, a coin symbol or the id of a stored index series (`msci-world-small-cap-net-eur`).
     isin: field.string({ max: 40 }, { persist: false }),
-    cmp: field.enum(INDEX_IDS, DEFAULT_COMPARISON, { persist: false }),
+    cmp: field.enum(['', ...INDEX_IDS], '', { persist: false }),
+    // The watchlist panel's tab: `depot`, `crypto`, `indices` or `list-<id>`; `''` is the first one there is.
+    tab: field.string({ max: 40 }, { persist: false }),
     ivl: field.enum(DEPOT_INTERVALS, '1d', { persist: false }),
     rng: field.enum(DEPOT_RANGES, '1y', { persist: false }),
   },
@@ -353,10 +356,10 @@ export const finStore = createSearchStore({
   amount: AMOUNT_BANDS,
   ivl: DEPOT_INTERVAL_LABELS,
   rng: DEPOT_RANGE_LABELS,
-  cmp: Object.fromEntries(INDEX_SERIES.map((s) => [s.id, s.name])) as Record<
-    (typeof INDEX_IDS)[number],
-    string
-  >,
+  cmp: {
+    '': 'Compare with…',
+    ...Object.fromEntries(INDEX_SERIES.map((s) => [s.id, s.name])),
+  } as Record<'' | (typeof INDEX_IDS)[number], string>,
 })
 
 export type FinanceFilters = ReturnType<typeof finStore.useValues>
@@ -381,7 +384,8 @@ export const FILTERS_CLEARED: FinanceFilters = {
   year: '',
   focus: '',
   isin: '',
-  cmp: DEFAULT_COMPARISON,
+  cmp: '',
+  tab: '',
   ivl: '1d',
   rng: '1y',
 }

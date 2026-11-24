@@ -6,7 +6,7 @@ import type {
   SeriesResponse,
   WatchlistEntry,
 } from '../api/types'
-import { eurExact } from './format'
+import { eurExact, signedEur } from './format'
 
 /** The bar intervals the page offers and the service knows: there is no intraday. */
 export type DepotInterval = '1d' | '1w' | '1mo'
@@ -24,8 +24,8 @@ const RANGE_DAYS: Record<Exclude<DepotRange, 'max'>, number> = {
   '5y': 1827,
 }
 
-/** The service refuses a request of more than 5,000 bars; only daily bars of a long history can reach it. */
-const DAILY_MAX_DAYS = 4990
+/** The service refuses a request of more than 20,000 bars (about 80 years of days); only the overlay card asks for a window. */
+const DAILY_MAX_DAYS = 19_990
 
 const OFFERED = new Set<string>(['1d', '1w', '1mo'])
 
@@ -44,8 +44,7 @@ export function candleWindow(
   interval: DepotInterval,
   today: string,
 ): { from?: string; to: string } {
-  // Week and month bars are few and drawn as wide as a day: they load the whole history and open at the
-  // newest bar, so the chart is full and the owner scrolls back instead of the range deciding what exists.
+  // Week and month bars are few: they load the whole history.
   if (interval !== '1d') return { to: today }
   const days = range === 'max' ? undefined : RANGE_DAYS[range]
   const span = Math.min(days ?? DAILY_MAX_DAYS, DAILY_MAX_DAYS)
@@ -101,6 +100,93 @@ export function rebasedPair(
     index: (row.index / first.index) * 100,
   }))
 }
+
+// ---- Timeframes, the spliced history, defaults ---------------------------------------------------
+
+/** The buttons under the chart: they only set the visible range, the whole history is loaded. */
+export const TIMEFRAMES = ['1M', '3M', '6M', '1Y', '5Y', 'Max'] as const
+export type Timeframe = (typeof TIMEFRAMES)[number]
+
+const TIMEFRAME_DAYS: Record<Exclude<Timeframe, 'Max'>, number> = {
+  '1M': 31,
+  '3M': 92,
+  '6M': 183,
+  '1Y': 366,
+  '5Y': 1827,
+}
+
+/** Calendar days one bar of an interval stands for, on average (a day bar skips the weekend). */
+const BAR_DAYS: Record<DepotInterval, number> = { '1d': 7 / 5, '1w': 7, '1mo': 30.5 }
+
+/** Bars a week or month chart opens on: as many as a trading year of day bars, so the candles are as wide. */
+export const DEFAULT_VIEW_BARS = 252
+
+/** The first day (epoch seconds) a timeframe shows, counted back from the newest bar; null is the whole history. */
+export function timeframeStart(timeframe: Timeframe, lastTime: number): number | null {
+  return timeframe === 'Max' ? null : lastTime - TIMEFRAME_DAYS[timeframe] * DAY_S
+}
+
+/** Whether a timeframe holds enough bars at this interval to draw (one month of week bars is four). */
+export const timeframeFits = (timeframe: Timeframe, interval: DepotInterval): boolean =>
+  timeframe === 'Max' || TIMEFRAME_DAYS[timeframe] / BAR_DAYS[interval] >= 6
+
+/** The first day the chart opens on: the last year of day bars, else a year's worth of bars. */
+export function defaultViewStart(
+  bars: readonly { time: number }[],
+  interval: DepotInterval,
+): number | null {
+  const last = bars.at(-1)
+  if (last === undefined) return null
+  if (interval === '1d') return timeframeStart('1Y', last.time)
+  return bars[Math.max(0, bars.length - 1 - DEFAULT_VIEW_BARS)]?.time ?? null
+}
+
+/** Index of the first bar at or after `time` (the length when none is); `null` is the first bar. */
+export function firstBarFrom(bars: readonly { time: number }[], time: number | null): number {
+  if (time === null) return 0
+  const at = bars.findIndex((bar) => bar.time >= time)
+  return at < 0 ? bars.length : at
+}
+
+/** Which button the visible range matches, within a tenth: it reads the chart, so a zoom clears it. */
+export function activeTimeframe(
+  from: number | null,
+  last: number,
+  first: number,
+): Timeframe | null {
+  if (from === null || from <= first) return 'Max'
+  const days = (last - from) / DAY_S
+  for (const timeframe of TIMEFRAMES) {
+    if (timeframe === 'Max') continue
+    if (Math.abs(days / TIMEFRAME_DAYS[timeframe] - 1) <= 0.1) return timeframe
+  }
+  return null
+}
+
+/** The bars of the instrument itself and the ones the tracked index stands in for before its first. */
+export function splitSpliced(bars: readonly ChartBar[]): { own: ChartBar[]; spliced: ChartBar[] } {
+  const own: ChartBar[] = []
+  const spliced: ChartBar[] = []
+  for (const bar of bars) (bar.source === 'index' ? spliced : own).push(bar)
+  return { own, spliced }
+}
+
+/** The day the instrument's own history starts, when an index fills the time before it. */
+export function launchTime(bars: readonly ChartBar[]): number | null {
+  const { own, spliced } = splitSpliced(bars)
+  return spliced.length === 0 ? null : (own[0]?.time ?? null)
+}
+
+/** Whether any bar traded: an index, a coin on some feeds and a spliced history carry no turnover. */
+export const hasTurnover = (bars: readonly ChartBar[]): boolean =>
+  bars.some((bar) => (bar.turnover ?? 0) > 0)
+
+/** The turnover pane is on by default where the instrument has turnover and is not a coin or an index. */
+export const volumeByDefault = (kind: string | null, bars: readonly ChartBar[]): boolean =>
+  kind !== 'coin' && kind !== 'index' && hasTurnover(bars)
+
+/** A coin runs through orders of magnitude: its chart opens logarithmic. */
+export const logByDefault = (kind: string | null): boolean => kind === 'coin'
 
 /** How far a bar reaches past its own time (daily: a weekend or a holiday): a booking inside it belongs to it. */
 const BAR_SPAN_S: Record<DepotInterval, number> = {
@@ -205,36 +291,65 @@ const quantityOf = (n: number): string => n.toLocaleString('en-US', { maximumFra
 const usdText = (price: number): string =>
   `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-function oneTradeText(mark: TradeMark, usd: boolean): string {
-  const { trade } = mark
-  const side = trade.side === 'buy' ? 'Bought' : 'Sold'
-  const quantity =
-    trade.quantity === null
-      ? 'quantity unknown'
-      : `${mark.estimated ? '≈ ' : ''}${quantityOf(trade.quantity)}`
-  const dollars = usd && trade.price_usd !== null ? ` · at ${usdText(trade.price_usd)}` : ''
-  return `${side} ${quantity} · ${eurExact(trade.amount_cents)}${dollars}${mark.estimated ? ' · estimated quantity' : ''}`
+const dayLabel = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC',
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+})
+
+/** One line of a trade card: a caption, its value and, where the figure is good or bad news, its tone. */
+export type TradeCardRow = { label: string; value: string; tone?: 'good' | 'bad' }
+
+/** What the trade tooltip shows for one trade: the side and day as the title, then the figures. */
+export type TradeCard = {
+  id: number
+  side: DepotTrade['side']
+  title: string
+  rows: TradeCardRow[]
 }
 
+/** The most trades a card lists; a savings plan has one a week, a bar of months can hold dozens. */
+export const CARD_LIMIT = 4
+
 /**
- * The readout lines of the trades on one bar: a line per trade, and a line per side once a side has
- * several (a savings plan and a top-up in one week): count, units and amount together.
+ * The tooltip cards of the trades on one bar, oldest first: date, side, units (≈ when estimated),
+ * price (the dollar price on a dollar chart too), amount, fee and, for a sale, the realised gain.
  */
-export function tradeReadout(marks: readonly TradeMark[], usd: boolean): string[] {
-  return (['buy', 'sell'] as const).flatMap((side) => {
-    const own = marks.filter((mark) => mark.side === side)
-    const [first] = own
-    if (first === undefined) return []
-    if (own.length === 1) return [oneTradeText(first, usd)]
-    const unknown = own.some((mark) => mark.trade.quantity === null)
-    const estimated = own.some((mark) => mark.estimated)
-    const units = own.reduce((sum, mark) => sum + (mark.trade.quantity ?? 0), 0)
-    const amount = own.reduce((sum, mark) => sum + mark.trade.amount_cents, 0)
-    return [
-      `${side === 'buy' ? 'Bought' : 'Sold'} ${own.length} trades · ${
-        unknown ? 'quantity unknown' : `${estimated ? '≈ ' : ''}${quantityOf(units)}`
-      } · ${eurExact(amount)}`,
+export function tradeCards(marks: readonly TradeMark[], usd: boolean): TradeCard[] {
+  return marks.map((mark) => {
+    const { trade } = mark
+    const rows: TradeCardRow[] = [
+      {
+        label: 'Units',
+        value:
+          trade.quantity === null
+            ? 'unknown'
+            : `${mark.estimated ? '≈ ' : ''}${quantityOf(trade.quantity)}`,
+      },
+      { label: 'Price', value: trade.price === null ? '—' : `€${priceText(trade.price)}` },
+      ...(usd && trade.price_usd !== null
+        ? [{ label: 'Price (USD)', value: usdText(trade.price_usd) }]
+        : []),
+      { label: 'Amount', value: eurExact(trade.amount_cents) },
+      ...(trade.fee_cents === null ? [] : [{ label: 'Fee', value: eurExact(trade.fee_cents) }]),
+      ...(trade.side === 'sell' && trade.realised_fifo_cents !== null
+        ? [
+            {
+              label: 'Realised gain',
+              value: signedEur(trade.realised_fifo_cents),
+              tone: trade.realised_fifo_cents >= 0 ? ('good' as const) : ('bad' as const),
+            },
+          ]
+        : []),
+      ...(mark.estimated ? [{ label: 'Note', value: 'quantity is an estimate' }] : []),
     ]
+    return {
+      id: trade.id,
+      side: trade.side,
+      title: `${trade.side === 'buy' ? 'Bought' : 'Sold'} · ${dayLabel.format(new Date(dayToSeconds(trade.booked_on) * 1000))}`,
+      rows,
+    }
   })
 }
 
@@ -399,7 +514,28 @@ export function pickInstrument(
  * `foreign` the entries it could not read: kept as they came, offered to the library again at every
  * load, written back on every save, never dropped. The server never looks inside.
  */
-export type DrawingsDocument = { v: 1; drawings: unknown[]; foreign: unknown[] }
+export type DrawingsDocument = {
+  v: 1
+  drawings: unknown[]
+  foreign: unknown[]
+  /** The colour a line was drawn in, by drawing id; a drawing without one is the accent. */
+  roles: Record<string, ColorRole>
+}
+
+/** What a drawing's colour means: the accent, a buy level (green) or a sell level or resistance (red). */
+export type ColorRole = 'accent' | 'buy' | 'sell'
+export const COLOR_ROLES: readonly ColorRole[] = ['accent', 'buy', 'sell']
+
+const isRole = (value: unknown): value is ColorRole =>
+  value === 'accent' || value === 'buy' || value === 'sell'
+
+/** The colour roles a stored document holds; an unknown value is dropped. */
+export function storedRoles(stored: unknown): Record<string, ColorRole> {
+  const roles = isRecord(stored) && isRecord(stored['roles']) ? stored['roles'] : {}
+  return Object.fromEntries(
+    Object.entries(roles).filter((entry): entry is [string, ColorRole] => isRole(entry[1])),
+  )
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -428,11 +564,19 @@ export function unreadEntries(
   })
 }
 
-/** The document to store: what the library exports now plus the entries it never read. */
+/** The document to store: what the library exports now, the entries it never read and the colour of each drawing. */
 export function buildDrawingsDocument(
   exported: string,
   foreign: readonly unknown[],
+  roles: Readonly<Record<string, ColorRole>> = {},
 ): DrawingsDocument {
   const parsed: unknown = JSON.parse(exported)
-  return { v: 1, drawings: Array.isArray(parsed) ? parsed : [], foreign: [...foreign] }
+  const drawings = Array.isArray(parsed) ? parsed : []
+  const ids = new Set(drawings.map(idOf))
+  return {
+    v: 1,
+    drawings,
+    foreign: [...foreign],
+    roles: Object.fromEntries(Object.entries(roles).filter(([id]) => ids.has(id))),
+  }
 }

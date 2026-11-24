@@ -1,0 +1,140 @@
+/* The watchlist panel beside the depot chart: tabs and search above the rows of the active tab. */
+
+.panel {
+  min-width: 0;
+}
+
+.tabScroll {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tab {
+  padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
+  border-radius: var(--vx-radius-ctrl);
+  white-space: nowrap;
+}
+
+.tab:hover {
+  background: var(--vx-surface-row-hover);
+}
+
+.tab[data-active='true'] {
+  background: var(--vx-surface-row-selected);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results {
+  max-height: 18rem;
+}
+
+.hit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
+  border-radius: var(--vx-radius-ctrl);
+  text-align: start;
+}
+
+.hit:hover,
+.hit[data-active='true'] {
+  background: var(--vx-surface-row-hover);
+}
+
+/* The narrow container shows two columns; a wide one (the 15rem column of the page) one. */
+.scroll {
+  max-height: 10rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--vx-space-stack-xs);
+}
+
+@container (min-width: 800px) {
+  .scroll {
+    max-height: 36rem;
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.row {
+  position: relative;
+  min-width: 0;
+}
+
+/* Rename and remove show on hover or focus; a touch screen has no hover, so they stay. */
+.actions {
+  position: absolute;
+  top: var(--vx-space-stack-xs);
+  right: var(--vx-space-stack-xs);
+  padding-inline-start: var(--vx-space-stack-xs);
+  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-row-hover);
+  opacity: 0;
+}
+
+.row:hover .actions,
+.row:focus-within .actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+
+  .row .head {
+    /* theme-allow inline-spacing — the width of the two row icons that never hide on touch, not a gap */
+    padding-inline-end: 3.4rem;
+  }
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
+  border-radius: var(--vx-radius-ctrl);
+  text-align: start;
+}
+
+.item:hover {
+  background: var(--vx-surface-row-hover);
+}
+
+.item[data-active='true'] {
+  background: var(--vx-surface-row-selected);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-xs);
+  min-width: 0;
+}
+
+.figures {
+  display: flex;
+  white-space: nowrap;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-variant-numeric: tabular-nums;
+}

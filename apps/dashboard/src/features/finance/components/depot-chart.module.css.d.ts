@@ -6,6 +6,8 @@ declare const classes: {
   readonly frame: string
   readonly host: string
   readonly readout: string
+  readonly tip: string
+  readonly tipRow: string
   readonly mono: string
 }
 export default classes

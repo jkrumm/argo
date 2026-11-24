@@ -5,15 +5,12 @@
 declare const classes: {
   readonly page: string
   readonly layout: string
-  readonly watch: string
-  readonly watchScroll: string
-  readonly watchGroup: string
-  readonly watchItem: string
-  readonly watchHead: string
-  readonly watchName: string
-  readonly watchFigures: string
   readonly main: string
   readonly priceField: string
+  readonly labelField: string
+  readonly toolbar: string
+  readonly styleBar: string
+  readonly swatch: string
   readonly tools: string
 }
 export default classes

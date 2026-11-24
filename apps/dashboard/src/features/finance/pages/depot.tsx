@@ -1,6 +1,12 @@
-import { ActionIcon, Box, Group, ScrollArea, Stack, Text, UnstyledButton } from '@mantine/core'
-import { IconPointer, IconRulerMeasure, IconTrash, IconMinus } from '@tabler/icons-react'
-import { EmptyState, Section, StatGroup } from 'basalt-ui'
+import { ActionIcon, Box, Button, Group, Stack, Text } from '@mantine/core'
+import {
+  IconMinus,
+  IconPointer,
+  IconRulerMeasure,
+  IconSeparatorVertical,
+  IconTrash,
+} from '@tabler/icons-react'
+import { Section, StatGroup } from 'basalt-ui'
 import type { StatStripCell } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, SelectFilter, ViewTabs } from 'basalt-ui/controls'
@@ -17,47 +23,52 @@ import {
   useSeriesCatalog,
   useWatchlist,
 } from '../api/queries'
-import type { DepotOrder, DepotTrade, SeriesInfo, WatchlistEntry } from '../api/types'
-import { DepotChart } from '../components/depot-chart'
+import type { DepotOrder, DepotTrade, WatchlistEntry } from '../api/types'
+import { DepotChart, SPLICE_LABEL } from '../components/depot-chart'
 import type { DepotChartHandle, DepotSelection, DrawTool } from '../components/depot-chart'
-import { LinePriceField } from '../components/line-price-field'
+import { DrawingStyleBar } from '../components/drawing-style-bar'
 import { FinanceBar } from '../components/finance-bar'
 import { IndexHistoryCard, IndexOverlayCard } from '../components/index-charts'
 import { NoDataState } from '../components/no-data-state'
 import { OrderModal } from '../components/order-modal'
+import { WatchPanel } from '../components/watch-panel'
 import classes from '../components/depot.module.css'
 import {
-  candleWindow,
   costLine,
   costLineUsd,
   depotInterval,
+  hasTurnover,
   heldRows,
   instrumentsOf,
+  logByDefault,
   mergedPosition,
   orderLine,
   pickInstrument,
   priceText,
   signedPercent,
+  TIMEFRAMES,
+  timeframeFits,
+  volumeByDefault,
 } from '../lib/depot-chart'
-import type { DepotInterval, PriceLine } from '../lib/depot-chart'
+import type { ColorRole, DepotInterval, PriceLine, Timeframe } from '../lib/depot-chart'
 import { deltaEur, eur, eurExact, signedEur, toneProp } from '../lib/format'
-import { INDEX_SERIES, indexById } from '../lib/index-series'
-import type { IndexSeries } from '../lib/index-series'
+import { INDEX_SERIES, seriesOf } from '../lib/index-series'
 import { isoDay } from '../lib/time'
 import { useDrawingsSaver } from '../lib/use-drawings-saver'
+import { useViewPrefs } from '../lib/view-prefs'
 import { useField } from '../../../lib/use-field'
 import { useNow } from '../../../lib/use-now'
 import { finStore } from '../../../lib/window-stores'
-
-/** How far back a stored series reaches, as the watchlist says it. */
-const sinceText = (firstDay: string | null | undefined): string =>
-  firstDay == null ? '—' : `MSCI · EUR · since ${firstDay.slice(0, 4)}`
 
 const tradeCol = createColumnHelper<DepotTrade>()
 const orderCol = createColumnHelper<DepotOrder>()
 
 /** Quantities are fractional for savings plans; four places is the finest the depot keeps. */
 const quantityText = (n: number): string => n.toLocaleString('en-US', { maximumFractionDigits: 4 })
+
+/** An ETF with a tracked index and no US listing is asked for its history with the index in front of it. */
+const splicedHistory = (entry: WatchlistEntry | undefined): boolean =>
+  entry !== undefined && entry.index !== null && entry.us_mic === null && entry.kind !== 'coin'
 
 export function DepotPage() {
   const watchlist = useWatchlist()
@@ -66,13 +77,14 @@ export function DepotPage() {
   const [requested, setRequested] = useField(finStore.field.isin)
   const [interval] = useField(finStore.field.ivl)
   const [range] = useField(finStore.field.rng)
+  const [compare] = useField(finStore.field.cmp)
   const [adding, setAdding] = useState(false)
   const today = isoDay(new Date(useNow()))
 
   const entries = watchlist.data ?? []
   const held = heldRows(entries, positions.data?.positions ?? [])
   // The URL names an index series or an instrument: an index has no position, trades or orders.
-  const index = indexById(requested)
+  const index = seriesOf(requested, catalog.data ?? [])
   const isin = index === undefined ? pickInstrument(requested, entries, held) : null
   const indices = INDEX_SERIES.filter((s) =>
     (catalog.data ?? []).some((info) => info.id === s.id && info.points > 0),
@@ -85,15 +97,17 @@ export function DepotPage() {
   // Orders are kept per ISIN: those of the held instrument, else the first charted as this row.
   const orderIsin = owned.find((p) => p.quantity > 0)?.isin ?? instruments[0] ?? isin
 
+  // Every stored daily bar at once (the timeframes only move the view); an ETF with a tracked index
+  // comes with that index in front of its first bar.
   const candles = useCandles(
     isin === null
       ? null
       : {
           isin,
           interval,
-          ...candleWindow(range, interval, today),
           // A US stock is charted on its US listing, in dollars.
           mic: entry?.us_mic ?? undefined,
+          splice: splicedHistory(entry) ? 'index' : undefined,
         },
   )
   const trades = useDepotTrades(isin)
@@ -111,6 +125,8 @@ export function DepotPage() {
       ? [...(orders.data ?? []).map(orderLine), costLine(position)]
       : [owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null]
   ).filter((l) => l !== null)
+  const comparable = entry !== undefined && entry.kind !== 'coin' && entry.us_mic === null
+  const comparing = comparable && compare !== ''
 
   const cells: StatStripCell[] = [
     {
@@ -156,16 +172,19 @@ export function DepotPage() {
   return (
     <Box className={classes.page}>
       <FinanceBar
+        // The chart zooms by timeframe; the range is only for the index card and the comparison.
         filters={
-          <FilterSet>
-            <SelectFilter field={finStore.field.rng} label="Range" />
-          </FilterSet>
+          index !== undefined || comparing ? (
+            <FilterSet>
+              <SelectFilter field={finStore.field.rng} label="Range" />
+            </FilterSet>
+          ) : undefined
         }
       />
       <Box className={classes.layout}>
-        <Watchlist
+        <WatchPanel
           entries={entries}
-          held={held}
+          positions={positions.data?.positions ?? []}
           indices={indices}
           catalog={catalog.data ?? []}
           active={index?.id ?? isin}
@@ -183,6 +202,7 @@ export function DepotPage() {
             <ChartPanel
               name={entry.name ?? isin}
               isin={isin}
+              kind={entry.kind}
               interval={interval}
               currency={currency}
               bars={bars}
@@ -190,8 +210,9 @@ export function DepotPage() {
               lines={lines}
               candles={candles}
               drawings={drawings}
+              comparable={comparable}
             />
-            {entry.kind !== 'coin' && entry.us_mic == null && (
+            {comparing && (
               <IndexOverlayCard isin={isin} name={entry.name ?? isin} range={range} today={today} />
             )}
             <Box data-shot="depot-position">
@@ -216,108 +237,10 @@ export function DepotPage() {
   )
 }
 
-function Watchlist({
-  entries,
-  held,
-  indices,
-  catalog,
-  active,
-  pending,
-  error,
-  onPick,
-}: {
-  entries: readonly WatchlistEntry[]
-  held: ReadonlySet<string>
-  /** The stored index series to list, in the order the page names them. */
-  indices: readonly IndexSeries[]
-  catalog: readonly SeriesInfo[]
-  active: string | null
-  pending: boolean
-  error: Error | null
-  onPick: (isin: string) => void
-}) {
-  if (error !== null) {
-    return (
-      <EmptyState tier="section" title="The watchlist did not load" description={error.message} />
-    )
-  }
-  return (
-    <ScrollArea
-      data-shot="depot-watchlist"
-      type="auto"
-      scrollbars="y"
-      className={classes.watchScroll}
-      aria-label="Watchlist: last close and change on the day"
-    >
-      <Box className={classes.watch}>
-        {pending && (
-          <Text size="sm" c="dimmed">
-            Loading…
-          </Text>
-        )}
-        {entries.map((e) => (
-          <UnstyledButton
-            key={e.isin}
-            className={classes.watchItem}
-            data-active={e.isin === active}
-            aria-pressed={e.isin === active}
-            onClick={() => onPick(e.isin)}
-          >
-            <Box className={classes.watchHead}>
-              <Text size="sm" fw={500} className={classes.watchName}>
-                {e.name ?? e.isin}
-              </Text>
-              {held.has(e.isin) && (
-                <Text span size="xs" c="dimmed">
-                  held
-                </Text>
-              )}
-            </Box>
-            <Box className={classes.watchFigures}>
-              <Text span size="xs" c="dimmed">
-                {e.last_close === null ? '—' : priceText(e.last_close)}
-              </Text>
-              <Text
-                span
-                size="xs"
-                {...(e.day_change_pct !== null && { c: e.day_change_pct >= 0 ? 'green' : 'red' })}
-              >
-                {signedPercent(e.day_change_pct)}
-              </Text>
-            </Box>
-          </UnstyledButton>
-        ))}
-        {indices.length > 0 && (
-          <Text size="xs" c="dimmed" className={classes.watchGroup}>
-            Indices
-          </Text>
-        )}
-        {indices.map((s) => (
-          <UnstyledButton
-            key={s.id}
-            className={classes.watchItem}
-            data-active={s.id === active}
-            aria-pressed={s.id === active}
-            onClick={() => onPick(s.id)}
-          >
-            <Box className={classes.watchHead}>
-              <Text size="sm" fw={500} className={classes.watchName}>
-                {s.name}
-              </Text>
-            </Box>
-            <Text span size="xs" c="dimmed">
-              {sinceText(catalog.find((info) => info.id === s.id)?.first_day)}
-            </Text>
-          </UnstyledButton>
-        ))}
-      </Box>
-    </ScrollArea>
-  )
-}
-
 function ChartPanel({
   name,
   isin,
+  kind,
   interval,
   currency,
   bars,
@@ -325,9 +248,11 @@ function ChartPanel({
   lines,
   candles,
   drawings,
+  comparable,
 }: {
   name: string
   isin: string
+  kind: string | null
   interval: DepotInterval
   currency: string | null
   bars: React.ComponentProps<typeof DepotChart>['bars']
@@ -335,64 +260,74 @@ function ChartPanel({
   lines: readonly PriceLine[]
   candles: ReturnType<typeof useCandles>
   drawings: ReturnType<typeof useDrawings>
+  comparable: boolean
 }) {
   const [tool, setTool] = useState<DrawTool | null>(null)
-  const [selection, setSelection] = useState<DepotSelection>({ count: 0, line: null })
+  const [role, setRole] = useState<ColorRole>('accent')
+  const [selection, setSelection] = useState<DepotSelection>({ count: 0, line: null, single: null })
+  const [timeframe, setTimeframe] = useState<Timeframe | null>(null)
+  const [prefs, setPrefs] = useViewPrefs(isin)
   const chart = useRef<DepotChartHandle>(null)
   const save = useDrawingsSaver(isin)
   const notes = candles.data?.notes ?? []
   // The bars on screen may still be the last request's while the next one loads: they say which interval they are.
   const shown = depotInterval(candles.data?.interval, interval)
   const armed = drawings.isSuccess
+  const log = prefs.log ?? logByDefault(kind)
+  const turnover = hasTurnover(bars)
+  const volume = turnover && (prefs.volume ?? volumeByDefault(kind, bars))
+  const spliced = bars.some((bar) => bar.source === 'index')
+  const styling =
+    (tool !== null && tool !== 'price-range') || (tool === null && selection.single !== null)
+
+  // While a tool is armed the colour is for the next line drawn and the selection is left alone; with the cursor it recolours the selected line.
+  const editing: DepotSelection = tool === null ? selection : { count: 0, line: null, single: null }
+  const pick = (next: ColorRole) => {
+    setRole(next)
+    if (tool === null) chart.current?.setSelectionRole(next)
+  }
+  const toolButton = (own: DrawTool, label: string, icon: React.ReactNode) => (
+    <ActionIcon
+      variant={tool === own ? 'filled' : 'default'}
+      color="gray"
+      aria-label={label}
+      aria-pressed={tool === own}
+      disabled={!armed}
+      onClick={() => setTool(own)}
+    >
+      {icon}
+    </ActionIcon>
+  )
 
   return (
     <ChartCard
       data-shot="depot-chart"
       title={candles.data?.currency == null ? name : `${name} · ${candles.data.currency}`}
-      info="Candles in the instrument's currency (Bitcoin and US stocks in dollars), with turnover below. Candles are as wide at day, week and month: the chart opens at the newest and the range is there to zoom out to. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate."
+      info={`Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the grey line is the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
       state={{
         pending: candles.isPending,
         error: candles.error ?? undefined,
-        empty: bars.length === 0 ? notes.join(' ') || 'No bars for this range.' : false,
+        empty:
+          bars.length === 0 ? notes.join(' ') || 'No bars stored for this instrument yet.' : false,
       }}
       onRetry={() => void candles.refetch()}
       actions={
         <Box className={classes.tools}>
+          {comparable && <SelectFilter field={finStore.field.cmp} label="Compare with…" />}
           <ViewTabs field={finStore.field.ivl} label="Bar interval" />
           <ActionIcon
             variant={tool === null ? 'filled' : 'default'}
             color="gray"
             aria-label="Cursor"
+            aria-pressed={tool === null}
             disabled={!armed}
             onClick={() => setTool(null)}
           >
             <IconPointer />
           </ActionIcon>
-          <ActionIcon
-            variant={tool === 'horizontal-line' ? 'filled' : 'default'}
-            color="gray"
-            aria-label="Horizontal line"
-            disabled={!armed}
-            onClick={() => setTool('horizontal-line')}
-          >
-            <IconMinus />
-          </ActionIcon>
-          <ActionIcon
-            variant={tool === 'price-range' ? 'filled' : 'default'}
-            color="gray"
-            aria-label="Price range"
-            disabled={!armed}
-            onClick={() => setTool('price-range')}
-          >
-            <IconRulerMeasure />
-          </ActionIcon>
-          {selection.line !== null && (
-            <LinePriceField
-              key={`${selection.line.id}:${selection.line.price}`}
-              price={selection.line.price}
-              onApply={(price) => chart.current?.setLinePrice(selection.line?.id ?? '', price)}
-            />
-          )}
+          {toolButton('horizontal-line', 'Horizontal line', <IconMinus />)}
+          {toolButton('vertical-line', 'Vertical line', <IconSeparatorVertical />)}
+          {toolButton('price-range', 'Price range', <IconRulerMeasure />)}
           <ActionIcon
             variant="default"
             aria-label="Delete the selected drawing"
@@ -414,10 +349,60 @@ function ChartPanel({
         storedDrawings={drawings.data?.document}
         loadedDrawings={drawings.isSuccess}
         tool={tool}
+        role={role}
+        logScale={log}
+        showVolume={volume}
         onToolChange={setTool}
         onSelectionChange={setSelection}
         onDrawingsChange={save}
+        onTimeframeChange={setTimeframe}
       />
+      <Box className={classes.toolbar} data-shot="depot-toolbar">
+        <Group gap={4} role="group" aria-label="Timeframe">
+          {TIMEFRAMES.map((frame) => (
+            <Button
+              key={frame}
+              variant={timeframe === frame ? 'filled' : 'default'}
+              color="gray"
+              aria-pressed={timeframe === frame}
+              disabled={bars.length === 0 || !timeframeFits(frame, shown)}
+              onClick={() => chart.current?.setTimeframe(frame)}
+            >
+              {frame}
+            </Button>
+          ))}
+        </Group>
+        <Group gap={4} role="group" aria-label="Chart view">
+          <Button
+            variant={log ? 'filled' : 'default'}
+            color="gray"
+            aria-pressed={log}
+            aria-label="Logarithmic price scale"
+            onClick={() => setPrefs({ log: !log })}
+          >
+            Log
+          </Button>
+          <Button
+            variant={volume ? 'filled' : 'default'}
+            color="gray"
+            aria-pressed={volume}
+            aria-label="Show turnover"
+            disabled={!turnover}
+            onClick={() => setPrefs({ volume: !volume })}
+          >
+            Volume
+          </Button>
+        </Group>
+      </Box>
+      {styling && (
+        <DrawingStyleBar
+          role={role}
+          onRole={pick}
+          selection={editing}
+          onLabel={(label) => chart.current?.setSelectionLabel(label)}
+          onPrice={(id, price) => chart.current?.setLinePrice(id, price)}
+        />
+      )}
     </ChartCard>
   )
 }

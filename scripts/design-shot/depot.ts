@@ -7,9 +7,12 @@
  * listing, Bitcoin in dollars with a euro ETP charted as it), the positions and trades of those, open
  * orders and drawing documents that the page's writes change. Nothing leaves the machine and no real
  * data is involved, so these shots may be attached to a ship. It then drives Chrome through light/dark
- * x desktop (1440) / mobile (390): the chart is checked for candles, the distance between bars at day,
- * week and month, and horizontal overflow; a horizontal line is drawn, set to a typed price and a
- * price range drawn with the mouse; and PNGs per combination are written (default
+ * x desktop (1440) / mobile (390): the chart is checked for candles, the visible range at the timeframes,
+ * the distance between bars at day, week and month, and horizontal overflow; lines are drawn (a red one with
+ * a label set to a typed price, a green one with a label, a vertical one) and a price range drawn with the
+ * mouse; Bitcoin is read from 2011 on a log scale without turnover; a fund's history opens with its index and
+ * a launch marker, its comparison is off until asked for; an instrument is searched, added to a list,
+ * renamed and removed; a trade card is pinned; and PNGs per combination are written (default
  * `.design-shots/depot`).
  */
 import { existsSync, statSync } from 'node:fs'
@@ -31,8 +34,10 @@ type Bar = {
   high: number
   low: number
   close: number
-  units: number
-  turnover: number
+  units: number | null
+  turnover: number | null
+  /** Flat bars of the tracked index before a fund's first bar. */
+  source?: 'index'
 }
 type Instrument = {
   isin: string
@@ -49,12 +54,19 @@ type Instrument = {
   chartedAs?: string[]
   /** How many calendar days of bars it has; a fund that launched recently has few. Default 1800. */
   days?: number
+  /** The series id of the index an ETF tracks: its history can be asked for with that index in front. */
+  index?: string
+  /** On no list and not held: only the search finds it. */
+  unlisted?: boolean
 }
 
 const RATE = 1.08 // synthetic USD per EUR
 const US_STOCK = 'US0000000001'
 const BTC_ETP = 'XX0000000005'
 const ALL_CAP = 'XX0000000006'
+const EM_ETF = 'XX0000000007'
+const ENERGY_ETF = 'XX0000000008'
+const FTSE = 'ftse-global-all-cap-usd'
 
 const INSTRUMENTS: Instrument[] = [
   {
@@ -82,6 +94,27 @@ const INSTRUMENTS: Instrument[] = [
     drift: 0.0005,
     vol: 0.008,
     days: 100,
+    index: FTSE,
+  },
+  {
+    isin: EM_ETF,
+    name: 'Emerging markets ETF',
+    kind: 'etf',
+    start: 28,
+    drift: 0.0003,
+    vol: 0.011,
+    days: 900,
+    unlisted: true,
+  },
+  {
+    isin: ENERGY_ETF,
+    name: 'Clean energy ETF',
+    kind: 'etf',
+    start: 9,
+    drift: 0.0001,
+    vol: 0.014,
+    days: 900,
+    unlisted: true,
   },
   { isin: 'XX0000000003', name: 'Dividend ETF', kind: 'etf', start: 31, drift: 0.0002, vol: 0.007 },
   {
@@ -105,9 +138,13 @@ const INSTRUMENTS: Instrument[] = [
     isin: 'BTC-USD',
     name: 'Bitcoin',
     kind: 'coin',
-    start: 24_000,
-    drift: 0.0008,
+    // Daily bars from September 2011 (about 5,500 days): five dollars to tens of thousands, so the log scale earns its place.
+    start: 5,
+    drift: 0.0017,
     vol: 0.028,
+    days: Math.round(
+      (Math.floor(Date.now() / 1000 / DAY_S) * DAY_S - Date.UTC(2011, 8, 13) / 1000) / DAY_S,
+    ),
     currency: 'USD',
     chartedAs: [BTC_ETP],
   },
@@ -232,6 +269,15 @@ const INDEX_ROWS: IndexRow[] = [
     drift: 0.00026,
     vol: 0.0105,
   },
+  // The index a young global all-cap fund tracks (USD): a fund's history can be asked for with it in front.
+  {
+    id: FTSE,
+    title: 'FTSE Global All Cap, USD',
+    first: '2013-03-01',
+    start: 1000,
+    drift: 0.00035,
+    vol: 0.0095,
+  },
 ]
 
 type Level = { day: string; time: number; value: number }
@@ -261,8 +307,14 @@ function aggregate(bars: Bar[], keyOf: (time: number) => number): Bar[] {
     high: Math.max(...group.map((b) => b.high)),
     low: Math.min(...group.map((b) => b.low)),
     close: group.at(-1)!.close,
-    units: group.reduce((n, b) => n + b.units, 0),
-    turnover: group.reduce((n, b) => n + b.turnover, 0),
+    units: group.some((b) => b.units === null)
+      ? null
+      : group.reduce((n, b) => n + (b.units ?? 0), 0),
+    turnover: group.some((b) => b.turnover === null)
+      ? null
+      : group.reduce((n, b) => n + (b.turnover ?? 0), 0),
+    // A bar is an index bar when every day in it is one.
+    ...(group.every((b) => b.source === 'index') && { source: 'index' as const }),
   }))
 }
 
@@ -275,8 +327,43 @@ const monthStart = (time: number): number => {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000
 }
 
-function candles(isin: string, interval: string, from: string | null, to: string | null): Bar[] {
-  const daily = DAILY.get(isin) ?? []
+/**
+ * The daily bars of a fund with the index it tracks in front of its first bar: flat bars (open = high =
+ * low = close, no turnover) scaled so the last level before the fund's first day equals its first close.
+ */
+function splicedDaily(isin: string): Bar[] {
+  const own = DAILY.get(isin) ?? []
+  const first = own[0]
+  const series = INSTRUMENTS.find((i) => i.isin === isin)?.index
+  const levels = series === undefined ? [] : (INDEX_LEVELS.get(series) ?? [])
+  const before = first === undefined ? [] : levels.filter((l) => l.time < first.time)
+  const anchor = before.at(-1)
+  if (first === undefined || anchor === undefined) return own
+  const scale = first.close / anchor.value
+  const flat = before.map((l): Bar => {
+    const level = round(l.value * scale, 4)
+    return {
+      time: l.time,
+      open: level,
+      high: level,
+      low: level,
+      close: level,
+      units: null,
+      turnover: null,
+      source: 'index',
+    }
+  })
+  return [...flat, ...own]
+}
+
+function candles(
+  isin: string,
+  interval: string,
+  from: string | null,
+  to: string | null,
+  splice = false,
+): Bar[] {
+  const daily = splice ? splicedDaily(isin) : (DAILY.get(isin) ?? [])
   const all =
     interval === '1w'
       ? aggregate(daily, weekStart)
@@ -479,6 +566,107 @@ const orders: Order[] = []
 let nextOrder = 1
 const drawings = new Map<string, { isin: string; document: unknown; updated_at: string }>()
 
+// ---- The lists of the stand-in -------------------------------------------------------------
+
+type ListEntry = { symbol: string; display_name: string | null; position: number; added_at: string }
+type List = {
+  id: number
+  name: string
+  position: number
+  is_default: boolean
+  entries: ListEntry[]
+}
+
+const HELD = new Set([WORLD, SEMIS, US_STOCK, 'BTC-USD'])
+
+const entryOf = (symbol: string, position: number): ListEntry => ({
+  symbol,
+  display_name: null,
+  position,
+  added_at: '2026-11-01T08:00:00Z',
+})
+
+/** The default list holds the funds, a second one the chips; every instrument on either is in the sync set. */
+const freshLists = (): List[] => [
+  {
+    id: 1,
+    name: 'Watchlist',
+    position: 0,
+    is_default: true,
+    entries: [WORLD, SEMIS, ALL_CAP, 'XX0000000003', 'XX0000000004', US_STOCK].map(entryOf),
+  },
+  { id: 2, name: 'Chips', position: 1, is_default: false, entries: [SEMIS, US_STOCK].map(entryOf) },
+]
+let lists = freshLists()
+let nextList = 3
+
+const rowOf = (i: Instrument) => {
+  const bars = DAILY.get(i.isin) ?? []
+  const last = bars.at(-1)!
+  const before = bars.at(-2)!
+  return {
+    isin: i.isin,
+    name: i.name,
+    kind: i.kind,
+    currency: i.currency ?? 'EUR',
+    last_close: last.close,
+    last_day: dayOf(last.time),
+    first_day: dayOf(bars[0]!.time),
+    day_change: round(last.close - before.close, 4),
+    day_change_pct: last.close / before.close - 1,
+    us_mic: i.usMic ?? null,
+    instruments: i.chartedAs ?? [i.isin],
+    chart_as: null,
+    index: i.index ?? null,
+  }
+}
+
+/** A stored series as a list entry's quote: its last two levels. */
+function seriesRow(id: string) {
+  const row = INDEX_ROWS.find((r) => r.id === id)!
+  const levels = INDEX_LEVELS.get(id) ?? []
+  const last = levels.at(-1)!
+  const before = levels.at(-2)!
+  return {
+    isin: id,
+    name: row.title,
+    kind: 'index',
+    currency: null,
+    last_close: last.value,
+    last_day: last.day,
+    first_day: levels[0]?.day ?? null,
+    day_change: round(last.value - before.value, 4),
+    day_change_pct: last.value / before.value - 1,
+    us_mic: null,
+    instruments: [id],
+    chart_as: null,
+    index: null,
+  }
+}
+
+const quoteOf = (symbol: string) => {
+  const instrument = INSTRUMENTS.find((i) => i.isin === symbol)
+  return instrument === undefined ? seriesRow(symbol) : rowOf(instrument)
+}
+
+const listJson = (list: List) => ({
+  ...list,
+  entries: list.entries.map((e) => ({ ...e, quote: quoteOf(e.symbol) })),
+})
+
+/** The sync set: everything on a list plus what the depot holds. */
+const onSomeList = (isin: string): boolean =>
+  HELD.has(isin) || lists.some((l) => l.entries.some((e) => e.symbol === isin))
+
+const SEARCHABLE = [
+  ...INSTRUMENTS.map((i) => ({
+    kind: i.kind === 'coin' ? 'coin' : 'instrument',
+    symbol: i.isin,
+    name: i.name,
+  })),
+  ...INDEX_ROWS.map((r) => ({ kind: 'series', symbol: r.id, name: r.title })),
+]
+
 const json = (body: unknown, status = 200): Response =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
 
@@ -488,6 +676,8 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   if (path === '/__reset') {
     orders.length = 0
     drawings.clear()
+    lists = freshLists()
+    nextList = 3
     return json({ ok: true })
   }
   if (path === '/finance/status') {
@@ -504,25 +694,15 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   if (rest === path) return json({ error: 'not found' }, 404)
   if (req.method === 'GET') {
     if (rest === '/market/watchlist') {
+      return json(INSTRUMENTS.filter((i) => onSomeList(i.isin)).map(rowOf))
+    }
+    if (rest === '/market/lists') return json(lists.map(listJson))
+    if (rest === '/market/search') {
+      const term = (q.get('q') ?? '').toLowerCase()
       return json(
-        INSTRUMENTS.map((i) => {
-          const bars = DAILY.get(i.isin) ?? []
-          const last = bars.at(-1)!
-          const before = bars.at(-2)!
-          return {
-            isin: i.isin,
-            name: i.name,
-            kind: i.kind,
-            currency: i.currency ?? 'EUR',
-            last_close: last.close,
-            last_day: dayOf(last.time),
-            first_day: dayOf(bars[0]!.time),
-            day_change: round(last.close - before.close, 4),
-            day_change_pct: last.close / before.close - 1,
-            us_mic: i.usMic ?? null,
-            instruments: i.chartedAs ?? [i.isin],
-          }
-        }),
+        SEARCHABLE.filter(
+          (s) => s.name.toLowerCase().includes(term) || s.symbol.toLowerCase().includes(term),
+        ).map((s) => ({ ...s, wkn: null, ticker: null, detail: null })),
       )
     }
     if (rest === '/market/series') {
@@ -559,6 +739,8 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       // The US listing is a second series, in dollars; a coin listing is in dollars too.
       const isin = q.get('isin') ?? ''
       const mic = q.get('mic')
+      const index = INSTRUMENTS.find((i) => i.isin === isin)?.index ?? null
+      const splice = q.get('splice') === 'index' && index !== null && mic === null
       return json({
         isin,
         interval: q.get('interval'),
@@ -569,14 +751,19 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
           q.get('interval') ?? '1d',
           q.get('from'),
           q.get('to'),
+          splice,
         ),
+        more: false,
+        index: splice ? index : null,
         notes: [],
       })
     }
     if (rest === '/depot/positions') {
-      const held = [WORLD, SEMIS, US_STOCK, BTC_ETP].map(position)
+      const rows = [WORLD, SEMIS, US_STOCK, BTC_ETP].map(position)
+      const total = rows.reduce((n, p) => n + p.value_cents, 0)
+      const held = rows.map((p) => ({ ...p, share: total === 0 ? null : p.value_cents / total }))
       return json({
-        value_cents: held.reduce((n, p) => n + p.value_cents, 0),
+        value_cents: total,
         cost_fifo_cents: held.reduce((n, p) => n + p.cost_fifo_cents, 0),
         unrealised_fifo_cents: held.reduce((n, p) => n + p.unrealised_fifo_cents, 0),
         positions: held,
@@ -607,6 +794,60 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       const saved = { isin: drawing[1]!, document: body, updated_at: new Date().toISOString() }
       drawings.set(saved.isin, saved)
       return json(saved)
+    }
+    const listPath =
+      /^\/market\/lists(?:\/(\d+))?(?:\/(delete)|\/entries(?:\/([A-Za-z0-9-]+)(?:\/(delete))?)?)?$/.exec(
+        rest,
+      )
+    if (listPath !== null) {
+      const [, id, deleteList, symbol, deleteEntry] = listPath
+      if (id === undefined) {
+        const name = String(body['name'] ?? '').trim()
+        if (name === '' || lists.some((l) => l.name.toLowerCase() === name.toLowerCase())) {
+          return json({ error: 'the name is empty or taken' }, 400)
+        }
+        const created: List = {
+          id: nextList++,
+          name,
+          position: lists.length,
+          is_default: false,
+          entries: [],
+        }
+        lists.push(created)
+        return json(listJson(created))
+      }
+      const list = lists.find((l) => l.id === Number(id))
+      if (list === undefined) return json({ error: 'unknown list' }, 404)
+      if (deleteList !== undefined) {
+        if (list.is_default) return json({ error: 'the default list cannot be deleted' }, 400)
+        lists = lists.filter((l) => l !== list)
+        return json({ deleted: list.id })
+      }
+      if (symbol === undefined && !rest.endsWith('/entries')) {
+        if (typeof body['name'] === 'string') list.name = body['name'].trim()
+        return json(listJson(list))
+      }
+      if (symbol === undefined) {
+        const added = String(body['symbol'])
+        if (!list.entries.some((e) => e.symbol === added)) {
+          list.entries.push({
+            ...entryOf(added, list.entries.length),
+            added_at: new Date().toISOString(),
+          })
+        }
+        const entry = list.entries.find((e) => e.symbol === added)!
+        if (typeof body['display_name'] === 'string') entry.display_name = body['display_name']
+        return json(listJson(list))
+      }
+      if (deleteEntry !== undefined) {
+        list.entries = list.entries.filter((e) => e.symbol !== symbol)
+        return json(listJson(list))
+      }
+      const entry = list.entries.find((e) => e.symbol === symbol)
+      if (entry === undefined) return json({ error: 'unknown entry' }, 404)
+      if ('display_name' in body)
+        entry.display_name = (body['display_name'] as string | null) ?? null
+      return json(listJson(list))
     }
     if (rest === '/depot/orders') {
       const isin = String(body['isin'])
@@ -682,9 +923,20 @@ const VIEWPORTS = {
 } as const
 
 const CHART = '[aria-label="Candlestick chart of the selected instrument"]'
+const CARD = '[data-shot="depot-trade-card"]'
 
-/** The prices of the horizontal lines in the stored document of an instrument. */
-const storedLinePrices = (page: Page, isin: string): Promise<number[]> =>
+type StoredDocument = {
+  drawings?: {
+    id?: string
+    kind?: string
+    points?: { price: number }[]
+    style?: { text?: string }
+  }[]
+  roles?: Record<string, string>
+}
+
+/** The stored drawing document of an instrument, as the service holds it. */
+const storedDocument = (page: Page, isin: string): Promise<StoredDocument> =>
   page.evaluate(async (id) => {
     const token = (
       JSON.parse(localStorage.getItem('argo-auth') ?? '{}') as { state?: { token?: string } }
@@ -692,23 +944,50 @@ const storedLinePrices = (page: Page, isin: string): Promise<number[]> =>
     const response = await fetch(`/api/finance/api/chart/drawings/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-    const doc = (await response.json()) as {
-      document: { drawings?: { kind?: string; points?: { price: number }[] }[] }
-    }
-    return (doc.document.drawings ?? [])
-      .filter((d) => d.kind === 'horizontal-line')
-      .map((d) => d.points?.[0]?.price ?? Number.NaN)
+    return ((await response.json()) as { document: StoredDocument }).document
   }, isin)
 
+/** The prices of the horizontal lines in the stored document of an instrument. */
+const storedLinePrices = async (page: Page, isin: string): Promise<number[]> =>
+  ((await storedDocument(page, isin)).drawings ?? [])
+    .filter((d) => d.kind === 'horizontal-line')
+    .map((d) => d.points?.[0]?.price ?? Number.NaN)
+
+/** The chart's own readings (the host carries them as data attributes). */
+const hostAttr = (page: Page, name: string): Promise<string> =>
+  page.locator(CHART).evaluate((el, key) => el.dataset[key] ?? '', name)
+
+/** Clicks a timeframe button and waits for the chart to report it (one more click if the first raced the layout). */
+async function timeframe(page: Page, name: string): Promise<string> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page
+      .getByRole('group', { name: 'Timeframe' })
+      .getByRole('button', { name, exact: true })
+      .click()
+    await page
+      .waitForFunction(
+        ([selector, wanted]) =>
+          document.querySelector(selector!)?.getAttribute('data-timeframe') === wanted,
+        [CHART, name] as const,
+        { timeout: 2500 },
+      )
+      .catch(() => undefined)
+    if ((await hostAttr(page, 'timeframe')) === name) break
+  }
+  return hostAttr(page, 'timeframe')
+}
+
 /**
- * Clicks a horizontal line onto the plot, selects it and types its price, then drags a price range;
- * the typed price is what the service must hold. Returns the typed price.
+ * Draws a red horizontal line with a label, selects it again by a click on the line and types its price;
+ * then a green one with a label, a blue vertical one and a price range. The typed price is what the
+ * service must hold. Returns the typed price.
  */
 async function draw(page: Page): Promise<number> {
   const plot = page.locator(CHART)
   const box = await plot.boundingBox()
   if (box === null) throw new Error('the chart has no box')
   await page.getByRole('button', { name: 'Horizontal line' }).click()
+  await page.getByRole('button', { name: /^Red/ }).click()
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.3)
   await page.getByRole('button', { name: 'Cursor' }).click()
   // Placed, the line is selected; a click on empty plot deselects it, a click on the line selects it again.
@@ -728,16 +1007,36 @@ async function draw(page: Page): Promise<number> {
   await field.fill(String(typed))
   await field.press('Enter')
   await page.waitForTimeout(900)
+  const label = page.getByLabel('Label of the selected line')
+  await label.fill('Resistance')
+  await label.press('Enter')
+  await page.waitForTimeout(500)
+  // A green line with a label, drawn lower on the plot.
+  await page.getByRole('button', { name: 'Horizontal line' }).click()
+  await page.getByRole('button', { name: /^Green/ }).click()
+  await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.72)
+  await page.getByRole('button', { name: 'Cursor' }).click()
+  await page.waitForTimeout(300)
+  await label.fill('Buy level')
+  await label.press('Enter')
+  await page.waitForTimeout(500)
+  // A vertical line in the accent.
+  await page.getByRole('button', { name: 'Vertical line' }).click()
+  await page.getByRole('button', { name: /^Blue/ }).click()
+  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.5)
+  await page.getByRole('button', { name: 'Cursor' }).click()
   await page.getByRole('button', { name: 'Price range' }).click()
   await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.35)
   await page.mouse.down()
   await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.2, { steps: 8 })
   await page.mouse.up()
   await page.getByRole('button', { name: 'Cursor' }).click()
+  // Nothing selected: the style bar is gone with the tools.
+  await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.9)
   return typed
 }
 
-/** The distance between two bars the chart reports, in px (the same at day, week and month). */
+/** The distance between two bars the chart reports, in px. */
 async function spacingOf(page: Page): Promise<number> {
   const host = page.locator(CHART)
   await page.waitForFunction(
@@ -758,21 +1057,122 @@ async function addOrder(page: Page): Promise<void> {
 }
 
 /** How many entries the stored drawing document of the first instrument holds. */
-const storedCount = (page: Page): Promise<number> =>
-  page.evaluate(async () => {
-    const token = (
-      JSON.parse(localStorage.getItem('argo-auth') ?? '{}') as { state?: { token?: string } }
-    ).state?.token
-    const response = await fetch('/api/finance/api/chart/drawings/XX0000000001', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const doc = (await response.json()) as { document: { drawings?: unknown[] } }
-    return doc.document.drawings?.length ?? 0
-  })
+const storedCount = async (page: Page): Promise<number> =>
+  ((await storedDocument(page, WORLD)).drawings ?? []).length
 
 /**
- * The Indices group, the index line back to 1998 and the overlay of a young fund against its index:
- * checked on the page and shot per element, the overlay at two indices.
+ * A trade's bar is clicked and its card pinned (a tap does the same on a phone); on a wide page the
+ * pointer alone brings the card up by hovering the marker. Returns whether the hover found it.
+ */
+async function checkTradeCard(
+  page: Page,
+  out: string,
+  scheme: string,
+  device: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  const host = page.locator(CHART)
+  const box = await host.boundingBox()
+  const xs = ((await host.getAttribute('data-mark-x')) ?? '')
+    .split(',')
+    .map(Number)
+    .filter(Number.isFinite)
+  const x = xs.find((value) => box !== null && value > 40 && value < box.width - 40)
+  if (box === null || x === undefined) {
+    failures.push(`${where}: no trade marker is on screen`)
+    return
+  }
+  if (device === 'desktop') {
+    let hovered = false
+    for (let dy = 40; dy < box.height - 120 && !hovered; dy += 6) {
+      await page.mouse.move(box.x + x, box.y + dy)
+      hovered = (await page.locator(CARD).count()) > 0
+    }
+    if (!hovered) failures.push(`${where}: hovering a trade marker shows no card`)
+    await page.mouse.move(2, 2)
+  }
+  await page.mouse.click(box.x + x, box.y + box.height * 0.45)
+  await page
+    .locator(CARD)
+    .waitFor({ timeout: 3000 })
+    .catch(() => undefined)
+  const card = page.locator(CARD)
+  if ((await card.count()) === 0) {
+    failures.push(`${where}: a click on a trade's bar pins no card`)
+    return
+  }
+  for (const text of ['Units', 'Price', 'Amount', 'Fee']) {
+    if ((await card.getByText(text, { exact: true }).count()) === 0) {
+      failures.push(`${where}: the trade card lacks "${text}"`)
+    }
+  }
+  await page.locator('[data-shot="depot-chart"]').screenshot({
+    path: join(out, `depot--${scheme}--${device}--trade-card.png`),
+  })
+  // The next click on a bar without a trade puts the card away.
+  await page.mouse.click(box.x + box.width * 0.97, box.y + box.height * 0.45)
+  await page.waitForTimeout(200)
+}
+
+/**
+ * The watchlist panel: the tabs, a search that adds an instrument to the active list, a rename that
+ * keeps the instrument's own name apart, and the removal of the entry.
+ */
+async function checkLists(
+  page: Page,
+  origin: string,
+  out: string,
+  scheme: string,
+  device: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  await page.goto(`${origin}/finance/depot`, { waitUntil: 'networkidle' })
+  await page.locator('canvas').first().waitFor()
+  const tab = (name: string) => page.getByRole('tab', { name, exact: true })
+  for (const name of ['In depot', 'Watchlist', 'Chips', 'Crypto', 'Indices']) {
+    if ((await tab(name).count()) === 0) failures.push(`${where}: no "${name}" tab`)
+  }
+  if ((await tab('In depot').getAttribute('aria-selected')) !== 'true') {
+    failures.push(`${where}: the depot tab is not the one open`)
+  }
+  for (const text of ['units', '%']) {
+    if ((await page.getByRole('tabpanel').getByText(text).count()) === 0) {
+      failures.push(`${where}: the depot tab shows no ${text}`)
+    }
+  }
+  await tab('Watchlist').click()
+  const search = page.getByRole('combobox', { name: 'Search instruments' })
+  await page.keyboard.press('/')
+  await search.type('emerging', { delay: 20 })
+  const option = page.getByRole('option', { name: /Emerging markets ETF/ })
+  await option.waitFor({ timeout: 4000 })
+  await page.screenshot({ path: join(out, `depot--${scheme}--${device}--search.png`) })
+  await page.keyboard.press('Enter')
+  const row = page.getByRole('tabpanel').getByRole('button', { name: /^Emerging markets ETF/ })
+  await row.first().waitFor({ timeout: 4000 })
+  await page.getByRole('button', { name: 'Rename Emerging markets ETF' }).click()
+  const name = page.getByLabel('Name of Emerging markets ETF')
+  await name.fill('EM core')
+  await name.press('Enter')
+  await page
+    .getByRole('tabpanel')
+    .getByRole('button', { name: /^EM core/ })
+    .first()
+    .waitFor({ timeout: 4000 })
+  await page.screenshot({ path: join(out, `depot--${scheme}--${device}--lists.png`) })
+  await page.getByRole('button', { name: /^Remove EM core from list/ }).click()
+  await page
+    .getByRole('tabpanel')
+    .getByRole('button', { name: /^EM core/ })
+    .waitFor({ state: 'detached', timeout: 4000 })
+    .catch(() => failures.push(`${where}: the removed entry is still listed`))
+}
+
+/**
+ * The Indices tab, the index line back to 1998 and the overlay of a young fund against its index: the
+ * overlay is off until asked for, then checked on the page and shot per element at two indices.
  */
 async function checkIndices(
   page: Page,
@@ -795,8 +1195,8 @@ async function checkIndices(
   const index = page.locator('[data-shot="depot-index"]')
   await index.waitFor()
   await page.waitForTimeout(700)
-  if ((await page.getByText('Indices', { exact: true }).count()) === 0) {
-    failures.push(`${where}: the watchlist has no Indices group`)
+  if ((await page.getByRole('tab', { name: 'Indices', exact: true }).count()) === 0) {
+    failures.push(`${where}: the watchlist has no Indices tab`)
   }
   if ((await index.getByText('MSCI ACWI IMI · EUR').count()) === 0) {
     failures.push(`${where}: the index card does not name its series`)
@@ -812,7 +1212,27 @@ async function checkIndices(
   }
   await shoot('index-max', 'depot-index')
 
-  await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}&rng=max`, { waitUntil: 'networkidle' })
+  // A young fund: its history opens with the index it tracks, the comparison waits to be asked for.
+  await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}`, { waitUntil: 'networkidle' })
+  await page.locator('canvas').first().waitFor()
+  await page.waitForTimeout(900)
+  if (Number(await hostAttr(page, 'spliced')) < 100) {
+    failures.push(`${where}: the young fund's history does not open with its index`)
+  }
+  if ((await page.getByText('Index, scaled to the ETF price').count()) === 0) {
+    failures.push(`${where}: the spliced history is not labelled`)
+  }
+  if ((await page.locator('[data-shot="depot-overlay"]').count()) > 0) {
+    failures.push(`${where}: the comparison is on without being asked for`)
+  }
+  await timeframe(page, 'Max')
+  await page.waitForTimeout(500)
+  await page.locator('[data-shot="depot-chart"]').screenshot({
+    path: join(out, `depot--${scheme}--${device}--spliced.png`),
+  })
+  await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}&cmp=msci-acwi-imi-net-eur&rng=max`, {
+    waitUntil: 'networkidle',
+  })
   await page.locator('canvas').first().waitFor()
   const overlay = page.locator('[data-shot="depot-overlay"]')
   await overlay.waitFor()
@@ -872,23 +1292,56 @@ async function main(): Promise<number> {
           if (m.type() === 'error' && !m.text().startsWith('Failed to load resource'))
             errors.push(m.text())
         })
+        const where = `${scheme}/${device}`
         await fetch(`${origin}/api/__reset`)
         await page.goto(`${origin}/finance/depot`, { waitUntil: 'networkidle' })
         await page.locator('canvas').first().waitFor()
         await page.evaluate(() => document.fonts.ready.then(() => undefined))
         await page.waitForTimeout(600)
+        // The chart opens on the last year, with turnover on (an ETF) and a linear scale.
+        if ((await hostAttr(page, 'timeframe')) !== '1Y') {
+          failures.push(
+            `${where}: the chart does not open on the last year (${await hostAttr(page, 'timeframe')})`,
+          )
+        }
+        if (
+          (await page
+            .getByRole('button', { name: 'Show turnover' })
+            .getAttribute('aria-pressed')) !== 'true'
+        ) {
+          failures.push(`${where}: an ETF opens without turnover`)
+        }
+        if (
+          (await page
+            .getByRole('button', { name: 'Logarithmic price scale' })
+            .getAttribute('aria-pressed')) !== 'false'
+        ) {
+          failures.push(`${where}: an ETF opens on the log scale`)
+        }
+        await checkTradeCard(page, out, scheme, device, failures)
         const typed = await draw(page)
         await addOrder(page)
         await page.waitForTimeout(900)
         const saved = await storedCount(page)
-        if (saved !== 2) failures.push(`${scheme}/${device}: ${saved} drawings stored, expected 2`)
+        if (saved !== 4) failures.push(`${where}: ${saved} drawings stored, expected 4`)
+        const stored = await storedDocument(page, WORLD)
+        const roles = Object.values(stored.roles ?? {}).toSorted()
+        if (roles.join() !== 'accent,accent,buy,sell') {
+          failures.push(
+            `${where}: stored colours are ${roles.join(', ')}, expected accent, accent, buy, sell`,
+          )
+        }
+        const labels = (stored.drawings ?? []).map((d) => d.style?.text).filter((t) => t)
+        if (!labels.includes('Resistance') || !labels.includes('Buy level')) {
+          failures.push(`${where}: stored labels are ${labels.join(', ')}`)
+        }
         // A reload is a second device: the drawings and the order come back from the service.
         await page.reload({ waitUntil: 'networkidle' })
         await page.locator('canvas').first().waitFor()
         await page.waitForTimeout(900)
         const prices = await storedLinePrices(page, WORLD)
         if (!prices.some((price) => Math.abs(price - typed) < 0.005)) {
-          failures.push(`${scheme}/${device}: the line holds ${prices.join(', ')}, typed ${typed}`)
+          failures.push(`${where}: the line holds ${prices.join(', ')}, typed ${typed}`)
         }
         const overflow = await page.evaluate(() =>
           Math.max(
@@ -900,10 +1353,10 @@ async function main(): Promise<number> {
         const horizontalScroll = await page.evaluate(
           () => document.documentElement.scrollWidth > window.innerWidth,
         )
-        if (horizontalScroll) failures.push(`${scheme}/${device}: the page scrolls horizontally`)
+        if (horizontalScroll) failures.push(`${where}: the page scrolls horizontally`)
         for (const gone of ['15 min', '1 hour']) {
           if ((await page.getByText(gone, { exact: true }).count()) > 0) {
-            failures.push(`${scheme}/${device}: an intraday control (${gone}) is offered`)
+            failures.push(`${where}: an intraday control (${gone}) is offered`)
           }
         }
         const spacings = [await spacingOf(page)]
@@ -911,6 +1364,11 @@ async function main(): Promise<number> {
           path: join(out, `depot--${scheme}--${device}.png`),
           fullPage: false,
         })
+        // The timeframes only move the view: five years, then everything.
+        for (const name of ['6M', 'Max']) {
+          const reported = await timeframe(page, name)
+          if (reported !== name) failures.push(`${where}: ${name} reads as "${reported}"`)
+        }
         if (scheme === 'light' && device === 'desktop') {
           // Closing the order takes its row, and with it its line, away.
           await page
@@ -922,7 +1380,7 @@ async function main(): Promise<number> {
           await page.getByRole('menuitem', { name: 'Close as cancelled' }).click()
           await page.getByText('Buy limit').waitFor({ state: 'detached' })
         }
-        // Week and month draw as wide as the day: the same distance between two bars.
+        // Week and month open on as many bars as a year of days: about the same distance between two bars.
         const views: [string, string][] = [
           ['1w', '?ivl=1w'],
           ['btc-usd', '?isin=BTC-USD'],
@@ -938,32 +1396,59 @@ async function main(): Promise<number> {
           await page.goto(`${origin}/finance/depot${query}`, { waitUntil: 'networkidle' })
           await page.locator('canvas').first().waitFor()
           await page.waitForTimeout(700)
-          if ((await page.getByText('No bars for this range.').count()) > 0) {
-            failures.push(`${scheme}/${device}: no bars at ${name}`)
+          if ((await page.getByText('No bars stored for this instrument yet.').count()) > 0) {
+            failures.push(`${where}: no bars at ${name}`)
           }
           if (name.startsWith('btc-usd') || name === 'us-stock') {
             if ((await page.getByText('USD', { exact: false }).count()) === 0) {
-              failures.push(`${scheme}/${device}: ${name} is not charted in USD`)
+              failures.push(`${where}: ${name} is not charted in USD`)
             }
             const dollars = page.getByText(/Price \(USD\)|\(\$[\d,]+\.\d\d\)/)
             if ((await dollars.count()) === 0) {
-              failures.push(`${scheme}/${device}: ${name} shows no dollar price in the trades`)
+              failures.push(`${where}: ${name} shows no dollar price in the trades`)
             }
           }
-          if (!name.startsWith('btc-usd') && name !== 'us-stock')
-            spacings.push(await spacingOf(page))
+          if (
+            name === '1w' &&
+            (await page.getByRole('button', { name: '1M', exact: true }).isEnabled())
+          ) {
+            failures.push(`${where}: one month is offered on week bars`)
+          }
+          if (name === 'btc-usd') {
+            // Bitcoin: logarithmic, no turnover, and the whole history on Max, from 2011.
+            const reported = await timeframe(page, 'Max')
+            if (reported !== 'Max') failures.push(`${where}: Bitcoin on Max reads as "${reported}"`)
+            const first = await hostAttr(page, 'firstDay')
+            if (!first.startsWith('2011'))
+              failures.push(`${where}: Bitcoin starts on ${first}, not in 2011`)
+            if (
+              (await page
+                .getByRole('button', { name: 'Logarithmic price scale' })
+                .getAttribute('aria-pressed')) !== 'true'
+            ) {
+              failures.push(`${where}: Bitcoin opens on the linear scale`)
+            }
+            if (
+              (await page
+                .getByRole('button', { name: 'Show turnover' })
+                .getAttribute('aria-pressed')) !== 'false'
+            ) {
+              failures.push(`${where}: Bitcoin opens with turnover`)
+            }
+            await page.waitForTimeout(400)
+          }
+          if (name === '1w') spacings.push(await spacingOf(page))
           await page.screenshot({ path: join(out, `depot--${scheme}--${device}--${name}.png`) })
         }
+        await checkLists(page, origin, out, scheme, device, failures)
         await checkIndices(page, origin, scheme, device, out, failures)
         const [day, ...others] = spacings
-        if (day === undefined || others.some((other) => Math.abs(other - day) > 0.05)) {
-          failures.push(
-            `${scheme}/${device}: bar spacing differs by interval: ${spacings.join(', ')}`,
-          )
+        if (day === undefined || others.some((other) => Math.abs(other / day - 1) > 0.12)) {
+          failures.push(`${where}: bar spacing differs by interval: ${spacings.join(', ')}`)
         }
-        if (errors.length > 0) failures.push(`${scheme}/${device}: ${errors.join(' | ')}`)
+        if (errors.length > 0) failures.push(`${where}: ${errors.join(' | ')}`)
         console.log(
-          `${scheme}/${device}: widest overflow ${overflow}px, bar spacing ${spacings.join('/')}px, errors ${errors.length}`,
+          `${where}: widest overflow ${overflow}px, bar spacing ${spacings.join('/')}px, errors ${errors.length}`,
         )
         await context.close()
       }

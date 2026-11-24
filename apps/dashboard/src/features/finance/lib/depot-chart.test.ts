@@ -2,15 +2,21 @@ import { describe, expect, it } from 'bun:test'
 import type { ChartBar, DepotOrder, DepotPosition, DepotTrade } from '../api/types'
 import {
   barOfDay,
+  activeTimeframe,
   buildDrawingsDocument,
   candleWindow,
   changeOf,
   costLine,
   costLineUsd,
   dayToSeconds,
+  defaultViewStart,
   depotInterval,
+  firstBarFrom,
+  hasTurnover,
   heldRows,
   instrumentsOf,
+  launchTime,
+  logByDefault,
   markGroups,
   marksByBar,
   mergedPosition,
@@ -18,10 +24,15 @@ import {
   pickInstrument,
   rangeStart,
   rebasedPair,
+  splitSpliced,
   storedEntries,
+  storedRoles,
+  timeframeFits,
+  timeframeStart,
+  tradeCards,
   tradeMarks,
-  tradeReadout,
   unreadEntries,
+  volumeByDefault,
 } from './depot-chart'
 
 const bar = (time: number, close = 10): ChartBar => ({
@@ -72,8 +83,8 @@ describe('candleWindow', () => {
     expect(candleWindow('1m', '1w', '2026-11-22')).toEqual({ to: '2026-11-22' })
     expect(candleWindow('1y', '1mo', '2026-11-22')).toEqual({ to: '2026-11-22' })
   })
-  it('keeps a daily request under the 5,000 bars the service allows', () => {
-    expect(candleWindow('max', '1d', '2026-11-22').from).toBe('2013-03-25')
+  it('keeps a daily request under the 20,000 bars the service allows', () => {
+    expect(candleWindow('max', '1d', '2026-11-22').from).toBe('1972-02-29')
     expect(candleWindow('5y', '1d', '2026-11-22').from).toBe('2021-11-21')
   })
   it('offers day, week and month only', () => {
@@ -154,33 +165,57 @@ describe('markGroups', () => {
   })
 })
 
-describe('tradeReadout', () => {
+describe('tradeCards', () => {
   const bars = [bar(day('2026-11-02'))]
-  const readout = (trades: DepotTrade[], usd = false) =>
-    tradeReadout(tradeMarks(trades, bars, '1w'), usd)
-  it('writes a trade per line, with the dollar price on a dollar chart', () => {
-    const one = trade(1, '2026-11-03', {
-      quantity: 0.5,
-      amount_cents: 3_200_000,
-      price_usd: 67_200,
-    })
-    expect(readout([one])).toEqual(['Bought 0.5 · €32,000.00'])
-    expect(readout([one], true)).toEqual(['Bought 0.5 · €32,000.00 · at $67,200.00'])
+  const cards = (trades: DepotTrade[], usd = false) =>
+    tradeCards(tradeMarks(trades, bars, '1w'), usd)
+  const value = (rows: { label: string; value: string }[], label: string) =>
+    rows.find((row) => row.label === label)?.value
+  it('names day, side, units, price, amount and fee, with the dollar price on a dollar chart', () => {
+    const [card] = cards(
+      [
+        trade(1, '2026-11-03', {
+          quantity: 0.5,
+          price: 64_000,
+          amount_cents: 3_200_000,
+          fee_cents: 490,
+          price_usd: 67_200,
+        }),
+      ],
+      true,
+    )
+    expect(card?.title).toBe('Bought · 03 Nov 2026')
+    expect(value(card?.rows ?? [], 'Units')).toBe('0.5')
+    expect(value(card?.rows ?? [], 'Price')).toBe('€64,000.00')
+    expect(value(card?.rows ?? [], 'Price (USD)')).toBe('$67,200.00')
+    expect(value(card?.rows ?? [], 'Amount')).toBe('€32,000.00')
+    expect(value(card?.rows ?? [], 'Fee')).toBe('€4.90')
+    expect(value(card?.rows ?? [], 'Realised gain')).toBeUndefined()
   })
-  it('sums the trades of one side into one line', () => {
-    const lines = readout([
-      trade(1, '2026-11-03', { quantity: 2, amount_cents: 10_000 }),
-      trade(2, '2026-11-04', { quantity: 1.5, amount_cents: 7_500, quantity_source: 'estimated' }),
-      trade(3, '2026-11-05', { side: 'sell', quantity: 1, amount_cents: 5_100 }),
+  it('marks an estimated quantity and shows the realised gain of a sale with its tone', () => {
+    const [card] = cards([
+      trade(2, '2026-11-04', {
+        side: 'sell',
+        quantity: 3,
+        quantity_source: 'estimated',
+        price: 51,
+        amount_cents: 15_300,
+        fee_cents: null,
+        realised_fifo_cents: -1_250,
+      }),
     ])
-    expect(lines).toEqual(['Bought 2 trades · ≈ 3.5 · €175.00', 'Sold 1 · €51.00'])
+    expect(card?.title).toBe('Sold · 04 Nov 2026')
+    expect(value(card?.rows ?? [], 'Units')).toBe('≈ 3')
+    expect(card?.rows.some((row) => row.label === 'Fee')).toBe(false)
+    expect(card?.rows.find((row) => row.label === 'Realised gain')).toMatchObject({ tone: 'bad' })
   })
-  it('says so when a quantity is unknown', () => {
-    const lines = readout([
-      trade(1, '2026-11-03', { quantity: null, amount_cents: 100 }),
-      trade(2, '2026-11-04', { quantity: 1, amount_cents: 100 }),
+  it('says so when the quantity is unknown, a card per trade', () => {
+    const list = cards([
+      trade(1, '2026-11-03', { quantity: null, price: null, fee_cents: null, amount_cents: 100 }),
+      trade(2, '2026-11-04', { quantity: 1, price: 100, fee_cents: null, amount_cents: 100 }),
     ])
-    expect(lines).toEqual(['Bought 2 trades · quantity unknown · €2.00'])
+    expect(list).toHaveLength(2)
+    expect(value(list[0]?.rows ?? [], 'Units')).toBe('unknown')
   })
 })
 
@@ -301,7 +336,20 @@ describe('the drawings document', () => {
   })
   it('writes the exported drawings and every unread entry back', () => {
     const doc = buildDrawingsDocument(JSON.stringify([{ id: 'a' }]), [{ id: 'b' }])
-    expect(doc).toEqual({ v: 1, drawings: [{ id: 'a' }], foreign: [{ id: 'b' }] })
+    expect(doc).toEqual({ v: 1, drawings: [{ id: 'a' }], foreign: [{ id: 'b' }], roles: {} })
+  })
+  it('keeps the colour of a line, and only of a line that still exists', () => {
+    const doc = buildDrawingsDocument(JSON.stringify([{ id: 'a' }]), [], {
+      a: 'sell',
+      gone: 'buy',
+    })
+    expect(doc.roles).toEqual({ a: 'sell' })
+    expect(storedRoles(doc)).toEqual({ a: 'sell' })
+  })
+  it('reads no colour from a document without one, and drops a role it does not know', () => {
+    expect(storedRoles({})).toEqual({})
+    expect(storedRoles(null)).toEqual({})
+    expect(storedRoles({ roles: { a: 'buy', b: 'purple' } })).toEqual({ a: 'buy' })
   })
 })
 
@@ -351,5 +399,67 @@ describe('rebasedPair', () => {
   it('is empty without bars or levels', () => {
     expect(rebasedPair([], [point('2026-08-18', 500)])).toEqual([])
     expect(rebasedPair([bar(day('2026-08-18'), 10)], [])).toEqual([])
+  })
+})
+
+describe('timeframes', () => {
+  const last = day('2026-11-20')
+  it('counts back from the newest bar; Max is the whole history', () => {
+    expect(timeframeStart('Max', last)).toBeNull()
+    expect(timeframeStart('1Y', last)).toBe(last - 366 * 86_400)
+  })
+  it('hides a timeframe that would hold fewer than six bars at the interval', () => {
+    expect(timeframeFits('1M', '1d')).toBe(true)
+    expect(timeframeFits('1M', '1w')).toBe(false)
+    expect(timeframeFits('3M', '1mo')).toBe(false)
+    expect(timeframeFits('Max', '1mo')).toBe(true)
+  })
+  it('opens on the last year of day bars, else a trading year of bars', () => {
+    const days = Array.from({ length: 900 }, (_, i) => bar(day('2024-01-01') + i * 86_400))
+    expect(defaultViewStart(days, '1d')).toBe(days.at(-1)!.time - 366 * 86_400)
+    const weeks = Array.from({ length: 600 }, (_, i) => bar(day('2015-01-05') + i * 7 * 86_400))
+    expect(defaultViewStart(weeks, '1w')).toBe(weeks[600 - 1 - 252]?.time ?? 0)
+    expect(defaultViewStart([], '1d')).toBeNull()
+  })
+  it('finds the first bar at or after a time', () => {
+    const bars = [bar(10), bar(20), bar(30)]
+    expect(firstBarFrom(bars, null)).toBe(0)
+    expect(firstBarFrom(bars, 20)).toBe(1)
+    expect(firstBarFrom(bars, 21)).toBe(2)
+    expect(firstBarFrom(bars, 99)).toBe(3)
+  })
+  it('reads which button the visible range matches, within a tenth', () => {
+    const first = day('2011-01-01')
+    expect(activeTimeframe(last - 366 * 86_400, last, first)).toBe('1Y')
+    expect(activeTimeframe(last - 90 * 86_400, last, first)).toBe('3M')
+    expect(activeTimeframe(last - 800 * 86_400, last, first)).toBeNull()
+    expect(activeTimeframe(first - 10, last, first)).toBe('Max')
+    expect(activeTimeframe(null, last, first)).toBe('Max')
+  })
+})
+
+describe('the spliced history and the view defaults', () => {
+  const index = (time: number): ChartBar => ({ ...bar(time), source: 'index' })
+  const bars = [index(10), index(20), bar(30), bar(40)]
+  it("splits the index bars from the instrument's own and names the launch", () => {
+    const { own, spliced } = splitSpliced(bars)
+    expect(spliced.map((b) => b.time)).toEqual([10, 20])
+    expect(own.map((b) => b.time)).toEqual([30, 40])
+    expect(launchTime(bars)).toBe(30)
+    expect(launchTime(own)).toBeNull()
+  })
+  it('shows turnover by default only where there is some and it is not a coin or an index', () => {
+    const traded = [{ ...bar(1), turnover: 5 }]
+    expect(hasTurnover(traded)).toBe(true)
+    expect(hasTurnover([bar(1)])).toBe(false)
+    expect(volumeByDefault('etf', traded)).toBe(true)
+    expect(volumeByDefault('coin', traded)).toBe(false)
+    expect(volumeByDefault('index', traded)).toBe(false)
+    expect(volumeByDefault('etf', [bar(1)])).toBe(false)
+  })
+  it('opens a coin on the logarithmic scale', () => {
+    expect(logByDefault('coin')).toBe(true)
+    expect(logByDefault('etf')).toBe(false)
+    expect(logByDefault(null)).toBe(false)
   })
 })
