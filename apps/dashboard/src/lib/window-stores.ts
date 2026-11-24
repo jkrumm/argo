@@ -334,7 +334,7 @@ export const finStore = createSearchStore({
     // An ISIN, a coin symbol or the id of a stored index series (`msci-world-small-cap-net-eur`).
     isin: field.string({ max: 40 }, { persist: false }),
     cmp: field.enum(['', ...INDEX_IDS], '', { persist: false }),
-    // The watchlist panel's tab: `depot`, `crypto`, `indices` or `list-<id>`; `''` is the first one there is.
+    // The watchlist panel's tab: `depot`, `crypto` or `list-<id>`; `''` is the first one there is.
     tab: field.string({ max: 40 }, { persist: false }),
     view: field.enum(DEPOT_VIEWS, 'chart', { persist: false }),
     ivl: field.enum(DEPOT_INTERVALS, '1d', { persist: false }),

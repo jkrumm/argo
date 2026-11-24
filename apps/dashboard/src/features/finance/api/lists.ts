@@ -154,8 +154,12 @@ export function useListWrites() {
       queryClient.setQueryData<WatchList[]>(LISTS_KEY, (old) => old?.filter((l) => l.id !== id))
       await refresh()
     },
-    addEntry: (listId: number, entry: { symbol: string; display_name?: string }) =>
-      write<WatchListWrite>(`/market/lists/${listId}/entries`, entry),
+    async addEntry(listId: number, entry: { symbol: string; display_name?: string }) {
+      const list = await write<WatchListWrite>(`/market/lists/${listId}/entries`, entry)
+      // The answer says where the new load stands: a retry replaces the cached failure and polling starts again.
+      queryClient.setQueryData([...DEPOT_KEY, 'backfill', entry.symbol], list.backfill)
+      return list
+    },
     renameEntry: (listId: number, symbol: string, display_name: string | null) =>
       write(`/market/lists/${listId}/entries/${encodeURIComponent(symbol)}`, { display_name }),
     moveEntry: (listId: number, symbol: string, position: number) => {

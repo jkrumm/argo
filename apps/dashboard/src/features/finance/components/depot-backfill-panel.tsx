@@ -28,7 +28,13 @@ export function DepotBackfillPanel({
       tier="section"
       data-shot="depot-loading"
       icon={failed || !loadingHistory(backfill.data) ? undefined : <Loader size="sm" />}
-      title={failed ? `${name}: no history yet` : `${name}: loading its history`}
+      title={
+        failed ||
+        backfill.data?.state === 'none' ||
+        (backfill.data?.state === 'done' && backfill.data.bars === 0)
+          ? `${name}: no history yet`
+          : `${name}: loading its history`
+      }
       description={backfillText(backfill.data)}
       action={
         failed && home !== undefined ? (
