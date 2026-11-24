@@ -63,12 +63,7 @@ flagged bars (`source: "index"`, no turnover), converted with the ECB rate and s
 
 ## The watchlist panel
 
-- **Tabs.** _In depot_ lists what the owner holds (units, value, share of the depot; sold-out instruments are not there), largest first; it is the first tab while anything is held. Then one tab
-  per list of the owner's (the default list "Watchlist" cannot be deleted), _Crypto_ (the coins) and _Indices_ (the stored MSCI series). The tab is `?tab=`; an id that no longer exists falls back to the first.
-- **Search.** A TradingView-like field above the rows: `/` focuses it from anywhere on the page, two characters start a search of the market store (instruments by name, ISIN, WKN or ticker; coins; stored index series),
-  the arrow keys move through the results, Enter adds the highlighted one to the active list (the default list when the active tab is not a list) and opens it, Escape clears. It reads the store only; an ISIN gets its bars at the next sync.
-- **Rename and remove.** A pencil on a row renames the entry in this list (the display name; empty gives the instrument's own back), a cross removes it from the list. Removing never deletes prices or trades: an old ETF disappears from the lists and its history and trades stay. A list is created with the plus, renamed and deleted from its menu.
-- A series the owner added from the search and that is not one of the five MSCI ones opens as an index card named by what the store says of it.
+Moved: the tabs, the sidebar, the search and add flow and the three views are specified in `depot-page.md`. This file keeps the chart.
 
 ## Comparison
 
