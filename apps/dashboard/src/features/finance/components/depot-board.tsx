@@ -34,20 +34,18 @@ const changeColumn = (
   id: string,
   header: string,
   pick: (row: BoardRow) => number | null | undefined,
-  priority?: 2 | 3,
 ) =>
   col.accessor(sortable(pick), {
     id,
     header,
     sortFn: 'basic',
-    meta: { align: 'right', ...(priority !== undefined && { priority }) },
+    meta: { align: 'right' },
     cell: (c) => <Change value={pick(c.row.original)} />,
   })
 
 const COLUMNS = [
   col.accessor('label', {
     header: 'Name',
-    meta: { kind: 'entity' },
     cell: (c) => (
       <Stack gap={0}>
         <Text size="sm" fw={500}>
@@ -73,10 +71,10 @@ const COLUMNS = [
     },
   ),
   changeColumn('day', 'Day', (row) => row.figures?.day_pct),
-  changeColumn('week', 'Week', (row) => row.figures?.week_pct, 2),
-  changeColumn('month', 'Month', (row) => row.figures?.month_pct, 2),
-  changeColumn('ytd', 'This year', (row) => row.figures?.ytd_pct, 3),
-  changeColumn('year', '1 year', (row) => row.figures?.year_pct, 3),
+  changeColumn('week', 'Week', (row) => row.figures?.week_pct),
+  changeColumn('month', 'Month', (row) => row.figures?.month_pct),
+  changeColumn('ytd', 'YTD', (row) => row.figures?.ytd_pct),
+  changeColumn('year', '1Y', (row) => row.figures?.year_pct),
   col.accessor(
     sortable((row) => row.figures?.ath_pct),
     {
@@ -143,6 +141,7 @@ export function DepotBoard({
       getRowId={(row) => row.symbol}
       query={board.query}
       skeletonRows={4}
+      minWidth={760}
       emptyState={absent}
       onRowActivate={(row) => onOpen(row.symbol)}
       rowLabel={(row) => `Open the chart of ${row.label}`}

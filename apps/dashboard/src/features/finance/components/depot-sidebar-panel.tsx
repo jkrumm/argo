@@ -272,7 +272,7 @@ export function DepotSidebarPanel(props: DepotSidebarProps) {
           opened={open && term.length >= 2}
           onClose={() => setOpen(false)}
           position="bottom-start"
-          width="target"
+          width={340}
           trapFocus={false}
           returnFocus={false}
         >
@@ -327,19 +327,19 @@ export function DepotSidebarPanel(props: DepotSidebarProps) {
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => void pick(hit)}
                     >
-                      <Group justify="space-between" wrap="nowrap" gap="xs">
-                        <Text size="sm" fw={500} className={classes.name}>
-                          {hit.name ?? hit.symbol}
-                        </Text>
+                      <Text size="sm" fw={500} className={classes.name}>
+                        {hit.name ?? hit.symbol}
+                      </Text>
+                      <Group gap="xs" wrap="nowrap">
                         <Badge size="sm" variant="light" color="gray">
                           {KIND_WORD[kindGroup(hit.kind)]}
                         </Badge>
+                        <Text size="xs" c="dimmed" className={classes.name}>
+                          {hitDetail(hit)}
+                          {target?.entries.some((e) => e.symbol === hit.symbol) === true &&
+                            ' · on this list'}
+                        </Text>
                       </Group>
-                      <Text size="xs" c="dimmed" className={classes.name}>
-                        {hitDetail(hit)}
-                        {target?.entries.some((e) => e.symbol === hit.symbol) === true &&
-                          ' · on this list'}
-                      </Text>
                     </UnstyledButton>
                   ))}
                 </Stack>

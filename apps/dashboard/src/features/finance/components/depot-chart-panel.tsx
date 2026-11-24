@@ -117,7 +117,11 @@ export function ChartPanel({
   return (
     <ChartCard
       data-shot="depot-chart"
-      title={candles.data?.currency == null ? name : `${name} · ${candles.data.currency}`}
+      title={
+        candles.data?.currency == null || name.includes(candles.data.currency)
+          ? name
+          : `${name} · ${candles.data.currency}`
+      }
       {...(high !== null && {
         facts: [
           {
