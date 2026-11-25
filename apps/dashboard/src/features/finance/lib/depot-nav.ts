@@ -295,6 +295,22 @@ export function pickSymbol(
   return groupByKind(items, (item) => item.kind)[0]?.items[0]?.symbol ?? null
 }
 
+/** The views of the main area. */
+export type DepotViewName = 'chart' | 'details' | 'board'
+
+/**
+ * The view after the owner picks another instrument in the sidebar: Chart and Details stay where they are, so a run
+ * through the list reads the same thing for each. The Board has no single instrument, so a pick opens its chart.
+ */
+export const viewAfterPick = (view: DepotViewName): DepotViewName =>
+  view === 'details' ? 'details' : 'chart'
+
+/** An ETF with a tracked index and no US listing is asked for its history with the index in front of it. */
+export const splicedHistory = (
+  entry: Pick<WatchlistEntry, 'index' | 'us_mic' | 'kind'> | undefined,
+): boolean =>
+  entry !== undefined && entry.index !== null && entry.us_mic === null && entry.kind !== 'coin'
+
 /** The first of the tabs that lists `symbol`, for a link that names an instrument but no tab. */
 export function tabHolding(
   tabs: readonly NavTab[],

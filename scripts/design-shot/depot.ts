@@ -364,8 +364,8 @@ const monthStart = (time: number): number => {
 }
 
 /**
- * The daily bars of a fund with the index it tracks in front of its first bar: flat bars (open = high =
- * low = close, no turnover) scaled so the last level before the fund's first day equals its first close.
+ * The daily bars of a fund with the index it tracks in front of its first bar: the index's own open, high, low and
+ * close (no turnover), scaled so the last level before the fund's first day equals its first close.
  */
 function splicedDaily(isin: string): Bar[] {
   const own = DAILY.get(isin) ?? []
@@ -376,20 +376,22 @@ function splicedDaily(isin: string): Bar[] {
   const anchor = before.at(-1)
   if (first === undefined || anchor === undefined) return own
   const scale = first.close / anchor.value
-  const flat = before.map((l): Bar => {
-    const level = round(l.value * scale, 4)
+  const real = new Map((SERIES_BARS.get(series ?? '') ?? []).map((b) => [b.time, b]))
+  const spliced = before.map((l): Bar => {
+    const bar = real.get(l.time)
+    const scaled = (value: number) => round(value * scale, 4)
     return {
       time: l.time,
-      open: level,
-      high: level,
-      low: level,
-      close: level,
+      open: scaled(bar?.open ?? l.value),
+      high: scaled(bar?.high ?? l.value),
+      low: scaled(bar?.low ?? l.value),
+      close: scaled(l.value),
       units: null,
       turnover: null,
       source: 'index',
     }
   })
-  return [...flat, ...own]
+  return [...spliced, ...own]
 }
 
 /**
@@ -1289,6 +1291,12 @@ const storedLinePrices = async (page: Page, isin: string): Promise<number[]> =>
     .map((d) => d.points?.[0]?.price ?? Number.NaN)
 
 /** The chart's own readings (the host carries them as data attributes). */
+/** The rows of the Board (cards on a phone): one per entry of the tab. */
+const boardRows = (page: Page) =>
+  page.locator('[data-shot="depot-board"]').locator('tbody tr, [data-activatable="true"]')
+
+const boardRowCount = (page: Page): Promise<number> => boardRows(page).count()
+
 const hostAttr = (page: Page, name: string): Promise<string> =>
   page.locator(CHART).evaluate((el, key) => el.dataset[key] ?? '', name)
 
@@ -1688,11 +1696,34 @@ async function checkViews(
     failures.push(`${where}: "FIFO" is on the board`)
   }
   await page.screenshot({ path: shot('board') })
+  // Every entry of the list is a row: seven on the default list, FTSE and the US stock among them.
+  const listRows = await boardRowCount(page)
+  if (listRows !== 7) failures.push(`${where}: the list board has ${listRows} rows, expected 7`)
   await board.getByText('Semiconductor ETF').first().click()
   await page.locator('canvas').first().waitFor()
   if ((await page.locator('[data-shot="depot-board"]').count()) > 0) {
     failures.push(`${where}: a board row did not open the chart`)
   }
+
+  // In depot: every held row, also Bitcoin, which sits on no list (its figures come from its own bars).
+  await open('tab=depot&view=board')
+  await board.waitFor()
+  await page.waitForTimeout(900)
+  const depotRows = await boardRowCount(page)
+  if (depotRows !== 4) failures.push(`${where}: the depot board has ${depotRows} rows, expected 4`)
+  const depotText = await board.innerText()
+  for (const part of ['World equity ETF', 'Semiconductor ETF', 'US chip stock', 'Bitcoin']) {
+    if (!depotText.includes(part)) failures.push(`${where}: the depot board lacks "${part}"`)
+  }
+  if ((await boardRows(page).filter({ hasText: 'Bitcoin' }).first().innerText()).includes('—')) {
+    failures.push(`${where}: the Bitcoin row has no figures`)
+  }
+  await page.screenshot({ path: shot('board-depot') })
+  await open('tab=crypto&view=board')
+  await board.waitFor()
+  await page.waitForTimeout(900)
+  const coinRows = await boardRowCount(page)
+  if (coinRows !== 1) failures.push(`${where}: the Crypto board has ${coinRows} rows, expected 1`)
 
   // Details of the US stock: position, statistics, trades, the open order.
   await open(`isin=${US_STOCK}&view=details`)
@@ -1730,7 +1761,19 @@ async function checkViews(
   if ((await page.locator('[data-shot="depot-line-hint"]').count()) > 0) {
     failures.push(`${where}: the FTSE index has real bars and is drawn as a line`)
   }
+  if ((await hostAttr(page, 'spliceShape')) === 'line') {
+    failures.push(`${where}: the FTSE index has real bars and the chart is in line mode`)
+  }
   await page.screenshot({ path: shot('index-candles') })
+  // The same index at month bars: candles too.
+  await open(`isin=${FTSE}&tab=list-1&ivl=1mo`)
+  await page.locator('canvas').first().waitFor()
+  await page.waitForTimeout(700)
+  await timeframe(page, 'Max')
+  if ((await page.locator('[data-shot="depot-line-hint"]').count()) > 0) {
+    failures.push(`${where}: the FTSE index is a line at month bars`)
+  }
+  await page.screenshot({ path: shot('index-candles-1mo') })
 
   // A series with closes only: a line, and it says so.
   await open('isin=msci-world-net-eur&tab=list-1')
@@ -1881,6 +1924,9 @@ async function checkSpliced(
   if ((await page.getByText('Index, scaled to the ETF price').count()) === 0) {
     failures.push(`${where}: the spliced history is not labelled`)
   }
+  if ((await hostAttr(page, 'spliceShape')) !== 'candles') {
+    failures.push(`${where}: the spliced history is not drawn as candles`)
+  }
   if ((await hostAttr(page, 'scale')) !== 'linear') {
     failures.push(`${where}: the comparison is on without being asked for`)
   }
@@ -1903,6 +1949,97 @@ async function checkSpliced(
   await page.locator('[data-shot="depot-chart"]').screenshot({
     path: join(out, `depot--${scheme}--${device}--compare-young.png`),
   })
+}
+
+/**
+ * What a pick in the sidebar does: Details and Chart stay where they are; and the chart fills the height under the page bar
+ * of a window, taller with the window, with nothing to scroll; a phone keeps a fixed height.
+ */
+async function checkLayout(
+  page: Page,
+  origin: string,
+  out: string,
+  scheme: string,
+  device: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  const goto = async (query: string) => {
+    await page.goto(`${origin}/finance/depot?${query}`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(500)
+  }
+  const panel = page.getByRole('tabpanel')
+
+  // Details: another instrument stays in Details.
+  await goto(`isin=${WORLD}&view=details`)
+  await page.locator('[data-shot="depot-stats"]').waitFor()
+  await panel
+    .getByRole('button', { name: /^Semiconductor ETF/ })
+    .first()
+    .click()
+  await page.waitForTimeout(500)
+  // The address bar drops what is the default; what stays is read off the page: Details, with the picked fund's 130 units.
+  const stats = page.locator('[data-shot="depot-stats"]')
+  await stats.waitFor()
+  if (
+    (await page.locator('[data-shot="depot-chart"]').count()) > 0 ||
+    !(await stats.innerText()).includes('130')
+  ) {
+    failures.push(`${where}: a pick in Details did not stay in Details on the picked fund`)
+  }
+  // Chart: the same pick stays in Chart.
+  await goto(`isin=${WORLD}&view=chart`)
+  await page.locator('canvas').first().waitFor()
+  await panel
+    .getByRole('button', { name: /^Semiconductor ETF/ })
+    .first()
+    .click()
+  await page.waitForTimeout(500)
+  await page.locator('canvas').first().waitFor()
+  if ((await page.locator('[data-shot="depot-stats"]').count()) > 0) {
+    failures.push(`${where}: a pick in Chart left it`)
+  }
+
+  const measure = () =>
+    page.evaluate(() => {
+      const card = document.querySelector('[data-shot="depot-chart"]')?.getBoundingClientRect()
+      const frame = document.querySelector('[data-depot-frame]')?.getBoundingClientRect()
+      const main = document.querySelector('main')
+      return {
+        bottom: card?.bottom ?? 0,
+        frame: frame?.height ?? 0,
+        scroll: main === null ? 0 : main.scrollHeight - main.clientHeight,
+        window: window.innerHeight,
+      }
+    })
+  if (device === 'mobile') {
+    await goto(`isin=${WORLD}`)
+    await page.locator('canvas').first().waitFor()
+    const { frame } = await measure()
+    if (frame < 380 || frame > 760) failures.push(`${where}: the phone chart is ${frame}px tall`)
+    return
+  }
+  const size = page.viewportSize()
+  const heights = []
+  for (const height of [820, 1100]) {
+    await page.setViewportSize({ width: 1440, height })
+    await goto(`isin=${WORLD}`)
+    await page.locator('canvas').first().waitFor()
+    await page.waitForTimeout(600)
+    const read = await measure()
+    heights.push(read.frame)
+    // The card ends inside the window and nothing scrolls: the chart took the height that was left.
+    if (read.bottom > read.window + 1) {
+      failures.push(`${where}: at ${height}px the chart card ends at ${read.bottom}px`)
+    }
+    if (read.scroll > 1)
+      failures.push(`${where}: at ${height}px the page scrolls by ${read.scroll}px`)
+    await page.screenshot({ path: join(out, `depot--${scheme}--${device}--fill-${height}.png`) })
+  }
+  if (heights[1] === undefined || heights[0] === undefined || heights[1] < heights[0] + 200) {
+    failures.push(`${where}: the chart does not follow the window height: ${heights.join(' -> ')}`)
+  }
+  if (size !== null) await page.setViewportSize(size)
 }
 
 async function main(): Promise<number> {
@@ -2117,6 +2254,7 @@ async function main(): Promise<number> {
         }
         await checkCompare(page, origin, scheme, device, out, failures)
         await checkSpliced(page, origin, scheme, device, out, failures)
+        await checkLayout(page, origin, out, scheme, device, failures)
         await checkViews(page, origin, out, scheme, device, failures)
         await checkNavigation(page, origin, out, scheme, device, failures)
         const [day, ...others] = spacings

@@ -117,6 +117,9 @@ export function ChartPanel({
   return (
     <ChartCard
       data-shot="depot-chart"
+      className={classes.chartCard}
+      classNames={{ body: classes.chartBody }}
+      style={{ minHeight: 'var(--depot-chart-min, 0px)' }}
       title={
         candles.data?.currency == null || name.includes(candles.data.currency)
           ? name
@@ -140,7 +143,7 @@ export function ChartPanel({
               ]),
         ],
       })}
-      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, a US stock's in dollars at the latest ECB rate. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the grey line is the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
+      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, a US stock's in dollars at the latest ECB rate. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the faded candles are the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
       state={{
         pending: candles.isPending,
         error: candles.error ?? undefined,

@@ -1,13 +1,14 @@
 import { Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { useBoards } from '../api/lists'
-import type { BoardEntry, WatchList } from '../api/types'
+import { useDailyBars } from '../api/queries'
+import type { WatchList } from '../api/types'
 import { priceText, signedPercent } from '../lib/depot-chart'
+import { boardRows, figuresFromBars, unboarded } from '../lib/depot-board'
+import type { BoardRow } from '../lib/depot-board'
 import { isoDayDe } from '../lib/depot-number'
-import { CRYPTO_TAB, DEPOT_TAB, GROUP_HEADER, kindGroup } from '../lib/depot-nav'
-import type { NavTab } from '../lib/depot-nav'
-
-type BoardRow = BoardEntry & { label: string }
+import { DEPOT_TAB, GROUP_HEADER, kindGroup, splicedHistory } from '../lib/depot-nav'
+import type { NavTab, SidebarItem } from '../lib/depot-nav'
 
 const col = createColumnHelper<BoardRow>()
 
@@ -91,41 +92,43 @@ const COLUMNS = [
 ]
 
 /**
- * The active tab as a table of key figures. A list shows its own entries; In depot shows the held ones and Crypto the coins,
- * read off every list that has them (the board route is per list). A row opens the chart.
+ * The active tab as a table of key figures, one row for every entry of the tab: a list in list order, In depot every held
+ * row (largest value first), Crypto the coins. A list's own board route gives the figures of its entries; a held row that
+ * sits on no list has no board route, so its figures are read off its daily bars. Columns sort; a row opens the chart.
  */
 export function DepotBoard({
   tab,
   lists,
-  held,
+  items,
   onOpen,
 }: {
   tab: NavTab
   lists: readonly WatchList[]
-  /** The symbols of the rows the owner holds. */
-  held: ReadonlySet<string>
+  /** The rows of the tab, as the sidebar lists them. */
+  items: readonly SidebarItem[]
   onOpen: (symbol: string) => void
 }) {
   const board = useBoards(tab.listId === null ? lists.map((list) => list.id) : [tab.listId])
-  const labels = new Map(
-    lists.flatMap((list) =>
-      list.entries.map((entry) => [entry.symbol, entry.display_name] as const),
-    ),
+  const boarded = new Map(board.entries.map((entry) => [entry.symbol, entry] as const))
+  // Only once every board answered: a row is no "loose" row while its list's answer is still on the way.
+  const loose = board.query.data === undefined ? [] : unboarded(items, boarded)
+  const own = useDailyBars(
+    loose.map((item) => ({
+      isin: item.symbol,
+      interval: '1d',
+      splice: splicedHistory(item.quote) ? ('index' as const) : undefined,
+    })),
   )
-  const keep = (entry: BoardEntry): boolean => {
-    if (tab.id === DEPOT_TAB) return held.has(entry.symbol)
-    if (tab.id === CRYPTO_TAB) return entry.kind === 'coin'
-    return true
-  }
-  const rows: BoardRow[] = board.entries.filter(keep).map((entry) => ({
-    ...entry,
-    label: entry.display_name ?? labels.get(entry.symbol) ?? entry.name ?? entry.symbol,
-  }))
+  const computed = new Map(
+    loose.map((item) => [item.symbol, figuresFromBars(own.bars.get(item.symbol) ?? [])] as const),
+  )
+  const rows = boardRows(items, boarded, computed)
   const dated = rows.find((row) => row.figures !== null)?.figures?.last_day
-  const absent =
-    tab.id === DEPOT_TAB
-      ? 'No held instrument is on a list.'
-      : 'Nothing on this tab has a price yet.'
+  const absent = tab.id === DEPOT_TAB ? 'Nothing is held.' : 'Nothing on this tab has a price yet.'
+  const query = {
+    ...board.query,
+    data: board.query.data === undefined || own.pending ? undefined : rows,
+  }
 
   return (
     <BasaltDataTable
@@ -139,7 +142,7 @@ export function DepotBoard({
       data={rows}
       columns={COLUMNS}
       getRowId={(row) => row.symbol}
-      query={board.query}
+      query={query}
       skeletonRows={4}
       minWidth={760}
       emptyState={absent}

@@ -44,20 +44,17 @@ import {
   navTabs,
   pickSymbol,
   resolveTab,
+  splicedHistory,
   tabHolding,
   tabItems,
+  viewAfterPick,
 } from '../lib/depot-nav'
 import { useHiddenTabs } from '../lib/depot-prefs'
 import { INDEX_IDS, INDEX_SERIES } from '../lib/index-series'
 import { isoDay } from '../lib/time'
-import type { WatchlistEntry } from '../api/types'
 import { useField } from '../../../lib/use-field'
 import { useNow } from '../../../lib/use-now'
 import { finStore } from '../../../lib/window-stores'
-
-/** An ETF with a tracked index and no US listing is asked for its history with the index in front of it. */
-const splicedHistory = (entry: WatchlistEntry | undefined): boolean =>
-  entry !== undefined && entry.index !== null && entry.us_mic === null && entry.kind !== 'coin'
 
 const BITCOIN = 'BTC-USD'
 
@@ -186,10 +183,15 @@ export function DepotPage() {
     setRequested(next)
     setView('chart')
   }
+  // A pick in the sidebar keeps Chart or Details; a Board row and a newly added instrument open the chart.
+  const pick = (next: string) => {
+    setRequested(next)
+    setView(viewAfterPick(view))
+  }
 
   const main = (() => {
     if (view === 'board' && tab !== undefined) {
-      return <DepotBoard tab={tab} lists={userLists} held={held} onOpen={openChart} />
+      return <DepotBoard tab={tab} lists={userLists} items={items} onOpen={openChart} />
     }
     if (isin === null || entry === undefined) {
       return (
@@ -238,53 +240,61 @@ export function DepotPage() {
           today={today}
           line={asLine}
         />
-        {isin === BITCOIN && <CbbiPanel today={today} />}
+        {isin === BITCOIN && (
+          <Box className={classes.below}>
+            <CbbiPanel today={today} />
+          </Box>
+        )}
       </>
     )
   })()
 
+  // The chart fills the viewport height below the page bar on a wide page; the other views take their own height.
+  const fill = charting && isin !== null
   return (
     <Box className={classes.page}>
-      <DepotBar />
-      <DepotTabsPanel
-        tabs={tabs}
-        active={tabId}
-        lists={userLists}
-        hidden={hiddenTabs(hiddenIds)}
-        onSelect={setTab}
-        onHide={(id) => {
-          setHidden(id, true)
-          if (id === tabId) setTab('')
-        }}
-        onShow={(id) => {
-          setHidden(id, false)
-          setTab(id)
-        }}
-      />
-      <Box className={classes.layout}>
-        {tab !== undefined && (
-          <DepotSidebarPanel
-            tab={tab}
-            lists={userLists}
-            items={items}
-            active={isin}
-            pending={watchlist.isPending}
-            error={watchlist.error}
-            listsError={lists.error}
-            onPick={openChart}
-            onBoard={(next) => {
-              setRequested(next)
-              setView('board')
-            }}
-            onAdded={(next, nextTab) => {
-              setTab(nextTab)
-              openChart(next)
-            }}
-          />
-        )}
-        <Stack key={`${view}:${isin}`} className={classes.main} gap="sm">
-          {main}
-        </Stack>
+      <Box className={classes.body} data-fill={fill}>
+        <DepotBar />
+        <DepotTabsPanel
+          tabs={tabs}
+          active={tabId}
+          lists={userLists}
+          hidden={hiddenTabs(hiddenIds)}
+          onSelect={setTab}
+          onHide={(id) => {
+            setHidden(id, true)
+            if (id === tabId) setTab('')
+          }}
+          onShow={(id) => {
+            setHidden(id, false)
+            setTab(id)
+          }}
+        />
+        <Box className={classes.layout}>
+          {tab !== undefined && (
+            <DepotSidebarPanel
+              tab={tab}
+              lists={userLists}
+              items={items}
+              active={isin}
+              pending={watchlist.isPending}
+              error={watchlist.error}
+              listsError={lists.error}
+              onPick={pick}
+              onBoard={(next) => {
+                setRequested(next)
+                setView('board')
+              }}
+              onAdded={(next, nextTab) => {
+                setTab(nextTab)
+                openChart(next)
+              }}
+            />
+          )}
+          <Stack key={`${view}:${isin}`} className={classes.main} gap="sm">
+            {main}
+          </Stack>
+        </Box>
       </Box>
       {adding && orderIsin !== null && (
         <OrderModal isin={orderIsin} onClose={() => setAdding(false)} />

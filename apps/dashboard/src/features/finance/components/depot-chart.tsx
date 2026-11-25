@@ -68,7 +68,7 @@ import { compactDe, dayDe, percentDe, priceDe, priceDigits } from '../lib/depot-
 import classes from './depot-chart.module.css'
 
 /**
- * The depot chart: candles, an optional turnover histogram, the spliced index history as a line, the
+ * The depot chart: candles, an optional turnover histogram, the spliced index history as muted candles, the
  * owner's trades as markers, open orders and the average cost as price lines, and the drawing tools. This
  * file is the ONLY importer of `lightweight-charts` and `lightweight-charts-drawing` (DESIGN.md, "App
  * deviations"): the page talks to props and callbacks. The chart is created once per mount (the page keys
@@ -110,7 +110,7 @@ export type DepotChartHandle = {
 const RIGHT_OFFSET = 4
 /** Marker size on the candles (the library's default is 1): readable at day and week width. */
 const MARKER_SIZE = 2
-/** The line under the chart and in the readout says what the grey line before the launch is. */
+/** The line under the chart and in the readout says what the muted candles before the launch are. */
 export const SPLICE_LABEL = 'Index, scaled to the ETF price'
 
 /** Where the pointer is on the chart, and the marker under it when there is one. */
@@ -282,7 +282,18 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     { priceLineVisible: false, lastValueVisible: true, priceFormat: priceFormat(0.01) },
     0,
   )
-  // The tracked index before the instrument's own history: a muted line, never candles.
+  // The tracked index before the instrument's own history: the same candles in the same hues, faded.
+  const spliceCandles: ISeriesApi<'Candlestick'> = chart.addSeries(
+    CandlestickSeries,
+    {
+      ...mutedColors(palette),
+      priceLineVisible: false,
+      lastValueVisible: false,
+      priceFormat: priceFormat(0.01),
+    },
+    0,
+  )
+  // A series that sends closes only (a daily series) has no candles: one line of its closes.
   const splice: ISeriesApi<'Line'> = chart.addSeries(
     LineSeries,
     {
@@ -303,6 +314,8 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let own: readonly ChartBar[] = []
   let spliced: readonly ChartBar[] = []
   let launch: number | null = null
+  /** The bars are the closes of a daily series: drawn as the line, there are no candles. */
+  let lineOnly = false
   /** The instrument's closes, a spliced index's included, as a line's points: its change over the visible range, over the span the index line covers. */
   let closes: readonly LevelPoint[] = []
 
@@ -452,6 +465,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     host.dataset['logicalFrom'] = range.from.toFixed(1)
     host.dataset['firstDay'] = new Date(firstBar.time * 1000).toISOString().slice(0, 10)
     host.dataset['spliced'] = String(spliced.length)
+    host.dataset['spliceShape'] = lineOnly ? 'line' : 'candles'
     if (frame !== lastFrame) {
       lastFrame = frame
       callbacks.onTimeframeChange(frame)
@@ -567,7 +581,20 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         close: bar.close,
       })),
     )
-    splice.setData(spliced.map((bar) => ({ time: bar.time as UTCTimestamp, value: bar.close })))
+    splice.setData(
+      lineOnly ? spliced.map((bar) => ({ time: bar.time as UTCTimestamp, value: bar.close })) : [],
+    )
+    spliceCandles.setData(
+      lineOnly
+        ? []
+        : spliced.map((bar) => ({
+            time: bar.time as UTCTimestamp,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+          })),
+    )
     volume?.setData(
       own.map((bar) => ({
         time: bar.time as UTCTimestamp,
@@ -640,6 +667,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       timeScale: { borderColor: palette.grid },
     })
     candles.applyOptions(candleColors(palette))
+    spliceCandles.applyOptions(mutedColors(palette))
     splice.applyOptions({ color: palette.text })
     other?.applyOptions({ color: palette.ink })
     paintData()
@@ -659,6 +687,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   return {
     setBars(next, nextViewKey, interval, asLine) {
       const parts = asLine ? { own: [], spliced: [...next] } : splitSpliced(next)
+      lineOnly = asLine
       own = parts.own
       spliced = parts.spliced
       allBars = next
@@ -668,6 +697,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       if (last !== undefined) {
         const format = { priceFormat: priceFormat(minMoveOf(last.close)) }
         candles.applyOptions(format)
+        spliceCandles.applyOptions(format)
         splice.applyOptions(format)
       }
       paintData()
@@ -784,6 +814,15 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     },
   }
 }
+
+/** The index before the launch: the candles' hues at the volume bars' opacity, no outline over the fill. */
+const mutedColors = (palette: ChartPalette) => ({
+  upColor: palette.upFaint,
+  downColor: palette.downFaint,
+  borderVisible: false,
+  wickUpColor: palette.upFaint,
+  wickDownColor: palette.downFaint,
+})
 
 const candleColors = (palette: ChartPalette) => ({
   upColor: palette.up,
@@ -917,7 +956,7 @@ export function DepotChart(props: DepotChartProps) {
   })
 
   return (
-    <Box className={classes.frame}>
+    <Box className={classes.frame} data-depot-frame="">
       <Box
         ref={hostRef}
         className={classes.host}
@@ -933,7 +972,10 @@ export function DepotChart(props: DepotChartProps) {
             {asLine ? (
               <>Close {priceText(shown.close)}</>
             ) : shown.source === 'index' ? (
-              <>Index {priceText(shown.close)}</>
+              <>
+                Index O {priceText(shown.open)} H {priceText(shown.high)} L {priceText(shown.low)} C{' '}
+                {priceText(shown.close)}
+              </>
             ) : (
               <>
                 O {priceText(shown.open)} H {priceText(shown.high)} L {priceText(shown.low)} C{' '}

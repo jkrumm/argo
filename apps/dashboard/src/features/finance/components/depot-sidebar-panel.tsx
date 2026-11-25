@@ -266,7 +266,7 @@ export function DepotSidebarPanel(props: DepotSidebarProps) {
         : 'Empty. Press / and search to add an instrument.'
 
   return (
-    <Stack gap="xs" className={classes.panel}>
+    <Stack gap="xs" className={classes.panel} data-depot-sidebar="">
       {searchable && (
         <Popover
           opened={open && term.length >= 2}
@@ -381,7 +381,12 @@ export function DepotSidebarPanel(props: DepotSidebarProps) {
               </Text>
             )}
             {groups.length > 0 && (
-              <ScrollArea type="auto" scrollbars="y" className={classes.scroll}>
+              <ScrollArea
+                type="auto"
+                scrollbars="y"
+                className={classes.scroll}
+                data-depot-scroll=""
+              >
                 <Stack gap="xs" aria-label={`${tab.label}: last close and change on the day`}>
                   {groups.map((group) => (
                     <Box key={group.group} role="group" aria-label={group.header}>

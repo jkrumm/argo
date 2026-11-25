@@ -4,6 +4,10 @@
  */
 declare const classes: {
   readonly page: string
+  readonly body: string
+  readonly chartCard: string
+  readonly chartBody: string
+  readonly below: string
   readonly layout: string
   readonly main: string
   readonly priceField: string

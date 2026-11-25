@@ -2,6 +2,10 @@
 
 .page {
   container-type: inline-size;
+  min-width: 0;
+}
+
+.body {
   display: flex;
   flex-direction: column;
   gap: var(--vx-space-stack-sm);
@@ -20,6 +24,79 @@
   .layout {
     grid-template-columns: 15rem minmax(0, 1fr);
   }
+
+  /*
+   * The chart view fills the scrollport under the page bar, so the page itself does not scroll: the body takes the height
+   * Main has to offer (never less than a small window can use, then Main scrolls), the tabs what they need and the layout
+   * the rest. The sidebar scrolls inside its column, the chart card hands its remaining height to the frame.
+   */
+  .body[data-fill='true'] {
+    height: var(--basalt-main-content-h);
+    min-height: 36rem;
+  }
+
+  .body[data-fill='true'] .layout {
+    flex: 1 1 0;
+    min-height: 0;
+    align-items: stretch;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .body[data-fill='true'] .main {
+    min-height: 0;
+  }
+
+  .body[data-fill='true'] [data-depot-sidebar] {
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .body[data-fill='true'] [data-depot-sidebar] [data-depot-scroll] {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  /*
+   * A card never gets smaller than a chart worth reading: the Bitcoin page, with its CBBI panel under the chart, scrolls
+   * instead. The card states its own height and minimum inline, so the minimum comes in as a variable.
+   */
+  .body[data-fill='true'] {
+    --depot-chart-min: 30rem;
+  }
+
+  .body[data-fill='true'] .chartCard {
+    flex: 1 1 0;
+  }
+
+  .body[data-fill='true'] .chartBody {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .body[data-fill='true'] .stage {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .body[data-fill='true'] [data-depot-frame] {
+    height: 100%;
+    min-height: 16rem;
+  }
+}
+
+.chartCard,
+.chartBody {
+  min-width: 0;
+}
+
+/* The CBBI panel under the Bitcoin chart keeps its own height: the card above takes what is left. */
+.below {
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .main {

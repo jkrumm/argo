@@ -1,4 +1,4 @@
-import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions, useQueries, useQuery } from '@tanstack/react-query'
 import { FINANCE_DATA, FinanceApiError, financeGet } from './client'
 import type {
   CandlesResponse,
@@ -171,6 +171,26 @@ export const useCandles = (query: CandleQuery | null) =>
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   })
+
+/**
+ * The daily bars of several instruments, each by its own request, for rows no board route covers (a held instrument on no
+ * list). Same cache entries as the chart's daily request, so opening one reuses the answer.
+ */
+export function useDailyBars(queries: readonly (CandleQuery & { isin: string })[]) {
+  const results = useQueries({
+    queries: queries.map((query) => ({
+      queryKey: [...DEPOT_KEY, 'candles', query],
+      queryFn: () => financeGet<CandlesResponse>('/market/candles', { ...query }),
+      staleTime: 60_000,
+    })),
+  })
+  return {
+    pending: results.some((result) => result.isPending),
+    bars: new Map(
+      queries.map((query, at) => [query.isin, results[at]?.data?.candles ?? []] as const),
+    ),
+  }
+}
 
 /** What the market store holds of its long-run series; the Indices group lists the ones it has. */
 export const useSeriesCatalog = () =>

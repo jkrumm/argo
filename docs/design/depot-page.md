@@ -35,13 +35,13 @@ The owner's **lists** follow them. Every list is a tab: the default "Watchlist" 
 
 ## Three views
 
-A switch in the page bar, `?view=chart|details|board` (default Chart). It applies to the active tab; the selected instrument is `?isin=`.
+A switch in the page bar, `?view=chart|details|board` (default Chart). It applies to the active tab; the selected instrument is `?isin=`. A pick in the sidebar keeps Chart or Details (a run down the list reads the same thing for each); only a click on a Board row opens the Chart, and so does a pick made on the Board or an instrument just added (its history load shows in the Chart view).
 
 | View | Shows | Notes |
 |-|-|-|
 | Chart | The chart card (candles, drawings, timeframes, comparison). Bitcoin adds the CBBI panel under it | An index draws candles from its first stored day: real bars where the series has them, weekly and monthly bars built from closes otherwise. A daily series that has closes only is a line, with a hint saying so |
 | Details | Position strip: units, value, average cost (per unit, with the total), gain. Statistics: gain with this instrument over all time, invested, sold, realised and taxable gain, fees and tax, held since, largest holding (units and day), distance from the high. Then the trades and the open orders | An instrument with no position or trade says so in one line. Indices and series have no Details |
-| Board | The active tab as a table: last close, day, week, month, YTD, 1Y, distance from the all-time high. Sortable; a click on a row opens its chart | In depot shows the held instruments that are on any list, Crypto the coins that are |
+| Board | The active tab as a table: last close, day, week, month, YTD, 1Y, distance from the all-time high. Sortable; a click on a row opens its chart | Every entry of the active tab is a row: a list in list order, In depot every held row (largest value first), Crypto every coin. A held row or coin that sits on no list has no board route, so its figures are read off its own daily bars |
 
 **Words.** The page says "average cost" (the owner's Einstandskurs) and "gain". "FIFO" appears once, in a tooltip on the taxable gain ("Sales are matched first in, first out, as the tax return counts them"). Nothing else on the page uses the word.
 
@@ -68,7 +68,7 @@ One row: Bitcoin (USD). Under its chart a **CBBI panel**: the latest value on a 
 ## Decided
 
 - **Native drag and drop**, no dependency. The handle is the only draggable part; the keyboard and touch have Alt+Arrow and the menu. A drag library is a weight the one gesture does not need.
-- **The board of In depot is the held instruments that are on a list**, and Crypto's the coins that are. The board route is per list; a held instrument on no list has no figures there. If that gap hurts, the service gets a board for held instruments (a follow-up for the finances repo), not a client-side recomputation.
+- **The Board lists every entry of its tab** (owner feedback 2026-11-25: it showed one row). The board route is per list, so a held instrument on no list (the owner's depot holds five ETFs and only one sits on a list) had no row. Those rows read their figures off their own daily bars with the service's own definitions (`lib/depot-board.ts`: closes only, week is the last close on or before seven days earlier, month the same calendar day, YTD the last close of the previous year, high the highest stored close), through the same request the chart makes, so no finances change was needed. This replaces the earlier decision to keep the gap and wait for a board route of held instruments.
 - **The CBBI line is its own thin chart** under the candles, over the whole stored history; it does not follow the candle chart's zoom. Aligning two charts' time scales would put a second library's scrolling on the same canvas for a 0 to 100 gauge.
 - **The view switch lives in the page bar** (`PageBar tabs`), because it switches the page, not one card.
 - **Built-in tabs are hidden, not deleted:** nothing of the owner's is stored for them, so hiding is a device preference.
