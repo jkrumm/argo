@@ -7,7 +7,7 @@ import { priceText, signedPercent } from '../lib/depot-chart'
 import { boardRows, figuresFromBars, unboarded } from '../lib/depot-board'
 import type { BoardRow } from '../lib/depot-board'
 import { isoDayDe } from '../lib/depot-number'
-import { DEPOT_TAB, GROUP_HEADER, kindGroup, splicedHistory } from '../lib/depot-nav'
+import { DEPOT_TAB, GROUP_HEADER, kindGroup } from '../lib/depot-nav'
 import type { NavTab, SidebarItem } from '../lib/depot-nav'
 
 const col = createColumnHelper<BoardRow>()
@@ -113,11 +113,8 @@ export function DepotBoard({
   // Only once every board answered: a row is no "loose" row while its list's answer is still on the way.
   const loose = board.query.data === undefined ? [] : unboarded(items, boarded)
   const own = useDailyBars(
-    loose.map((item) => ({
-      isin: item.symbol,
-      interval: '1d',
-      splice: splicedHistory(item.quote) ? ('index' as const) : undefined,
-    })),
+    // The instrument's own bars, no spliced index: its high and its year then read as the chart header's do.
+    loose.map((item) => ({ isin: item.symbol, interval: '1d' })),
   )
   const computed = new Map(
     loose.map((item) => [item.symbol, figuresFromBars(own.bars.get(item.symbol) ?? [])] as const),

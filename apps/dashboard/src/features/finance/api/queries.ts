@@ -174,7 +174,7 @@ export const useCandles = (query: CandleQuery | null) =>
 
 /**
  * The daily bars of several instruments, each by its own request, for rows no board route covers (a held instrument on no
- * list). Same cache entries as the chart's daily request, so opening one reuses the answer.
+ * list). Same cache entries as the chart's own daily request where it asks the same way (no `mic`, no `splice`).
  */
 export function useDailyBars(queries: readonly (CandleQuery & { isin: string })[]) {
   const results = useQueries({

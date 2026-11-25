@@ -1290,13 +1290,13 @@ const storedLinePrices = async (page: Page, isin: string): Promise<number[]> =>
     .filter((d) => d.kind === 'horizontal-line')
     .map((d) => d.points?.[0]?.price ?? Number.NaN)
 
-/** The chart's own readings (the host carries them as data attributes). */
 /** The rows of the Board (cards on a phone): one per entry of the tab. */
 const boardRows = (page: Page) =>
   page.locator('[data-shot="depot-board"]').locator('tbody tr, [data-activatable="true"]')
 
 const boardRowCount = (page: Page): Promise<number> => boardRows(page).count()
 
+/** The chart's own readings (the host carries them as data attributes). */
 const hostAttr = (page: Page, name: string): Promise<string> =>
   page.locator(CHART).evaluate((el, key) => el.dataset[key] ?? '', name)
 
