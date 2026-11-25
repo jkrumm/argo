@@ -56,10 +56,6 @@ export const quantityDe = (quantity: number): string => withMinus(format(0, 4).f
 const compact = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 1 })
 export const compactDe = (value: number): string => compact.format(value)
 
-/** An index level: points, no unit; one decimal below 1,000. */
-export const levelDe = (level: number): string =>
-  format(level < 1000 ? 1 : 0, level < 1000 ? 1 : 0).format(level)
-
 /**
  * A fraction as a percent: `−18,3 %`, with a real minus sign and one decimal. `signed` adds a plus to a gain;
  * a value that rounds to zero carries no sign.

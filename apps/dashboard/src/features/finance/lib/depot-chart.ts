@@ -6,16 +6,7 @@ import type {
   SeriesResponse,
   WatchlistEntry,
 } from '../api/types'
-import {
-  dayDe,
-  eurDe,
-  levelDe,
-  moneyDe,
-  percentDe,
-  priceDe,
-  quantityDe,
-  signedEurDe,
-} from './depot-number'
+import { dayDe, eurDe, moneyDe, percentDe, priceDe, quantityDe, signedEurDe } from './depot-number'
 
 /** The bar intervals the page offers and the service knows: there is no intraday. */
 export type DepotInterval = '1d' | '1w' | '1mo'
@@ -69,9 +60,6 @@ export function rangeStart(range: DepotRange, today: string): string | undefined
 /** `YYYY-MM-DD` of a day `days` before `day`. */
 export const daysBefore = (day: string, days: number): string =>
   isoDay(Date.parse(`${day}T00:00:00Z`) - days * DAY_MS)
-
-/** An index level: points, no unit, so one decimal at most and a thousands separator. */
-export const levelText = levelDe
 
 /** How old an index level may be and still stand for a day: a holiday gap, not a stale series. */
 const MAX_STALE_DAYS = 10
@@ -152,7 +140,7 @@ const TIMEFRAME_DAYS: Record<Exclude<Timeframe, 'Max'>, number> = {
 const BAR_DAYS: Record<DepotInterval, number> = { '1d': 7 / 5, '1w': 7, '1mo': 30.5 }
 
 /** Bars a week or month chart opens on: as many as a trading year of day bars, so the candles are as wide. */
-export const DEFAULT_VIEW_BARS = 252
+const DEFAULT_VIEW_BARS = 252
 
 /** The first day (epoch seconds) a timeframe shows, counted back from the newest bar; null is the whole history. */
 export function timeframeStart(timeframe: Timeframe, lastTime: number): number | null {
@@ -548,7 +536,6 @@ export type DrawingsDocument = {
 
 /** What a drawing's colour means: the accent, a buy level (green) or a sell level or resistance (red). */
 export type ColorRole = 'accent' | 'buy' | 'sell'
-export const COLOR_ROLES: readonly ColorRole[] = ['accent', 'buy', 'sell']
 
 const isRole = (value: unknown): value is ColorRole =>
   value === 'accent' || value === 'buy' || value === 'sell'

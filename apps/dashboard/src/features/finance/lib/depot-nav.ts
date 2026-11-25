@@ -15,15 +15,7 @@ import type { DepotInterval } from './depot-chart'
 export type KindGroup = MarketKind | 'other'
 
 /** The order of the groups in a list and in the search results. */
-export const KIND_ORDER: readonly KindGroup[] = [
-  'stock',
-  'etf',
-  'etc',
-  'index',
-  'coin',
-  'series',
-  'other',
-]
+const KIND_ORDER: readonly KindGroup[] = ['stock', 'etf', 'etc', 'index', 'coin', 'series', 'other']
 
 export const GROUP_HEADER: Record<KindGroup, string> = {
   stock: 'Stocks',
@@ -66,7 +58,7 @@ export function groupByKind<T>(
 
 export const DEPOT_TAB = 'depot'
 export const CRYPTO_TAB = 'crypto'
-export const BUILT_IN_TABS = [DEPOT_TAB, CRYPTO_TAB] as const
+const BUILT_IN_TABS = [DEPOT_TAB, CRYPTO_TAB] as const
 
 export type NavTab = {
   id: string
@@ -210,7 +202,7 @@ export type SidebarItem = {
   line: DepotLine | null
 }
 
-export function listItems(list: WatchList, held: ReadonlySet<string>): SidebarItem[] {
+function listItems(list: WatchList, held: ReadonlySet<string>): SidebarItem[] {
   return list.entries
     .toSorted((a, b) => a.position - b.position)
     .map((entry) => ({
@@ -224,7 +216,7 @@ export function listItems(list: WatchList, held: ReadonlySet<string>): SidebarIt
     }))
 }
 
-export function depotItems(
+function depotItems(
   entries: readonly WatchlistEntry[],
   positions: readonly DepotPosition[],
 ): SidebarItem[] {
@@ -248,7 +240,7 @@ export function depotItems(
 }
 
 /** The coins of the watchlist: Bitcoin in dollars, nothing more is ever listed. */
-export const cryptoItems = (
+const cryptoItems = (
   entries: readonly WatchlistEntry[],
   held: ReadonlySet<string>,
 ): SidebarItem[] =>
