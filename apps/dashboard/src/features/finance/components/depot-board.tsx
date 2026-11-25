@@ -113,7 +113,7 @@ export function DepotBoard({
   // Only once every board answered: a row is no "loose" row while its list's answer is still on the way.
   const loose = board.query.data === undefined ? [] : unboarded(items, boarded)
   const own = useDailyBars(
-    // The instrument's own bars, no spliced index: its high and its year then read as the chart header's do.
+    // The instrument's own euro bars like a list row's (the board route), without a spliced index: a young fund's year and high are its own.
     loose.map((item) => ({ isin: item.symbol, interval: '1d' })),
   )
   const computed = new Map(
