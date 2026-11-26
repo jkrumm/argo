@@ -7,5 +7,6 @@ export const readDueOptions = queryOptions({
   queryKey: [...FINANCE_DATA, 'read-due'],
   queryFn: () => financeGet<IngReadDue>('/depot/read-due'),
   staleTime: 60_000,
+  refetchInterval: 60_000,
   retry: (failures, error) => !(error instanceof FinanceApiError) && failures < 2,
 })
