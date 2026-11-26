@@ -672,6 +672,26 @@ export type MarketQuote = {
   stale?: true
 }
 
+/** `market/stream`, event `state`: whether a symbol's quote is pushed right now. */
+export type StreamState = { symbol: string; live: boolean; reason: string | null }
+
+/** `market/stream`, event `quote`: ING Direkthandel's whole current quote, not only what changed. */
+export type StreamQuote = {
+  symbol: string
+  currency: 'EUR'
+  bid: number | null
+  ask: number | null
+  spread: number | null
+  spread_bps: number | null
+  last: number | null
+  valuation: number | null
+  /** The time of the quote (ISO, UTC). */
+  quoted_at: string | null
+  delay_seconds: 0
+  source: 'ing'
+  venue: 'ING Direkthandel'
+}
+
 export type QuotesResponse = { quotes: MarketQuote[] }
 
 /**

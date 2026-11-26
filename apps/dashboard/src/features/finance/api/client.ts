@@ -59,6 +59,19 @@ export async function financeGet<T>(path: string, params: Params = {}): Promise<
   return (await response.json()) as T
 }
 
+/** The open `GET /api/finance/api<path>` event stream; the caller reads the body and ends it with `signal`. */
+export function financeStream(
+  path: string,
+  params: Params,
+  signal: AbortSignal,
+): Promise<Response> {
+  return fetch(buildUrl(`/api${path}`, params), {
+    headers: { ...authHeaders(), Accept: 'text/event-stream' },
+    cache: 'no-store',
+    signal,
+  })
+}
+
 /**
  * A POST to the vault service; resolves with the status and the parsed body (null when none), and
  * throws only on a network failure. The caller owns what each status means (409, 423, 429, …).

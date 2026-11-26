@@ -15,6 +15,7 @@ import {
   useSeriesCatalog,
   useWatchlist,
 } from '../api/queries'
+import { useQuoteStream } from '../api/stream'
 import { CbbiPanel } from '../components/cbbi-panel'
 import { ChartPanel } from '../components/depot-chart-panel'
 import { DepotBackfillPanel } from '../components/depot-backfill-panel'
@@ -50,6 +51,7 @@ import {
   viewAfterPick,
 } from '../lib/depot-nav'
 import { EUR_LINE_MIC, orderLine, quoteLines } from '../lib/depot-live'
+import { pushedOver, streamSymbols, withPush } from '../lib/depot-stream'
 import { useHiddenTabs } from '../lib/depot-prefs'
 import { INDEX_IDS, INDEX_SERIES } from '../lib/index-series'
 import { isoDay } from '../lib/time'
@@ -142,9 +144,9 @@ export function DepotPage() {
   const direct = prefs.venue === 'direct' && tradesDirect(entry)
   const chartMic = entry?.us_mic != null && !direct ? undefined : EUR_LINE_MIC
   const chartQuotes = useQuotes(charting && isin !== null ? [isin] : [], chartMic)
-  const chartQuote = isin === null ? undefined : chartQuotes.quotes.get(isin)
+  const polledChartQuote = isin === null ? undefined : chartQuotes.quotes.get(isin)
   // The rows of the sidebar and the Board, as euro lines like their stored closes.
-  const rowQuotes = useQuotes(
+  const polledRowQuotes = useQuotes(
     items.map((item) => item.symbol),
     EUR_LINE_MIC,
   )
@@ -188,7 +190,7 @@ export function DepotPage() {
       }
     : undefined
   // ING Direkthandel's bid and ask of what an order can be for: the lines, the order labels and the order form.
-  const orderQuotes = useQuotes(
+  const polledOrderQuotes = useQuotes(
     view === 'board'
       ? []
       : [
@@ -198,6 +200,21 @@ export function DepotPage() {
         ],
     EUR_LINE_MIC,
   ).quotes
+  // What ING Direkthandel pushes lies over the polled quotes: one stream for the charted listing, the order form's
+  // choices and the rows, in that order should they be more than it takes.
+  const pushed = useQuoteStream(
+    streamSymbols([
+      ...(charting && isin !== null ? [isin] : []),
+      ...polledOrderQuotes.keys(),
+      ...items.map((item) => item.symbol),
+    ]),
+  )
+  const chartQuote =
+    polledChartQuote === undefined
+      ? undefined
+      : withPush(polledChartQuote, pushed.get(polledChartQuote.symbol))
+  const rowQuotes = pushedOver(polledRowQuotes.quotes, pushed)
+  const orderQuotes = pushedOver(polledOrderQuotes, pushed)
   const trackedLines = trackedOrders.flatMap((order) => {
     const line = orderLine(order, null, orderQuotes.get(order.isin))
     const factor = factorOf(order.isin)
@@ -271,7 +288,7 @@ export function DepotPage() {
           tab={tab}
           lists={userLists}
           items={items}
-          quotes={rowQuotes.quotes}
+          quotes={rowQuotes}
           onOpen={openChart}
         />
       )
@@ -376,7 +393,7 @@ export function DepotPage() {
               tab={tab}
               lists={userLists}
               items={items}
-              quotes={rowQuotes.quotes}
+              quotes={rowQuotes}
               active={isin}
               pending={watchlist.isPending}
               error={watchlist.error}

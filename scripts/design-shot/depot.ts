@@ -1072,6 +1072,42 @@ function quoteRow(symbol: string, eurLine: boolean) {
   }
 }
 
+/** How far the pushed price stands from the polled one; null (no stream, as `/__reset` leaves it) answers 503. */
+let pushed: number | null = null
+
+/** `market/stream`: the symbols Direkthandel quotes are live and get one pushed quote; the connection then stays open. */
+function streamAnswer(symbols: readonly string[], factor: number): Response {
+  const events = symbols.flatMap((symbol) => {
+    const row = quoteRow(symbol, true)
+    const live = row.venue === 'ING Direkthandel' && row.session === 'open' && row.last !== null
+    const state = `event: state\ndata: ${JSON.stringify({ symbol, live, reason: live ? null : 'no stream' })}\n\n`
+    if (!live || row.last === null) return [state]
+    const last = round(row.last * factor, 3)
+    const bid = round(last * 0.998, 3)
+    const ask = round(last * 1.002, 3)
+    const quote = {
+      symbol,
+      currency: 'EUR',
+      bid,
+      ask,
+      spread: round(ask - bid, 3),
+      spread_bps: 40,
+      last,
+      valuation: last,
+      // Ahead of the polled quotes of this run, whose time is the moment they are asked.
+      quoted_at: new Date(Date.now() + 60_000).toISOString(),
+      delay_seconds: 0,
+      source: 'ing',
+      venue: 'ING Direkthandel',
+    }
+    return [state, `event: quote\ndata: ${JSON.stringify(quote)}\n\n`]
+  })
+  const body = new ReadableStream<Uint8Array>({
+    start: (controller) => controller.enqueue(new TextEncoder().encode(events.join(''))),
+  })
+  return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+}
+
 /** The candles route's answer, with `today=1`, `limit` and ING Direkthandel's short history. */
 function candleAnswer(q: URLSearchParams) {
   const isin = q.get('isin') ?? ''
@@ -1116,6 +1152,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   const q = url.searchParams
   if (path === '/__reset') {
     move = 1.03
+    pushed = null
     orders.length = 0
     nextOrder = 1
     seedOrders()
@@ -1124,6 +1161,10 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     nextList = 3
     pending.add(AMD)
     backfills.clear()
+    return json({ ok: true })
+  }
+  if (path === '/__push') {
+    pushed = q.has('factor') ? Number(q.get('factor')) : null
     return json({ ok: true })
   }
   if (path === '/__tick') {
@@ -1208,6 +1249,10 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       })
     }
     if (rest === '/market/candles') return json(candleAnswer(q))
+    if (rest === '/market/stream') {
+      if (pushed === null) return json({ error: 'finance service unavailable' }, 503)
+      return streamAnswer((q.get('symbols') ?? '').split(','), pushed)
+    }
     if (rest === '/market/quote') {
       const eurLine = q.get('mic') === 'XETR'
       return json({
@@ -2364,7 +2409,7 @@ async function checkLayout(
 
 /**
  * The live layer: the quote line and its status per market, Direkthandel's bid and ask, the venue switch, a candle that
- * changes in place, the live Board and the order form that starts at the ask.
+ * changes in place, a pushed price over the polled one, the live Board and the order form that starts at the ask.
  */
 async function checkLive(
   page: Page,
@@ -2421,6 +2466,27 @@ async function checkLive(
   }
   await page.screenshot({ path: shot('live-direct') })
   await page.getByRole('button', { name: 'Xetra', exact: true }).click()
+
+  // A pushed price lies over the polled one: the Brief line is the pushed ask. An open stream never lets the network
+  // settle, so this page is waited for by what it shows.
+  const brief = async () =>
+    german(/Brief ([\d.,]+) €/.exec(await hostAttr(page, 'lines'))?.[1] ?? '')
+  await open(`isin=${WORLD}`)
+  const polled = await brief()
+  await fetch(`${origin}/api/__push?factor=1.02`)
+  await page.goto(`${origin}/finance/depot?isin=${WORLD}`, { waitUntil: 'load' })
+  await page.locator('canvas').first().waitFor()
+  await page.waitForTimeout(2500)
+  const overlaid = await brief()
+  if (!(Math.abs(overlaid / polled - 1.022) < 0.003)) {
+    failures.push(
+      `${where}: the pushed ask is not on the chart: ${polled} polled, ${overlaid} shown`,
+    )
+  }
+  if ((await status()).toLowerCase() !== 'live')
+    failures.push(`${where}: the pushed ETF reads "${await status()}"`)
+  await page.screenshot({ path: shot('live-pushed') })
+  await fetch(`${origin}/api/__push`)
 
   await open(`isin=${US_STOCK}`)
   if (!(await status()).startsWith('Börse geschlossen · Schluss')) {

@@ -133,6 +133,27 @@ function relay(upstream: Response): Response {
   return new Response(body, { status: upstream.status, headers })
 }
 
+/**
+ * The service's event stream as Argo answers it: cancelling it aborts the upstream request, and an
+ * upstream that breaks off ends it, so the client reconnects.
+ */
+function untilGone(
+  body: ReadableStream<Uint8Array>,
+  gone: AbortController,
+): ReadableStream<Uint8Array> {
+  const reader = body.getReader()
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const chunk = await reader.read().catch(() => null)
+      if (chunk === null || chunk.done) controller.close()
+      else controller.enqueue(chunk.value)
+    },
+    cancel() {
+      gone.abort()
+    },
+  })
+}
+
 export function createFinanceRoutes(config: FinanceConfig) {
   async function forward(
     method: 'GET' | 'POST',
@@ -189,6 +210,58 @@ export function createFinanceRoutes(config: FinanceConfig) {
         'error.message': error instanceof Error ? telemetryText(error.message) : 'unknown',
       })
       return unavailable()
+    }
+  }
+
+  /**
+   * `market/stream`, the one long answer: server-sent events that last as long as the client, so no
+   * total timeout (only one for the headers). The upstream request ends when Argo's own client goes,
+   * whether that shows as the request's abort or as the cancel of the answer's body.
+   */
+  async function forwardStream(request: Request): Promise<Response> {
+    if (!config.token) {
+      log.warn('finance relay: FIN_SERVICE_TOKEN is not set')
+      return unavailable()
+    }
+    const path = '/api/market/stream'
+    const { search } = new URL(request.url)
+    const gone = new AbortController()
+    const connecting = setTimeout(() => gone.abort(), UPSTREAM_TIMEOUT_MS)
+    try {
+      const upstream = await tracedFetch(
+        `${config.baseUrl}${path}${search}`,
+        {
+          headers: { Authorization: `Bearer ${config.token}` },
+          signal: AbortSignal.any([request.signal, gone.signal]),
+        },
+        {
+          timeoutMs: 0,
+          sanitizeError: recordableError,
+          spanName: 'finance GET /api/*',
+          attributes: { 'url.full': `${config.baseUrl}${path}`, 'finance.path': path },
+        },
+      )
+      if (upstream.status === 401) {
+        log.error('finance relay: service rejected FIN_SERVICE_TOKEN', undefined, { path })
+        await upstream.body?.cancel()
+        return unavailable()
+      }
+      // A refusal (a bad symbol's 400) is an ordinary JSON answer.
+      if (!upstream.ok || upstream.body === null) return relay(upstream)
+      return new Response(untilGone(upstream.body, gone), {
+        headers: {
+          'Content-Type': upstream.headers.get('content-type') ?? 'text/event-stream',
+          'Cache-Control': 'no-store',
+        },
+      })
+    } catch (error) {
+      log.warn('finance relay: service unreachable', {
+        path,
+        'error.message': error instanceof Error ? telemetryText(error.message) : 'unknown',
+      })
+      return unavailable()
+    } finally {
+      clearTimeout(connecting)
     }
   }
 
@@ -283,6 +356,20 @@ export function createFinanceRoutes(config: FinanceConfig) {
         },
       },
     )
+    .get('/api/market/stream', ({ request }) => forwardStream(request), {
+      detail: {
+        tags: ['Finance'],
+        summary: 'Live ING Direkthandel quotes (server-sent events)',
+        description:
+          '`?symbols=a,b&mic=XETR` (1 to 50, as `market/quote`). A `text/event-stream` that stays open until the client closes it, relayed from `fin serve`: event `state` `{ symbol, live, reason }` for each symbol at once and on every change, event `quote` `{ symbol, currency: "EUR", bid, ask, spread, spread_bps, last, valuation, quoted_at, delay_seconds, source, venue }`, about once a second at most, a comment line every 15 s. While a symbol is `live: false` (07:30 to 22:00 German time only, euro lines of ISINs only) poll `market/quote`; `prev_close`, `change` and `today` come only from that route. Public market data: answers while the vault is locked. Do not call it for a single price, use `market/quote`.',
+        security,
+        responses: {
+          200: { description: 'The event stream.' },
+          400: { description: '`{ error }` for a bad symbol list.' },
+          503: unavailableResponse,
+        },
+      },
+    })
     .get(
       '/api/*',
       ({ request, params }) => {

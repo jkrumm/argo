@@ -59,7 +59,14 @@ page reads it live (finances `docs/service.md` §Chart routes: `market/quote`, `
 - **Sidebar and Board** show the live price and day change of the euro line. While a row's day is running the Board counts week, month, YTD, 1Y and
   the distance from the high again with the live price (from its newest 400 bars, read once) and marks the row with the status under its price.
 - **No old quote reads as live.** When a refresh fails or is paused, the price stays with its time under `Kein Live-Kurs`: no bid or ask, no order distance, no prefilled limit.
-- **Not pushed yet:** `market/stream` (server-sent events) would need a relay route of its own; polling is what was asked.
+- **Pushed prices.** While the tab is visible one `market/stream` (server-sent events, `mic=XETR`, at most 50 symbols: the charted listing,
+  the order choices, then the rows) lies over the polled quotes (`lib/depot-stream.ts`, reader `api/stream.ts`: a `fetch` body, because
+  `EventSource` cannot send the bearer header). A symbol the stream calls live takes its price, bid, ask and time from the push, at most once a
+  second, with the change counted against the polled previous close: header, Geld and Brief lines, order distances, sidebar, Board and the order
+  form. Polling stays as it was and stays the base: it alone has the previous close, the session and the running day, so the candle moves with the
+  poll, not the push. A push is left out for a dollar listing, a closed or stale quote, a quote from another venue, another German day than the
+  polled one, or one older than the polled quote. A silent connection is given up after 45 s and a broken one reopened (10 s, longer while it
+  keeps failing).
 
 ## Index entries and their ETFs
 
