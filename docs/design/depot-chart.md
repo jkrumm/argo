@@ -69,8 +69,8 @@ active scheme's token at load and on every scheme change.
 
 ## Listings and currency
 
-Bitcoin is charted in dollars only (`BTC-USD`; the euro listing is not offered). An instrument the watchlist says is charted as another listing (a Bitcoin ETP, `instruments` of the `BTC-USD` row) has no row of its own: the row is held when any of its instruments is, its trades come from
-`depot/trades?isin=BTC-USD`, and the position strip sums them. A US stock with a stored US listing (`us_mic`) is read on that listing, in dollars.
+Bitcoin is read from its dollar listing (`BTC-USD`; the euro listing is not offered), and the USD / EUR switch converts it like any dollar chart. An instrument the watchlist says is charted as another listing (a Bitcoin ETP, `instruments` of the `BTC-USD` row) has no row of its own: the row is held when any of its instruments is, its trades come from
+`depot/trades?isin=BTC-USD`, and the position strip sums them. A US stock with a stored US listing (`us_mic`) is read on that listing, in dollars unless switched to euros.
 Trade markers sit on the candle of the booking day in either case; the trade card adds the dollar price (`price_usd`, the ECB rate of the booking day).
 The position strip, the trades table's amounts and orders stay in euros. The table adds a dollar price column where a trade has one.
 

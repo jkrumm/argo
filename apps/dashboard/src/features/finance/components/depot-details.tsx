@@ -216,6 +216,7 @@ export function DepotDetails({
   name,
   holdings,
   tracking,
+  ordersSubject,
   positionPending,
   stats,
   trades,
@@ -229,6 +230,8 @@ export function DepotDetails({
   holdings: readonly Holding[]
   /** The holdings are the ETFs that track the index named `name`. */
   tracking: boolean
+  /** What the empty open-orders table names: the ISIN the orders are read by, or the tracking ETFs. */
+  ordersSubject: string
   positionPending: boolean
   /** Null where there is no one instrument to total. */
   stats: StatsQuery | null
@@ -275,7 +278,7 @@ export function DepotDetails({
         <TradesTable trades={trades} query={tradesQuery} names={names} />
       </div>
       <OrdersSection
-        subject={tracking ? holdings.map((h) => h.name).join(', ') : (holdings[0]?.isin ?? name)}
+        subject={ordersSubject}
         orders={orders}
         query={ordersQuery}
         names={names}

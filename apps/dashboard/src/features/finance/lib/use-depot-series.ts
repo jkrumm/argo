@@ -40,6 +40,9 @@ export function useDepotSeries({
   const answered = candles.data?.isin === isin ? candles.data.currency : null
   const native = (entry === undefined ? null : nativeCurrency(entry)) ?? answered
   const converting = native === 'USD' && prefs.currency === 'EUR'
+  // An index series of the store answers with no currency of its own: it is in the one its id names.
+  const stored =
+    candles.data?.currency ?? (candles.data?.isin === isin && native === 'USD' ? native : null)
   const rates = useIndexSeries(native === 'USD' ? EUR_USD : null, { to: today })
   const rate = native === 'USD' ? rates.data?.points.at(-1) : undefined
 
@@ -62,7 +65,7 @@ export function useDepotSeries({
   return {
     native,
     /** The currency the bars are in; null for a series of points. */
-    currency: converting ? 'EUR' : (candles.data?.currency ?? null),
+    currency: converting ? 'EUR' : stored,
     converting,
     bars,
     /** Undefined until the daily history of this row is here. */

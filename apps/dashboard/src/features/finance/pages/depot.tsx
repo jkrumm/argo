@@ -250,6 +250,9 @@ export function DepotPage() {
                 : []
           }
           tracking={tracking}
+          ordersSubject={
+            tracking ? trackers.map((t) => t.name ?? t.isin).join(', ') : (orderIsin ?? name)
+          }
           positionPending={positions.isPending}
           stats={statsIsin === null ? null : stats}
           trades={tracking ? trackedTrades : (trades.data ?? [])}
