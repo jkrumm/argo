@@ -22,6 +22,7 @@ const NOW = Date.parse('2026-11-26T10:00:00Z')
 
 const quote = (over: Partial<MarketQuote> = {}): MarketQuote => ({
   symbol: 'IE00BK5BQT80',
+  today: null,
   currency: 'EUR',
   last: 4.22,
   day: '2026-11-26',

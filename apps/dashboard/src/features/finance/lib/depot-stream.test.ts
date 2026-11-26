@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { MarketQuote, StreamQuote } from '../api/types'
+import type { PageQuote } from './depot-live'
 import {
   emptyTable,
   liveQuotes,
@@ -13,8 +14,9 @@ import {
 
 const ISIN = 'IE00BK5BQT80'
 
-const quote = (over: Partial<MarketQuote> = {}): MarketQuote => ({
+const quote = (over: Partial<PageQuote> = {}): PageQuote => ({
   symbol: ISIN,
+  today: null,
   currency: 'EUR',
   last: 4.22,
   day: '2026-11-26',

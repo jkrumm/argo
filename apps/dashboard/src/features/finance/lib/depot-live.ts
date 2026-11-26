@@ -3,6 +3,9 @@ import { figuresFromBars } from './depot-board'
 import type { PriceLine } from './depot-chart'
 import { dayDe, moneyDe, percentDe } from './depot-number'
 
+/** A quote the page marks `stale` when its refresh failed; the service never sends the field. */
+export type PageQuote = MarketQuote & { stale?: true }
+
 /**
  * The live layer of the depot page (finances `docs/service.md` §Chart routes: `market/quote` and `candles?today=1`):
  * when to poll, how a refreshed candle goes into the history, and what the live price says.
@@ -44,7 +47,7 @@ export function pollDelay(
  * A quote whose refresh failed: the price stays to be read with its time, but it is no live price, has no bid or ask to
  * measure or fill in, and says so.
  */
-export const staleQuote = (quote: MarketQuote): MarketQuote => ({
+export const staleQuote = (quote: MarketQuote): PageQuote => ({
   ...quote,
   stale: true,
   session: 'closed',
@@ -182,7 +185,7 @@ const TYPE_WORD = { limit: 'Limit', stop: 'Stop', market: 'Market' } as const
  */
 export function sideToMeet(
   order: Pick<DepotOrder, 'side' | 'type'>,
-  quote: MarketQuote | undefined,
+  quote: PageQuote | undefined,
 ): { word: 'Brief' | 'Geld' | 'Kurs'; price: number } | null {
   if (quote === undefined || quote.stale === true || quote.currency !== 'EUR') return null
   const side =

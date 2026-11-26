@@ -1,6 +1,6 @@
 /**
- * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ 492ea8c
- * (~/SourceRoot/finances, `fin serve`; the file last changed in 9ce622c). The API is
+ * PINNED CONTRACT — copied verbatim from the finances repo, `src/api/types.ts` @ b34d3d3
+ * (~/SourceRoot/finances, `fin serve`; the file last changed in 2b25bf9). The API is
  * `/api/finance/*` here and `/api/*` on the service. Re-copy when that file changes; do not edit the
  * types below by hand. Service status/sync types live in `./status.ts` (from the service contract,
  * finances `docs/service.md`).
@@ -623,21 +623,40 @@ export type ChartBar = {
   days?: number
   /** `true` on a bar of a series that sends the close only (or a bar with such a day): open, high and low are built from the closes. */
   derived_from_close?: true
-  /** `candles?today=1`: the running day (or the week or month it is folded into), never stored. */
+  /** Only with `today=1`: the bar holds the running day (or a day the store does not have yet). It is never stored and changes. */
   provisional?: true
-  /** When the provisional figures were made (ISO, UTC). */
+  /** With `provisional`: when its newest price was made (ISO, UTC). */
   as_of?: string
-  /** How far behind the provisional figures are; 0 is real time. */
   delay_seconds?: number
+  /** Merged EUR history only: the venue of the prices, `mixed` on a weekly or monthly bar of both. `turnover` and `units` are Xetra's on every bar. */
+  venue?: 'ING-DH' | 'XETR' | 'mixed'
 }
 
+/** `pre` before the regular session, `extended` after it (ING Direkthandel until 23:00 Berlin, US after-hours), `open`, `closed`. */
 export type QuoteSession = 'pre' | 'open' | 'extended' | 'closed'
 
-/**
- * One row of `GET /api/market/quote?symbols=&mic=XETR` (finances `docs/service.md` §Chart routes). Answers while the service is locked.
- * With `mic=XETR` every ISIN answers its euro line with ING Direkthandel's price, bid and ask; without it a US ISIN with a stored listing
- * answers in dollars from that listing.
- */
+/** The running day of an instrument, from a live source: never stored; the end-of-day bar replaces it. */
+export type TodayBar = {
+  /** `YYYY-MM-DD` in the market's own calendar. */
+  day: string
+  /** Epoch seconds of the day, as a `ChartBar` has it. */
+  time: number
+  open: number
+  high: number
+  low: number
+  last: number
+  units: number | null
+  turnover: number | null
+  provisional: true
+  as_of: string
+  delay_seconds: number
+  source: string
+  /** The market the figures are of: `Xetra` for a EUR line, whatever the quote's venue. */
+  venue: string
+  /** The session of that market. */
+  session: QuoteSession
+}
+
 export type MarketQuote = {
   symbol: string
   currency: string | null
@@ -645,13 +664,14 @@ export type MarketQuote = {
   last: number | null
   /** The day `last` belongs to. */
   day: string | null
-  /** ING Direkthandel's bid and ask, also when `last` is a stored close. */
+  /** Bid, ask and their difference, where the source quotes them: ING Direkthandel's (Xetra's where there is none), also when `last` is a stored close. */
   bid: number | null
   ask: number | null
   spread: number | null
+  /** The spread in basis points of the mid price. */
   spread_bps: number | null
   quoted_at: string | null
-  /** The close of the bar before `day`. */
+  /** The close of the bar before `day` on the chart as `candles` serves it with `today=1`. */
   prev_close: number | null
   prev_close_day: string | null
   change: number | null
@@ -660,22 +680,28 @@ export type MarketQuote = {
   /** When `last` was made (ISO, UTC); null when it is a stored close. */
   as_of: string | null
   delay_seconds: number | null
+  /** `ing`, `deutsche-boerse-delayed`, `nasdaq`, `bitstamp`, or the source of the stored bar. */
   source: string | null
   /** `ING Direkthandel`, `Xetra`, `Tradegate`, a US exchange, `Bitstamp`. */
   venue: string | null
   session: QuoteSession
   /** The next start of the regular session (ISO, UTC); null for a coin or a series. */
   next_open: string | null
-  /** Why the line's source gave no live price, or null. */
+  today: TodayBar | null
+  /** Why the line's source gave no live price, or null; also set when the delayed exchange trade answers for a failing ING. */
   error: string | null
-  /** Set by the page, never by the service: the last request for this quote did not answer, so it is an old one. */
-  stale?: true
 }
 
-/** `market/stream`, event `state`: whether a symbol's quote is pushed right now. */
+/** `GET /api/market/quote?symbols=a,b&mic=XETR` (at most 50), in the order asked. Answers while the service is locked. */
+export type QuotesResponse = { quotes: MarketQuote[] }
+
+/**
+ * `GET /api/market/stream?symbols=a,b&mic=XETR` (at most 50): Server-Sent Events. Event `state` carries a `StreamState`: sent for each
+ * symbol at once and again when it changes. While `live` is false the quote route is the source for that symbol.
+ */
 export type StreamState = { symbol: string; live: boolean; reason: string | null }
 
-/** `market/stream`, event `quote`: ING Direkthandel's whole current quote, not only what changed. */
+/** Event `quote`: ING Direkthandel as pushed, about once a second at most. Every field is the current state, not only what changed. */
 export type StreamQuote = {
   symbol: string
   currency: 'EUR'
@@ -692,8 +718,6 @@ export type StreamQuote = {
   venue: 'ING Direkthandel'
 }
 
-export type QuotesResponse = { quotes: MarketQuote[] }
-
 /**
  * `GET /api/market/candles?isin=&interval=&from=&to=&limit=&splice=index&sys=&mic=`. `from` and `to` are days (`YYYY-MM-DD`). With no `limit` every stored bar of
  * the range comes back, up to 20,000 (`400` above). `limit` gives the newest bars of the range, ascending; page older ones with `to` = the day before the first.
@@ -709,6 +733,8 @@ export type CandlesResponse = {
   more: boolean
   /** The series id of the index spliced in (`splice=index`), or null. */
   index: string | null
+  /** Set when the bars are the merged EUR history (ING Direkthandel before Xetra, no `mic` or `sys` asked): its first ING-DH day, else null. */
+  seam: string | null
   /** Why the answer is short or partly from another source, in words. */
   notes: string[]
 }
@@ -759,6 +785,14 @@ export type DepotTrade = {
   reading: unknown
   note: string | null
   updated_at: string
+  /** Recorded from a holdings change before the Giro booking: price from the order, fee unknown. The booked settlement replaces it. */
+  provisional: boolean
+  /** The Wertpapierabrechnung the figures come from, and what it says: ING's order number, local execution time, venue, Endbetrag. */
+  document_id: string | null
+  order_ref: string | null
+  executed_at: string | null
+  venue: string | null
+  document_cents: number | null
   /** Sales only: proceeds minus the FIFO cost of the shares sold. */
   realised_fifo_cents: number | null
   /** `price` in USD at the ECB EUR/USD rate of `booked_on` (the latest earlier day for a weekend), for an instrument charted as a coin or with a US listing; null otherwise. Computed at read. */
@@ -875,9 +909,27 @@ export type DepotOrder = {
   closed_at: string | null
   /** Open past its valid-until day: the bank has expired it, close it here. */
   overdue: boolean
+  /** An open order against ING Direkthandel's prices since `opened_at`; null once closed. `likely_filled` is no bank confirmation. */
+  fill_state: 'open' | 'likely_filled' | null
+  /** The first day those prices met the order, kept once seen. */
+  fill_day: string | null
+  /** The instant (ISO, UTC), when a minute price or the quote showed it; null from a day bar alone. */
+  fill_at: string | null
+  fill_price: number | null
+  /** The trade that executed the order. */
+  trade_id: number | null
+  trade: {
+    id: number
+    booked_on: string
+    quantity: number | null
+    price: number | null
+    provisional: boolean
+  } | null
+  /** ING's order number, once the Ordermanager was read. */
+  bank_ref: string | null
 }
 
-/** `GET` and `POST /api/chart/drawings/<ISIN, coin symbol or series id>`. `document` is the chart library's own export; `{}` and `updated_at: null` while none is stored. */
+/** `GET` and `POST /api/chart/drawings/<ISIN | coin symbol | series id>`. `isin` echoes that key; `document` is the chart library's own export; `{}` and `updated_at: null` while none is stored. */
 export type ChartDrawings = {
   isin: string
   document: unknown
@@ -902,4 +954,13 @@ export type AddOrderRequest = {
 export type CloseOrderRequest = {
   as: 'executed' | 'cancelled' | 'expired'
   note?: string
+}
+
+/** `GET /api/depot/read-due`: whether ING announced new Post-Box documents since the last supervised read. */
+export type IngReadDue = {
+  due: boolean
+  /** Date of the oldest announcement not yet read, null when nothing is due. */
+  since: string | null
+  notifications: number
+  last_read_at: string | null
 }

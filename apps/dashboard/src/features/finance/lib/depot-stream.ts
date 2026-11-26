@@ -1,5 +1,5 @@
 import type { MarketQuote, StreamQuote, StreamState } from '../api/types'
-import { DIRECT_VENUE } from './depot-live'
+import { DIRECT_VENUE, type PageQuote } from './depot-live'
 
 /**
  * The pushed side of the live layer (finances `docs/service.md` §Chart routes: `market/stream`): reading the event
@@ -100,7 +100,7 @@ const spreadOf = (bid: number | null, ask: number | null) =>
  * stale quote, another day (the previous close would be the wrong one until the next poll), or an older price than the
  * polled one.
  */
-export function withPush(quote: MarketQuote, push: StreamQuote | undefined): MarketQuote {
+export function withPush(quote: PageQuote, push: StreamQuote | undefined): MarketQuote {
   const price = push?.last ?? push?.valuation ?? null
   if (
     push === undefined ||
