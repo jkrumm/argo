@@ -3,6 +3,7 @@ import { Outlet } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { EmptyState } from 'basalt-ui'
 import { FinanceApiError } from './api/client'
+import { ReadDueBanner } from './components/read-due-banner'
 import { UnlockScreen } from './components/unlock-screen'
 import { HyperDX } from '../../lib/hyperdx'
 import { HYPERDX_BLOCK_CLASS } from '../../lib/hyperdx-options'
@@ -61,5 +62,10 @@ function FinanceGate() {
     )
   }
   if (status.data.locked) return <UnlockScreen blockedUntil={status.data.unlock_blocked_until} />
-  return <Outlet />
+  return (
+    <>
+      <ReadDueBanner />
+      <Outlet />
+    </>
+  )
 }
