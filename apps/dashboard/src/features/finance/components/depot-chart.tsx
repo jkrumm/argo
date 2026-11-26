@@ -133,6 +133,10 @@ export type DepotChartProps = {
   /** The currency of the bars; USD adds the dollar price to the trade cards. */
   currency: string | null
   trades: readonly DepotTrade[]
+  /** Where a trade's marker sits when it is not placed by its bar (an ETF's trade on its index chart). */
+  markLevel?: ((trade: DepotTrade) => number | undefined) | undefined
+  /** The trade cards name the instrument: the chart shows the trades of several. */
+  namedTrades?: boolean
   lines: readonly PriceLine[]
   /** The stored drawing document once loaded; `undefined` while it loads (nothing is drawn or saved before). */
   storedDrawings: unknown
@@ -223,7 +227,7 @@ type MediaTarget = {
  * A price line's own title is drawn at the right edge, over the newest candles, and cannot be moved: the lines
  * carry no title and this primitive writes it at the left edge instead. The price stays on the axis.
  */
-function createLineLabels(series: ISeriesApi<'Candlestick'>) {
+function createLineLabels(series: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>) {
   let labels: readonly LineLabel[] = []
   let look = { font: '', halo: '', size: 0 }
   let update: (() => void) | null = null
@@ -388,7 +392,10 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let volume: ISeriesApi<'Histogram'> | null = null
   const markers: ISeriesMarkersPluginApi<Time> = createSeriesMarkers(candles, [])
   const lineLabels = createLineLabels(candles)
-  let priceLines: IPriceLine[] = []
+  // A closes-only series has no candles: its markers, price lines and their titles sit on the line instead.
+  const closeMarkers: ISeriesMarkersPluginApi<Time> = createSeriesMarkers(splice, [])
+  const closeLabels = createLineLabels(splice)
+  let priceLines: { on: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>; line: IPriceLine }[] = []
   /** Every bar the time scale knows: the spliced index bars and the instrument's own, ascending. */
   let allBars: readonly ChartBar[] = []
   let own: readonly ChartBar[] = []
@@ -402,7 +409,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   /** An open order within reach of the price stays on screen: the scale stretches to hold its line. */
   const withOrders = (original: () => AutoscaleInfo | null): AutoscaleInfo | null => {
     const base = original()
-    const last = own.at(-1)?.close
+    const last = (own.at(-1) ?? allBars.at(-1))?.close
     if (base === null || base.priceRange === null || last === undefined) return base
     const prices = lines
       .filter((line) => line.kind !== 'cost' && line.price > last / 2 && line.price < last * 2)
@@ -417,6 +424,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     }
   }
   candles.applyOptions({ autoscaleInfoProvider: withOrders })
+  splice.applyOptions({ autoscaleInfoProvider: withOrders })
 
   const manager = new DrawingManager(chart, candles, {
     fontFamily: palette.sansFamily,
@@ -602,15 +610,17 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   }
 
   function paintOverlays() {
-    for (const line of priceLines) candles.removePriceLine(line)
+    for (const { on, line } of priceLines) on.removePriceLine(line)
+    const anchor = lineOnly ? splice : candles
     const colorOf = (line: PriceLine) =>
       line.kind === 'order-buy'
         ? palette.buy
         : line.kind === 'order-sell'
           ? palette.sell
           : palette.ink
-    priceLines = lines.map((line) =>
-      candles.createPriceLine({
+    priceLines = lines.map((line) => ({
+      on: anchor,
+      line: anchor.createPriceLine({
         price: line.price,
         // The title is written at the left edge by `lineLabels`; the axis keeps the price.
         title: '',
@@ -619,20 +629,23 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         lineStyle: line.kind === 'cost' ? LineStyle.Solid : LineStyle.Dashed,
         axisLabelVisible: true,
       }),
-    )
+    }))
     host.dataset['lineLabels'] = labelsOn ? String(lines.length) : '0'
-    lineLabels.set(
+    const look = {
+      font: `${VX.text.micro}px ${palette.fontFamily}`,
+      halo: palette.panel,
+      size: VX.text.micro,
+    }
+    ;(lineOnly ? closeLabels : lineLabels).set(
       labelsOn
         ? lines.map((line) => ({ price: line.price, text: line.title, color: colorOf(line) }))
         : [],
-      {
-        font: `${VX.text.micro}px ${palette.fontFamily}`,
-        halo: palette.panel,
-        size: VX.text.micro,
-      },
+      look,
     )
+    ;(lineOnly ? lineLabels : closeLabels).set([], look)
     // The scale follows the lines that count: stretch it again for the new set.
     candles.applyOptions({ autoscaleInfoProvider: withOrders })
+    splice.applyOptions({ autoscaleInfoProvider: withOrders })
     // The design shot finds the drawn lines by their titles.
     host.dataset['lines'] = lines.map((line) => line.title).join('|')
     // One marker per bar and side: the count says how many trades it holds. The id lets the pointer name it.
@@ -641,7 +654,13 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       return {
         id: `${group.time}:${group.side}`,
         time: group.time as UTCTimestamp,
-        position: buy ? 'belowBar' : 'aboveBar',
+        // A marker with a level of its own points at that price: a buy from below, a sale from above.
+        ...(group.level === undefined
+          ? { position: buy ? ('belowBar' as const) : ('aboveBar' as const) }
+          : {
+              position: buy ? ('atPriceTop' as const) : ('atPriceBottom' as const),
+              price: group.level,
+            }),
         color: buy ? palette.buy : palette.sell,
         shape: group.estimated ? 'circle' : buy ? 'arrowUp' : 'arrowDown',
         size: MARKER_SIZE,
@@ -661,7 +680,13 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
               size: 0.6,
             },
           ]
-    markers.setMarkers([...trades, ...launched].toSorted((a, b) => Number(a.time) - Number(b.time)))
+    ;(lineOnly ? closeMarkers : markers).setMarkers(
+      [...trades, ...launched].toSorted((a, b) => Number(a.time) - Number(b.time)),
+    )
+    ;(lineOnly ? markers : closeMarkers).setMarkers([])
+    host.dataset['markLevels'] = markGroups(marks)
+      .flatMap((group) => (group.level === undefined ? [] : [group.level.toFixed(2)]))
+      .join(',')
     // The design shot finds a trade's bar on screen: where the first few trades sit, in px from the left.
     host.dataset['markX'] = markGroups(marks)
       .slice(-6)
@@ -902,6 +927,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     destroy() {
       alive = false
       lineLabels.detach()
+      closeLabels.detach()
       setDefaultStyleOverride(() => undefined)
       observer.disconnect()
       window.removeEventListener('keydown', onKey)
@@ -934,7 +960,7 @@ export function DepotChart(props: DepotChartProps) {
 
   // The view returns to the newest bars when they are another series: another interval, or a history that starts elsewhere.
   const viewKey = `${interval}:${bars[0]?.time ?? ''}`
-  const marks = tradeMarks(trades, bars, interval)
+  const marks = tradeMarks(trades, bars, interval, props.markLevel)
   const byBar = marksByBar(marks)
 
   // The engine calls the latest callbacks of the page, not the ones of the render it was created in.
@@ -1024,7 +1050,7 @@ export function DepotChart(props: DepotChartProps) {
   const cardAt =
     pinned !== null && byBar.has(pinned.time) ? pinned : hover?.marker != null ? hover : null
   const cardMarks = cardAt === null ? [] : (byBar.get(cardAt.time) ?? [])
-  const cards = tradeCards(cardMarks.slice(0, CARD_LIMIT), currency === 'USD')
+  const cards = tradeCards(cardMarks.slice(0, CARD_LIMIT), currency === 'USD', props.namedTrades)
   const hidden = cardMarks.length - cards.length
 
   // The card sits beside the pointer, on the side with room. Its position is a pair of CSS variables.

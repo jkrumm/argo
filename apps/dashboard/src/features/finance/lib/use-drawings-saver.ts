@@ -44,6 +44,10 @@ export function useDrawingsSaver(isin: string): (document: DrawingsDocument) => 
   }, [isin, queryClient])
 
   return (document) => {
+    // The cache holds the newest document at once: a chart drawn again (another currency) reads it before the save ran.
+    queryClient.setQueryData(drawingsOptions(isin).queryKey, (held) =>
+      held === undefined ? held : { ...held, document },
+    )
     waiting.current = document
     clearTimeout(timer.current)
     timer.current = setTimeout(() => void flushRef.current(), SAVE_DELAY_MS)

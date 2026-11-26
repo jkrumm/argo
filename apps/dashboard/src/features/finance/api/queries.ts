@@ -220,6 +220,15 @@ export const usePositions = () =>
     staleTime: 60_000,
   })
 
+/** Every trade of the depot: an index entry reads the ones of the ETFs that track it out of them. */
+export const useAllTrades = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'trades', 'all'],
+    queryFn: () => financeGet<DepotTrade[]>('/depot/trades'),
+    enabled,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
 export const useDepotTrades = (isin: string | null) =>
   useQuery({
     queryKey: [...DEPOT_KEY, 'trades', isin],
@@ -247,6 +256,15 @@ export const useOpenOrders = (isin: string | null) =>
     queryFn: () =>
       financeGet<DepotOrder[]>('/depot/orders', { status: 'open', isin: isin ?? undefined }),
     enabled: isin !== null,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
+/** Every open order, for an index entry; under `ORDERS_KEY`, so a write refetches it too. */
+export const useAllOpenOrders = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...ORDERS_KEY, 'all'],
+    queryFn: () => financeGet<DepotOrder[]>('/depot/orders', { status: 'open' }),
+    enabled,
     staleTime: Number.POSITIVE_INFINITY,
   })
 

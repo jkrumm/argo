@@ -56,9 +56,11 @@ export function refreshAfterWrite(queryClient: QueryClient, delayMs = 500): void
   }, delayMs)
 }
 
-/** What a failed write says; the service's own text when it sent one. */
-export const writeErrorMessage = (error: unknown): string =>
-  error instanceof FinanceApiError ? error.message : 'The change could not be saved.'
+/** What a failed write says; the service's own text when it sent one, except for a locked vault, which names the way out. */
+export const writeErrorMessage = (error: unknown): string => {
+  if (!(error instanceof FinanceApiError)) return 'The change could not be saved.'
+  return error.status === 423 ? 'Vault locked, unlock in /finance.' : error.message
+}
 
 /**
  * The curation writes of the finance pages (`POST /finance/api/…`, finances `docs/service.md` §Typed

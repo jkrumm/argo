@@ -531,6 +531,11 @@ function buildTrades(): Trade[] {
     made.push({ isin: BTC_ETP, side: 'buy', daysAgo, quantity, source: 'document' })
   }
   made.push({ isin: BTC_ETP, side: 'sell', daysAgo: 20, quantity: 0.01, source: 'document' })
+  // The young all-cap fund, bought twice: its trades and its open order show on the index it tracks.
+  made.push(
+    { isin: ALL_CAP, side: 'buy', daysAgo: 55, quantity: 12, source: 'document' },
+    { isin: ALL_CAP, side: 'buy', daysAgo: 20, quantity: 8, source: 'document' },
+  )
   return made.toSorted((a, b) => b.daysAgo - a.daysAgo).map((t, n) => ({ ...t, id: n + 1 }))
 }
 
@@ -665,6 +670,25 @@ function seedOrders(): void {
     closed_at: null,
     overdue: false,
   })
+  // A buy limit on the fund that tracks the FTSE index, a little below its last close.
+  const allCap = DAILY.get(ALL_CAP)?.at(-1)?.close ?? 100
+  orders.push({
+    id: nextOrder++,
+    account_id: null,
+    isin: ALL_CAP,
+    name: NAMES.get(ALL_CAP) ?? null,
+    side: 'buy',
+    type: 'limit',
+    limit_price: round(allCap * 0.97),
+    stop_price: null,
+    quantity: 25,
+    valid_until: null,
+    status: 'open',
+    note: null,
+    opened_at: new Date().toISOString(),
+    closed_at: null,
+    overdue: false,
+  })
 }
 seedOrders()
 const drawings = new Map<string, { isin: string; document: unknown; updated_at: string }>()
@@ -680,7 +704,7 @@ type List = {
   entries: ListEntry[]
 }
 
-const HELD = new Set([WORLD, SEMIS, US_STOCK, 'BTC-USD'])
+const HELD = new Set([WORLD, SEMIS, ALL_CAP, US_STOCK, 'BTC-USD'])
 
 const entryOf = (symbol: string, position: number): ListEntry => ({
   symbol,
@@ -1091,7 +1115,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       })
     }
     if (rest === '/depot/positions') {
-      const rows = [WORLD, SEMIS, US_STOCK, BTC_ETP].map(position)
+      const rows = [WORLD, SEMIS, ALL_CAP, US_STOCK, BTC_ETP].map(position)
       const total = rows.reduce((n, p) => n + p.value_cents, 0)
       const held = rows.map((p) => ({ ...p, share: total === 0 ? null : p.value_cents / total }))
       return json({
@@ -1711,9 +1735,15 @@ async function checkViews(
   await board.waitFor()
   await page.waitForTimeout(900)
   const depotRows = await boardRowCount(page)
-  if (depotRows !== 4) failures.push(`${where}: the depot board has ${depotRows} rows, expected 4`)
+  if (depotRows !== 5) failures.push(`${where}: the depot board has ${depotRows} rows, expected 5`)
   const depotText = await board.innerText()
-  for (const part of ['World equity ETF', 'Semiconductor ETF', 'US chip stock', 'Bitcoin']) {
+  for (const part of [
+    'World equity ETF',
+    'Semiconductor ETF',
+    'Global all-cap ETF',
+    'US chip stock',
+    'Bitcoin',
+  ]) {
     if (!depotText.includes(part)) failures.push(`${where}: the depot board lacks "${part}"`)
   }
   if ((await boardRows(page).filter({ hasText: 'Bitcoin' }).first().innerText()).includes('—')) {
@@ -2043,6 +2073,108 @@ async function checkSpliced(
  * What a pick in the sidebar does: Details and Chart stay where they are; and the chart fills the height under the page bar
  * of a window, taller with the window, with nothing to scroll; a phone keeps a fixed height.
  */
+/**
+ * An index entry shows the fund that tracks it: its order and trades on the index chart at the index level, in dollars
+ * and in euros, its position in Details with the add-order form preselecting it, and a dollar stock in euros, where a
+ * typed line is still stored in dollars.
+ */
+async function checkTracking(
+  page: Page,
+  origin: string,
+  out: string,
+  scheme: string,
+  device: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  const goto = async (query: string) => {
+    await page.goto(`${origin}/finance/depot?${query}`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(700)
+  }
+  const euro = () =>
+    page.getByRole('group', { name: 'Currency' }).getByRole('button', { name: 'EUR' })
+  const chart = page.locator('[data-shot="depot-chart"]')
+  const levelOf = async () => Number((await hostAttr(page, 'markLevels')).split(',')[0])
+
+  await goto(`isin=${FTSE}`)
+  await page.locator('canvas').first().waitFor()
+  const dollars = await levelOf()
+  if (!/^Buy limit [\d.,]+ €$/.test(await hostAttr(page, 'lines'))) {
+    failures.push(`${where}: the index chart has no order line: "${await hostAttr(page, 'lines')}"`)
+  }
+  await euro().click()
+  await page.waitForTimeout(900)
+  const euros = await levelOf()
+  // The stand-in's rate is about 1.1 dollars per euro: the same trade sits lower on the euro chart.
+  if (!(euros > 0 && euros < dollars)) {
+    failures.push(`${where}: the trade marker level is ${dollars} in dollars and ${euros} in euros`)
+  }
+  if (!(await chart.innerText()).includes('· EUR')) {
+    failures.push(`${where}: the euro chart does not say so in its title`)
+  }
+  await page.screenshot({ path: join(out, `depot--${scheme}--${device}--index-eur.png`) })
+  await goto(`isin=${FTSE}&ivl=1w`)
+  if ((await euro().getAttribute('aria-pressed')) !== 'true') {
+    failures.push(`${where}: the euro choice is not remembered`)
+  }
+  await goto(`isin=${FTSE}&view=details`)
+  await page.locator('[data-shot="depot-tracked"]').waitFor()
+  await page.screenshot({
+    path: join(out, `depot--${scheme}--${device}--index-details.png`),
+    fullPage: true,
+  })
+  await page.getByRole('button', { name: 'Add order' }).first().click()
+  const dialog = page.getByRole('dialog')
+  const chosen = await dialog
+    .getByRole('combobox', { name: 'ETF' })
+    .or(dialog.getByRole('textbox', { name: 'ETF' }))
+    .first()
+    .inputValue()
+  if (chosen !== 'Global all-cap ETF') {
+    failures.push(`${where}: the order form preselects "${chosen}"`)
+  }
+  await dialog.getByLabel('Quantity').fill('3')
+  await dialog.getByLabel('Limit price (€)').fill('100')
+  const note = await dialog.locator('[data-shot="order-usd"]').innerText()
+  if (!/^≈ [\d.,]+ \$ at /.test(note)) failures.push(`${where}: the dollar note reads "${note}"`)
+  await page.screenshot({ path: join(out, `depot--${scheme}--${device}--index-order-modal.png`) })
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+
+  await goto(`isin=${US_STOCK}`)
+  await page.locator('canvas').first().waitFor()
+  await euro().click()
+  await page.waitForTimeout(900)
+  if (!/^Sell limit [\d.,]+ €(\||$)/.test(await hostAttr(page, 'lines'))) {
+    failures.push(`${where}: the stock in euros reads "${await hostAttr(page, 'lines')}"`)
+  }
+  await page.screenshot({ path: join(out, `depot--${scheme}--${device}--us-stock-eur.png`) })
+  // A line typed at 100 € is stored in dollars, at the latest rate.
+  const box = await page.locator(CHART).boundingBox()
+  if (box === null) throw new Error('the chart has no box')
+  await page
+    .getByRole('toolbar', { name: 'Drawing tools' })
+    .getByRole('button', { name: 'Horizontal line' })
+    .click()
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.4)
+  const field = page.getByLabel('Price of the selected line')
+  await field.waitFor({ timeout: 3000 })
+  await field.fill('100')
+  await field.press('Enter')
+  await page.waitForTimeout(1200)
+  const rate = INDEX_LEVELS.get('eur-usd')?.at(-1)?.value ?? 0
+  const held = await storedLinePrices(page, US_STOCK)
+  if (!held.some((price) => Math.abs(price - 100 * rate) < 0.01)) {
+    failures.push(`${where}: a 100 € line is stored as ${held.join(', ')}, rate ${rate}`)
+  }
+  // Back in dollars the same line reads at its stored price.
+  await page.getByRole('group', { name: 'Currency' }).getByRole('button', { name: 'USD' }).click()
+  await page.waitForTimeout(900)
+  const after = await storedLinePrices(page, US_STOCK)
+  if (after.join() !== held.join()) {
+    failures.push(`${where}: switching the currency changed the stored line: ${after.join(', ')}`)
+  }
+}
+
 async function checkLayout(
   page: Page,
   origin: string,
@@ -2347,6 +2479,8 @@ async function main(): Promise<number> {
         await checkLayout(page, origin, out, scheme, device, failures)
         await checkViews(page, origin, out, scheme, device, failures)
         await checkNavigation(page, origin, out, scheme, device, failures)
+        await fetch(`${origin}/api/__reset`)
+        await checkTracking(page, origin, out, scheme, device, failures)
         const [day, ...others] = spacings
         if (day === undefined || others.some((other) => Math.abs(other / day - 1) > 0.12)) {
           failures.push(`${where}: bar spacing differs by interval: ${spacings.join(', ')}`)

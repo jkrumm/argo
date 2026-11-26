@@ -294,13 +294,16 @@ export type TradeMark = {
   /** The quantity is a guess (`estimated`), not read from a document or derived. */
   estimated: boolean
   trade: DepotTrade
+  /** The price the marker sits at, where it does not sit above or below its bar (an ETF's trade on its index). */
+  level?: number | undefined
 }
 
-/** Every trade that has a bar on this chart, oldest first. */
+/** Every trade that has a bar on this chart, oldest first; `levelOf` places a marker at a price of the chart. */
 export function tradeMarks(
   trades: readonly DepotTrade[],
   bars: readonly ChartBar[],
   interval: DepotInterval,
+  levelOf?: (trade: DepotTrade) => number | undefined,
 ): TradeMark[] {
   const marks: TradeMark[] = []
   for (const trade of trades) {
@@ -311,6 +314,7 @@ export function tradeMarks(
       side: trade.side,
       estimated: trade.quantity_source === 'estimated',
       trade,
+      ...(levelOf !== undefined && { level: levelOf(trade) }),
     })
   }
   return marks.toSorted((a, b) => a.time - b.time || a.trade.id - b.trade.id)
@@ -330,22 +334,33 @@ export type MarkGroup = {
   count: number
   /** Every quantity in it is a guess: drawn as a circle. */
   estimated: boolean
+  /** The mean of the trades' levels; absent for a marker above or below its bar. */
+  level?: number
 }
 
 /** The markers to draw, oldest first: one per bar and side. */
 export function markGroups(marks: readonly TradeMark[]): MarkGroup[] {
-  const groups = new Map<string, MarkGroup>()
+  const groups = new Map<string, TradeMark[]>()
   for (const mark of marks) {
     const key = `${mark.time}:${mark.side}`
-    const group = groups.get(key)
-    groups.set(
-      key,
-      group === undefined
-        ? { time: mark.time, side: mark.side, count: 1, estimated: mark.estimated }
-        : { ...group, count: group.count + 1, estimated: group.estimated && mark.estimated },
-    )
+    groups.set(key, [...(groups.get(key) ?? []), mark])
   }
-  return [...groups.values()].toSorted((a, b) => a.time - b.time)
+  return [...groups.values()]
+    .flatMap((group): MarkGroup[] => {
+      const [first] = group
+      if (first === undefined) return []
+      const levels = group.flatMap((mark) => (mark.level === undefined ? [] : [mark.level]))
+      return [
+        {
+          time: first.time,
+          side: first.side,
+          count: group.length,
+          estimated: group.every((mark) => mark.estimated),
+          ...(levels.length > 0 && { level: levels.reduce((a, b) => a + b, 0) / levels.length }),
+        },
+      ]
+    })
+    .toSorted((a, b) => a.time - b.time)
 }
 
 const quantityOf = quantityDe
@@ -368,10 +383,11 @@ export const CARD_LIMIT = 4
  * The tooltip cards of the trades on one bar, oldest first: date, side, units (≈ when estimated),
  * price (the dollar price on a dollar chart too), amount, fee and, for a sale, the realised gain.
  */
-export function tradeCards(marks: readonly TradeMark[], usd: boolean): TradeCard[] {
+export function tradeCards(marks: readonly TradeMark[], usd: boolean, named = false): TradeCard[] {
   return marks.map((mark) => {
     const { trade } = mark
     const rows: TradeCardRow[] = [
+      ...(named ? [{ label: 'Instrument', value: trade.name ?? trade.isin }] : []),
       {
         label: 'Units',
         value:

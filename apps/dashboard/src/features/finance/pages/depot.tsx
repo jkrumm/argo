@@ -3,11 +3,12 @@ import { EmptyState } from 'basalt-ui'
 import { useState } from 'react'
 import { useLists } from '../api/lists'
 import {
-  useCandles,
+  useAllOpenOrders,
+  useAllTrades,
+  useDailyBars,
   useDepotStats,
   useDepotTrades,
   useDrawings,
-  useIndexSeries,
   useOpenOrders,
   usePositions,
   useSeriesCatalog,
@@ -24,11 +25,11 @@ import { DepotBar } from '../components/depot-bar'
 import { NoDataState } from '../components/no-data-state'
 import { OrderModal } from '../components/order-modal'
 import classes from '../components/depot.module.css'
+import type { DepotTrade } from '../api/types'
 import {
   allTimeHigh,
   costLine,
   costLineUsd,
-  daysBefore,
   heldRows,
   instrumentsOf,
   mergedPosition,
@@ -44,7 +45,6 @@ import {
   navTabs,
   pickSymbol,
   resolveTab,
-  splicedHistory,
   tabHolding,
   tabItems,
   viewAfterPick,
@@ -52,6 +52,8 @@ import {
 import { useHiddenTabs } from '../lib/depot-prefs'
 import { INDEX_IDS, INDEX_SERIES } from '../lib/index-series'
 import { isoDay } from '../lib/time'
+import { atIndexLevel, indexFactor, trackersOf } from '../lib/depot-tracking'
+import { useDepotSeries } from '../lib/use-depot-series'
 import { useField } from '../../../lib/use-field'
 import { useNow } from '../../../lib/use-now'
 import { finStore } from '../../../lib/window-stores'
@@ -109,65 +111,93 @@ export function DepotPage() {
   const owned = allPositions.filter((p) => instruments.includes(p.isin))
   const position = mergedPosition(owned)
   // Orders are kept per ISIN: those of the held instrument, else the first charted as this row.
-  const orderIsin = tradable
-    ? (owned.find((p) => p.quantity > 0)?.isin ?? instruments[0] ?? isin)
-    : null
+  const orderIsinOf = (charted: readonly string[]): string | undefined =>
+    allPositions.find((p) => p.quantity > 0 && charted.includes(p.isin))?.isin ?? charted[0]
+  const orderIsin = tradable ? (orderIsinOf(instruments) ?? isin) : null
+
+  // An index or a series has nothing of its own to hold: it shows the ETFs that track it.
+  // The held ones first: the order form preselects the first.
+  const trackers = (
+    entry !== undefined && !tradable && isin !== null ? trackersOf(entries, isin) : []
+  ).toSorted((a, b) => Number(held.has(b.isin)) - Number(held.has(a.isin)))
+  const tracking = trackers.length > 0
+  const trackedIsins = trackers.flatMap((t) => instrumentsOf(t))
+  const trackerOf = (instrument: string) =>
+    trackers.find((t) => instrumentsOf(t).includes(instrument))
+  // What an order can be added for: the instrument itself, or each ETF that tracks the index.
+  const choices = tracking
+    ? trackers.map((t) => ({
+        isin: orderIsinOf(instrumentsOf(t)) ?? t.isin,
+        name: t.name ?? t.isin,
+      }))
+    : orderIsin === null
+      ? []
+      : [{ isin: orderIsin, name: entry?.name ?? orderIsin }]
 
   const charting = view === 'chart' && !awaiting
-  // Every stored daily bar at once (the timeframes only move the view); an ETF with a tracked index
-  // comes with that index in front of its first bar.
-  const candles = useCandles(
-    isin === null || !charting
-      ? null
-      : {
-          isin,
-          interval,
-          // A US stock is charted on its US listing, in dollars.
-          mic: entry?.us_mic ?? undefined,
-          splice: splicedHistory(entry) ? 'index' : undefined,
-        },
-  )
+  const series = useDepotSeries({ entry, isin, interval, charting, today })
+  const { bars, currency, dailyBars } = series
   const trades = useDepotTrades(tradable && view !== 'board' ? isin : null)
   const orders = useOpenOrders(view === 'board' ? null : orderIsin)
+  const allTrades = useAllTrades(tracking && view !== 'board')
+  const allOrders = useAllOpenOrders(tracking && view !== 'board')
+  const trackedTrades = (allTrades.data ?? []).filter((t) => trackedIsins.includes(t.isin))
+  // A locked vault answers the orders with 423: no data, so no line and no error on the chart.
+  const trackedOrders = (allOrders.data ?? []).filter((o) => trackedIsins.includes(o.isin))
+  const trackerBars = useDailyBars(
+    charting ? trackers.map((t) => ({ isin: t.isin, interval: '1d' })) : [],
+  )
   const drawings = useDrawings(charting ? isin : null)
-  const stats = useDepotStats(tradable && view === 'details' ? isin : null)
+  // The all-time statistics belong to one instrument: this one, or the only ETF of an index.
+  const statsIsin = tradable ? isin : trackers.length === 1 ? (trackers[0]?.isin ?? null) : null
+  const stats = useDepotStats(view === 'details' ? statsIsin : null)
 
-  const bars = candles.data?.candles ?? []
-  const currency = candles.data?.currency ?? null
-  const euro = currency === null || currency === 'EUR'
-  const asLine = closeOnlyDaily(bars, interval)
+  const asLine = closeOnlyDaily(bars, series.interval)
+
+  /** What one euro of a tracking ETF's price is on this index chart. */
+  const factorOf = (instrument: string): number | null => {
+    const tracker = trackerOf(instrument)
+    return tracker === undefined
+      ? null
+      : indexFactor(dailyBars ?? [], trackerBars.bars.get(tracker.isin) ?? [])
+  }
+  const markLevel = tracking
+    ? (trade: DepotTrade): number | undefined => {
+        const factor = factorOf(trade.isin)
+        return trade.price === null || factor === null ? undefined : trade.price * factor
+      }
+    : undefined
+  const trackedLines = trackedOrders.flatMap((order) => {
+    const line = orderLine(order)
+    const factor = factorOf(order.isin)
+    const name = trackers.length > 1 ? (trackerOf(order.isin)?.name ?? order.isin) : undefined
+    return line === null || factor === null ? [] : [atIndexLevel(line, factor, name)]
+  })
+
   // An order has a euro price. A US stock charted in dollars shows it at the latest ECB rate, labelled in both
   // currencies; a coin's order belongs to a product whose price is not the coin's, so it has no line there.
+  const euro = currency === null || currency === 'EUR'
   const stockInDollars = !euro && entry?.us_mic != null
-  const rate = useIndexSeries(stockInDollars && charting ? 'eur-usd' : null, {
-    from: daysBefore(today, 14),
-    to: today,
-  })
-  const usdPerEur = rate.data?.points.at(-1)?.value ?? null
-  // A locked vault answers the orders with 423: no data, so no line and no error on the chart.
   const open = orders.data ?? []
-  const lines: PriceLine[] = (
-    euro
-      ? [...open.map((order) => orderLine(order)), costLine(position)]
-      : [
-          ...(stockInDollars && usdPerEur !== null
-            ? open.map((order) => orderLine(order, usdPerEur))
-            : []),
-          owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null,
-        ]
-  ).filter((l) => l !== null)
+  const usdPerEur = series.rate?.usdPerEur ?? null
+  const ownLines = (): (PriceLine | null)[] => {
+    if (series.converting && entry?.kind === 'coin') {
+      // Only a coin held directly has a cost in the coin's own price; an ETP's does not belong on this chart.
+      return [owned.length === 1 && instruments.includes(isin ?? '') ? costLine(position) : null]
+    }
+    if (euro) return [...open.map((order) => orderLine(order)), costLine(position)]
+    return [
+      ...(stockInDollars && usdPerEur !== null
+        ? open.map((order) => orderLine(order, usdPerEur))
+        : []),
+      owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null,
+    ]
+  }
+  const lines: PriceLine[] = tracking ? trackedLines : ownLines().filter((l) => l !== null)
   const comparable =
     entry !== undefined && tradable && entry.kind !== 'coin' && entry.us_mic === null
 
-  // The all-time high comes from the full daily history: the chart's own bars at day, one more request at week and month.
-  const daily = useCandles(
-    isin === null || !charting || interval === '1d'
-      ? null
-      : { isin, interval: '1d', mic: entry?.us_mic ?? undefined },
-  )
-  const dailyBars = interval === '1d' ? bars : daily.data?.candles
-  const dailyReady = interval === '1d' ? !candles.isPlaceholderData : !daily.isPlaceholderData
-  const high = dailyReady && dailyBars !== undefined ? allTimeHigh(dailyBars) : null
+  const high = dailyBars === undefined ? null : allTimeHigh(dailyBars)
   const lastClose = dailyBars?.findLast((bar) => bar.source !== 'index')?.close ?? null
 
   if (
@@ -206,13 +236,26 @@ export function DepotPage() {
       return (
         <DepotDetails
           name={name}
-          tradable={tradable}
-          position={position}
+          holdings={
+            tracking
+              ? trackers.map((t) => ({
+                  isin: t.isin,
+                  name: t.name ?? t.isin,
+                  position: mergedPosition(
+                    allPositions.filter((p) => instrumentsOf(t).includes(p.isin)),
+                  ),
+                }))
+              : tradable
+                ? [{ isin, name, position }]
+                : []
+          }
+          tracking={tracking}
           positionPending={positions.isPending}
-          stats={stats}
-          trades={trades}
-          orders={orders}
-          orderIsin={orderIsin ?? isin}
+          stats={statsIsin === null ? null : stats}
+          trades={tracking ? trackedTrades : (trades.data ?? [])}
+          tradesQuery={tracking ? allTrades : trades}
+          orders={tracking ? trackedOrders : open}
+          ordersQuery={tracking ? allOrders : orders}
           onAddOrder={() => setAdding(true)}
         />
       )
@@ -224,12 +267,11 @@ export function DepotPage() {
           name={name}
           isin={isin}
           kind={entry.kind}
-          interval={interval}
-          currency={currency}
-          bars={bars}
-          trades={trades.data ?? []}
+          series={series}
+          trades={tracking ? trackedTrades : (trades.data ?? [])}
+          markLevel={markLevel}
+          tracked={trackers.map((t) => t.name ?? t.isin)}
           lines={lines}
-          candles={candles}
           drawings={drawings}
           comparable={comparable}
           indices={indices}
@@ -296,8 +338,13 @@ export function DepotPage() {
           </Stack>
         </Box>
       </Box>
-      {adding && orderIsin !== null && (
-        <OrderModal isin={orderIsin} onClose={() => setAdding(false)} />
+      {adding && choices.length > 0 && (
+        <OrderModal
+          choices={choices}
+          choose={tracking}
+          rate={series.rate}
+          onClose={() => setAdding(false)}
+        />
       )}
     </Box>
   )

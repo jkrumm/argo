@@ -1,7 +1,9 @@
-import { Button, Group, Modal, NumberInput, Select, Stack, TextInput } from '@mantine/core'
+import { Button, Group, Modal, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core'
 import { fieldKey, inputProps, useBasaltForm } from 'basalt-ui/forms'
 import { z } from 'zod'
 import { reportWriteError, useOrderWrites } from '../api/mutations'
+import { dayDe, moneyDe, priceDe } from '../lib/depot-number'
+import { dayToSeconds } from '../lib/depot-chart'
 import type { AddOrderRequest, OrderType, TradeSide } from '../api/types'
 
 const SIDES: { value: TradeSide; label: string }[] = [
@@ -16,6 +18,7 @@ const TYPES: { value: OrderType; label: string }[] = [
 
 const Schema = z
   .object({
+    isin: z.string().min(1, 'Choose the instrument'),
     side: z.enum(['buy', 'sell']),
     type: z.enum(['limit', 'stop', 'market']),
     quantity: z.number({ error: 'Enter a quantity' }).positive('Enter a quantity'),
@@ -32,12 +35,29 @@ type Values = z.input<typeof Schema>
 
 /**
  * Adds one hand-kept order to the chart. ING has no interface for orders, so the list is typed in
- * here and closed here; nothing on this page places, changes or deletes an order at the bank.
+ * here and closed here; nothing on this page places, changes or deletes an order at the bank. ING
+ * trades in euros, so the price is typed in euros.
  */
-export function OrderModal({ isin, onClose }: { isin: string; onClose: () => void }) {
+export function OrderModal({
+  choices,
+  choose,
+  rate,
+  onClose,
+}: {
+  /** The instruments the order can be for; the first is preselected. */
+  choices: readonly { isin: string; name: string }[]
+  /** Show the choice: an index entry's order goes on an ETF that tracks it. */
+  choose: boolean
+  /** The latest ECB rate, for an instrument charted in dollars: the price is also shown in dollars. */
+  rate: { usdPerEur: number; day: string } | null
+  onClose: () => void
+}) {
   const orders = useOrderWrites()
   const form = useBasaltForm<Values>({
+    // The price in dollars and the stop or limit label follow what is typed.
+    mode: 'controlled',
     initialValues: {
+      isin: choices[0]?.isin ?? '',
       side: 'buy',
       type: 'limit',
       quantity: '' as never,
@@ -51,7 +71,7 @@ export function OrderModal({ isin, onClose }: { isin: string; onClose: () => voi
   async function submit(values: Values) {
     const parsed = Schema.parse(values)
     const request: AddOrderRequest = {
-      isin,
+      isin: parsed.isin,
       side: parsed.side,
       type: parsed.type,
       quantity: parsed.quantity,
@@ -68,10 +88,29 @@ export function OrderModal({ isin, onClose }: { isin: string; onClose: () => voi
     }
   }
 
+  const typed = form.getValues()
+  const dollars =
+    rate !== null && typed.type !== 'market' && typeof typed.price === 'number'
+      ? typed.price * rate.usdPerEur
+      : null
+  const priceNote =
+    rate === null
+      ? undefined
+      : `${dollars === null ? 'ING trades in euros' : `≈ ${moneyDe(dollars, 'USD')}`} at ${priceDe(rate.usdPerEur)} $ per € (${dayDe(dayToSeconds(rate.day))})`
+
   return (
     <Modal opened onClose={onClose} title="Add an order" centered>
       <form onSubmit={form.onSubmit((values) => void submit(values))}>
         <Stack gap="sm">
+          {choose && (
+            <Select
+              key={fieldKey(form, 'isin')}
+              {...inputProps(form, 'isin')}
+              label="ETF"
+              data={choices.map((c) => ({ value: c.isin, label: c.name }))}
+              allowDeselect={false}
+            />
+          )}
           <Group grow align="flex-start">
             <Select
               key={fieldKey(form, 'side')}
@@ -100,13 +139,18 @@ export function OrderModal({ isin, onClose }: { isin: string; onClose: () => voi
             <NumberInput
               key={fieldKey(form, 'price')}
               {...inputProps(form, 'price')}
-              label={form.getValues().type === 'stop' ? 'Stop price' : 'Limit price'}
-              disabled={form.getValues().type === 'market'}
+              label={typed.type === 'stop' ? 'Stop price (€)' : 'Limit price (€)'}
+              disabled={typed.type === 'market'}
               min={0}
               decimalScale={4}
               hideControls
             />
           </Group>
+          {priceNote !== undefined && (
+            <Text size="xs" c="dimmed" data-shot="order-usd">
+              {priceNote}
+            </Text>
+          )}
           <TextInput
             key={fieldKey(form, 'valid_until')}
             {...inputProps(form, 'valid_until')}

@@ -3,7 +3,13 @@ import { EmptyState, Section, StatGroup } from 'basalt-ui'
 import type { StatStripCell } from 'basalt-ui'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { reportWriteError, useOrderWrites } from '../api/mutations'
-import type { useDepotStats, useDepotTrades, useOpenOrders } from '../api/queries'
+import type {
+  useAllOpenOrders,
+  useAllTrades,
+  useDepotStats,
+  useDepotTrades,
+  useOpenOrders,
+} from '../api/queries'
 import { FinanceApiError } from '../api/client'
 import type { DepotOrder, DepotPosition, DepotStats, DepotTrade } from '../api/types'
 import { priceText, signedPercent } from '../lib/depot-chart'
@@ -168,81 +174,111 @@ function statsCells(
   ]
 }
 
+/** One instrument the view is about: the row itself, or an ETF that tracks the index. */
+export type Holding = { isin: string; name: string; position: DepotPosition | undefined }
+
+type TradesQuery = ReturnType<typeof useDepotTrades> | ReturnType<typeof useAllTrades>
+type OrdersQuery = ReturnType<typeof useOpenOrders> | ReturnType<typeof useAllOpenOrders>
+
+/** What the statistics of one instrument say, or that there are none to total yet. */
+function Statistics({ stats }: { stats: StatsQuery }) {
+  const noTrades = stats.error instanceof FinanceApiError && stats.error.status === 404
+  const [made, history] = statsCells(stats.data, stats.isPending)
+  if (noTrades) {
+    return (
+      <Text size="sm" c="dimmed" data-shot="depot-stats">
+        No trade of this instrument is booked, so there is nothing to total yet.
+      </Text>
+    )
+  }
+  if (stats.error !== null) {
+    return (
+      <EmptyState
+        tier="section"
+        title="The statistics did not load"
+        description={stats.error.message}
+      />
+    )
+  }
+  return (
+    <Stack gap="sm" data-shot="depot-stats">
+      <StatGroup variant="strip" label="What it has made over all time" cols={4} cells={made} />
+      <StatGroup variant="strip" label="Holding history and the high" cols={4} cells={history} />
+    </Stack>
+  )
+}
+
 /**
  * The second view of an instrument: what is held and what it has made, then every trade and the open orders.
- * An index or a series has no position and says so.
+ * An index shows the same for the ETFs that track it; a series nothing tracks has no position and says so.
  */
 export function DepotDetails({
   name,
-  tradable,
-  position,
+  holdings,
+  tracking,
   positionPending,
   stats,
   trades,
+  tradesQuery,
   orders,
-  orderIsin,
+  ordersQuery,
   onAddOrder,
 }: {
   name: string
-  /** False for an index or a series: nothing to hold. */
-  tradable: boolean
-  position: DepotPosition | undefined
+  /** Empty for an index or a series nothing tracks: nothing to hold. */
+  holdings: readonly Holding[]
+  /** The holdings are the ETFs that track the index named `name`. */
+  tracking: boolean
   positionPending: boolean
-  stats: StatsQuery
-  trades: ReturnType<typeof useDepotTrades>
-  orders: ReturnType<typeof useOpenOrders>
-  orderIsin: string
+  /** Null where there is no one instrument to total. */
+  stats: StatsQuery | null
+  trades: readonly DepotTrade[]
+  tradesQuery: TradesQuery
+  orders: readonly DepotOrder[]
+  ordersQuery: OrdersQuery
   onAddOrder: () => void
 }) {
-  if (!tradable) {
+  if (holdings.length === 0) {
     return (
       <EmptyState
         tier="section"
         title={`${name} is not something you can hold`}
-        description="An index or a series has no position, trades or orders. The chart and the board show its price history."
+        description="An index or a series has no position, trades or orders. The chart and the board show its price history. An ETF on your lists that tracks it would show here."
       />
     )
   }
-  const noTrades = stats.error instanceof FinanceApiError && stats.error.status === 404
-  const [made, history] = statsCells(stats.data, stats.isPending)
+  const names =
+    holdings.length > 1 ? new Map(holdings.map((h) => [h.isin, h.name] as const)) : undefined
   return (
     <Stack gap="sm">
-      <div data-shot="depot-position">
-        <StatGroup
-          variant="strip"
-          label="The position at a glance"
-          cols={4}
-          cells={positionCells(position, positionPending)}
-        />
-      </div>
-      {noTrades ? (
-        <Text size="sm" c="dimmed" data-shot="depot-stats">
-          No trade of this instrument is booked, so there is nothing to total yet.
+      {tracking && (
+        <Text size="sm" c="dimmed" data-shot="depot-tracked">
+          An index cannot be held.{' '}
+          {holdings.length > 1
+            ? 'These are your ETFs that track it'
+            : 'This is your ETF that tracks it'}
+          : {holdings.map((h) => h.name).join(', ')}.
         </Text>
-      ) : stats.error !== null ? (
-        <EmptyState
-          tier="section"
-          title="The statistics did not load"
-          description={stats.error.message}
-        />
-      ) : (
-        <Stack gap="sm" data-shot="depot-stats">
-          <StatGroup variant="strip" label="What it has made over all time" cols={4} cells={made} />
+      )}
+      {holdings.map((holding) => (
+        <div data-shot="depot-position" key={holding.isin}>
           <StatGroup
             variant="strip"
-            label="Holding history and the high"
+            label={tracking ? `Position in ${holding.name}` : 'The position at a glance'}
             cols={4}
-            cells={history}
+            cells={positionCells(holding.position, positionPending)}
           />
-        </Stack>
-      )}
+        </div>
+      ))}
+      {stats !== null && <Statistics stats={stats} />}
       <div data-shot="depot-trades">
-        <TradesTable trades={trades.data ?? []} query={trades} />
+        <TradesTable trades={trades} query={tradesQuery} names={names} />
       </div>
       <OrdersSection
-        isin={orderIsin}
-        orders={orders.data ?? []}
-        query={orders}
+        subject={tracking ? holdings.map((h) => h.name).join(', ') : (holdings[0]?.isin ?? name)}
+        orders={orders}
+        query={ordersQuery}
+        names={names}
         onAdd={onAddOrder}
       />
     </Stack>
@@ -252,12 +288,23 @@ export function DepotDetails({
 function TradesTable({
   trades,
   query,
+  names,
 }: {
   trades: readonly DepotTrade[]
-  query: ReturnType<typeof useDepotTrades>
+  query: TradesQuery
+  /** The instrument names by ISIN, when the table lists several instruments. */
+  names: ReadonlyMap<string, string> | undefined
 }) {
   const columns = [
     tradeCol.accessor('booked_on', { header: 'Booked', cell: (c) => isoDayDe(c.getValue()) }),
+    ...(names === undefined
+      ? []
+      : [
+          tradeCol.accessor((t) => names.get(t.isin) ?? t.isin, {
+            id: 'instrument',
+            header: 'Instrument',
+          }),
+        ]),
     tradeCol.accessor('side', {
       header: 'Side',
       cell: (c) => (
@@ -325,7 +372,9 @@ function TradesTable({
       getRowId={(t) => String(t.id)}
       query={query}
       skeletonRows={3}
-      emptyState="No trades in this instrument."
+      emptyState={
+        names === undefined ? 'No trades in this instrument.' : 'No trades in these ETFs.'
+      }
       initialSorting={[{ id: 'booked_on', desc: true }]}
       renderCard={(t) => (
         <Stack gap={2}>
@@ -341,6 +390,7 @@ function TradesTable({
               : `${t.quantity_source === 'estimated' ? '≈ ' : ''}${quantityText(t.quantity)} units`}
             {t.price === null ? '' : ` at ${priceText(t.price)}`}
             {t.price_usd === null ? '' : ` (${priceText(t.price_usd)} $)`}
+            {names === undefined ? '' : ` · ${names.get(t.isin) ?? t.isin}`}
           </Text>
         </Stack>
       )}
@@ -349,14 +399,17 @@ function TradesTable({
 }
 
 function OrdersSection({
-  isin,
+  subject,
   orders,
   query,
+  names,
   onAdd,
 }: {
-  isin: string
+  /** What the empty table names: the ISIN, or the tracking ETFs. */
+  subject: string
   orders: readonly DepotOrder[]
-  query: ReturnType<typeof useOpenOrders>
+  query: OrdersQuery
+  names: ReadonlyMap<string, string> | undefined
   onAdd: () => void
 }) {
   const writes = useOrderWrites()
@@ -370,6 +423,14 @@ function OrdersSection({
         return `${o.side === 'buy' ? 'Buy' : 'Sell'} ${o.type}`
       },
     }),
+    ...(names === undefined
+      ? []
+      : [
+          orderCol.accessor((o) => names.get(o.isin) ?? o.isin, {
+            id: 'instrument',
+            header: 'Instrument',
+          }),
+        ]),
     orderCol.accessor('quantity', {
       header: 'Units',
       meta: { align: 'right' },
@@ -404,7 +465,7 @@ function OrdersSection({
         getRowId={(o) => String(o.id)}
         query={query}
         skeletonRows={2}
-        emptyState={`No open orders in ${isin}.`}
+        emptyState={`No open orders in ${subject}.`}
         rowLabel={(o) => `${o.side} ${o.type} order`}
         renderCard={(o) => (
           <Stack gap={2}>
@@ -415,6 +476,7 @@ function OrdersSection({
                 : ` at ${priceText((o.type === 'stop' ? o.stop_price : o.limit_price) ?? 0)}`}
             </Text>
             <Text size="xs" c="dimmed">
+              {names === undefined ? '' : `${names.get(o.isin) ?? o.isin} · `}
               {quantityText(o.quantity)} units
               {o.valid_until === null
                 ? ''
