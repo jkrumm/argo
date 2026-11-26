@@ -1,31 +1,32 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
-import { trace, type Span } from '@opentelemetry/api'
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import type { Span } from '@opentelemetry/api'
 import {
   BasicTracerProvider,
   InMemorySpanExporter,
   type ReadableSpan,
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base'
+import { tracer } from '../telemetry.js'
 import { tracedFetch } from './traced-fetch.js'
 
-// Real (non-global-side-effecting) tracer provider wired to an in-memory
-// exporter — `../telemetry.js`'s `tracer` export is `trace.getTracer(...)`,
-// which returns a proxy that resolves its delegate lazily from the globally
-// registered provider on every call. Registering a test provider here makes
-// every span `tracedFetch` creates land in `exporter` once `span.end()` runs,
-// with no need to mock the telemetry module itself.
+// Every span `tracedFetch` opens goes to a tracer of this file's own provider, wired to an in-memory exporter. A global
+// provider would be first-come across the test files of one bun process: a file that imports the app registers one
+// first, in whatever order the platform lists the files, and `../telemetry.js`'s `tracer` keeps the delegate it
+// resolved. So the one method `tracedFetch` calls on it is replaced for the time of this file.
 const exporter = new InMemorySpanExporter()
-
-beforeAll(() => {
-  const provider = new BasicTracerProvider({
-    spanProcessors: [new SimpleSpanProcessor(exporter)],
-  })
-  trace.setGlobalTracerProvider(provider)
-})
+const own = new BasicTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(exporter)],
+}).getTracer('traced-fetch.test')
+let spanSpy: ReturnType<typeof spyOn>
 
 beforeEach(() => {
   exporter.reset()
+  spanSpy = spyOn(tracer, 'startActiveSpan').mockImplementation(
+    own.startActiveSpan.bind(own) as never,
+  )
 })
+
+afterEach(() => spanSpy.mockRestore())
 
 const originalFetch = globalThis.fetch
 

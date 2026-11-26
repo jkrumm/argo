@@ -101,7 +101,8 @@ describe('/machines/*', () => {
     const first = bodies.slice()
     bodies = []
     await get("/machines/overview?range=7d&metric=x'%3B%20DROP%20TABLE%20a&table=otel_logs")
-    expect(bodies).toEqual(first)
+    // The queries run side by side, so they arrive in any order: the same texts, not the same sequence.
+    expect(bodies.toSorted()).toEqual(first.toSorted())
   })
 
   it('503s with the same error on both endpoints when ClickHouse errors', async () => {
