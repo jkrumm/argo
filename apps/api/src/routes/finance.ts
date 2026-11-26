@@ -27,8 +27,8 @@ const MAX_WRITE_BODY_BYTES = 16 * 1024
 /** The service's cap on a chart drawing document (`docs/service.md`: 256 KB). */
 const MAX_DRAWINGS_BODY_BYTES = 256 * 1024
 
-/** `POST /api/chart/drawings/<ISIN or coin symbol>`: the one write with the larger cap. */
-const DRAWINGS_PATH = /^\/api\/chart\/drawings\/[A-Za-z0-9-]{1,20}$/
+/** `POST /api/chart/drawings/<ISIN, coin symbol or series id>`: the one write with the larger cap. */
+const DRAWINGS_PATH = /^\/api\/chart\/drawings\/[A-Za-z0-9-]{1,64}$/
 
 /**
  * The typed writes of `fin serve` and nothing else: a category or a tax tag for one booking, a
