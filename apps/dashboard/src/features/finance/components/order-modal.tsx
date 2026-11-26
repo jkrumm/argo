@@ -1,10 +1,12 @@
 import { Button, Group, Modal, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core'
 import { fieldKey, inputProps, useBasaltForm } from 'basalt-ui/forms'
+import { useEffect, useRef } from 'react'
 import { z } from 'zod'
 import { reportWriteError, useOrderWrites } from '../api/mutations'
 import { dayDe, moneyDe, priceDe } from '../lib/depot-number'
 import { dayToSeconds } from '../lib/depot-chart'
-import type { AddOrderRequest, OrderType, TradeSide } from '../api/types'
+import { spreadText, suggestedLimit } from '../lib/depot-live'
+import type { AddOrderRequest, MarketQuote, OrderType, TradeSide } from '../api/types'
 
 const SIDES: { value: TradeSide; label: string }[] = [
   { value: 'buy', label: 'Buy' },
@@ -42,6 +44,7 @@ export function OrderModal({
   choices,
   choose,
   rate,
+  quotes,
   onClose,
 }: {
   /** The instruments the order can be for; the first is preselected. */
@@ -50,6 +53,8 @@ export function OrderModal({
   choose: boolean
   /** The latest ECB rate, for an instrument charted in dollars: the price is also shown in dollars. */
   rate: { usdPerEur: number; day: string } | null
+  /** ING Direkthandel's quote of each choice, by ISIN. */
+  quotes: ReadonlyMap<string, MarketQuote>
   onClose: () => void
 }) {
   const orders = useOrderWrites()
@@ -89,6 +94,24 @@ export function OrderModal({
   }
 
   const typed = form.getValues()
+  const quote = quotes.get(typed.isin)
+  // A limit starts at the price it would trade at now: the ask to buy, the bid to sell. It is set once per instrument,
+  // side and type, never under the owner's eyes as the quote moves, and never over a price he typed.
+  const prefilled = useRef<number | ''>('')
+  const answered = quote !== undefined
+  useEffect(
+    () => {
+      const current = form.getValues().price
+      if (current !== '' && current !== prefilled.current) return
+      const next =
+        typed.type === 'limit' ? (suggestedLimit(typed.side, quotes.get(typed.isin)) ?? '') : ''
+      prefilled.current = next
+      form.setFieldValue('price', next)
+    },
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [typed.isin, typed.side, typed.type, answered],
+  )
+  const spread = spreadText(quote)
   const dollars =
     rate !== null && typed.type !== 'market' && typeof typed.price === 'number'
       ? typed.price * rate.usdPerEur
@@ -132,6 +155,8 @@ export function OrderModal({
               key={fieldKey(form, 'quantity')}
               {...inputProps(form, 'quantity')}
               label="Quantity"
+              decimalSeparator=","
+              allowedDecimalSeparators={[',', '.']}
               min={0}
               decimalScale={4}
               hideControls
@@ -141,11 +166,18 @@ export function OrderModal({
               {...inputProps(form, 'price')}
               label={typed.type === 'stop' ? 'Stop price (€)' : 'Limit price (€)'}
               disabled={typed.type === 'market'}
+              decimalSeparator=","
+              allowedDecimalSeparators={[',', '.']}
               min={0}
               decimalScale={4}
               hideControls
             />
           </Group>
+          {spread !== null && (
+            <Text size="xs" c="dimmed" data-shot="order-spread">
+              {`ING Direkthandel: ${spread}${quote?.session === 'closed' ? ' · Börse geschlossen' : ''}`}
+            </Text>
+          )}
           {priceNote !== undefined && (
             <Text size="xs" c="dimmed" data-shot="order-usd">
               {priceNote}

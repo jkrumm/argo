@@ -3,12 +3,13 @@ import { ChartCard } from 'basalt-ui/charts'
 import { ViewTabs } from 'basalt-ui/controls'
 import { useRef, useState } from 'react'
 import { useDrawings, useIndexSeries } from '../api/queries'
-import type { DepotTrade } from '../api/types'
+import type { DepotTrade, MarketQuote } from '../api/types'
 import { ComparePopover } from './compare-popover'
 import { DepotChart, SPLICE_LABEL } from './depot-chart'
 import type { CompareLine, DepotChartHandle, DepotSelection, DrawTool } from './depot-chart'
 import { DrawToolbar } from './draw-toolbar'
 import { DrawingEditor } from './drawing-editor'
+import { QuoteState } from './quote-line'
 import classes from './depot.module.css'
 import {
   distanceFromHigh,
@@ -22,6 +23,7 @@ import {
 import type { AllTimeHigh, ColorRole, PriceLine, RangeChange, Timeframe } from '../lib/depot-chart'
 import { euroTitle, scaleDrawings } from '../lib/depot-currency'
 import type { ChartCurrency } from '../lib/depot-currency'
+import { DIRECT_VENUE } from '../lib/depot-live'
 import { dayDe, percentDe, priceDe } from '../lib/depot-number'
 import type { IndexSeries } from '../lib/index-series'
 import { useLineLabels } from '../lib/depot-prefs'
@@ -31,6 +33,13 @@ import { useViewPrefs } from '../lib/view-prefs'
 import { finStore } from '../../../lib/window-stores'
 
 const CURRENCIES: readonly ChartCurrency[] = ['USD', 'EUR']
+
+/** What the venue switch calls the exchange the long history comes from. */
+const exchangeName = (mic: string | null): string => {
+  if (mic === null) return 'Xetra'
+  if (mic === 'XNAS') return 'Nasdaq'
+  return mic === 'XNYS' ? 'NYSE' : mic
+}
 
 export function ChartPanel({
   name,
@@ -50,6 +59,8 @@ export function ChartPanel({
   lastClose,
   today,
   line: asLine,
+  quote,
+  venues,
 }: {
   name: string
   isin: string
@@ -72,6 +83,10 @@ export function ChartPanel({
   today: string
   /** The bars are the close of a daily series: drawn as one line. */
   line: boolean
+  /** The live quote of the charted listing. */
+  quote: MarketQuote | undefined
+  /** The venue switch of a share or fund: the MIC of its US listing (null: Xetra). Null where there is no switch. */
+  venues: { usMic: string | null } | null
 }) {
   const [tool, setTool] = useState<DrawTool | null>(null)
   const [role, setRole] = useState<ColorRole>('accent')
@@ -117,8 +132,26 @@ export function ChartPanel({
   }
   const currentRole = tool === null ? (selection.single?.role ?? role) : role
   const symbol = currency === 'USD' ? 'USD' : 'EUR'
+  // The live price in the chart's currency; the distance from the high is read with it while there is one.
+  const live =
+    quote?.last == null
+      ? null
+      : quote.currency === currency
+        ? quote.last
+        : quote.currency === 'USD' && currency === 'EUR' && series.rate !== null
+          ? quote.last / series.rate.usdPerEur
+          : null
+  const price = live ?? lastClose
   const distance =
-    high === null || lastClose === null ? null : distanceFromHigh(lastClose, high.price)
+    high === null || price === null ? null : distanceFromHigh(price, Math.max(high.price, price))
+  const newest = bars.at(-1)
+  const stored = bars.filter((bar) => bar.provisional !== true)
+  // A chart on another venue is another chart: what is drawn and selected is read again.
+  const switchVenue = (next: 'exchange' | 'direct') => {
+    setTool(null)
+    setSelection({ count: 0, line: null, single: null })
+    setPrefs({ venue: next })
+  }
 
   return (
     <ChartCard
@@ -127,18 +160,31 @@ export function ChartPanel({
       classNames={{ body: classes.chartBody }}
       style={{ minHeight: 'var(--depot-chart-min, 0px)' }}
       title={
-        series.converting
-          ? euroTitle(name)
-          : currency === null || name.includes(currency)
-            ? name
-            : `${name} · ${currency}`
+        series.direct
+          ? `${name} · ${DIRECT_VENUE}`
+          : series.converting
+            ? euroTitle(name)
+            : currency === null || name.includes(currency)
+              ? name
+              : `${name} · ${currency}`
       }
       {...(high !== null && {
         facts: [
+          // The price now comes first: the high beside it is no price to set an order against.
+          ...(live === null || quote === undefined
+            ? []
+            : [
+                {
+                  value: priceDe(live),
+                  unit: symbol === 'USD' ? '$' : '€',
+                  comparison: <QuoteState quote={quote} coin={kind === 'coin'} bar={newest} />,
+                },
+              ]),
           {
             value: priceDe(high.price),
             unit: symbol === 'USD' ? '$' : '€',
-            period: ['All-time high', dayDe(high.time)],
+            // Direkthandel's own history is short: its high is no all-time high.
+            period: [series.direct ? 'High since it is stored' : 'All-time high', dayDe(high.time)],
           },
           ...(distance === null
             ? []
@@ -146,12 +192,15 @@ export function ChartPanel({
                 {
                   // A node keeps the real minus sign (a text comparison would take a direction glyph instead).
                   value: <>{percentDe(distance, true)}</>,
-                  unit: 'last close vs. high',
+                  unit:
+                    live === null || quote?.session === 'closed'
+                      ? 'last close vs. high'
+                      : 'now vs. high',
                 },
               ]),
         ],
       })}
-      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}Daily candles over the whole stored history in the instrument's currency (Bitcoin, US stocks and dollar indices in dollars, or in euros with the EUR button, each day at its ECB rate); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, on a US stock's dollar chart at the latest ECB rate. ${tracked.length > 0 ? `The orders and trades are those of ${tracked.join(', ')}, which ${tracked.length > 1 ? 'track' : 'tracks'} this index: each sits as far from the index close as its price from the ETF's close on their latest common day, and is labelled with the ETF's own price. ` : ''}${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the lighter candles are the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
+      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}The price over the chart is live while the market trades (asked every minute; ING Direkthandel's for a euro line) and the newest candle is the running day of the chosen venue, 15 minutes behind on Xetra. Direkthandel's dotted lines are its bid (Geld) and ask (Brief); an order's label says how far its price is from the side it has to meet. The venue switch picks the exchange or ING Direkthandel's own days; the two close hours apart and are never mixed. Daily candles over the whole stored history in the instrument's currency (Bitcoin, US stocks and dollar indices in dollars, or in euros with the EUR button, each day at its ECB rate); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, on a US stock's dollar chart at the latest ECB rate. ${tracked.length > 0 ? `The orders and trades are those of ${tracked.join(', ')}, which ${tracked.length > 1 ? 'track' : 'tracks'} this index: each sits as far from the index close as its price from the ETF's close on their latest common day, and is labelled with the ETF's own price. ` : ''}${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the lighter candles are the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
       state={{
         pending: series.pending,
         error: series.error ?? undefined,
@@ -176,7 +225,7 @@ export function ChartPanel({
     >
       <Box className={classes.stage}>
         <DepotChart
-          key={`${currency}:${drawScale}`}
+          key={`${currency}:${drawScale}:${series.direct}`}
           ref={chart}
           bars={bars}
           interval={shown}
@@ -218,6 +267,14 @@ export function ChartPanel({
           closes.
         </Text>
       )}
+      {series.direct && !series.pending && (
+        <Text size="xs" c="dimmed" data-shot="depot-direct-hint">
+          {stored.length === 0
+            ? `No ${DIRECT_VENUE} days are stored yet`
+            : `${DIRECT_VENUE} has only ${stored.length} stored bars, from ${dayDe(stored[0]?.time ?? 0)}`}
+          ; the long history is {exchangeName(venues?.usMic ?? null)}.
+        </Text>
+      )}
       <Box className={classes.toolbar} data-shot="depot-toolbar">
         <Group gap={4} role="group" aria-label="Timeframe">
           {TIMEFRAMES.map((frame) => (
@@ -233,6 +290,21 @@ export function ChartPanel({
             </Button>
           ))}
         </Group>
+        {venues !== null && (
+          <Group gap={4} role="group" aria-label="Venue">
+            {(['exchange', 'direct'] as const).map((venue) => (
+              <Button
+                key={venue}
+                variant={series.direct === (venue === 'direct') ? 'filled' : 'default'}
+                color="gray"
+                aria-pressed={series.direct === (venue === 'direct')}
+                onClick={() => switchVenue(venue)}
+              >
+                {venue === 'direct' ? DIRECT_VENUE : exchangeName(venues.usMic)}
+              </Button>
+            ))}
+          </Group>
+        )}
         {series.native === 'USD' && (
           <Group gap={4} role="group" aria-label="Currency">
             {CURRENCIES.map((option) => (

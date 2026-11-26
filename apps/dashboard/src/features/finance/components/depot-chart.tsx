@@ -67,12 +67,14 @@ import type {
   Timeframe,
   TradeMark,
 } from '../lib/depot-chart'
+import { barChange } from '../lib/depot-live'
+import type { BarChange } from '../lib/depot-live'
 import { compactDe, dayDe, percentDe, priceDe, priceDigits } from '../lib/depot-number'
 import classes from './depot-chart.module.css'
 
 /**
  * The depot chart: candles, an optional turnover histogram, the spliced index history as muted candles, the
- * owner's trades as markers, open orders and the average cost as price lines, and the drawing tools. This
+ * owner's trades as markers, open orders, the average cost and the live bid and ask as price lines, and the drawing tools. This
  * file is the ONLY importer of `lightweight-charts` and `lightweight-charts-drawing` (DESIGN.md, "App
  * deviations"): the page talks to props and callbacks. The chart is created once per mount (the page keys
  * it by instrument) and removed on unmount; colours are read from the theme's tokens and re-read when the
@@ -211,7 +213,7 @@ function roleStyle(
 }
 
 /** The titles of the open orders and the average cost: drawn at the left edge of the plot, above their line. */
-type LineLabel = { price: number; text: string; color: string }
+type LineLabel = { price: number; text: string; color: string; below?: boolean }
 
 /** What a pane renderer's target offers; the package that types it is the library's own dependency. */
 type MediaTarget = {
@@ -235,7 +237,7 @@ function createLineLabels(series: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>
     zOrder: () => 'top' as const,
     renderer: () => ({
       draw(target: MediaTarget) {
-        target.useMediaCoordinateSpace(({ context: ctx }) => {
+        target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
           ctx.font = look.font
           ctx.lineJoin = 'round'
           ctx.lineWidth = 3
@@ -243,13 +245,22 @@ function createLineLabels(series: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>
           for (const label of labels) {
             const y = series.priceToCoordinate(label.price)
             if (y === null) continue
-            // Above the line; below it when the line is at the top edge.
-            const below = y < look.size + 6
+            // A narrow pane (a phone) breaks a label before its side and distance instead of cutting them off.
+            const [head = '', ...rest] = label.text.split(' · ')
+            const rows =
+              rest.length === 0 || ctx.measureText(label.text).width <= mediaSize.width - 8
+                ? [label.text]
+                : [head, rest.join(' · ')]
+            const height = look.size + 2
+            // Above the line; below it when the line is at the top edge, and for the bid under the ask.
+            const below = label.below === true || y < rows.length * height + 4
             ctx.textBaseline = below ? 'top' : 'bottom'
-            const at = below ? y + 3 : y - 3
-            ctx.strokeText(label.text, 6, at)
-            ctx.fillStyle = label.color
-            ctx.fillText(label.text, 6, at)
+            rows.forEach((row, index) => {
+              const at = below ? y + 3 + index * height : y - 3 - (rows.length - 1 - index) * height
+              ctx.strokeText(row, 6, at)
+              ctx.fillStyle = label.color
+              ctx.fillText(row, 6, at)
+            })
           }
         })
       },
@@ -406,6 +417,8 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   /** The instrument's closes, a spliced index's included, as a line's points: its change over the visible range, over the span the index line covers. */
   let closes: readonly LevelPoint[] = []
 
+  let updates = 0
+
   /** An open order within reach of the price stays on screen: the scale stretches to hold its line. */
   const withOrders = (original: () => AutoscaleInfo | null): AutoscaleInfo | null => {
     const base = original()
@@ -539,6 +552,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     const first = scale.logicalToCoordinate(0 as Logical)
     const second = scale.logicalToCoordinate(1 as Logical)
     if (first !== null && second !== null) host.dataset['barSpacing'] = (second - first).toFixed(2)
+    reportMarks()
     const range = scale.getVisibleLogicalRange()
     const firstBar = allBars[0]
     const lastBar = allBars.at(-1)
@@ -617,7 +631,10 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         ? palette.buy
         : line.kind === 'order-sell'
           ? palette.sell
-          : palette.ink
+          : line.kind === 'cost'
+            ? palette.ink
+            : palette.text
+    const quoted = (line: PriceLine) => line.kind === 'bid' || line.kind === 'ask'
     priceLines = lines.map((line) => ({
       on: anchor,
       line: anchor.createPriceLine({
@@ -626,8 +643,14 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         title: '',
         color: colorOf(line),
         lineWidth: 1,
-        lineStyle: line.kind === 'cost' ? LineStyle.Solid : LineStyle.Dashed,
-        axisLabelVisible: true,
+        // Solid: what was paid. Dashed: an order waiting. Dotted: the live bid and ask, their price in the label only.
+        lineStyle:
+          line.kind === 'cost'
+            ? LineStyle.Solid
+            : quoted(line)
+              ? LineStyle.Dotted
+              : LineStyle.Dashed,
+        axisLabelVisible: !quoted(line),
       }),
     }))
     host.dataset['lineLabels'] = labelsOn ? String(lines.length) : '0'
@@ -638,7 +661,12 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     }
     ;(lineOnly ? closeLabels : lineLabels).set(
       labelsOn
-        ? lines.map((line) => ({ price: line.price, text: line.title, color: colorOf(line) }))
+        ? lines.map((line) => ({
+            price: line.price,
+            text: line.title,
+            color: colorOf(line),
+            below: line.kind === 'bid',
+          }))
         : [],
       look,
     )
@@ -687,7 +715,11 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     host.dataset['markLevels'] = markGroups(marks)
       .flatMap((group) => (group.level === undefined ? [] : [group.level.toFixed(2)]))
       .join(',')
-    // The design shot finds a trade's bar on screen: where the first few trades sit, in px from the left.
+    reportMarks()
+  }
+
+  /** The design shot finds a trade's bar on screen: where the newest few trades sit, in px from the left. */
+  function reportMarks() {
     host.dataset['markX'] = markGroups(marks)
       .slice(-6)
       .map((group) => chart.timeScale().timeToCoordinate(group.time as UTCTimestamp))
@@ -718,6 +750,26 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         color: bar.close >= bar.open ? palette.upFaint : palette.downFaint,
       })),
     )
+  }
+
+  /** The newest bar changed or one was added: the series take it in place, so the view and the zoom stay. */
+  function updateData(changed: readonly ChartBar[]) {
+    for (const bar of changed) {
+      const time = bar.time as UTCTimestamp
+      if (lineOnly) splice.update({ time, value: bar.close })
+      else {
+        const [candle] = historyCandles([bar], { up: palette.upMuted, down: palette.downMuted })
+        if (candle !== undefined) candles.update({ ...candle, time })
+      }
+      volume?.update({
+        time,
+        value: bar.turnover ?? 0,
+        color: bar.close >= bar.open ? palette.upFaint : palette.downFaint,
+      })
+    }
+    updates += changed.length
+    // The design shot tells an update in place from a redraw by this.
+    host.dataset['updates'] = String(updates)
   }
 
   /** The visible range from the bar at `start` (the first bar for null) to the newest, with about 5 % of its width empty to the right. */
@@ -801,6 +853,11 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
 
   return {
     setBars(next, nextViewKey, interval, asLine) {
+      const change: BarChange =
+        viewKey === nextViewKey && asLine === lineOnly
+          ? barChange(allBars, next)
+          : { kind: 'replace' }
+      if (change.kind === 'same') return
       const parts = asLine ? { own: [], spliced: [...next] } : splitSpliced(next)
       lineOnly = asLine
       own = parts.own
@@ -808,6 +865,13 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       allBars = next
       launch = asLine ? null : launchTime(next)
       closes = next.map((bar) => ({ time: bar.time, value: bar.close }))
+      if (change.kind === 'tail') {
+        updateData(change.bars)
+        paintOverlays()
+        paintCompare()
+        reportView()
+        return
+      }
       const last = next.at(-1)
       if (last !== undefined) {
         const format = { priceFormat: priceFormat(minMoveOf(last.close)) }

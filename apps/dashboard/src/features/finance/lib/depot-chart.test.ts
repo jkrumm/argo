@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { ChartBar, DepotOrder, DepotPosition, DepotTrade } from '../api/types'
+import type { ChartBar, DepotPosition, DepotTrade } from '../api/types'
 import {
   barOfDay,
   activeTimeframe,
@@ -24,7 +24,6 @@ import {
   markGroups,
   marksByBar,
   mergedPosition,
-  orderLine,
   pickInstrument,
   rangeStart,
   rightMarginBars,
@@ -71,18 +70,6 @@ const heldPosition = (isin: string, quantity: number, value: number, cost: numbe
     quantity_source: 'document',
     lots: [],
   }) as unknown as DepotPosition
-
-const order = (over: Partial<DepotOrder>): DepotOrder =>
-  ({
-    id: 7,
-    side: 'buy',
-    type: 'limit',
-    limit_price: 41.5,
-    stop_price: null,
-    quantity: 10,
-    status: 'open',
-    ...over,
-  }) as DepotOrder
 
 describe('candleWindow', () => {
   it('counts back from today at day; week and month load the whole history', () => {
@@ -227,20 +214,6 @@ describe('tradeCards', () => {
 })
 
 describe('lines', () => {
-  it('puts a limit order at its limit and a stop order at its stop', () => {
-    expect(orderLine(order({}))).toMatchObject({
-      price: 41.5,
-      kind: 'order-buy',
-      title: 'Buy limit 41,5 €',
-    })
-    expect(
-      orderLine(order({ type: 'stop', side: 'sell', stop_price: 38, limit_price: null })),
-    ).toMatchObject({ price: 38, kind: 'order-sell', title: 'Sell stop 38 €' })
-  })
-  it('draws no line for a market order or a closed one', () => {
-    expect(orderLine(order({ type: 'market', limit_price: null }))).toBeNull()
-    expect(orderLine(order({ status: 'cancelled' }))).toBeNull()
-  })
   it('puts the average cost per unit on an open position only', () => {
     const position = { quantity: 4, cost_average_cents: 20_000 } as DepotPosition
     expect(costLine(position)).toMatchObject({ price: 50, kind: 'cost' })
@@ -452,15 +425,6 @@ describe('distanceFromHigh and signedPercent', () => {
     expect(signedPercent(-0.183)).toBe('−18,3 %')
     expect(signedPercent(0.0512)).toBe('+5,1 %')
     expect(signedPercent(null)).toBe('—')
-  })
-})
-
-describe('orderLine in dollars', () => {
-  it('converts a euro limit at the rate and names both amounts', () => {
-    const line = orderLine(order({ side: 'sell', limit_price: 182 }), 1.08)
-    expect(line?.price).toBeCloseTo(196.56)
-    expect(line?.title).toBe('Sell limit 182 € (196,56 $)')
-    expect(line?.kind).toBe('order-sell')
   })
 })
 

@@ -11,6 +11,7 @@ import {
   useDrawings,
   useOpenOrders,
   usePositions,
+  useQuotes,
   useSeriesCatalog,
   useWatchlist,
 } from '../api/queries'
@@ -33,7 +34,6 @@ import {
   heldRows,
   instrumentsOf,
   mergedPosition,
-  orderLine,
 } from '../lib/depot-chart'
 import type { PriceLine } from '../lib/depot-chart'
 import {
@@ -49,11 +49,13 @@ import {
   tabItems,
   viewAfterPick,
 } from '../lib/depot-nav'
+import { EUR_LINE_MIC, orderLine, quoteLines } from '../lib/depot-live'
 import { useHiddenTabs } from '../lib/depot-prefs'
 import { INDEX_IDS, INDEX_SERIES } from '../lib/index-series'
 import { isoDay } from '../lib/time'
 import { atIndexLevel, indexFactor, trackersOf } from '../lib/depot-tracking'
-import { useDepotSeries } from '../lib/use-depot-series'
+import { tradesDirect, useDepotSeries } from '../lib/use-depot-series'
+import { useViewPrefs } from '../lib/view-prefs'
 import { useField } from '../../../lib/use-field'
 import { useNow } from '../../../lib/use-now'
 import { finStore } from '../../../lib/window-stores'
@@ -135,7 +137,25 @@ export function DepotPage() {
       : [{ isin: orderIsin, name: entry?.name ?? orderIsin }]
 
   const charting = view === 'chart' && !awaiting
-  const series = useDepotSeries({ entry, isin, interval, charting, today })
+  // The charted listing's own quote: a US stock's chart is its US listing, anything else the euro line.
+  const [prefs] = useViewPrefs(isin ?? '')
+  const direct = prefs.venue === 'direct' && tradesDirect(entry)
+  const chartMic = entry?.us_mic != null && !direct ? undefined : EUR_LINE_MIC
+  const chartQuotes = useQuotes(charting && isin !== null ? [isin] : [], chartMic)
+  const chartQuote = isin === null ? undefined : chartQuotes.quotes.get(isin)
+  // The rows of the sidebar and the Board, as euro lines like their stored closes.
+  const rowQuotes = useQuotes(
+    items.map((item) => item.symbol),
+    EUR_LINE_MIC,
+  )
+  const series = useDepotSeries({
+    entry,
+    isin,
+    interval,
+    charting,
+    today,
+    every: chartQuotes.every,
+  })
   const { bars, currency, dailyBars } = series
   const trades = useDepotTrades(tradable && view !== 'board' ? isin : null)
   const orders = useOpenOrders(view === 'board' ? null : orderIsin)
@@ -167,8 +187,19 @@ export function DepotPage() {
         return trade.price === null || factor === null ? undefined : trade.price * factor
       }
     : undefined
+  // ING Direkthandel's bid and ask of what an order can be for: the lines, the order labels and the order form.
+  const orderQuotes = useQuotes(
+    view === 'board'
+      ? []
+      : [
+          ...choices.map((c) => c.isin),
+          ...(orders.data ?? []).map((o) => o.isin),
+          ...trackedOrders.map((o) => o.isin),
+        ],
+    EUR_LINE_MIC,
+  ).quotes
   const trackedLines = trackedOrders.flatMap((order) => {
-    const line = orderLine(order)
+    const line = orderLine(order, null, orderQuotes.get(order.isin))
     const factor = factorOf(order.isin)
     const name = trackers.length > 1 ? (trackerOf(order.isin)?.name ?? order.isin) : undefined
     return line === null || factor === null ? [] : [atIndexLevel(line, factor, name)]
@@ -185,10 +216,22 @@ export function DepotPage() {
       // Only a coin held directly has a cost in the coin's own price; an ETP's does not belong on this chart.
       return [owned.length === 1 && instruments.includes(isin ?? '') ? costLine(position) : null]
     }
-    if (euro) return [...open.map((order) => orderLine(order)), costLine(position)]
+    // A coin has no bid and ask of its own here: its ETP's price is not the coin's.
+    const spread = tradable && entry?.kind !== 'coin' && isin !== null ? isin : null
+    const quoted = spread === null ? undefined : orderQuotes.get(spread)
+    if (euro) {
+      return [
+        ...open.map((order) => orderLine(order, null, orderQuotes.get(order.isin))),
+        costLine(position),
+        ...quoteLines(quoted),
+      ]
+    }
     return [
       ...(stockInDollars && usdPerEur !== null
-        ? open.map((order) => orderLine(order, usdPerEur))
+        ? [
+            ...open.map((order) => orderLine(order, usdPerEur, orderQuotes.get(order.isin))),
+            ...quoteLines(quoted, usdPerEur),
+          ]
         : []),
       owned.length === 1 ? costLineUsd(position, trades.data ?? []) : null,
     ]
@@ -221,7 +264,15 @@ export function DepotPage() {
 
   const main = (() => {
     if (view === 'board' && tab !== undefined) {
-      return <DepotBoard tab={tab} lists={userLists} items={items} onOpen={openChart} />
+      return (
+        <DepotBoard
+          tab={tab}
+          lists={userLists}
+          items={items}
+          quotes={rowQuotes.quotes}
+          onOpen={openChart}
+        />
+      )
     }
     if (isin === null || entry === undefined) {
       return (
@@ -284,6 +335,8 @@ export function DepotPage() {
           lastClose={lastClose}
           today={today}
           line={asLine}
+          quote={chartQuote}
+          venues={tradable && tradesDirect(entry) ? { usMic: entry.us_mic } : null}
         />
         {isin === BITCOIN && (
           <Box className={classes.below}>
@@ -321,6 +374,7 @@ export function DepotPage() {
               tab={tab}
               lists={userLists}
               items={items}
+              quotes={rowQuotes.quotes}
               active={isin}
               pending={watchlist.isPending}
               error={watchlist.error}
@@ -346,6 +400,7 @@ export function DepotPage() {
           choices={choices}
           choose={tracking}
           rate={series.rate}
+          quotes={orderQuotes}
           onClose={() => setAdding(false)}
         />
       )}

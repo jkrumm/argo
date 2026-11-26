@@ -21,9 +21,10 @@ import type {
 } from 'react'
 import { useBackfill, useListWrites, useSearch } from '../api/lists'
 import { reportWriteError } from '../api/mutations'
-import type { SearchHit, WatchList, WatchlistEntry } from '../api/types'
+import type { MarketQuote, SearchHit, WatchList, WatchlistEntry } from '../api/types'
 import { eur } from '../lib/format'
 import { priceText, signedPercent } from '../lib/depot-chart'
+import { clockTime } from '../lib/depot-live'
 import { quantityDe } from '../lib/depot-number'
 import {
   addTargetList,
@@ -61,6 +62,8 @@ export type DepotSidebarProps = {
   lists: readonly WatchList[]
   /** The rows of the tab, as the tab derives them. */
   items: readonly SidebarItem[]
+  /** The live quote of each row, by symbol. */
+  quotes: ReadonlyMap<string, MarketQuote>
   /** The symbol the main area shows. */
   active: string | null
   pending: boolean
@@ -79,6 +82,7 @@ export type DepotSidebarProps = {
  */
 export function DepotSidebarPanel(props: DepotSidebarProps) {
   const { tab, lists, items, active, pending, error, listsError, onPick, onBoard, onAdded } = props
+  const { quotes } = props
   const writes = useListWrites()
   const list = lists.find((l) => l.id === tab.listId)
   const searchable = tab.id !== CRYPTO_TAB
@@ -387,7 +391,7 @@ export function DepotSidebarPanel(props: DepotSidebarProps) {
                 className={classes.scroll}
                 data-depot-scroll=""
               >
-                <Stack gap="xs" aria-label={`${tab.label}: last close and change on the day`}>
+                <Stack gap="xs" aria-label={`${tab.label}: last price and change on the day`}>
                   {groups.map((group) => (
                     <Box key={group.group} role="group" aria-label={group.header}>
                       <Group justify="space-between" className={classes.groupHeader}>
@@ -419,6 +423,7 @@ export function DepotSidebarPanel(props: DepotSidebarProps) {
                             <EntryRow
                               key={item.symbol}
                               item={item}
+                              live={quotes.get(item.symbol)}
                               selected={item.symbol === active}
                               dragging={drag?.symbol === item.symbol}
                               dropTarget={over === item.symbol ? over : null}
@@ -467,6 +472,7 @@ export function DepotSidebarPanel(props: DepotSidebarProps) {
 
 function EntryRow({
   item,
+  live,
   selected,
   dragging,
   dropTarget,
@@ -480,6 +486,7 @@ function EntryRow({
   onDrop,
 }: {
   item: SidebarItem
+  live: MarketQuote | undefined
   selected: boolean
   dragging: boolean
   dropTarget: string | null
@@ -557,9 +564,9 @@ function EntryRow({
           )}
         </Box>
         {item.line === null ? (
-          <QuoteFigures quote={item.quote} />
+          <QuoteFigures quote={item.quote} live={live} />
         ) : (
-          <DepotFigures line={item.line} />
+          <DepotFigures line={item.line} quote={item.quote} live={live} />
         )}
         <HistoryProgress symbol={item.symbol} quote={item.quote} />
       </UnstyledButton>
@@ -601,7 +608,39 @@ function HistoryProgress({ symbol, quote }: { symbol: string; quote: WatchlistEn
   )
 }
 
-function DepotFigures({ line }: { line: NonNullable<SidebarItem['line']> }) {
+/** The price and the day's change of a row: the live ones, the last stored close until a quote answers. */
+function rowPrice(quote: WatchlistEntry, live: MarketQuote | undefined) {
+  const answered = live?.last != null
+  return {
+    price: answered ? live.last : quote.last_close,
+    change: answered ? live.change_pct : quote.day_change_pct,
+    title: live?.as_of == null ? undefined : `Stand ${clockTime(live.as_of)}`,
+  }
+}
+
+function PriceFigures({ quote, live }: { quote: WatchlistEntry; live: MarketQuote | undefined }) {
+  const { price, change, title } = rowPrice(quote, live)
+  return (
+    <Box className={classes.figures} title={title} data-shot="depot-row-price">
+      <Text span size="xs" c="dimmed">
+        {price === null ? '—' : priceText(price)}
+      </Text>
+      <Text span size="xs" {...(change !== null && { c: change >= 0 ? 'green' : 'red' })}>
+        {signedPercent(change)}
+      </Text>
+    </Box>
+  )
+}
+
+function DepotFigures({
+  line,
+  quote,
+  live,
+}: {
+  line: NonNullable<SidebarItem['line']>
+  quote: WatchlistEntry
+  live: MarketQuote | undefined
+}) {
   return (
     <>
       <Box className={classes.figures}>
@@ -612,6 +651,7 @@ function DepotFigures({ line }: { line: NonNullable<SidebarItem['line']> }) {
           {line.share === null ? '—' : `${(line.share * 100).toFixed(1)} %`}
         </Text>
       </Box>
+      <PriceFigures quote={quote} live={live} />
       <Text span size="xs" c="dimmed">
         {`${quantityDe(line.quantity)} units`}
       </Text>
@@ -619,19 +659,12 @@ function DepotFigures({ line }: { line: NonNullable<SidebarItem['line']> }) {
   )
 }
 
-function QuoteFigures({ quote }: { quote: WatchlistEntry }): ReactNode {
-  return (
-    <Box className={classes.figures}>
-      <Text span size="xs" c="dimmed">
-        {quote.last_close === null ? '—' : priceText(quote.last_close)}
-      </Text>
-      <Text
-        span
-        size="xs"
-        {...(quote.day_change_pct !== null && { c: quote.day_change_pct >= 0 ? 'green' : 'red' })}
-      >
-        {signedPercent(quote.day_change_pct)}
-      </Text>
-    </Box>
-  )
+function QuoteFigures({
+  quote,
+  live,
+}: {
+  quote: WatchlistEntry
+  live: MarketQuote | undefined
+}): ReactNode {
+  return <PriceFigures quote={quote} live={live} />
 }

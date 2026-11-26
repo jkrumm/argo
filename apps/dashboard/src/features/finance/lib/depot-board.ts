@@ -1,8 +1,11 @@
-import type { BoardEntry, BoardFigures, ChartBar } from '../api/types'
+import type { BoardEntry, BoardFigures, ChartBar, MarketQuote } from '../api/types'
 import type { SidebarItem } from './depot-nav'
 
-/** A row of the Board: the entry the board route describes, with the name the owner reads it by. */
-export type BoardRow = BoardEntry & { label: string }
+/**
+ * A row of the Board: the entry the board route describes, with the name the owner reads it by. `live` is the quote its
+ * figures are read with while its day is running.
+ */
+export type BoardRow = BoardEntry & { label: string; live?: MarketQuote | undefined }
 
 type Point = { day: string; value: number }
 

@@ -1,5 +1,12 @@
-import { keepPreviousData, queryOptions, useQueries, useQuery } from '@tanstack/react-query'
+import {
+  focusManager,
+  keepPreviousData,
+  queryOptions,
+  useQueries,
+  useQuery,
+} from '@tanstack/react-query'
 import { FINANCE_DATA, FinanceApiError, financeGet } from './client'
+import { EUR_LINE_MIC, LIVE_POLL_MS, pollDelay } from '../lib/depot-live'
 import type {
   CandlesResponse,
   CategoryMonth,
@@ -17,6 +24,7 @@ import type {
   MonthStatus,
   NetWorth,
   Overview,
+  QuotesResponse,
   RangeQuery,
   RecurringRow,
   SeriesInfo,
@@ -160,17 +168,75 @@ export type CandleQuery = {
   mic?: string | undefined
   /** `index`: an ETF's history starts with the index it tracks (flagged bars). */
   splice?: 'index' | undefined
+  /** Appends the running day as a provisional bar. */
+  today?: 1 | undefined
+  /** Only the newest bars. */
+  limit?: number | undefined
 }
+
+/** A whole history is read once: its running day is kept current by `useTail`, never by asking for it again. */
+const HISTORY_STALE_MS = 3_600_000
 
 export const useCandles = (query: CandleQuery | null) =>
   useQuery({
     queryKey: [...DEPOT_KEY, 'candles', query],
     queryFn: () => financeGet<CandlesResponse>('/market/candles', { ...query }),
     enabled: query !== null,
-    // Today's bar moves; a minute keeps a chart left open honest.
-    staleTime: 60_000,
+    staleTime: HISTORY_STALE_MS,
     placeholderData: keepPreviousData,
   })
+
+/** The bars a tail request asks for: enough to close the gap of a chart left open over a few days. */
+const TAIL_BARS = 5
+
+/**
+ * The newest bars of a history with its running day, asked again on the quote's schedule (`pollDelay`): the chart's
+ * running candle, in the bar interval and venue of its history. A hidden tab asks nothing.
+ */
+export const useTail = (query: CandleQuery | null, every: number | false) =>
+  useQuery({
+    queryKey: [...DEPOT_KEY, 'candles-tail', query],
+    queryFn: () =>
+      financeGet<CandlesResponse>('/market/candles', { ...query, today: 1, limit: TAIL_BARS }),
+    enabled: query !== null,
+    staleTime: LIVE_POLL_MS / 2,
+    refetchInterval: every,
+    refetchOnWindowFocus: 'always',
+  })
+
+/** The most symbols the quote route takes at once. */
+const QUOTE_BATCH = 50
+
+/**
+ * The live quote of each symbol, by symbol; `mic` `XETR` asks every ISIN's euro line. Asked every minute while a session
+ * of the batch is not closed and the tab is visible; answers while the vault is locked.
+ */
+export function useQuotes(symbols: readonly string[], mic?: typeof EUR_LINE_MIC) {
+  const wanted = [...new Set(symbols)].toSorted()
+  const batches = Array.from({ length: Math.ceil(wanted.length / QUOTE_BATCH) }, (_, at) =>
+    wanted.slice(at * QUOTE_BATCH, (at + 1) * QUOTE_BATCH).join(','),
+  )
+  const results = useQueries({
+    queries: batches.map((batch) => ({
+      queryKey: [...DEPOT_KEY, 'quote', batch, mic ?? ''],
+      queryFn: () => financeGet<QuotesResponse>('/market/quote', { symbols: batch, mic }),
+      staleTime: LIVE_POLL_MS / 2,
+      refetchInterval: (query: { state: { data?: QuotesResponse | undefined } }) =>
+        pollDelay(query.state.data?.quotes, Date.now(), focusManager.isFocused()),
+      refetchOnWindowFocus: 'always' as const,
+    })),
+  })
+  const quotes = results.flatMap((result) => result.data?.quotes ?? [])
+  return {
+    quotes: new Map(quotes.map((quote) => [quote.symbol, quote] as const)),
+    /** When the next request is due, for a request that follows the same sessions. */
+    every: pollDelay(
+      quotes.length === 0 ? undefined : quotes,
+      results[0]?.dataUpdatedAt ?? 0,
+      true,
+    ),
+  }
+}
 
 /**
  * The daily bars of several instruments, each by its own request, for rows no board route covers (a held instrument on no
@@ -181,7 +247,7 @@ export function useDailyBars(queries: readonly (CandleQuery & { isin: string })[
     queries: queries.map((query) => ({
       queryKey: [...DEPOT_KEY, 'candles', query],
       queryFn: () => financeGet<CandlesResponse>('/market/candles', { ...query }),
-      staleTime: 60_000,
+      staleTime: HISTORY_STALE_MS,
     })),
   })
   return {

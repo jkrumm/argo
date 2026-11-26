@@ -1,6 +1,5 @@
 import type {
   ChartBar,
-  DepotOrder,
   DepotPosition,
   DepotTrade,
   SeriesResponse,
@@ -421,34 +420,12 @@ export function tradeCards(marks: readonly TradeMark[], usd: boolean, named = fa
   })
 }
 
-/** A horizontal line on the chart: an open order at its limit or stop, or the average cost. */
+/** A horizontal line on the chart: an open order at its limit or stop, the average cost, or the live bid or ask. */
 export type PriceLine = {
   id: string
   price: number
   title: string
-  kind: 'order-buy' | 'order-sell' | 'cost'
-}
-
-const SIDE_WORD = { buy: 'Buy', sell: 'Sell' } as const
-
-/**
- * An open order as a line; a market order has no price and so no line. Prices are euros: with `usdPerEur` the line
- * sits at the converted dollar price of a dollar chart and its label names both amounts.
- */
-export function orderLine(order: DepotOrder, usdPerEur?: number | null): PriceLine | null {
-  const price = order.type === 'stop' ? order.stop_price : order.limit_price
-  if (order.status !== 'open' || price === null) return null
-  const dollars = usdPerEur === undefined || usdPerEur === null ? null : price * usdPerEur
-  const amount =
-    dollars === null
-      ? moneyDe(price, 'EUR')
-      : `${moneyDe(price, 'EUR')} (${moneyDe(dollars, 'USD')})`
-  return {
-    id: `order-${order.id}`,
-    price: dollars ?? price,
-    title: `${SIDE_WORD[order.side]} ${order.type} ${amount}`,
-    kind: order.side === 'buy' ? 'order-buy' : 'order-sell',
-  }
+  kind: 'order-buy' | 'order-sell' | 'cost' | 'bid' | 'ask'
 }
 
 /** The average cost of an open position per unit, in the instrument's currency (EUR). */

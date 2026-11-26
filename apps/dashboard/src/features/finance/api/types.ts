@@ -623,7 +623,54 @@ export type ChartBar = {
   days?: number
   /** `true` on a bar of a series that sends the close only (or a bar with such a day): open, high and low are built from the closes. */
   derived_from_close?: true
+  /** `candles?today=1`: the running day (or the week or month it is folded into), never stored. */
+  provisional?: true
+  /** When the provisional figures were made (ISO, UTC). */
+  as_of?: string
+  /** How far behind the provisional figures are; 0 is real time. */
+  delay_seconds?: number
 }
+
+export type QuoteSession = 'pre' | 'open' | 'extended' | 'closed'
+
+/**
+ * One row of `GET /api/market/quote?symbols=&mic=XETR` (finances `docs/service.md` §Chart routes). Answers while the service is locked.
+ * With `mic=XETR` every ISIN answers its euro line with ING Direkthandel's price, bid and ask; without it a US ISIN with a stored listing
+ * answers in dollars from that listing.
+ */
+export type MarketQuote = {
+  symbol: string
+  currency: string | null
+  /** The live price, else the last stored close. */
+  last: number | null
+  /** The day `last` belongs to. */
+  day: string | null
+  /** ING Direkthandel's bid and ask, also when `last` is a stored close. */
+  bid: number | null
+  ask: number | null
+  spread: number | null
+  spread_bps: number | null
+  quoted_at: string | null
+  /** The close of the bar before `day`. */
+  prev_close: number | null
+  prev_close_day: string | null
+  change: number | null
+  /** A fraction (0.012 = +1.2 %). */
+  change_pct: number | null
+  /** When `last` was made (ISO, UTC); null when it is a stored close. */
+  as_of: string | null
+  delay_seconds: number | null
+  source: string | null
+  /** `ING Direkthandel`, `Xetra`, `Tradegate`, a US exchange, `Bitstamp`. */
+  venue: string | null
+  session: QuoteSession
+  /** The next start of the regular session (ISO, UTC); null for a coin or a series. */
+  next_open: string | null
+  /** Why the line's source gave no live price, or null. */
+  error: string | null
+}
+
+export type QuotesResponse = { quotes: MarketQuote[] }
 
 /**
  * `GET /api/market/candles?isin=&interval=&from=&to=&limit=&splice=index&sys=&mic=`. `from` and `to` are days (`YYYY-MM-DD`). With no `limit` every stored bar of

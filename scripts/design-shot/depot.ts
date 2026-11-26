@@ -14,7 +14,8 @@
  * a launch marker; the weekly compare of a young fund reads one continuous splice with about 5 % free on the right; the
  * order and cost labels sit at the left edge and the toolbar's "Beschriftung" hides them; "Compare with…" turns the scale to percent (6M and 1Y read differently, the chip's x removes it);
  * the toolbar's tooltips, the line editor and the pointer coming back after one drawing, the all-time high in the header, the
- * US stock's hand-kept sell order on its dollar chart; an instrument is searched, added to a list,
+ * US stock's hand-kept sell order on its dollar chart; the live layer (quote line and status per market, bid and ask,
+ * the venue switch, an in-place candle update, the live Board, the order form's prefill); an instrument is searched, added to a list,
  * renamed and removed; a trade card is pinned; and PNGs per combination are written (default
  * `.design-shots/depot`).
  */
@@ -210,7 +211,8 @@ function dailyBars(instrument: Instrument, seed: number): Bar[] {
   const random = rng(seed)
   const today = midnight(Date.now())
   const days: number[] = []
-  for (let t = today - (instrument.days ?? 1800) * DAY_S; t <= today; t += DAY_S) {
+  // The stored history ends before today: the running day is the live layer's (see "The live layer").
+  for (let t = today - (instrument.days ?? 1800) * DAY_S; t < today; t += DAY_S) {
     const weekday = new Date(t * 1000).getUTCDay()
     if (instrument.kind === 'coin' || (weekday !== 0 && weekday !== 6)) days.push(t)
   }
@@ -996,10 +998,124 @@ const SEARCHABLE = [
 const json = (body: unknown, status = 200): Response =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
 
+// ---- The live layer ----------------------------------------------------------------------------
+
+/** How far today's price stands from the last stored close; `/__tick` moves it, so a shot can watch a candle change. */
+let move = 1.03
+const DIRECT = 'ING-DH'
+/** Direkthandel has only a short stored history. */
+const DIRECT_DAYS = 14
+
+const isSeries = (symbol: string): boolean => INDEX_ROWS.some((row) => row.id === symbol)
+
+/** Today's bar of a line: a US listing has none (its market is shut), a series never. */
+function todayBar(key: string, mic: string | null) {
+  const last = barsOf(key).at(-1)
+  if (last === undefined || isSeries(key) || key.includes(':')) return null
+  // Direkthandel trades live; the exchange's day is a quarter of an hour behind and a little off its price.
+  const delayed = mic !== DIRECT && key !== 'BTC-USD'
+  const close = round(last.close * (delayed ? move - 0.002 : move), 4)
+  return {
+    time: midnight(Date.now()),
+    open: round(last.close * 1.004, 4),
+    high: round(Math.max(close, last.close * 1.036), 4),
+    low: round(last.close * 0.998, 4),
+    close,
+    units: null,
+    turnover: Math.round((last.turnover ?? 0) * 0.4),
+    provisional: true,
+    as_of: new Date(Date.now() - (delayed ? 900_000 : 0)).toISOString(),
+    delay_seconds: delayed ? 900 : 0,
+  }
+}
+
+/** One quote as the service answers it; `eurLine` is `mic=XETR`. */
+function quoteRow(symbol: string, eurLine: boolean) {
+  const us = symbol === US_STOCK && !eurLine
+  const coin = symbol === 'BTC-USD'
+  const series = isSeries(symbol)
+  const stored =
+    symbol === BTC_ETP
+      ? undefined
+      : (barsOf(us ? `${symbol}:XNAS` : symbol) as { time: number; close: number }[]).at(-1)
+  const close =
+    symbol === BTC_ETP ? priceOn(BTC_ETP, dayOf(Date.now() / 1000 - DAY_S)) : stored?.close
+  const running = !us && !series && close !== undefined
+  const before = (barsOf(us ? `${symbol}:XNAS` : symbol) as { close: number }[]).at(-2)?.close
+  // A shut market's price is the last close, its change the one that day made.
+  const prev = running ? close : (before ?? close)
+  const last = close === undefined ? null : round(running ? close * move : close, 4)
+  const quoted = running && !coin && last !== null
+  const tomorrow = new Date((midnight(Date.now()) + DAY_S + 14.5 * 3600) * 1000).toISOString()
+  return {
+    symbol,
+    currency: us || coin ? 'USD' : series ? seriesCurrency(symbol) : 'EUR',
+    last,
+    day: running ? dayOf(Date.now() / 1000) : stored === undefined ? null : dayOf(stored.time),
+    bid: quoted ? round(last * 0.9985, 3) : null,
+    ask: quoted ? round(last * 1.0015, 3) : null,
+    spread: quoted ? round(last * 0.003, 3) : null,
+    spread_bps: quoted ? 30 : null,
+    quoted_at: quoted ? new Date().toISOString() : null,
+    prev_close: prev ?? null,
+    prev_close_day: stored === undefined ? null : dayOf(stored.time),
+    change: last === null || prev === undefined ? null : round(last - prev, 4),
+    change_pct: last === null || prev === undefined ? null : last / prev - 1,
+    as_of: running ? new Date().toISOString() : null,
+    delay_seconds: running ? 0 : null,
+    source: coin ? 'bitstamp' : us ? 'nasdaq' : 'ing',
+    venue: series ? null : coin ? 'Bitstamp' : us ? 'NASDAQ-GS' : 'ING Direkthandel',
+    session: running ? 'open' : 'closed',
+    next_open: coin || series ? null : tomorrow,
+    today: null,
+    error: null,
+  }
+}
+
+/** The candles route's answer, with `today=1`, `limit` and ING Direkthandel's short history. */
+function candleAnswer(q: URLSearchParams) {
+  const isin = q.get('isin') ?? ''
+  const interval = q.get('interval') ?? '1d'
+  const mic = q.get('mic')
+  const direct = mic === DIRECT
+  const listing = mic === null || direct ? null : mic
+  const key = listing === null ? isin : `${isin}:${listing}`
+  const index = INSTRUMENTS.find((i) => i.isin === isin)?.index ?? null
+  const splice = q.get('splice') === 'index' && index !== null && mic === null
+  let bars: object[] = candles(key, interval, q.get('from'), q.get('to'), splice)
+  if (direct) {
+    bars = (bars as Bar[]).slice(-DIRECT_DAYS).map((bar) => ({
+      ...bar,
+      close: round(bar.close * 1.006, 4),
+      high: round(bar.high * 1.008, 4),
+      source: 'ing',
+    }))
+  }
+  const today = q.get('today') === '1' ? todayBar(key, mic) : null
+  if (today !== null && interval === '1d') bars = [...bars, today]
+  const limit = q.get('limit')
+  if (limit !== null) bars = bars.slice(-Number(limit))
+  return {
+    isin,
+    interval,
+    currency: isSeries(isin)
+      ? seriesCurrency(isin)
+      : listing !== null || isin === 'BTC-USD'
+        ? 'USD'
+        : 'EUR',
+    mic,
+    candles: bars,
+    more: false,
+    index: splice ? index : null,
+    notes: [],
+  }
+}
+
 async function handleApi(req: Request, url: URL): Promise<Response> {
   const path = url.pathname.replace(/^\/api/, '')
   const q = url.searchParams
   if (path === '/__reset') {
+    move = 1.03
     orders.length = 0
     nextOrder = 1
     seedOrders()
@@ -1008,6 +1124,10 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     nextList = 3
     pending.add(AMD)
     backfills.clear()
+    return json({ ok: true })
+  }
+  if (path === '/__tick') {
+    move = Number(q.get('move') ?? '1.03')
     return json({ ok: true })
   }
   if (path === '/__finish') {
@@ -1087,31 +1207,11 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
         points: (INDEX_LEVELS.get(id) ?? []).filter((p) => p.day >= from && p.day <= to),
       })
     }
-    if (rest === '/market/candles') {
-      // The US listing is a second series, in dollars; a coin listing is in dollars too.
-      const isin = q.get('isin') ?? ''
-      const mic = q.get('mic')
-      const index = INSTRUMENTS.find((i) => i.isin === isin)?.index ?? null
-      const splice = q.get('splice') === 'index' && index !== null && mic === null
+    if (rest === '/market/candles') return json(candleAnswer(q))
+    if (rest === '/market/quote') {
+      const eurLine = q.get('mic') === 'XETR'
       return json({
-        isin,
-        interval: q.get('interval'),
-        currency: INDEX_ROWS.some((r) => r.id === isin)
-          ? seriesCurrency(isin)
-          : mic !== null || isin === 'BTC-USD'
-            ? 'USD'
-            : 'EUR',
-        mic,
-        candles: candles(
-          mic === null ? isin : `${isin}:${mic}`,
-          q.get('interval') ?? '1d',
-          q.get('from'),
-          q.get('to'),
-          splice,
-        ),
-        more: false,
-        index: splice ? index : null,
-        notes: [],
+        quotes: (q.get('symbols') ?? '').split(',').map((symbol) => quoteRow(symbol, eurLine)),
       })
     }
     if (rest === '/depot/positions') {
@@ -2099,7 +2199,7 @@ async function checkTracking(
   await goto(`isin=${FTSE}`)
   await page.locator('canvas').first().waitFor()
   const dollars = await levelOf()
-  if (!/^Buy limit [\d.,]+ €$/.test(await hostAttr(page, 'lines'))) {
+  if (!/^Kauf Limit [\d.,]+ €( · [^|]+)?$/.test(await hostAttr(page, 'lines'))) {
     failures.push(`${where}: the index chart has no order line: "${await hostAttr(page, 'lines')}"`)
   }
   await euro().click()
@@ -2144,7 +2244,7 @@ async function checkTracking(
   await page.locator('canvas').first().waitFor()
   await euro().click()
   await page.waitForTimeout(900)
-  if (!/^Sell limit [\d.,]+ €(\||$)/.test(await hostAttr(page, 'lines'))) {
+  if (!/^Verkauf Limit [\d.,]+ €/.test(await hostAttr(page, 'lines'))) {
     failures.push(`${where}: the stock in euros reads "${await hostAttr(page, 'lines')}"`)
   }
   await page.screenshot({ path: join(out, `depot--${scheme}--${device}--us-stock-eur.png`) })
@@ -2262,6 +2362,108 @@ async function checkLayout(
   if (size !== null) await page.setViewportSize(size)
 }
 
+/**
+ * The live layer: the quote line and its status per market, Direkthandel's bid and ask, the venue switch, a candle that
+ * changes in place, the live Board and the order form that starts at the ask.
+ */
+async function checkLive(
+  page: Page,
+  origin: string,
+  out: string,
+  scheme: string,
+  device: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  const shot = (name: string) => join(out, `depot--${scheme}--${device}--${name}.png`)
+  const status = () => page.locator('[data-shot="depot-quote-status"]').innerText()
+  const open = async (query: string) => {
+    await page.goto(`${origin}/finance/depot?${query}`, { waitUntil: 'networkidle' })
+    await page.locator('canvas').first().waitFor()
+    await page.waitForTimeout(900)
+  }
+  await fetch(`${origin}/api/__tick?move=1.03`)
+
+  await open(`isin=${WORLD}`)
+  if ((await status()).toLowerCase() !== 'live')
+    failures.push(`${where}: the ETF reads "${await status()}"`)
+  const lag = await page.locator('[data-shot="depot-candle-lag"]').innerText()
+  if (lag !== 'Kerze 15 Min. verzögert')
+    failures.push(`${where}: the running candle reads "${lag}"`)
+  const lines = await hostAttr(page, 'lines')
+  if (!/Geld [\d.,]+ €/.test(lines) || !/Brief [\d.,]+ €/.test(lines)) {
+    failures.push(`${where}: no bid and ask lines: "${lines}"`)
+  }
+  await page.screenshot({ path: shot('live') })
+  // A new price: the tab coming back asks at once, and the candle changes where it is.
+  const before = [await hostAttr(page, 'bars'), await hostAttr(page, 'logicalFrom')].join('/')
+  await fetch(`${origin}/api/__tick?move=1.045`)
+  await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+  await page.waitForTimeout(1200)
+  const after = [await hostAttr(page, 'bars'), await hostAttr(page, 'logicalFrom')].join('/')
+  if (!(Number(await hostAttr(page, 'updates')) > 0)) {
+    failures.push(`${where}: the new price did not update the candle in place`)
+  }
+  if (before !== after)
+    failures.push(`${where}: the view moved on an update: ${before} then ${after}`)
+
+  await page.getByRole('button', { name: 'ING Direkthandel', exact: true }).click()
+  await page.locator('[data-shot="depot-direct-hint"]').waitFor()
+  await page.waitForTimeout(900)
+  const title = await page.locator('[data-shot="depot-chart"]').innerText()
+  if (!title.includes('· ING Direkthandel'))
+    failures.push(`${where}: the venue is not in the title`)
+  const hint = await page.locator('[data-shot="depot-direct-hint"]').innerText()
+  if (!/only 1\d stored bars/.test(hint))
+    failures.push(`${where}: the short history reads "${hint}"`)
+  if ((await page.locator('[data-shot="depot-candle-lag"]').count()) !== 0) {
+    failures.push(`${where}: Direkthandel's candle is called delayed`)
+  }
+  await page.screenshot({ path: shot('live-direct') })
+  await page.getByRole('button', { name: 'Xetra', exact: true }).click()
+
+  await open(`isin=${US_STOCK}`)
+  if (!(await status()).startsWith('Börse geschlossen · Schluss')) {
+    failures.push(`${where}: the US stock outside its hours reads "${await status()}"`)
+  }
+  await page.screenshot({ path: shot('live-us-closed') })
+
+  await open('isin=BTC-USD')
+  if ((await status()).toLowerCase() !== 'live')
+    failures.push(`${where}: Bitcoin reads "${await status()}"`)
+  await page.locator('[data-shot="depot-quote-status"]').hover()
+  await page.getByText('ab 00:00 UTC').waitFor()
+  await page.screenshot({ path: shot('live-btc') })
+
+  await page.goto(`${origin}/finance/depot?isin=${WORLD}&view=board`, { waitUntil: 'networkidle' })
+  await page.locator('[data-shot="depot-board-live"]').first().waitFor()
+  await page.waitForTimeout(900)
+  await page.screenshot({ path: shot('live-board') })
+
+  await page.goto(`${origin}/finance/depot?isin=${WORLD}&view=details`, {
+    waitUntil: 'networkidle',
+  })
+  await page.getByRole('button', { name: 'Add order' }).first().click()
+  const dialog = page.getByRole('dialog')
+  await dialog.locator('[data-shot="order-spread"]').waitFor()
+  const spread = await dialog.locator('[data-shot="order-spread"]').innerText()
+  const field = dialog.getByLabel('Limit price')
+  const ask = german(/Brief ([\d.,]+)/.exec(spread)?.[1] ?? '')
+  const bid = german(/Geld ([\d.,]+)/.exec(spread)?.[1] ?? '')
+  const filled = async () => Number.parseFloat((await field.inputValue()).replace(',', '.'))
+  if (Math.abs((await filled()) - ask) > 0.01) {
+    failures.push(`${where}: a buy starts at ${await filled()}, the ask is ${ask}`)
+  }
+  await page.screenshot({ path: shot('live-order') })
+  await dialog.getByLabel('Side').click()
+  await page.getByRole('option', { name: 'Sell' }).click()
+  await page.waitForTimeout(300)
+  if (Math.abs((await filled()) - bid) > 0.01) {
+    failures.push(`${where}: a sale starts at ${await filled()}, the bid is ${bid}`)
+  }
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+}
+
 async function main(): Promise<number> {
   const { values } = parseArgs({ options: { out: { type: 'string' }, serve: { type: 'boolean' } } })
   if (values.serve === true) {
@@ -2359,7 +2561,9 @@ async function main(): Promise<number> {
         if (!prices.some((price) => Math.abs(price - typed) < 0.005)) {
           failures.push(`${where}: the line holds ${prices.join(', ')}, typed ${typed}`)
         }
-        await checkFacts(page, where, failures, { orderLine: 'Buy limit 112 €' })
+        await checkFacts(page, where, failures, {
+          orderLine: /^Kauf Limit 112 € · Brief [\d.,]+ € · [+−]?[\d.,]+ %$/,
+        })
         const overflow = await page.evaluate(() =>
           Math.max(
             ...[...document.querySelectorAll<HTMLElement>('*')].map(
@@ -2454,7 +2658,7 @@ async function main(): Promise<number> {
           if (name === 'us-stock') {
             // The hand-kept sell order sits on the dollar chart at the latest rate, named in both currencies.
             await checkFacts(page, where, failures, {
-              orderLine: /^Sell limit [\d.,]+ € \([\d.,]+ \$\)$/,
+              orderLine: /^Verkauf Limit [\d.,]+ € \([\d.,]+ \$\) · Geld /,
             })
           } else {
             await checkFacts(page, where, failures, {})
@@ -2481,6 +2685,8 @@ async function main(): Promise<number> {
         await checkNavigation(page, origin, out, scheme, device, failures)
         await fetch(`${origin}/api/__reset`)
         await checkTracking(page, origin, out, scheme, device, failures)
+        await fetch(`${origin}/api/__reset`)
+        await checkLive(page, origin, out, scheme, device, failures)
         const [day, ...others] = spacings
         if (day === undefined || others.some((other) => Math.abs(other / day - 1) > 0.12)) {
           failures.push(`${where}: bar spacing differs by interval: ${spacings.join(', ')}`)

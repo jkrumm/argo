@@ -2,12 +2,13 @@ import { Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { useBoards } from '../api/lists'
 import { useDailyBars } from '../api/queries'
-import type { WatchList } from '../api/types'
+import type { MarketQuote, WatchList } from '../api/types'
 import { priceText, signedPercent } from '../lib/depot-chart'
 import { boardRows, figuresFromBars, unboarded } from '../lib/depot-board'
 import type { BoardRow } from '../lib/depot-board'
+import { clockTime, isRunning, liveFigures, quoteStatus } from '../lib/depot-live'
 import { isoDayDe } from '../lib/depot-number'
-import { DEPOT_TAB, GROUP_HEADER, kindGroup } from '../lib/depot-nav'
+import { DEPOT_TAB, GROUP_HEADER, kindGroup, splicedHistory } from '../lib/depot-nav'
 import type { NavTab, SidebarItem } from '../lib/depot-nav'
 
 const col = createColumnHelper<BoardRow>()
@@ -16,6 +17,29 @@ const unit = (currency: string | null): string => {
   if (currency === 'EUR') return '€'
   if (currency === 'USD') return '$'
   return ''
+}
+
+/** A year of daily bars and the end of the year before: what the changes of a running row are counted from. */
+const RECENT_BARS = 400
+
+/** The price a row is read at: the running one, else the last close. */
+const priceOfRow = (row: BoardRow): string =>
+  row.figures === null ? '—' : `${priceText(row.figures.last_close)} ${unit(row.currency)}`.trim()
+
+/** What marks a row that is read at the running price, with when that price was made. */
+function LiveMark({ quote }: { quote: MarketQuote | undefined }) {
+  if (quote === undefined) return null
+  const { label } = quoteStatus(quote)
+  return (
+    <Text
+      size="xs"
+      c="dimmed"
+      data-shot="depot-board-live"
+      title={quote.as_of === null ? undefined : `Stand ${clockTime(quote.as_of)}`}
+    >
+      {label}
+    </Text>
+  )
 }
 
 const sortable = (pick: (row: BoardRow) => number | null | undefined) => (row: BoardRow) =>
@@ -62,13 +86,15 @@ const COLUMNS = [
     sortable((row) => row.figures?.last_close),
     {
       id: 'last_close',
-      header: 'Last close',
+      header: 'Last',
       sortFn: 'basic',
-      meta: { align: 'right' },
-      cell: (c) => {
-        const { figures, currency } = c.row.original
-        return figures === null ? '—' : `${priceText(figures.last_close)} ${unit(currency)}`.trim()
-      },
+      meta: { align: 'right', kind: 'text' },
+      cell: (c) => (
+        <Stack gap={0}>
+          <Text size="sm">{priceOfRow(c.row.original)}</Text>
+          <LiveMark quote={c.row.original.live} />
+        </Stack>
+      ),
     },
   ),
   changeColumn('day', 'Day', (row) => row.figures?.day_pct),
@@ -100,12 +126,15 @@ export function DepotBoard({
   tab,
   lists,
   items,
+  quotes,
   onOpen,
 }: {
   tab: NavTab
   lists: readonly WatchList[]
   /** The rows of the tab, as the sidebar lists them. */
   items: readonly SidebarItem[]
+  /** The live quote of each row, by symbol. */
+  quotes: ReadonlyMap<string, MarketQuote>
   onOpen: (symbol: string) => void
 }) {
   const board = useBoards(tab.listId === null ? lists.map((list) => list.id) : [tab.listId])
@@ -119,8 +148,35 @@ export function DepotBoard({
   const computed = new Map(
     loose.map((item) => [item.symbol, figuresFromBars(own.bars.get(item.symbol) ?? [])] as const),
   )
-  const rows = boardRows(items, boarded, computed)
-  const dated = rows.find((row) => row.figures !== null)?.figures?.last_day
+  const stored = boardRows(items, boarded, computed)
+  // A row whose day is running is read at its live price: the figures that hang on the last close are counted again.
+  const running = new Map(
+    stored.flatMap((row) => {
+      const quote = quotes.get(row.symbol)
+      return isRunning(quote, row.figures?.last_day) &&
+        (quote.currency === null || row.currency === null || quote.currency === row.currency)
+        ? [[row.symbol, quote] as const]
+        : []
+    }),
+  )
+  const recent = useDailyBars(
+    items
+      .filter((item) => running.has(item.symbol) && boarded.has(item.symbol))
+      .map((item) => ({
+        isin: item.symbol,
+        interval: '1d',
+        limit: RECENT_BARS,
+        splice: splicedHistory(item.quote) ? ('index' as const) : undefined,
+      })),
+  )
+  const rows = stored.map((row) => {
+    const quote = running.get(row.symbol)
+    if (quote === undefined || row.figures === null) return row
+    const bars = boarded.has(row.symbol) ? recent.bars.get(row.symbol) : own.bars.get(row.symbol)
+    const figures = liveFigures(row.figures, bars ?? [], quote)
+    return figures === null ? row : { ...row, figures, live: quote }
+  })
+  const dated = stored.find((row) => row.figures !== null)?.figures?.last_day
   const absent = tab.id === DEPOT_TAB ? 'Nothing is held.' : 'Nothing on this tab has a price yet.'
   const query = {
     ...board.query,
@@ -134,7 +190,7 @@ export function DepotBoard({
       subtitle={
         dated === undefined
           ? 'Key figures from the daily closes.'
-          : `Key figures from the daily closes, latest ${isoDayDe(dated)}. Click a row to open its chart.`
+          : `Key figures from the daily closes, latest ${isoDayDe(dated)}; a row with a status under its price is read at that live price. Click a row to open its chart.`
       }
       data={rows}
       columns={COLUMNS}
@@ -151,12 +207,9 @@ export function DepotBoard({
             <Text size="sm" fw={500}>
               {row.label}
             </Text>
-            <Text size="sm">
-              {row.figures === null
-                ? '—'
-                : `${priceText(row.figures.last_close)} ${unit(row.currency)}`.trim()}
-            </Text>
+            <Text size="sm">{priceOfRow(row)}</Text>
           </Group>
+          <LiveMark quote={row.live} />
           <Group gap="sm" wrap="wrap">
             {(
               [
