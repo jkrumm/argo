@@ -241,7 +241,9 @@ export function DepotPage() {
     entry !== undefined && tradable && entry.kind !== 'coin' && entry.us_mic === null
 
   const high = dailyBars === undefined ? null : allTimeHigh(dailyBars)
-  const lastClose = dailyBars?.findLast((bar) => bar.source !== 'index')?.close ?? null
+  // The last stored close: never the running day's bar, whose close is only the price so far.
+  const lastClose =
+    dailyBars?.findLast((bar) => bar.source !== 'index' && bar.provisional !== true)?.close ?? null
 
   if (
     watchlist.isSuccess &&

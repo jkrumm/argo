@@ -122,7 +122,7 @@ German everywhere on the page (`lib/depot-number.ts`): a dot groups thousands, a
 
 ## Header facts
 
-The card header carries the **all-time high**: its value in the chart's currency, the day it was reached and, beside it, the distance from it of the live price (`−6,2 % now vs. high`) or, with the market closed, of the last close (`last close vs. high`). The high is the greatest daily high of the instrument's own bars, the running day included (a spliced index does not count); on week and month charts the day bars are asked for separately, so the day is exact. It is read from the whole stored history, whatever the visible range.
+The card header carries the **all-time high**: its value in the chart's currency, the day it was reached and, beside it, the distance from it of the live price (`−6,2 % now vs. high`) or, with the market closed or the quote not answering, of the last stored close (`last close vs. high`, never the running day's bar). The high is the greatest daily high of the instrument's own bars, the running day included (a spliced index does not count); on week and month charts the day bars are asked for separately, so the day is exact. It is read from the whole stored history, whatever the visible range.
 
 ## Drawings
 

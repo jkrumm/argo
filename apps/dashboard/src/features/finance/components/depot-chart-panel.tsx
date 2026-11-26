@@ -161,8 +161,10 @@ export function ChartPanel({
         : quote.currency === 'USD' && currency === 'EUR' && series.rate !== null
           ? quote.last / series.rate.usdPerEur
           : null
-  // A quote that stopped answering is no price to measure from: the last close is.
-  const price = quote?.stale === true ? lastClose : (live ?? lastClose)
+  // Measured from the live price while the market trades, else (closed, or a quote that stopped answering) from the
+  // last stored close, and labelled with which of the two it is.
+  const trading = live !== null && quote !== undefined && quote.session !== 'closed'
+  const price = trading ? live : lastClose
   const distance =
     high === null || price === null ? null : distanceFromHigh(price, Math.max(high.price, price))
   const newest = bars.at(-1)
@@ -214,10 +216,7 @@ export function ChartPanel({
                 {
                   // A node keeps the real minus sign (a text comparison would take a direction glyph instead).
                   value: <>{percentDe(distance, true)}</>,
-                  unit:
-                    live === null || quote?.session === 'closed'
-                      ? 'last close vs. high'
-                      : 'now vs. high',
+                  unit: trading ? 'now vs. high' : 'last close vs. high',
                 },
               ]),
         ],
