@@ -10,7 +10,7 @@ const SAVE_DELAY_MS = 500
 /**
  * Stores the drawing document of one instrument about half a second after its last change. What is
  * waiting goes out when the instrument changes, the component unmounts or the tab is hidden; a save
- * that fails is reported and tried again with the next change, the document is never discarded.
+ * that fails is reported and, unless a newer document has replaced it, tried again.
  * Saves go out one after the other, so an older document cannot land after a newer one.
  */
 export function useDrawingsSaver(isin: string): (document: DrawingsDocument) => void {
@@ -19,6 +19,8 @@ export function useDrawingsSaver(isin: string): (document: DrawingsDocument) => 
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const flushRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const queue = useRef<Promise<void>>(Promise.resolve())
+  /** The newest change: a failed save of an older one is dropped, the newer one replaces it. */
+  const newest = useRef<DrawingsDocument | null>(null)
 
   useEffect(() => {
     async function send(document: DrawingsDocument) {
@@ -29,7 +31,8 @@ export function useDrawingsSaver(isin: string): (document: DrawingsDocument) => 
           held === undefined ? saved : { ...saved, document: held.document },
         )
       } catch (error) {
-        waiting.current ??= document
+        // Only the newest document is worth sending again: an older one would revert it.
+        if (newest.current === document) waiting.current = document
         reportWriteError(error)
       }
     }
@@ -58,6 +61,7 @@ export function useDrawingsSaver(isin: string): (document: DrawingsDocument) => 
       held === undefined ? held : { ...held, document },
     )
     waiting.current = document
+    newest.current = document
     clearTimeout(timer.current)
     timer.current = setTimeout(() => void flushRef.current(), SAVE_DELAY_MS)
   }
