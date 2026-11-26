@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { ChartBar } from '../api/types'
-import { aggregateBars, eurBars, nativeCurrency, scaleDrawings } from './depot-currency'
+import { aggregateBars, eurBars, euroTitle, nativeCurrency, scaleDrawings } from './depot-currency'
 
 const at = (day: string): number => Date.parse(`${day}T00:00:00Z`) / 1000
 
@@ -85,6 +85,16 @@ describe('nativeCurrency', () => {
   it('keeps what the row says and calls no other series dollars', () => {
     expect(nativeCurrency({ ...entry, currency: 'EUR' })).toBe('EUR')
     expect(nativeCurrency({ ...entry, isin: 'eur-usd', kind: 'series' })).toBeNull()
+  })
+})
+
+describe('euroTitle', () => {
+  it('drops the dollars a name says, however it says them', () => {
+    expect(euroTitle('Bitcoin in USD')).toBe('Bitcoin · EUR')
+    expect(euroTitle('FTSE Global All Cap, price return, USD')).toBe(
+      'FTSE Global All Cap, price return · EUR',
+    )
+    expect(euroTitle('NVIDIA Corp.')).toBe('NVIDIA Corp. · EUR')
   })
 })
 

@@ -20,6 +20,9 @@ export function nativeCurrency(
   return entry.kind === 'index' && entry.isin.endsWith('-usd') ? 'USD' : null
 }
 
+/** The title of a dollar chart read in euros: a name that says dollars ("Bitcoin in USD", "…, USD") drops it. */
+export const euroTitle = (name: string): string => `${name.replace(/(,| in)? USD$/, '')} · EUR`
+
 const dayOf = (time: number): string => new Date(time * 1000).toISOString().slice(0, 10)
 
 /**

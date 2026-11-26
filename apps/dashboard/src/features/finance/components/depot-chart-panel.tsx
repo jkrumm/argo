@@ -20,7 +20,7 @@ import {
   volumeByDefault,
 } from '../lib/depot-chart'
 import type { AllTimeHigh, ColorRole, PriceLine, RangeChange, Timeframe } from '../lib/depot-chart'
-import { scaleDrawings } from '../lib/depot-currency'
+import { euroTitle, scaleDrawings } from '../lib/depot-currency'
 import type { ChartCurrency } from '../lib/depot-currency'
 import { dayDe, percentDe, priceDe } from '../lib/depot-number'
 import type { IndexSeries } from '../lib/index-series'
@@ -128,7 +128,7 @@ export function ChartPanel({
       style={{ minHeight: 'var(--depot-chart-min, 0px)' }}
       title={
         series.converting
-          ? `${name.replace(/,? USD$/, '')} · EUR`
+          ? euroTitle(name)
           : currency === null || name.includes(currency)
             ? name
             : `${name} · ${currency}`
