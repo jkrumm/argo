@@ -30,6 +30,7 @@ import type {
 } from '../lib/depot-chart'
 import { dayDe, percentDe, priceDe } from '../lib/depot-number'
 import type { IndexSeries } from '../lib/index-series'
+import { useLineLabels } from '../lib/depot-prefs'
 import { useDrawingsSaver } from '../lib/use-drawings-saver'
 import { useViewPrefs } from '../lib/view-prefs'
 import { finStore } from '../../../lib/window-stores'
@@ -80,6 +81,7 @@ export function ChartPanel({
   const [timeframe, setTimeframe] = useState<Timeframe | null>(null)
   const [change, setChange] = useState<RangeChange | null>(null)
   const [prefs, setPrefs] = useViewPrefs(isin)
+  const [labels, setLabels] = useLineLabels()
   const chart = useRef<DepotChartHandle>(null)
   const save = useDrawingsSaver(isin)
   const notes = candles.data?.notes ?? []
@@ -143,7 +145,7 @@ export function ChartPanel({
               ]),
         ],
       })}
-      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, a US stock's in dollars at the latest ECB rate. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the faded candles are the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
+      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}Daily candles over the whole stored history in the instrument's currency (Bitcoin and US stocks in dollars); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, a US stock's in dollars at the latest ECB rate. ${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the lighter candles are the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
       state={{
         pending: candles.isPending,
         error: candles.error ?? undefined,
@@ -180,6 +182,7 @@ export function ChartPanel({
           role={role}
           logScale={log}
           showVolume={volume}
+          showLabels={labels}
           line={asLine}
           compare={compare}
           onToolChange={setTool}
@@ -256,6 +259,15 @@ export function ChartPanel({
             onClick={() => setPrefs({ volume: !volume })}
           >
             Volume
+          </Button>
+          <Button
+            variant={labels ? 'filled' : 'default'}
+            color="gray"
+            aria-pressed={labels}
+            aria-label="Show the text labels of horizontal and vertical lines"
+            onClick={() => setLabels(!labels)}
+          >
+            Beschriftung
           </Button>
         </Group>
       </Box>

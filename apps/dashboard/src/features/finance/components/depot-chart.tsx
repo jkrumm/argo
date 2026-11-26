@@ -16,6 +16,7 @@ import type {
   IPriceLine,
   ISeriesApi,
   ISeriesMarkersPluginApi,
+  ISeriesPrimitive,
   Logical,
   SeriesMarker,
   Time,
@@ -40,11 +41,13 @@ import {
   changeOf,
   defaultViewStart,
   firstBarFrom,
+  historyCandles,
   launchTime,
   markGroups,
   marksByBar,
   changeFrom,
   priceText,
+  rightMarginBars,
   signedPercent,
   splitSpliced,
   storedEntries,
@@ -106,8 +109,10 @@ export type DepotChartHandle = {
   setSelectionLabel(label: string): void
 }
 
-/** Empty bars right of the newest one. */
+/** Empty bars right of the newest one before a view is set; a view derives its own from the visible bar count. */
 const RIGHT_OFFSET = 4
+/** The launch marker: a small dot, no text; its words are in the readout. */
+export const LAUNCH_LABEL = 'ETF launch'
 /** Marker size on the candles (the library's default is 1): readable at day and week width. */
 const MARKER_SIZE = 2
 /** The line under the chart and in the readout says what the muted candles before the launch are. */
@@ -137,6 +142,8 @@ export type DepotChartProps = {
   role: ColorRole
   logScale: boolean
   showVolume: boolean
+  /** The text labels of horizontal and vertical lines (own drawings, open orders, average cost); the lines and axis prices stay. */
+  showLabels: boolean
   /** The bars are the close of a daily series: one line, no candles. */
   line?: boolean
   /** An index drawn as a line on the same price scale: the scale turns to percent and both start at 0 % at the left edge. */
@@ -173,13 +180,94 @@ const solid = (role: ColorRole, palette: ChartPalette) =>
       : { ink: palette.accent, fill: palette.accentFill }
 
 /** The look of a drawing in a colour role: the preview while it is placed, the drawing once it is, and again after a scheme change. */
-function roleStyle(kind: string, role: ColorRole, palette: ChartPalette): Partial<DrawingStyle> {
+function roleStyle(
+  kind: string,
+  role: ColorRole,
+  palette: ChartPalette,
+  labels: boolean,
+): Partial<DrawingStyle> {
   const { ink, fill } = solid(LINE_KINDS.has(kind) ? role : 'accent', palette)
   return {
     color: ink,
     backgroundColor: ink,
-    textColor: kind === 'price-range' ? palette.onAccent : ink,
+    // Hidden labels stay in the document (the text is the owner's): they are only painted clear, and placed where
+    // they cut no gap into the line.
+    textColor: kind === 'price-range' ? palette.onAccent : labels ? ink : palette.clear,
     labelBackgroundColor: fill,
+    // A horizontal line's label sits at the left edge, above the line: the newest candles stay free.
+    ...(kind === 'horizontal-line' && {
+      horzLabelsAlign: 'left' as const,
+      vertLabelsAlign: 'bottom' as const,
+    }),
+    ...(kind === 'vertical-line' && {
+      horzLabelsAlign: 'center' as const,
+      vertLabelsAlign: labels ? ('middle' as const) : ('top' as const),
+    }),
+  }
+}
+
+/** The titles of the open orders and the average cost: drawn at the left edge of the plot, above their line. */
+type LineLabel = { price: number; text: string; color: string }
+
+/** What a pane renderer's target offers; the package that types it is the library's own dependency. */
+type MediaTarget = {
+  useMediaCoordinateSpace<T>(
+    f: (scope: {
+      context: CanvasRenderingContext2D
+      mediaSize: { width: number; height: number }
+    }) => T,
+  ): T
+}
+
+/**
+ * A price line's own title is drawn at the right edge, over the newest candles, and cannot be moved: the lines
+ * carry no title and this primitive writes it at the left edge instead. The price stays on the axis.
+ */
+function createLineLabels(series: ISeriesApi<'Candlestick'>) {
+  let labels: readonly LineLabel[] = []
+  let look = { font: '', halo: '', size: 0 }
+  let update: (() => void) | null = null
+  const view = {
+    zOrder: () => 'top' as const,
+    renderer: () => ({
+      draw(target: MediaTarget) {
+        target.useMediaCoordinateSpace(({ context: ctx }) => {
+          ctx.font = look.font
+          ctx.lineJoin = 'round'
+          ctx.lineWidth = 3
+          ctx.strokeStyle = look.halo
+          for (const label of labels) {
+            const y = series.priceToCoordinate(label.price)
+            if (y === null) continue
+            // Above the line; below it when the line is at the top edge.
+            const below = y < look.size + 6
+            ctx.textBaseline = below ? 'top' : 'bottom'
+            const at = below ? y + 3 : y - 3
+            ctx.strokeText(label.text, 6, at)
+            ctx.fillStyle = label.color
+            ctx.fillText(label.text, 6, at)
+          }
+        })
+      },
+    }),
+  }
+  const primitive: ISeriesPrimitive<Time> = {
+    attached: ({ requestUpdate }) => {
+      update = requestUpdate
+    },
+    detached: () => {
+      update = null
+    },
+    paneViews: () => [view],
+  }
+  series.attachPrimitive(primitive)
+  return {
+    set(next: readonly LineLabel[], nextLook: { font: string; halo: string; size: number }) {
+      labels = next
+      look = nextLook
+      update?.()
+    },
+    detach: () => series.detachPrimitive(primitive),
   }
 }
 
@@ -221,6 +309,7 @@ type Engine = {
   setLog(on: boolean): void
   setCompare(compare: CompareLine | null): void
   setVolume(on: boolean): void
+  setLabels(on: boolean): void
   setTimeframe(timeframe: Timeframe): void
   loadDrawings(stored: unknown): void
   removeSelected(): void
@@ -251,6 +340,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   let defaultRole: ColorRole = 'accent'
   let alive = true
   let logOn = false
+  let labelsOn = true
   let compare: CompareLine | null = null
   let other: ISeriesApi<'Line'> | null = null
   let lastChange = ''
@@ -282,17 +372,6 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     { priceLineVisible: false, lastValueVisible: true, priceFormat: priceFormat(0.01) },
     0,
   )
-  // The tracked index before the instrument's own history: the same candles in the same hues, faded.
-  const spliceCandles: ISeriesApi<'Candlestick'> = chart.addSeries(
-    CandlestickSeries,
-    {
-      ...mutedColors(palette),
-      priceLineVisible: false,
-      lastValueVisible: false,
-      priceFormat: priceFormat(0.01),
-    },
-    0,
-  )
   // A series that sends closes only (a daily series) has no candles: one line of its closes.
   const splice: ISeriesApi<'Line'> = chart.addSeries(
     LineSeries,
@@ -308,6 +387,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   )
   let volume: ISeriesApi<'Histogram'> | null = null
   const markers: ISeriesMarkersPluginApi<Time> = createSeriesMarkers(candles, [])
+  const lineLabels = createLineLabels(candles)
   let priceLines: IPriceLine[] = []
   /** Every bar the time scale knows: the spliced index bars and the instrument's own, ascending. */
   let allBars: readonly ChartBar[] = []
@@ -360,7 +440,10 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   // The package draws a placement in its own blue until the drawing exists: give both the chosen colour.
   setDefaultStyleOverride((kind) =>
     DRAWN.has(kind)
-      ? { ...factoryStyleFor(kind as DrawingKind), ...roleStyle(kind, defaultRole, palette) }
+      ? {
+          ...factoryStyleFor(kind as DrawingKind),
+          ...roleStyle(kind, defaultRole, palette, labelsOn),
+        }
       : undefined,
   )
 
@@ -463,6 +546,11 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     host.dataset['timeframe'] = frame ?? ''
     host.dataset['bars'] = String(allBars.length)
     host.dataset['logicalFrom'] = range.from.toFixed(1)
+    // The share of the visible width empty right of the newest bar: the design shot holds it to about 5 %.
+    host.dataset['rightGap'] = (
+      (range.to - (allBars.length - 1)) /
+      (range.to - range.from)
+    ).toFixed(3)
     host.dataset['firstDay'] = new Date(firstBar.time * 1000).toISOString().slice(0, 10)
     host.dataset['spliced'] = String(spliced.length)
     host.dataset['spliceShape'] = lineOnly ? 'line' : 'candles'
@@ -504,7 +592,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
           ...drawing,
           style: {
             ...drawing.style,
-            ...roleStyle(drawing.kind, roles.get(drawing.id) ?? 'accent', palette),
+            ...roleStyle(drawing.kind, roles.get(drawing.id) ?? 'accent', palette, labelsOn),
           },
         })
       }
@@ -515,20 +603,33 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
 
   function paintOverlays() {
     for (const line of priceLines) candles.removePriceLine(line)
+    const colorOf = (line: PriceLine) =>
+      line.kind === 'order-buy'
+        ? palette.buy
+        : line.kind === 'order-sell'
+          ? palette.sell
+          : palette.ink
     priceLines = lines.map((line) =>
       candles.createPriceLine({
         price: line.price,
-        title: line.title,
-        color:
-          line.kind === 'order-buy'
-            ? palette.buy
-            : line.kind === 'order-sell'
-              ? palette.sell
-              : palette.ink,
+        // The title is written at the left edge by `lineLabels`; the axis keeps the price.
+        title: '',
+        color: colorOf(line),
         lineWidth: 1,
         lineStyle: line.kind === 'cost' ? LineStyle.Solid : LineStyle.Dashed,
         axisLabelVisible: true,
       }),
+    )
+    host.dataset['lineLabels'] = labelsOn ? String(lines.length) : '0'
+    lineLabels.set(
+      labelsOn
+        ? lines.map((line) => ({ price: line.price, text: line.title, color: colorOf(line) }))
+        : [],
+      {
+        font: `${VX.text.micro}px ${palette.fontFamily}`,
+        halo: palette.panel,
+        size: VX.text.micro,
+      },
     )
     // The scale follows the lines that count: stretch it again for the new set.
     candles.applyOptions({ autoscaleInfoProvider: withOrders })
@@ -556,9 +657,8 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
               time: launch as UTCTimestamp,
               position: 'aboveBar',
               color: palette.text,
-              shape: 'square',
-              size: 1,
-              text: 'ETF launch',
+              shape: 'circle',
+              size: 0.6,
             },
           ]
     markers.setMarkers([...trades, ...launched].toSorted((a, b) => Number(a.time) - Number(b.time)))
@@ -572,28 +672,19 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
   }
 
   function paintData() {
+    // One series for the whole history, the index part in muted colours: one base for a comparison's percent scale.
     candles.setData(
-      own.map((bar) => ({
-        time: bar.time as UTCTimestamp,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-      })),
+      lineOnly
+        ? []
+        : historyCandles(allBars, { up: palette.upMuted, down: palette.downMuted }).map(
+            (candle) => ({
+              ...candle,
+              time: candle.time as UTCTimestamp,
+            }),
+          ),
     )
     splice.setData(
       lineOnly ? spliced.map((bar) => ({ time: bar.time as UTCTimestamp, value: bar.close })) : [],
-    )
-    spliceCandles.setData(
-      lineOnly
-        ? []
-        : spliced.map((bar) => ({
-            time: bar.time as UTCTimestamp,
-            open: bar.open,
-            high: bar.high,
-            low: bar.low,
-            close: bar.close,
-          })),
     )
     volume?.setData(
       own.map((bar) => ({
@@ -604,7 +695,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     )
   }
 
-  /** The visible range from the bar at `start` (the first bar for null) to the newest, with the empty bars to its right. */
+  /** The visible range from the bar at `start` (the first bar for null) to the newest, with about 5 % of its width empty to the right. */
   function showFrom(start: number | null) {
     const count = allBars.length
     if (count === 0) return
@@ -612,7 +703,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     const apply = () =>
       chart.timeScale().setVisibleLogicalRange({
         from: (from - 0.5) as Logical,
-        to: (count - 1 + RIGHT_OFFSET) as Logical,
+        to: (count - 1 + rightMarginBars(count - from)) as Logical,
       })
     apply()
     // The price axis changes its width with the new range (its labels get longer or shorter) and takes plot width
@@ -667,7 +758,6 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       timeScale: { borderColor: palette.grid },
     })
     candles.applyOptions(candleColors(palette))
-    spliceCandles.applyOptions(mutedColors(palette))
     splice.applyOptions({ color: palette.text })
     other?.applyOptions({ color: palette.ink })
     paintData()
@@ -697,7 +787,6 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
       if (last !== undefined) {
         const format = { priceFormat: priceFormat(minMoveOf(last.close)) }
         candles.applyOptions(format)
-        spliceCandles.applyOptions(format)
         splice.applyOptions(format)
       }
       paintData()
@@ -759,6 +848,13 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         if (chart.panes().length > 1) chart.removePane(1)
       }
     },
+    setLabels(on) {
+      if (on === labelsOn) return
+      labelsOn = on
+      retheme(manager.drawings())
+      paintOverlays()
+      manager.redraw()
+    },
     setTimeframe(timeframe) {
       const last = allBars.at(-1)
       if (last === undefined) return
@@ -793,7 +889,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
         roles.set(id, role)
         manager.update({
           ...drawing,
-          style: { ...drawing.style, ...roleStyle(drawing.kind, role, palette) },
+          style: { ...drawing.style, ...roleStyle(drawing.kind, role, palette, labelsOn) },
         })
       }
     },
@@ -805,6 +901,7 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     },
     destroy() {
       alive = false
+      lineLabels.detach()
       setDefaultStyleOverride(() => undefined)
       observer.disconnect()
       window.removeEventListener('keydown', onKey)
@@ -814,15 +911,6 @@ function createEngine(host: HTMLElement, callbacks: Callbacks): Engine {
     },
   }
 }
-
-/** The index before the launch: the candles' hues at the volume bars' opacity, no outline over the fill. */
-const mutedColors = (palette: ChartPalette) => ({
-  upColor: palette.upFaint,
-  downColor: palette.downFaint,
-  borderVisible: false,
-  wickUpColor: palette.upFaint,
-  wickDownColor: palette.downFaint,
-})
 
 const candleColors = (palette: ChartPalette) => ({
   upColor: palette.up,
@@ -835,7 +923,7 @@ const candleColors = (palette: ChartPalette) => ({
 
 export function DepotChart(props: DepotChartProps) {
   const { bars, interval, currency, trades, lines, storedDrawings, loadedDrawings, tool } = props
-  const { role, logScale, showVolume, compare } = props
+  const { role, logScale, showVolume, showLabels, compare } = props
   const asLine = props.line === true
   const hostRef = useRef<HTMLDivElement>(null)
   const tipRef = useRef<HTMLDivElement>(null)
@@ -909,6 +997,7 @@ export function DepotChart(props: DepotChartProps) {
     [compareKey],
   )
   useEffect(() => engineRef.current?.setVolume(showVolume), [showVolume])
+  useEffect(() => engineRef.current?.setLabels(showLabels), [showLabels])
   useEffect(() => {
     if (loadedDrawings) engineRef.current?.loadDrawings(storedDrawings)
     // The document is read once per mount: after that the chart owns it and the page only stores it.
@@ -929,6 +1018,7 @@ export function DepotChart(props: DepotChartProps) {
   const index = bars.findIndex((bar) => bar.time === (hover?.time ?? bars.at(-1)?.time))
   const shown = bars[index]
   const spliced = !asLine && bars.some((bar) => bar.source === 'index')
+  const launchAt = asLine ? null : launchTime(bars)
 
   // The card of a bar's trades: under the pointer while it is on a marker, and where a tap or click pinned it.
   const cardAt =
@@ -967,6 +1057,7 @@ export function DepotChart(props: DepotChartProps) {
         <Stack className={classes.readout} gap={0}>
           <Text size="xs" c="dimmed" className={classes.mono}>
             {barLabel(shown.time)}
+            {shown.time === launchAt && ` · ${LAUNCH_LABEL}`}
           </Text>
           <Text size="xs" className={classes.mono}>
             {asLine ? (

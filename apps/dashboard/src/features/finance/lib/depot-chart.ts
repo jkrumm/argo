@@ -192,6 +192,48 @@ export function splitSpliced(bars: readonly ChartBar[]): { own: ChartBar[]; spli
   return { own, spliced }
 }
 
+/** One candle as the chart takes it; the colours override the series' own for that bar. */
+export type HistoryCandle = {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  color?: string
+  borderColor?: string
+  wickColor?: string
+}
+
+/**
+ * The whole history as ONE series: the spliced index bars wear the muted colours, the instrument's own bars the
+ * series' colours. One series means one percent base (its first visible bar), so a comparison reads the splice
+ * seamlessly: two series would each start at 0 % on their own first bar and the ETF would jump back at the launch.
+ */
+export function historyCandles(
+  bars: readonly ChartBar[],
+  muted: { up: string; down: string },
+): HistoryCandle[] {
+  return bars.map((bar) => {
+    const candle = {
+      time: bar.time,
+      open: bar.open,
+      high: bar.high,
+      low: bar.low,
+      close: bar.close,
+    }
+    if (bar.source !== 'index') return candle
+    const color = bar.close >= bar.open ? muted.up : muted.down
+    return { ...candle, color, borderColor: color, wickColor: color }
+  })
+}
+
+/** The share of the visible width left empty right of the newest bar. */
+export const RIGHT_MARGIN = 0.05
+
+/** How many (fractional) empty bars right of the newest one make the margin `RIGHT_MARGIN` of the visible width for `visible` bars. */
+export const rightMarginBars = (visible: number): number =>
+  (visible * RIGHT_MARGIN) / (1 - RIGHT_MARGIN)
+
 /** The day the instrument's own history starts, when an index fills the time before it. */
 export function launchTime(bars: readonly ChartBar[]): number | null {
   const { own, spliced } = splitSpliced(bars)

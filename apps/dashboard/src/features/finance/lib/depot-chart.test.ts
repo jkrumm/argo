@@ -17,6 +17,7 @@ import {
   firstBarFrom,
   hasTurnover,
   heldRows,
+  historyCandles,
   instrumentsOf,
   launchTime,
   logByDefault,
@@ -26,6 +27,7 @@ import {
   orderLine,
   pickInstrument,
   rangeStart,
+  rightMarginBars,
   levelsAtBars,
   signedPercent,
   splitSpliced,
@@ -495,6 +497,47 @@ describe('timeframes', () => {
     expect(activeTimeframe(last - 800 * 86_400, last, first)).toBeNull()
     expect(activeTimeframe(first - 10, last, first)).toBe('Max')
     expect(activeTimeframe(null, last, first)).toBe('Max')
+  })
+})
+
+describe('the spliced history as one series', () => {
+  const index = (time: number, close: number): ChartBar => ({
+    ...bar(time, close),
+    source: 'index',
+  })
+  const muted = { up: 'up-muted', down: 'down-muted' }
+  // The index runs from 100 to 164 (+64 %) and the ETF's own history starts at its scaled price.
+  const bars = [index(10, 100), index(20, 120), index(30, 160), bar(40, 164), bar(50, 172)]
+  const percent = (closes: readonly number[]) => closes.map((close) => close / closes[0]! - 1)
+
+  it('is one ascending series over index and own bars', () => {
+    const candles = historyCandles(bars, muted)
+    expect(candles.map((c) => c.time)).toEqual([10, 20, 30, 40, 50])
+  })
+  it('colours only the index bars, from their own direction', () => {
+    const rising: ChartBar = { ...index(5, 100), open: 90, close: 100 }
+    const falling: ChartBar = { ...index(6, 100), open: 110, close: 100 }
+    const [up, down, own] = historyCandles([rising, falling, bar(7)], muted)
+    expect(up).toMatchObject({ color: 'up-muted', borderColor: 'up-muted', wickColor: 'up-muted' })
+    expect(down).toMatchObject({ color: 'down-muted', wickColor: 'down-muted' })
+    expect(own).not.toHaveProperty('color')
+  })
+  it('has one base: the first own bar continues the index percent, it does not restart at 0', () => {
+    const closes = historyCandles(bars, muted).map((c) => c.close)
+    const pct = percent(closes)
+    const firstOwn = pct[3]!
+    // The day before sits at +60 %; the first own bar adds that day's change on the same base.
+    expect(pct[2]).toBeCloseTo(0.6, 10)
+    expect(firstOwn).toBeCloseTo(0.64, 10)
+    expect(firstOwn).toBeCloseTo((1 + pct[2]!) * (164 / 160) - 1, 10)
+    expect(firstOwn).not.toBeCloseTo(0, 2)
+  })
+  it('keeps about 5 % of the visible width empty right of the newest bar', () => {
+    for (const visible of [30, 252, 1000, 4000]) {
+      const offset = rightMarginBars(visible)
+      expect(offset / (visible + offset)).toBeGreaterThan(0.045)
+      expect(offset / (visible + offset)).toBeLessThan(0.055)
+    }
   })
 })
 

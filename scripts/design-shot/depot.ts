@@ -11,7 +11,8 @@
  * the distance between bars at day, week and month, and horizontal overflow; lines are drawn (a red one with
  * a label set to a typed price, a green one with a label, a vertical one) and a price range drawn with the
  * mouse; Bitcoin is read from 2011 on a log scale without turnover; a fund's history opens with its index and
- * a launch marker; "Compare with…" turns the scale to percent (6M and 1Y read differently, the chip's x removes it);
+ * a launch marker; the weekly compare of a young fund reads one continuous splice with about 5 % free on the right; the
+ * order and cost labels sit at the left edge and the toolbar's "Beschriftung" hides them; "Compare with…" turns the scale to percent (6M and 1Y read differently, the chip's x removes it);
  * the toolbar's tooltips, the line editor and the pointer coming back after one drawing, the all-time high in the header, the
  * US stock's hand-kept sell order on its dollar chart; an instrument is searched, added to a list,
  * renamed and removed; a trade card is pinned; and PNGs per combination are written (default
@@ -1906,6 +1907,93 @@ async function checkCompare(
  * A young fund: its history opens with the index it tracks, the comparison waits to be asked for, and the same fund
  * against an index of a similar size reads on a percent scale.
  */
+/** The share of the visible width empty right of the newest bar, off the host. */
+const rightGap = async (page: Page) => Number(await hostAttr(page, 'rightGap'))
+
+/**
+ * A weekly comparison of the young fund over its whole history: the splice is continuous (one percent base: asserted
+ * in the unit test, read off the shot) and about 5 % of the width stays free right of the newest bar after the load, a
+ * timeframe button, the interval change and back.
+ */
+async function checkCompareWeekly(
+  page: Page,
+  origin: string,
+  scheme: string,
+  device: string,
+  out: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  await page.goto(`${origin}/finance/depot?isin=${ALL_CAP}&ivl=1w&cmp=msci-acwi-imi-net-eur`, {
+    waitUntil: 'networkidle',
+  })
+  await page.locator('canvas').first().waitFor()
+  await page.locator('[data-shot="depot-compare-chip"]').waitFor()
+  await page.waitForTimeout(900)
+  const gaps: Record<string, number> = { load: await rightGap(page) }
+  await timeframe(page, 'Max')
+  await page.waitForTimeout(500)
+  gaps['Max'] = await rightGap(page)
+  await timeframe(page, '1Y')
+  await page.waitForTimeout(500)
+  gaps['1Y'] = await rightGap(page)
+  await timeframe(page, 'Max')
+  await page.waitForTimeout(500)
+  for (const [name, gap] of Object.entries(gaps)) {
+    if (!(gap > 0.04 && gap < 0.06)) {
+      failures.push(`${where}: the right margin after ${name} is ${gap}, not about 0.05`)
+    }
+  }
+  await page.locator('[data-shot="depot-chart"]').screenshot({
+    path: join(out, `depot--${scheme}--${device}--compare-young-1w.png`),
+  })
+}
+
+/**
+ * The labels of the order and cost lines: at the left edge, and gone (with the lines and the axis prices staying) after
+ * the toolbar's "Beschriftung" toggle.
+ */
+async function checkLineLabels(
+  page: Page,
+  origin: string,
+  scheme: string,
+  device: string,
+  out: string,
+  failures: string[],
+): Promise<void> {
+  const where = `${scheme}/${device}`
+  await page.goto(`${origin}/finance/depot?isin=${US_STOCK}`, { waitUntil: 'networkidle' })
+  await page.locator('canvas').first().waitFor()
+  await page.waitForTimeout(900)
+  const toggle = page.getByRole('button', { name: /text labels of horizontal and vertical lines/ })
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') {
+    await toggle.click()
+    await page.waitForTimeout(300)
+  }
+  if (Number(await hostAttr(page, 'lineLabels')) < 2) {
+    failures.push(`${where}: the order and cost labels are not drawn`)
+  }
+  await page.locator('[data-shot="depot-chart"]').screenshot({
+    path: join(out, `depot--${scheme}--${device}--labels-left.png`),
+  })
+  await toggle.click()
+  await page.waitForTimeout(300)
+  if (
+    (await toggle.getAttribute('aria-pressed')) !== 'false' ||
+    (await hostAttr(page, 'lineLabels')) !== '0'
+  ) {
+    failures.push(`${where}: "Beschriftung" does not hide the labels`)
+  }
+  if ((await hostAttr(page, 'lines')).split('|').length < 2) {
+    failures.push(`${where}: hiding the labels removed the lines`)
+  }
+  await page.locator('[data-shot="depot-chart"]').screenshot({
+    path: join(out, `depot--${scheme}--${device}--labels-hidden.png`),
+  })
+  await toggle.click()
+  await page.waitForTimeout(300)
+}
+
 async function checkSpliced(
   page: Page,
   origin: string,
@@ -2254,6 +2342,8 @@ async function main(): Promise<number> {
         }
         await checkCompare(page, origin, scheme, device, out, failures)
         await checkSpliced(page, origin, scheme, device, out, failures)
+        await checkCompareWeekly(page, origin, scheme, device, out, failures)
+        await checkLineLabels(page, origin, scheme, device, out, failures)
         await checkLayout(page, origin, out, scheme, device, failures)
         await checkViews(page, origin, out, scheme, device, failures)
         await checkNavigation(page, origin, out, scheme, device, failures)

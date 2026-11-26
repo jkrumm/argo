@@ -16,6 +16,13 @@ export function useHiddenTabs(): [string[], (id: string, hidden: boolean) => voi
   ]
 }
 
+/** Whether the text labels of horizontal and vertical lines show on the depot chart, for every instrument. On by default. */
+export const useLineLabels = createPersistedState<boolean>({
+  key: 'depot-line-labels',
+  version: 1,
+  initial: true,
+})
+
 /** Whether the CBBI line shows under the Bitcoin chart. On by default. */
 export const useCbbiLine = createPersistedState<boolean>({
   key: 'depot-cbbi-line',

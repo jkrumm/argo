@@ -42,6 +42,11 @@ export type ChartPalette = {
   down: string
   upFaint: string
   downFaint: string
+  /** The index before the launch: the candles' hues, readable but plainly not the instrument's own. */
+  upMuted: string
+  downMuted: string
+  /** The chart card's surface: a halo that keeps a line label legible over candles. */
+  panel: string
   /** The average-cost line: data, so neutral ink. */
   ink: string
   /** The drawings: annotations, so the accent. */
@@ -72,6 +77,9 @@ export function readPalette(host: HTMLElement): ChartPalette {
     down: at(VX.status.bad),
     upFaint: at(faded(VX.status.good, 45)),
     downFaint: at(faded(VX.status.bad, 45)),
+    upMuted: at(faded(VX.status.good, 65)),
+    downMuted: at(faded(VX.status.bad, 65)),
+    panel: at(VX.surface.panel),
     ink: at(VX.ink),
     accent: at(VX.accent),
     accentFill: at(VX.accentFill),
