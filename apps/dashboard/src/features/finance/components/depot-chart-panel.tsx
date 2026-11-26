@@ -161,7 +161,8 @@ export function ChartPanel({
         : quote.currency === 'USD' && currency === 'EUR' && series.rate !== null
           ? quote.last / series.rate.usdPerEur
           : null
-  const price = live ?? lastClose
+  // A quote that stopped answering is no price to measure from: the last close is.
+  const price = quote?.stale === true ? lastClose : (live ?? lastClose)
   const distance =
     high === null || price === null ? null : distanceFromHigh(price, Math.max(high.price, price))
   const newest = bars.at(-1)
@@ -289,7 +290,7 @@ export function ChartPanel({
           closes.
         </Text>
       )}
-      {series.direct && !series.pending && (
+      {series.direct && !series.pending && series.dailyBars !== undefined && (
         <Text size="xs" c="dimmed" data-shot="depot-direct-hint">
           {stored.length === 0
             ? `No ${DIRECT_VENUE} days are stored yet`
