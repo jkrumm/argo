@@ -1903,16 +1903,12 @@ async function checkCompare(
     failures.push(`${where}: the scale stays percent`)
 }
 
-/**
- * A young fund: its history opens with the index it tracks, the comparison waits to be asked for, and the same fund
- * against an index of a similar size reads on a percent scale.
- */
 /** The share of the visible width empty right of the newest bar, off the host. */
 const rightGap = async (page: Page) => Number(await hostAttr(page, 'rightGap'))
 
 /**
- * A weekly comparison of the young fund over its whole history: the splice is continuous (one percent base: asserted
- * in the unit test, read off the shot) and about 5 % of the width stays free right of the newest bar after the load, a
+ * A weekly comparison of the young fund over its whole history: the splice is continuous (one percent base: the unit test
+ * holds the data to one series, the shot shows the splice) and about 5 % of the width stays free right of the newest bar after the load, a
  * timeframe button, the interval change and back.
  */
 async function checkCompareWeekly(
@@ -1994,6 +1990,10 @@ async function checkLineLabels(
   await page.waitForTimeout(300)
 }
 
+/**
+ * A young fund: its history opens with the index it tracks, the comparison waits to be asked for, and the same fund
+ * against an index of a similar size reads on a percent scale.
+ */
 async function checkSpliced(
   page: Page,
   origin: string,
