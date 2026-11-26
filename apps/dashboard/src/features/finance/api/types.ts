@@ -808,7 +808,7 @@ export type DepotOrder = {
   overdue: boolean
 }
 
-/** `GET` and `POST /api/chart/drawings/<ISIN>`. `document` is the chart library's own export; `{}` and `updated_at: null` while none is stored. */
+/** `GET` and `POST /api/chart/drawings/<ISIN, coin symbol or series id>`. `document` is the chart library's own export; `{}` and `updated_at: null` while none is stored. */
 export type ChartDrawings = {
   isin: string
   document: unknown
