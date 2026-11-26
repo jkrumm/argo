@@ -65,7 +65,8 @@ page reads it live (finances `docs/service.md` §Chart routes: `market/quote`, `
   second, with the change counted against the polled previous close: header, Geld and Brief lines, order distances, sidebar, Board and the order
   form. Polling stays as it was and stays the base: it alone has the previous close, the session and the running day, so the candle moves with the
   poll, not the push. A push is left out for a dollar listing, a closed or stale quote, a quote from another venue, another German day than the
-  polled one, or one older than the polled quote. A silent connection is given up after 45 s and a broken one reopened (10 s, longer while it
+  polled one, or one older than the polled quote. ING rounds the pushed figures to three decimals, so a figure that only rounds the polled
+  one keeps the polled digits. A silent connection is given up after 45 s and a broken one reopened (10 s, longer while it
   keeps failing).
 
 ## Index entries and their ETFs

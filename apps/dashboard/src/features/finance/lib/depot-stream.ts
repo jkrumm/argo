@@ -78,6 +78,22 @@ const berlinDay = new Intl.DateTimeFormat('en-CA', {
 
 const round = (value: number): number => Math.round(value * 1e8) / 1e8
 
+/** Half a step of the stream's three decimals, with room for the float. */
+const ROUNDING = 0.0005 + 1e-9
+
+/** The stream rounds to three decimals: where it only says the polled figure again, the polled one is the finer. */
+const finer = (polled: number | null, pushed: number | null): number | null =>
+  polled !== null && pushed !== null && Math.abs(polled - pushed) <= ROUNDING ? polled : pushed
+
+/** The difference of bid and ask, and the same in basis points of the mid price. */
+const spreadOf = (bid: number | null, ask: number | null) =>
+  bid === null || ask === null
+    ? { spread: null, spread_bps: null }
+    : {
+        spread: round(ask - bid),
+        spread_bps: Math.round(((ask - bid) / ((ask + bid) / 2)) * 1e6) / 100,
+      }
+
 /**
  * The polled quote with the pushed price, bid and ask laid over it, and the change counted again against its previous
  * close. Left as polled where the push is not about it: another venue or currency (a US listing in dollars), a closed or
@@ -85,10 +101,10 @@ const round = (value: number): number => Math.round(value * 1e8) / 1e8
  * polled one.
  */
 export function withPush(quote: MarketQuote, push: StreamQuote | undefined): MarketQuote {
-  const last = push?.last ?? push?.valuation ?? null
+  const price = push?.last ?? push?.valuation ?? null
   if (
     push === undefined ||
-    last === null ||
+    price === null ||
     push.quoted_at === null ||
     quote.stale === true ||
     quote.session === 'closed' ||
@@ -99,14 +115,16 @@ export function withPush(quote: MarketQuote, push: StreamQuote | undefined): Mar
   ) {
     return quote
   }
+  const last = finer(quote.last, price) ?? price
+  const bid = finer(quote.bid, push.bid)
+  const ask = finer(quote.ask, push.ask)
   const change = quote.prev_close === null ? null : round(last - quote.prev_close)
   return {
     ...quote,
     last,
-    bid: push.bid,
-    ask: push.ask,
-    spread: push.spread,
-    spread_bps: push.spread_bps,
+    bid,
+    ask,
+    ...spreadOf(bid, ask),
     quoted_at: push.quoted_at,
     as_of: push.quoted_at,
     delay_seconds: push.delay_seconds,

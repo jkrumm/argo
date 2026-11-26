@@ -102,13 +102,21 @@ describe('withPush', () => {
         last: 4.3,
         bid: 4.29,
         ask: 4.31,
-        spread_bps: 46.5,
+        spread_bps: 46.51,
         change: 0.3,
         change_pct: 0.075,
         quoted_at: '2026-11-26T10:00:05.000Z',
         as_of: '2026-11-26T10:00:05.000Z',
       }),
     )
+  })
+
+  it('keeps the polled figure where the push only rounds it to three decimals', () => {
+    const polled = quote({ last: 4.2245, bid: 4.2105, ask: 4.2245 })
+    const merged = withPush(polled, push({ last: 4.225, bid: 4.211, ask: 4.226 }))
+    expect([merged.last, merged.bid, merged.ask, merged.spread]).toEqual([
+      4.2245, 4.2105, 4.226, 0.0155,
+    ])
   })
 
   it('takes the valuation where there is no last price, and has no change without a previous close', () => {
