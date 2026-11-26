@@ -6,7 +6,7 @@ import {
   useQuery,
 } from '@tanstack/react-query'
 import { FINANCE_DATA, FinanceApiError, financeGet } from './client'
-import { EUR_LINE_MIC, LIVE_POLL_MS, pollDelay } from '../lib/depot-live'
+import { EUR_LINE_MIC, LIVE_POLL_MS, pollDelay, staleQuote } from '../lib/depot-live'
 import type {
   CandlesResponse,
   CategoryMonth,
@@ -227,8 +227,13 @@ export function useQuotes(symbols: readonly string[], mic?: typeof EUR_LINE_MIC)
     })),
   })
   const quotes = results.flatMap((result) => result.data?.quotes ?? [])
+  // A failed or paused refresh keeps the last answer: it must not go on reading as live.
+  const shown = results.flatMap((result) => {
+    const old = result.isError || result.fetchStatus === 'paused'
+    return (result.data?.quotes ?? []).map((quote) => (old ? staleQuote(quote) : quote))
+  })
   return {
-    quotes: new Map(quotes.map((quote) => [quote.symbol, quote] as const)),
+    quotes: new Map(shown.map((quote) => [quote.symbol, quote] as const)),
     /** When the next request is due, for a request that follows the same sessions. */
     every: pollDelay(
       quotes.length === 0 ? undefined : quotes,
@@ -239,8 +244,8 @@ export function useQuotes(symbols: readonly string[], mic?: typeof EUR_LINE_MIC)
 }
 
 /**
- * The daily bars of several instruments, each by its own request, for rows no board route covers (a held instrument on no
- * list). Same cache entries as the chart's own daily request where it asks the same way (no `mic`, no `splice`).
+ * The daily bars of several instruments, each by its own request: rows no board route covers (a held instrument on no
+ * list), the funds that track an index, and the newest bars a running Board row is counted from. The stored days only.
  */
 export function useDailyBars(queries: readonly (CandleQuery & { isin: string })[]) {
   const results = useQueries({

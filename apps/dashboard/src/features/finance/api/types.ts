@@ -668,6 +668,8 @@ export type MarketQuote = {
   next_open: string | null
   /** Why the line's source gave no live price, or null. */
   error: string | null
+  /** Set by the page, never by the service: the last request for this quote did not answer, so it is an old one. */
+  stale?: true
 }
 
 export type QuotesResponse = { quotes: MarketQuote[] }

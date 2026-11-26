@@ -2414,7 +2414,7 @@ async function checkLive(
   if (!title.includes('· ING Direkthandel'))
     failures.push(`${where}: the venue is not in the title`)
   const hint = await page.locator('[data-shot="depot-direct-hint"]').innerText()
-  if (!/only 1\d stored bars/.test(hint))
+  if (!/only 1\d stored days/.test(hint))
     failures.push(`${where}: the short history reads "${hint}"`)
   if ((await page.locator('[data-shot="depot-candle-lag"]').count()) !== 0) {
     failures.push(`${where}: Direkthandel's candle is called delayed`)

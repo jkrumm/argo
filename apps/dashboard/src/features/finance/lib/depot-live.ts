@@ -40,6 +40,21 @@ export function pollDelay(
   return Math.min(Math.max(Math.min(...opens) - now, LIVE_POLL_MS), CLOSED_POLL_MS)
 }
 
+/**
+ * A quote whose refresh failed: the price stays to be read with its time, but it is no live price, has no bid or ask to
+ * measure or fill in, and says so.
+ */
+export const staleQuote = (quote: MarketQuote): MarketQuote => ({
+  ...quote,
+  stale: true,
+  session: 'closed',
+  bid: null,
+  ask: null,
+  spread: null,
+  spread_bps: null,
+  error: 'Kurs nicht aktualisiert',
+})
+
 // ---- The running candle --------------------------------------------------------------------------
 
 /** The history with the newest bars of a later request in place of its own from the first of them on. */
@@ -169,7 +184,7 @@ export function sideToMeet(
   order: Pick<DepotOrder, 'side' | 'type'>,
   quote: MarketQuote | undefined,
 ): { word: 'Brief' | 'Geld' | 'Kurs'; price: number } | null {
-  if (quote === undefined || quote.currency !== 'EUR') return null
+  if (quote === undefined || quote.stale === true || quote.currency !== 'EUR') return null
   const side =
     order.type === 'stop'
       ? ({ word: 'Kurs', price: quote.last } as const)

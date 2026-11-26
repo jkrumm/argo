@@ -6,15 +6,15 @@ The depot page (`/finance/depot`) grew by accretion: a chart, then a watchlist, 
 
 Everything the page can open is an **instrument**: one row of the market store, keyed by a **symbol** (an ISIN, a coin symbol such as `BTC-USD`, or a series id such as `ftse-global-all-cap-usd`). Its **kind** comes from the service (`quote.kind`) and is the only thing that decides grouping and what the views can show.
 
-| Kind | Group header | Has bars | Position, trades, orders |
-|-|-|-|-|
-| stock | Stocks | daily candles (US stock: dollars) | yes |
-| etf | ETFs | daily candles, optionally with its tracked index in front | yes |
-| etc | ETCs and ETNs | daily candles | yes |
-| index | Indices | real candles (FTSE) or closes only | no, but the ETFs that track it |
-| coin | Crypto | daily candles in dollars | yes, via the ETPs charted as it |
-| series | Series | closes only | no |
-| (none) | Other | whatever is stored | if held |
+| Kind   | Group header  | Has bars                                                  | Position, trades, orders        |
+| ------ | ------------- | --------------------------------------------------------- | ------------------------------- |
+| stock  | Stocks        | daily candles (US stock: dollars)                         | yes                             |
+| etf    | ETFs          | daily candles, optionally with its tracked index in front | yes                             |
+| etc    | ETCs and ETNs | daily candles                                             | yes                             |
+| index  | Indices       | real candles (FTSE) or closes only                        | no, but the ETFs that track it  |
+| coin   | Crypto        | daily candles in dollars                                  | yes, via the ETPs charted as it |
+| series | Series        | closes only                                               | no                              |
+| (none) | Other         | whatever is stored                                        | if held                         |
 
 An instrument without bars is **loading** (the service is fetching its history) or **empty** (nothing found); both are states of the instrument, never of the page.
 
@@ -24,10 +24,10 @@ A **list** is an ordered set of symbols in the market store (`/market/lists`). L
 
 Two **built-in tabs** are not lists: they are views the page derives.
 
-| Tab | Content | Can add, reorder, remove entries | Can be hidden |
-|-|-|-|-|
-| In depot | What is held now, largest value first, grouped by kind. Derived from `/depot/positions` | no | yes |
-| Crypto (the owner's "Krypto") | Bitcoin in dollars and the CBBI, nothing more. No list, no search | no | yes |
+| Tab                           | Content                                                                                 | Can add, reorder, remove entries | Can be hidden |
+| ----------------------------- | --------------------------------------------------------------------------------------- | -------------------------------- | ------------- |
+| In depot                      | What is held now, largest value first, grouped by kind. Derived from `/depot/positions` | no                               | yes           |
+| Crypto (the owner's "Krypto") | Bitcoin in dollars and the CBBI, nothing more. No list, no search                       | no                               | yes           |
 
 The owner's **lists** follow them. Every list is a tab: the default "Watchlist" (cannot be deleted, can be renamed and moved) and any he creates. A list is created with the plus, renamed, moved left or right, and deleted from its tab's menu (right-click or long-press). A hidden built-in comes back from the plus menu. Which built-ins are hidden is kept on this device.
 
@@ -37,11 +37,11 @@ The owner's **lists** follow them. Every list is a tab: the default "Watchlist" 
 
 A switch in the page bar, `?view=chart|details|board` (default Chart). It applies to the active tab; the selected instrument is `?isin=`. A pick in the sidebar keeps Chart or Details (a run down the list reads the same thing for each); only a click on a Board row opens the Chart, and so does a pick made on the Board or an instrument just added (its history load shows in the Chart view).
 
-| View | Shows | Notes |
-|-|-|-|
-| Chart | The chart card (candles, drawings, timeframes, comparison). Bitcoin adds the CBBI panel under it | An index draws candles from its first stored day: real bars where the series has them, weekly and monthly bars built from closes otherwise. A daily series that has closes only is a line, with a hint saying so |
-| Details | Position strip: units, value, average cost (per unit, with the total), gain. Statistics: gain with this instrument over all time, invested, sold, realised and taxable gain, fees and tax, held since, largest holding (units and day), distance from the high. Then the trades and the open orders | An instrument with no position or trade says so in one line. An index or series shows the depot of the ETFs that track it (`depot-chart.md` §Index entries and their ETFs), and says it cannot be held when none does |
-| Board | The active tab as a table: last close, day, week, month, YTD, 1Y, distance from the all-time high. Sortable; a click on a row opens its chart | Every entry of the active tab is a row: a list in list order, In depot every held row (largest value first), Crypto every coin. A held row or coin that sits on no list has no board route, so its figures are read off its own daily bars |
+| View    | Shows                                                                                                                                                                                                                                                                                               | Notes                                                                                                                                                                                                                                      |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Chart   | The chart card (candles, drawings, timeframes, comparison). Bitcoin adds the CBBI panel under it                                                                                                                                                                                                    | An index draws candles from its first stored day: real bars where the series has them, weekly and monthly bars built from closes otherwise. A daily series that has closes only is a line, with a hint saying so                           |
+| Details | Position strip: units, value, average cost (per unit, with the total), gain. Statistics: gain with this instrument over all time, invested, sold, realised and taxable gain, fees and tax, held since, largest holding (units and day), distance from the high. Then the trades and the open orders | An instrument with no position or trade says so in one line. An index or series shows the depot of the ETFs that track it (`depot-chart.md` §Index entries and their ETFs), and says it cannot be held when none does                      |
+| Board   | The active tab as a table: last price (live while the day runs, marked), day, week, month, YTD, 1Y, distance from the all-time high. Sortable; a click on a row opens its chart                                                                                                                     | Every entry of the active tab is a row: a list in list order, In depot every held row (largest value first), Crypto every coin. A held row or coin that sits on no list has no board route, so its figures are read off its own daily bars |
 
 **Words.** The page says "average cost" (the owner's Einstandskurs) and "gain". "FIFO" appears once, in a tooltip on the taxable gain ("Sales are matched first in, first out, as the tax return counts them"). Nothing else on the page uses the word.
 
@@ -51,7 +51,7 @@ Left of the main area; above a narrow container. Top to bottom:
 
 1. **Tabs across the full width** of the page, above the sidebar and the main area (they were a 15 rem strip that clipped). Plain text tabs, the plus at the end.
 2. **Search.** `/` focuses it; two characters search the whole Xetra universe, the coins and the stored series.
-3. **Entries grouped by kind**, each group under a small header with its count (Stocks, ETFs, ETCs and ETNs, Indices, Crypto, Series, Other). An entry: name, last close, day change; a dot for held; a drag handle on the left (visible on hover; a touch screen has no drag, so the menu moves a row with Move up and Move down).
+3. **Entries grouped by kind**, each group under a small header with its count (Stocks, ETFs, ETCs and ETNs, Indices, Crypto, Series, Other). An entry: name, last price (live while its market trades), day change; a dot for held; a drag handle on the left (visible on hover; a touch screen has no drag, so the menu moves a row with Move up and Move down).
 4. **Reorder** by dragging the handle inside a group, persisted through the list route (`position` of the entry); Alt+Arrow and the menu's Move up and Move down do the same from the keyboard and on touch. A group is derived from the kind, so an entry cannot be dragged into another group.
 5. **Context menu** on an entry (right-click, or long-press on touch; a "…" button for the keyboard): Rename (list entries), Move to list (a submenu of the other lists; on In depot it reads Add to list), Move up, Move down, Open in board and Remove from list. On a tab: Rename, Move left, Move right, Hide (built-ins), Delete.
 

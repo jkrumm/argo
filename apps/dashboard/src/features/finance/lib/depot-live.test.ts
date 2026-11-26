@@ -14,6 +14,7 @@ import {
   quoteLines,
   quoteStatus,
   spreadText,
+  staleQuote,
   suggestedLimit,
 } from './depot-live'
 
@@ -188,6 +189,20 @@ describe('orders against the quote', () => {
     expect(suggestedLimit('buy', undefined)).toBeNull()
     expect(spreadText(quote())).toContain('Geld 4,21 € · Brief 4,23 € · Spread 0,02 €')
     expect(spreadText(quote({ bid: null }))).toBeNull()
+  })
+})
+
+describe('staleQuote', () => {
+  it('keeps the price but is not live, draws nothing, measures nothing and fills nothing in', () => {
+    const old = staleQuote(quote())
+    expect(old.last).toBe(4.22)
+    expect(quoteStatus(old)).toEqual({ label: 'Kein Live-Kurs', live: false })
+    expect(quoteLines(old)).toEqual([])
+    expect(suggestedLimit('buy', old)).toBeNull()
+    expect(orderLine(order(), null, old)?.title).toBe('Kauf Limit 4,21 €')
+    expect(orderLine(order({ type: 'stop', stop_price: 4 }), null, old)?.title).toBe(
+      'Kauf Stop 4 €',
+    )
   })
 })
 

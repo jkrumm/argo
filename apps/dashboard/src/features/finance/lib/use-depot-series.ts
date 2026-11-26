@@ -89,8 +89,16 @@ export function useDepotSeries({
     query === null ? null : { isin: query.isin, interval: converting ? '1d' : interval, mic },
     every,
   )
+  // The daily history of a week or month chart has its own tail: the high and the last price hang on it.
+  const sharesTail = interval === '1d' || converting
+  const dailyTail = useTail(
+    query === null || sharesTail ? null : { isin: query.isin, interval: '1d', mic },
+    every,
+  )
   const dailyQuery = interval === '1d' ? candles : daily
-  const dailyRaw = dailyQuery.isPlaceholderData ? undefined : withTail(dailyQuery.data, tail.data)
+  const dailyRaw = dailyQuery.isPlaceholderData
+    ? undefined
+    : withTail(dailyQuery.data, sharesTail ? tail.data : dailyTail.data)
   const dailyBars: readonly ChartBar[] | undefined = !converting
     ? dailyRaw
     : dailyRaw === undefined || rates.data === undefined
@@ -107,6 +115,9 @@ export function useDepotSeries({
         : aggregateBars(dailyBars, interval)
 
   const shownCurrency = converting || direct ? 'EUR' : stored
+  // A dollar instrument on a euro chart needs the rate for its drawings: without it they would be read and saved as euros,
+  // so the chart waits (or fails) with them.
+  const unrated = own === 'USD' && shownCurrency === 'EUR' && rate === undefined
   return {
     /** ING Direkthandel's own days are on screen. */
     direct,
@@ -119,15 +130,19 @@ export function useDepotSeries({
     dailyBars,
     /** The interval the bars are: the last request's while the next one loads. */
     interval: converting ? interval : depotInterval(candles.data?.interval, interval),
-    pending: converting ? dailyBars === undefined : candles.isPending,
-    error: candles.error ?? (converting ? (dailyQuery.error ?? rates.error) : null),
+    pending: unrated
+      ? rates.error === null
+      : converting
+        ? dailyBars === undefined
+        : candles.isPending,
+    error:
+      candles.error ??
+      (converting ? (dailyQuery.error ?? rates.error) : unrated ? rates.error : null),
     refetch: () => {
       void candles.refetch()
       void tail.refetch()
-      if (converting) {
-        void rates.refetch()
-        if (interval !== '1d') void daily.refetch()
-      }
+      if (own === 'USD') void rates.refetch()
+      if (converting && interval !== '1d') void daily.refetch()
     },
     notes: candles.data?.notes ?? [],
     /** The latest ECB rate and its day, for a dollar instrument. */

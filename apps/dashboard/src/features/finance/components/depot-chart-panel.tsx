@@ -125,6 +125,26 @@ export function ChartPanel({
       : { name: picked.name, points: levelLine }
   const comparing = compare !== null
 
+  // A state replaces the card's body, the toolbar with it: on Direkthandel the switch then moves to the header, so a
+  // venue with nothing to show can always be left.
+  const blocked = series.pending || series.error !== null || bars.length === 0
+  const venueSwitch =
+    venues === null ? null : (
+      <Group gap={4} role="group" aria-label="Venue">
+        {(['exchange', 'direct'] as const).map((venue) => (
+          <Button
+            key={venue}
+            variant={series.direct === (venue === 'direct') ? 'filled' : 'default'}
+            color="gray"
+            aria-pressed={series.direct === (venue === 'direct')}
+            onClick={() => switchVenue(venue)}
+          >
+            {venue === 'direct' ? DIRECT_VENUE : exchangeName(venues.usMic)}
+          </Button>
+        ))}
+      </Group>
+    )
+
   // A line is coloured from the toolbar: the colour of the next one drawn, or the selected line's own.
   const pick = (next: ColorRole) => {
     setRole(next)
@@ -145,7 +165,8 @@ export function ChartPanel({
   const distance =
     high === null || price === null ? null : distanceFromHigh(price, Math.max(high.price, price))
   const newest = bars.at(-1)
-  const stored = bars.filter((bar) => bar.provisional !== true)
+  // Counted from the days: a week or month bar that holds today holds stored days too.
+  const stored = (series.dailyBars ?? []).filter((bar) => bar.provisional !== true)
   // A chart on another venue is another chart: what is drawn and selected is read again.
   const switchVenue = (next: 'exchange' | 'direct') => {
     setTool(null)
@@ -200,7 +221,7 @@ export function ChartPanel({
               ]),
         ],
       })}
-      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}The price over the chart is live while the market trades (asked every minute; ING Direkthandel's for a euro line) and the newest candle is the running day of the chosen venue, 15 minutes behind on Xetra. Direkthandel's dotted lines are its bid (Geld) and ask (Brief); an order's label says how far its price is from the side it has to meet. The venue switch picks the exchange or ING Direkthandel's own days; the two close hours apart and are never mixed. Daily candles over the whole stored history in the instrument's currency (Bitcoin, US stocks and dollar indices in dollars, or in euros with the EUR button, each day at its ECB rate); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high stored and the percentage is the last close's distance from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, on a US stock's dollar chart at the latest ECB rate. ${tracked.length > 0 ? `The orders and trades are those of ${tracked.join(', ')}, which ${tracked.length > 1 ? 'track' : 'tracks'} this index: each sits as far from the index close as its price from the ETF's close on their latest common day, and is labelled with the ETF's own price. ` : ''}${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the lighter candles are the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
+      info={`${asLine ? 'This series sends one close a day, so the daily chart is a line; the week and month intervals show candles built from the closes. ' : ''}The price over the chart is live while the market trades (asked every minute; ING Direkthandel's for a euro line) and the newest candle is the running day of the chosen venue, 15 minutes behind on Xetra. Direkthandel's dotted lines are its bid (Geld) and ask (Brief); an order's label says how far its price is from the side it has to meet. The venue switch picks the exchange or ING Direkthandel's own days; the two close hours apart and are never mixed. Daily candles over the whole stored history in the instrument's currency (Bitcoin, US stocks and dollar indices in dollars, or in euros with the EUR button, each day at its ECB rate); the buttons under the chart only set the visible range, drag and scroll to move and zoom. The all-time high is the highest daily high, the running day included, and the percentage is the distance of the live price (without one: the last close) from it. An arrow marks the trades of a day, week or month with their count, a circle those whose quantity is an estimate; hover or tap one for its card. Dashed lines are your open orders at their limit or stop, on a US stock's dollar chart at the latest ECB rate. ${tracked.length > 0 ? `The orders and trades are those of ${tracked.join(', ')}, which ${tracked.length > 1 ? 'track' : 'tracks'} this index: each sits as far from the index close as its price from the ETF's close on their latest common day, and is labelled with the ETF's own price. ` : ''}${spliced ? `${SPLICE_LABEL}: before the ETF's first bar the lighter candles are the index it tracks, converted to the ETF's currency and scaled to meet its first close; it carries no dividends. ` : ''}Lines you draw are saved per instrument.`}
       state={{
         pending: series.pending,
         error: series.error ?? undefined,
@@ -210,6 +231,7 @@ export function ChartPanel({
       onRetry={series.refetch}
       actions={
         <Box className={classes.tools}>
+          {blocked && series.direct && venueSwitch}
           <ViewTabs field={finStore.field.ivl} label="Bar interval" />
           <DrawToolbar
             tool={tool}
@@ -271,7 +293,7 @@ export function ChartPanel({
         <Text size="xs" c="dimmed" data-shot="depot-direct-hint">
           {stored.length === 0
             ? `No ${DIRECT_VENUE} days are stored yet`
-            : `${DIRECT_VENUE} has only ${stored.length} stored bars, from ${dayDe(stored[0]?.time ?? 0)}`}
+            : `${DIRECT_VENUE} has only ${stored.length} stored days, from ${dayDe(stored[0]?.time ?? 0)}`}
           ; the long history is {exchangeName(venues?.usMic ?? null)}.
         </Text>
       )}
@@ -290,21 +312,7 @@ export function ChartPanel({
             </Button>
           ))}
         </Group>
-        {venues !== null && (
-          <Group gap={4} role="group" aria-label="Venue">
-            {(['exchange', 'direct'] as const).map((venue) => (
-              <Button
-                key={venue}
-                variant={series.direct === (venue === 'direct') ? 'filled' : 'default'}
-                color="gray"
-                aria-pressed={series.direct === (venue === 'direct')}
-                onClick={() => switchVenue(venue)}
-              >
-                {venue === 'direct' ? DIRECT_VENUE : exchangeName(venues.usMic)}
-              </Button>
-            ))}
-          </Group>
-        )}
+        {!blocked && venueSwitch}
         {series.native === 'USD' && (
           <Group gap={4} role="group" aria-label="Currency">
             {CURRENCIES.map((option) => (
