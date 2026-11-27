@@ -65,7 +65,7 @@ export const app = new Elysia()
 
 **CORS must allow `traceparent`, `tracestate`, `baggage`.** Without them the browser preflight strips W3C trace context and frontend/backend traces will have different `trace_id`s — distributed tracing breaks silently.
 
-**`checkIfShouldTrace` must skip the discovery surfaces** (`/`, `/health`, `/openapi`, `/openapi/json`). They are polled frequently and generate noise. Extend this list whenever you add a public probe route. The one other reason to skip a route is privacy: the Elysia plugin records `url.full` and the request and response bodies on every span, so `/finance` and `/paper` (vault bookings, filed documents) are not traced at all; `lib/trace-filter.ts` is the list.
+**`checkIfShouldTrace` must skip the discovery surfaces** (`/`, `/health`, `/openapi`, `/openapi/json`). They are polled frequently and generate noise. Extend this list whenever you add a public probe route. The one other reason to skip a route is privacy: the Elysia plugin records `url.full` on every span (`ScrubbingSpanProcessor` drops the request and response bodies before export), so `/finance` and `/paper` (vault bookings, filed documents) are not traced at all; `lib/trace-filter.ts` is the list.
 
 ## Outgoing HTTP — always `tracedFetch`
 

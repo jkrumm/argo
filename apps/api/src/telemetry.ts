@@ -110,7 +110,7 @@ export function redactHeaderAttributes(attributes: Attributes): Attributes {
   return redacted ?? attributes
 }
 
-// The Elysia plugin records every route's request and response body. The API answers calendar,
+// The Elysia plugin (@elysiajs/opentelemetry 1.4.x) records every route's request and response body. The API answers calendar,
 // mail, chat, GitLab and Jira data, so bodies are dropped on every span; the `*.body.size` attributes stay.
 const BODY_ATTRIBUTE_KEYS = ['http.request.body', 'http.response.body'] as const
 
