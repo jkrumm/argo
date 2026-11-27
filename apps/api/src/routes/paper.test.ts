@@ -732,9 +732,15 @@ describe('print', () => {
       tonerPercent: 60,
     })
     await say('print status', {
-      ...status,
-      jobs: undefined,
-      job: { id: 'Test_Printer-7', state: 'held', sheets: 2 },
+      ok: true,
+      job: {
+        id: 'Test_Printer-7',
+        state: 'held',
+        reasons: [],
+        user: '',
+        submittedAt: 1,
+        sheets: 2,
+      },
     })
     expect(await (await call('/paper/print/jobs/Test_Printer-7')).json()).toMatchObject({
       job: { id: 'Test_Printer-7' },
