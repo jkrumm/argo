@@ -8,6 +8,7 @@ import {
   type UserBookUpdateInput,
 } from '../clients/hardcover.js'
 import { runReadingMatch } from '../lib/reading-match.js'
+import { pushReadingShelf } from '../lib/reading-store.js'
 import { env } from '../env.js'
 import { log } from '../telemetry.js'
 import { cronOptions, fireTick } from './traced-tick.js'
@@ -155,6 +156,8 @@ export async function runHardcoverReconcile(): Promise<{
     log.error('[hardcover-reconcile] fatal error', e)
   } finally {
     inProgress = false
+    // Second shelf push after the 05:00 sync: its own push dies with a hung or restarted run.
+    pushReadingShelf()
   }
 
   return { matched, reconciled, errors }
