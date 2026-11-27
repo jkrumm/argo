@@ -608,7 +608,16 @@ describe('docs', () => {
     expect((await hcCalls()).some((line) => line.includes('/bin/cat'))).toBe(true)
   })
 
-  it('does not read a text path outside the brain', async () => {
+  it('reads the extracted text that lies under the Dokumente share', async () => {
+    await mkdir(join(root, 'dokumente'), { recursive: true })
+    await writeFile(join(root, 'dokumente', 'doc.txt'), 'Freitext')
+    await say('docs text', { ok: true, id: 'x', path: join(root, 'dokumente', 'doc.txt') })
+    const res = await call('/paper/docs/x/text')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('Freitext')
+  })
+
+  it('does not read a text path outside the brain and the share', async () => {
     await say('docs text', { ok: true, id: 'x', path: '/etc/hosts' })
     expect((await call('/paper/docs/x/text')).status).toBe(502)
     expect((await hcCalls()).some((line) => line.includes('/bin/cat'))).toBe(false)

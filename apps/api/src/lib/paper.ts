@@ -228,14 +228,18 @@ export function createPaper(config: PaperConfig) {
     return root && real && real.startsWith(root + sep) ? real : null
   }
 
-  /** A document's extracted text: a .md or .txt under the brain, read by `cat` in the core's child. */
+  /** A document's extracted text: a .md or .txt under the brain or the Dokumente share, read by `cat` in the core's child. */
   function brainText(path: string): Promise<PaperResult<string>> {
     return timed('docs text read', async () => {
       const found = await paperDirs()
       if (!found) return { kind: 'unavailable', message: 'paper directories are unknown' }
       const absolute = resolve(path)
-      if (!absolute.startsWith(resolve(found.brain) + sep) || !/\.(md|txt)$/.test(absolute)) {
-        return { kind: 'failed', message: 'the text file lies outside the brain' }
+      const roots = [found.brain, found.dokumente].map((root) => resolve(root) + sep)
+      if (!roots.some((root) => absolute.startsWith(root)) || !/\.(md|txt)$/.test(absolute)) {
+        return {
+          kind: 'failed',
+          message: 'the text file lies outside the brain and the Dokumente share',
+        }
       }
       const out = await exec(['/bin/cat', absolute], 30)
       if (out.kind !== 'done') return out

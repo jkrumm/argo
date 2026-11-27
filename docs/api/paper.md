@@ -15,7 +15,7 @@ Every verb runs as `hc exec --json --timeout N -- ~/.local/bin/paper …`, `scan
 
 ## Files
 
-Files reach the browser from local disk only. Thumbnails and the copies `docs fetch` / `inbox fetch` make lie in paper's state dir; a route serves a path only when its realpath is under that dir (the dir comes from `paper doctor`'s config, read once and cached; a failed read is retried). `GET /paper/docs/{id}/text` is the one exception: the text lives in the brain, so the path from `paper docs text` must lie under the doctor's brain dir and be a `.md` or `.txt`, and it is read with `hc exec -- /bin/cat`. No filesystem path appears in a JSON body: scan parts carry thumbnail and page URLs (`/paper/scan/pages/{part}/{page}`), `notePath` and the CLI's `path`, `argv` and `file` fields are dropped. Doctor messages do name local paths.
+Files reach the browser from local disk only. Thumbnails and the copies `docs fetch` / `inbox fetch` make lie in paper's state dir; a route serves a path only when its realpath is under that dir (the dir comes from `paper doctor`'s config, read once and cached; a failed read is retried). `GET /paper/docs/{id}/text` is the one exception: the text lives in the brain or beside the original on the Dokumente share, so the path from `paper docs text` must lie under the doctor's brain or Dokumente dir and be a `.md` or `.txt`, and it is read with `hc exec -- /bin/cat`. No filesystem path appears in a JSON body: scan parts carry thumbnail and page URLs (`/paper/scan/pages/{part}/{page}`), `notePath` and the CLI's `path`, `argv` and `file` fields are dropped. Doctor messages do name local paths.
 
 ## Rules that hold
 
