@@ -51,7 +51,8 @@ const render = (
 describe('Review item', () => {
   it('with a proposal: one tap accepts the split, one tap makes one document', async () => {
     const html = await render(split)
-    expect(html).toContain('Accept: 5 documents: pages 1-8, 9, 10-11, 12-13, 14-15')
+    expect(html).toContain('Proposal: 5 documents: pages 1-8, 9, 10-11, 12-13, 14-15')
+    expect(html).toContain('Accept proposal')
     expect(html).toContain('One document')
     expect(html).toContain('Held because: looks like several documents in one scan')
     expect(html).toContain('3 hours ago')
@@ -59,7 +60,7 @@ describe('Review item', () => {
 
   it('without a proposal: no accept button, the reason is missing in words', async () => {
     const html = await render(bare)
-    expect(html).not.toContain('Accept:')
+    expect(html).not.toContain('Accept proposal')
     expect(html).toContain('The pipeline has no proposal.')
     expect(html).toContain('The pipeline did not say why it holds this file.')
     expect(html).toContain('One document')
@@ -80,7 +81,8 @@ describe('Review item', () => {
     )
     expect(html).toContain('value="invoice"')
     expect(html).toContain('value="2026-11-02"')
-    expect(html).toContain('Accept: One document: invoice, 2026-11-02')
+    expect(html).toContain('Proposal: One document: invoice, 2026-11-02')
+    expect(html).toContain('Accept proposal')
   })
 
   it('a refused decision shows the API words', async () => {

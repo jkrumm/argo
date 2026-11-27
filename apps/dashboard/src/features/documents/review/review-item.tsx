@@ -110,7 +110,7 @@ export function ReviewItem({
         <Stack gap="xs">
           {proposal && (
             <Button size="md" loading={busy} onClick={() => onDecide(proposal.body)}>
-              Accept: {proposal.label}
+              Accept proposal
             </Button>
           )}
           <Button
