@@ -63,7 +63,9 @@ if (typeof window !== 'undefined') {
     })
 
     // Document titles and issuers in the page address never reach the exporter.
-    installDocumentPrivacy(trace.getTracerProvider())
+    if (!installDocumentPrivacy(trace.getTracerProvider())) {
+      console.warn('argo: the document address scrubber could not be installed')
+    }
 
     // Single-user dashboard — stamp the user once at boot so every span/log
     // carries it. For multi-user apps, call identify() after auth instead.

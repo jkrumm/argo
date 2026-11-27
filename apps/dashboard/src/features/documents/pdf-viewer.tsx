@@ -105,6 +105,7 @@ function PdfPage({
   const canvas = useRef<HTMLCanvasElement>(null)
   const [near, setNear] = useState(false)
   const [shape, setShape] = useState(ratio)
+  const [broken, setBroken] = useState(false)
 
   useEffect(() => {
     const node = holder.current
@@ -139,8 +140,10 @@ function PdfPage({
         setShape(natural.height / natural.width)
         render = page.render({ canvas: target, viewport })
         await render.promise
-      } catch {
-        // A render cancelled by a resize or by leaving the page: the next one draws it.
+        setBroken(false)
+      } catch (error) {
+        // A render cancelled by a resize or by leaving the page is not a failure: the next one draws it.
+        if (!stopped && (error as Error).name !== 'RenderingCancelledException') setBroken(true)
       }
     })()
     return () => {
@@ -150,8 +153,15 @@ function PdfPage({
   }, [near, pdf, number, width])
 
   return (
-    <Box ref={holder} className={classes['page']} style={{ aspectRatio: `1 / ${shape}` }}>
-      <canvas ref={canvas} className={classes['canvas']} role="img" aria-label={label} />
+    <Box>
+      {broken && (
+        <Text size="sm" c="dimmed">
+          Page {number} could not be drawn. Download the file instead.
+        </Text>
+      )}
+      <Box ref={holder} className={classes['page']} style={{ aspectRatio: `1 / ${shape}` }}>
+        <canvas ref={canvas} className={classes['canvas']} role="img" aria-label={label} />
+      </Box>
     </Box>
   )
 }

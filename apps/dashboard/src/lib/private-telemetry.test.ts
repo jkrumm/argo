@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   documentPrivacyProcessor,
   installDocumentPrivacy,
@@ -68,6 +70,12 @@ describe('document pages stay out of telemetry', () => {
     expect(installDocumentPrivacy({ getDelegate: () => delegate })).toBe(true)
     expect(added).toHaveLength(1)
     expect(installDocumentPrivacy({ getDelegate: () => ({}) })).toBe(false)
+  })
+
+  it('hyperdx.ts installs the scrubber', () => {
+    expect(readFileSync(join(import.meta.dir, 'hyperdx.ts'), 'utf8')).toContain(
+      'installDocumentPrivacy(trace.getTracerProvider())',
+    )
   })
 
   it('never traces a paper request', () => {
