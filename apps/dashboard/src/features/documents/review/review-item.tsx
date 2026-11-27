@@ -12,12 +12,17 @@ import {
 } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { formatDistanceToNow } from 'date-fns'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import type { DecideBody, ReviewEntry } from '../../../lib/queries/paper'
 import { AuthImage } from '../auth-image'
 import { useObjectUrl, usePaperBlob } from '../paper-blob'
 import { proposalOf, sidesLine, toMs, type Suggestions } from './model'
 import { ReviewForm } from './review-form'
+
+// Lazy: pdf.js and its worker load only when a PDF is opened.
+const PdfViewer = lazy(() =>
+  import('../pdf-viewer').then((module) => ({ default: module.PdfViewer })),
+)
 
 const inboxPath = (name: string, leaf: 'pdf' | 'thumb') =>
   `/paper/inbox/${encodeURIComponent(name)}/${leaf}`
@@ -31,10 +36,14 @@ function PdfView({ name, version }: { name: string; version: number }) {
         The PDF did not load.
       </Text>
     )
-  if (!url) return <Skeleton h={480} />
+  if (!url || !blob.data) return <Skeleton h={480} />
   return (
     <Stack gap="xs">
-      <Box component="iframe" src={url} title={`PDF of ${name}`} h={560} w="100%" data-private />
+      <Box data-private>
+        <Suspense fallback={<Skeleton h={480} />}>
+          <PdfViewer blob={blob.data} title={`PDF of ${name}`} />
+        </Suspense>
+      </Box>
       <Anchor href={url} target="_blank" size="sm">
         Open the PDF in its own tab
       </Anchor>
