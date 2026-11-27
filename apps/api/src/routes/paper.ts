@@ -20,6 +20,7 @@ import {
   JobIdSchema,
   PrintBodySchema,
   PrintCancelSchema,
+  PrintJobAnswerSchema,
   PrintResultSchema,
   PrintStatusSchema,
   ScanActionSchema,
@@ -752,7 +753,7 @@ export function createPaperRoutes({ paper }: PaperRoutesConfig) {
               verb: 'print status job',
               args: ['print', 'status', params.jobId],
               timeoutSec: LIGHT,
-              schema: PrintStatusSchema,
+              schema: PrintJobAnswerSchema,
             }),
             (data) => data,
             true,
@@ -760,7 +761,7 @@ export function createPaperRoutes({ paper }: PaperRoutesConfig) {
         {
           params: z.object({ jobId: JobIdSchema }),
           response: {
-            200: PrintStatusSchema,
+            200: PrintJobAnswerSchema,
             404: ErrorSchema,
             409: ErrorSchema,
             502: ErrorSchema,
@@ -769,7 +770,7 @@ export function createPaperRoutes({ paper }: PaperRoutesConfig) {
           },
           detail: detail(
             'One print job',
-            'Runs `paper print status <jobId>`: the printer fields plus `job` (state, reasons, sheets). 404 when the queue does not know the job.',
+            'Runs `paper print status <jobId>`: `job` (state, reasons, sheets; a cancelled job reads state `canceled`). 404 when the queue does not know the job.',
           ),
         },
       )

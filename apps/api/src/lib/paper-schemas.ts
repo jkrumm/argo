@@ -286,7 +286,7 @@ export const PrintBodySchema = z.object({
 })
 
 export const PrintResultSchema = z.object({
-  message: z.string(),
+  message: z.string().optional().describe('Absent on a dry run.'),
   action: z.string().optional(),
   jobId: z.string().nullish(),
   printer: z.string().optional(),
@@ -322,12 +322,11 @@ export const PrintStatusSchema = z.object({
   tonerPercent: z.number().nullish(),
   tonerLow: z.boolean(),
   warnings: z.array(z.string()),
-  jobs: z
-    .array(PrintJobSchema)
-    .optional()
-    .describe('Active jobs (absent when one job was asked for).'),
-  job: PrintJobSchema.optional().describe('The one job asked for.'),
+  jobs: z.array(PrintJobSchema).describe('Active jobs.'),
 })
+
+/** `paper print status <jobId>`: the one job and nothing of the printer. */
+export const PrintJobAnswerSchema = z.object({ job: PrintJobSchema })
 
 export const PrintCancelSchema = z.object({
   message: z.string(),

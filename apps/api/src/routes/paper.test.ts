@@ -664,8 +664,23 @@ describe('print', () => {
   })
 
   it('lets the CLI choose the sides by default and supports a dry run', async () => {
-    await say('print', { ...printed, action: 'dry-run', jobId: undefined })
-    await post('/paper/docs/rechnung-1/print', { dryRun: true })
+    await say('print', {
+      ok: true,
+      action: 'dry-run',
+      printer: 'Test_Printer',
+      sides: 'two-sided-long-edge',
+      sidesWhy: 'default: long edge',
+      media: 'A4',
+      mediaType: null,
+      scaling: 'auto',
+      manualFeed: false,
+      documentPages: 2,
+      pageCount: 2,
+      sheets: 1,
+      warnings: [],
+    })
+    const dry = await post('/paper/docs/rechnung-1/print', { dryRun: true })
+    expect(dry.status).toBe(200)
     expect(await paperCalls()).toEqual([['print', '--doc', 'rechnung-1', '--dry-run']])
   })
 
