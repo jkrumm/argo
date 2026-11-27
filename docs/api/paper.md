@@ -8,7 +8,7 @@ Read before changing `apps/api/src/routes/paper.ts`, `lib/paper.ts` or `lib/pape
 
 Every verb runs as `hc exec --json --timeout N -- ~/.local/bin/paper …`, `scan status` included. A launchd-born process (Argo is one) can stat the SMB share but not read it and has no LAN access; a child of the herdr core has both (dotfiles `docs/tcc.md`). Never ask for a TCC grant. `hc exec` ends a command after 600 s; Argo's timeouts are 30 s for reads, 60 s for checks, starts and `docs list`, 90 s for printing and the inbox listing, 120 s for fetches and submit.
 
-- `PAPER_BIN` and `HC_BIN` (env, default `~/.local/bin/paper` and `hc`) let tests point at fakes.
+- `PAPER_BIN` and `HC_BIN` (env, default `~/.local/bin/paper` and `~/.local/bin/hc`, absolute because a launchd process has a minimal PATH) let tests point at fakes.
 - **Core guard.** Any `hc` call starts a core when none answers, and a core born from Argo would be a stray (dotfiles `scripts/lib/core-up.sh`). So a bare connect to the default core socket must answer before `hc` is spawned; otherwise the call is `unavailable` (503) and nothing is spawned.
 - **Result kinds** (`PaperResult` in `lib/paper.ts`): `ok`; `refused` (exit 1 or 2 with `ok:false`) → 409, 404 on id and name lookups; `timeout` → 504; `unparseable` (not JSON, or it does not fit the zod shape) → 502; `failed` (another exit code, output cut at the cap) → 502; `unavailable` → 503. `GET /paper/doctor` and `GET /paper/scan/check` answer a refusal as 200 data: the failing rows and "no document in the feeder" are the answer.
 - A CLI field that is not in `lib/paper-schemas.ts` is dropped; one it stops sending fails the parse. Update the schema when `paper schema` changes.
