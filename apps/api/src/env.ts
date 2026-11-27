@@ -90,6 +90,12 @@ const EnvShape = z.object({
   CLICKHOUSE_USER: z.string().default('argo_ro'),
   CLICKHOUSE_PASSWORD: z.string().default(''),
 
+  // The paper CLI (repo ~/SourceRoot/paper) and the hc client that runs it in a herdr-core child (a
+  // launchd-born process cannot read the SMB share). Empty (the default) means `~/.local/bin/paper` / `hc`;
+  // the tests point both at fakes.
+  PAPER_BIN: z.string().default(''),
+  HC_BIN: z.string().default(''),
+
   // modelpick server (repo ~/SourceRoot/modelpick): loopback-only and read-only, so no service token.
   // Argo's /models/* routes relay to it.
   MODELPICK_PORT: z.coerce.number().int().default(7727),

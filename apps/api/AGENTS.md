@@ -185,6 +185,7 @@ Before changing anything below, Read the doc first: these sections moved out of 
 - Usage page: IU portal, flow, movers: `docs/api/usage-iu-portal.md`
 - Usage page: credit pace, router, demand: `docs/api/usage-pace.md`
 - `/finance/*` (the `fin serve` relay): `docs/api/finance.md`
+- `/paper/*` (the `paper` CLI through `hc exec`: scan, inbox, document index, print): `docs/api/paper.md`
 - Line and Machines (ClickHouse reads): `docs/api/clickhouse-reads.md`
 - Reading (Hardcover, homelab link) and Garmin: `docs/api/integrations.md`
 - Google and M365 tokens, seeding, access control: `docs/api/google-m365.md`

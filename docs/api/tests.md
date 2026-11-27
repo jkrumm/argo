@@ -31,6 +31,7 @@ Tests live alongside source files as `*.test.ts`:
 - `src/lib/formulas.test.ts` — unit tests for pure formula functions (no DB)
 - `src/env.test.ts` — env schema validation
 - `src/routes/finance.test.ts` — `/finance/*` relay against a fake `fin serve` (no DB; in `make check`): status passthrough, 423/401/429/409, 503 on a dead service, and that the vault key never reaches logs or span attributes
+- `src/routes/paper.test.ts` — `/paper/*` against a fake `hc` around a fake `paper` executable (no DB; in `make check`): refusal, timeout, unparseable output, core down, path escape, no scan or print without its POST (`docs/api/paper.md`)
 - `src/routes/models.test.ts` — `GET /models/efficiency` relay against a fake modelpick server (no DB; in `make check`): bearer guard, no bearer forwarded, status passthrough, 503 on a dead service
 - `src/serve-dashboard.test.ts`, `src/otlp-headers.test.ts` — native runtime serving + OTLP auth (no DB)
 - `src/routes/openapi-auth.test.ts` — walks `/openapi/json` and asserts every non-public path answers 401 without a bearer (no DB; add a new public route to its `PUBLIC` set only on purpose)

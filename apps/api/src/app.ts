@@ -42,6 +42,7 @@ import { financeRoutes } from './routes/finance.js'
 import { modelsRoutes } from './routes/models.js'
 import { lineRoutes } from './routes/line.js'
 import { machinesRoutes } from './routes/machines.js'
+import { paperRoutes } from './routes/paper.js'
 import { authGuard } from './lib/auth-guard.js'
 import { shouldTraceRequest } from './lib/trace-filter.js'
 
@@ -178,6 +179,11 @@ function buildApp() {
                   "Host and container metrics of every machine from the host agents in ClickStack's ClickHouse: `GET /machines/overview` (one entry per machine that reported in the last 24 h: reporting or silent, newest CPU, memory, load, fullest filesystem and network rate, a series over the range) and `GET /machines/detail?host=` (CPU, memory, disk IO, network, filesystems and top containers), each over a `range` of 1h, 24h, 7d or 30d. A machine with no sample for 10 minutes is silent, its values null. 503 when ClickHouse is unavailable.",
               },
               {
+                name: 'Paper',
+                description:
+                  "Scanning, the scan inbox, the document index and printing, over the `paper` CLI on the mini (nothing is stored in Argo). `/paper/scan/*`: status with progress and the pending scan's page thumbnails, a pre-flight check, start (only when a person asked for a scan), submit and discard. `/paper/inbox`: files waiting and held for review with the pipeline's reason and proposal, and `POST /paper/inbox/{name}/decide` (single, split, kind, issuer, date, title, object). `/paper/docs`: the filed-document index with filters, one document, its original PDF and its extracted text. `/paper/*/print`, `/paper/print/*`: print a document or an inbox file (only when a person asked), printer state, one job, cancel. Document contents are private. Errors: 404 unknown id, 409 the CLI refused (message says why), 502 unreadable answer, 503 paper or its host core unavailable, 504 no answer in time.",
+              },
+              {
                 name: 'System',
                 description:
                   'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -224,6 +230,7 @@ function buildApp() {
             'Models',
             'Line',
             'Machines',
+            'Paper',
             'System',
           ],
         }),
@@ -295,6 +302,7 @@ function buildApp() {
       .use(modelsRoutes)
       .use(lineRoutes)
       .use(machinesRoutes)
+      .use(paperRoutes)
   )
 }
 
