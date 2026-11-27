@@ -65,7 +65,7 @@ export const app = new Elysia()
 
 **CORS must allow `traceparent`, `tracestate`, `baggage`.** Without them the browser preflight strips W3C trace context and frontend/backend traces will have different `trace_id`s — distributed tracing breaks silently.
 
-**`checkIfShouldTrace` must skip the discovery surfaces** (`/`, `/health`, `/openapi`, `/openapi/json`). They are polled frequently and generate noise. Extend this list whenever you add a public probe route.
+**`checkIfShouldTrace` must skip the discovery surfaces** (`/`, `/health`, `/openapi`, `/openapi/json`). They are polled frequently and generate noise. Extend this list whenever you add a public probe route. The one other reason to skip a route is privacy: the Elysia plugin records `url.full` and the request and response bodies on every span, so `/finance` and `/paper` (vault bookings, filed documents) are not traced at all; `lib/trace-filter.ts` is the list.
 
 ## Outgoing HTTP — always `tracedFetch`
 
@@ -271,7 +271,7 @@ Don't wrap simple synchronous helpers — spans cost more than they're worth for
 - ❌ Manual spans around Drizzle queries (already instrumented via `@kubiks/otel-drizzle`).
 - ❌ `OTEL_EXPORTER_OTLP_ENDPOINT=http://host/v1/traces` — the SDK appends the path; you'll double up.
 - ❌ Removing `traceparent` / `tracestate` / `baggage` from `cors.allowedHeaders` — breaks browser→API trace linkage.
-- ❌ Adding new routes to the trace-filter (`checkIfShouldTrace`) unless they're public-poll/probe endpoints. Skipping business endpoints hides bugs.
+- ❌ Adding new routes to the trace-filter (`checkIfShouldTrace`) unless they're public-poll/probe endpoints, or their paths or bodies are private data (above). Skipping any other business endpoint hides bugs.
 - ❌ Calling `tracer.startActiveSpan` from a cron without `context.with(ROOT_CONTEXT, …)` — ticks will chain.
 - ❌ Catching errors silently inside a traced span without `span.recordException` + `setStatus(ERROR)`. The span will report green even though work failed.
 - ❌ `@opentelemetry/instrumentation-fs` under Bun — hangs the runtime. We don't use auto-instrumentations, so this is not a current risk; flag it if anyone proposes moving to `@opentelemetry/sdk-node`.
