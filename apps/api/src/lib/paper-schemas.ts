@@ -7,10 +7,10 @@ import { z } from 'zod'
  * No schema carries a filesystem path: paths stay inside lib/paper.ts.
  */
 
-/** An id from `docs list`: letters, digits, dot, hyphen, underscore; never a leading hyphen. */
+/** An id from `docs list` (a note's file stem): letters of any script (an issuer's umlaut), digits, dot, hyphen, underscore; never a leading hyphen. */
 export const DocIdSchema = z
   .string()
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/)
+  .regex(/^[\p{L}\p{N}][\p{L}\p{M}\p{N}._-]{0,199}$/u)
   .describe('Document id from GET /paper/docs.')
 
 /** A file name of the scan inbox. No path separator, no leading hyphen. */

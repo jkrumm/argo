@@ -569,6 +569,18 @@ describe('docs', () => {
     expect(await (await call('/paper/docs/rechnung-1')).json()).toMatchObject({ id: 'rechnung-1' })
   })
 
+  it('takes an id with an umlaut, as a note is named', async () => {
+    await say('docs show', { ok: true, document: doc('2026-Büro_Ärger') })
+    const res = await call(`/paper/docs/${encodeURIComponent('2026-Büro_Ärger')}`)
+    expect(res.status).toBe(200)
+    expect((await paperCalls()).at(-1)).toContain('2026-Büro_Ärger')
+  })
+
+  it.each(['-rf', '..%2Fetc', 'a%20b', 'a%00b'])('422s the id %s and runs nothing', async (id) => {
+    expect((await call(`/paper/docs/${id}`)).status).toBe(422)
+    expect(await paperCalls()).toHaveLength(0)
+  })
+
   it('serves the original as application/pdf from the cache', async () => {
     await writeFile(join(stateDir, 'doc.pdf'), '%PDF-doc')
     await say('docs fetch', {
