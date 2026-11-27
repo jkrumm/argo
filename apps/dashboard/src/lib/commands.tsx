@@ -35,7 +35,19 @@ const SkinfoldLogForm = lazy(() =>
   })),
 )
 
+const PrintForm = lazy(() =>
+  import('../features/documents/library/print-modal').then((m) => ({ default: m.PrintForm })),
+)
+
 const OVERLAYS = defineOverlays({
+  'documents:print': {
+    title: 'Print',
+    render: (p: { id: string; title: string }) => (
+      <Suspense fallback={null}>
+        <PrintForm id={p.id} title={p.title} />
+      </Suspense>
+    ),
+  },
   'body-comp:log-weight': {
     title: 'Log weight',
     render: (p: { lastWeight: number | null }) => (

@@ -1,5 +1,7 @@
 import HyperDX from '@hyperdx/browser'
+import { trace } from '@opentelemetry/api'
 import { HYPERDX_BLOCK_CLASS, HYPERDX_IGNORE_URLS } from './hyperdx-options'
+import { installDocumentPrivacy } from './private-telemetry'
 import { installStaleBuildRecovery, sessionStore } from './stale-build'
 
 // Self-initializing side-effect module — patches window.fetch on import.
@@ -59,6 +61,9 @@ if (typeof window !== 'undefined') {
         'app.version': __APP_VERSION__,
       },
     })
+
+    // Document titles and issuers in the page address never reach the exporter.
+    installDocumentPrivacy(trace.getTracerProvider())
 
     // Single-user dashboard — stamp the user once at boot so every span/log
     // carries it. For multi-user apps, call identify() after auth instead.

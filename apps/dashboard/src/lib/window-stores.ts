@@ -28,6 +28,8 @@ import type { LegacyView } from '../features/usage-tracking/flow-node'
 // Dependency-free month helpers (a type-only import of the pinned finance contract).
 import { INDEX_IDS, INDEX_SERIES } from '../features/finance/lib/index-series'
 import { MONTH_UNIVERSE, YEAR_UNIVERSE, monthLabel } from '../features/finance/lib/months'
+// Pure and import-free: the document index's attention filter values.
+import { ATTENTION_LABELS, ATTENTION_VALUES } from '../features/documents/library/model'
 // Pure, import-free of the app but for the pinned contract types: the models page's value sets.
 import { CREATOR_LABELS, CREATOR_VALUES } from '../features/models/model'
 
@@ -125,6 +127,24 @@ export const strengthStore = createSearchStore({
     pull_ups: 'Pull-ups',
   },
 })
+
+/**
+ * The document index. URL only (`persist: false`): the filters are part of the link, and opening the
+ * page from the nav shows every document. The values are open strings: kinds, issuers, years and
+ * tags come from the index itself.
+ */
+export const documentsStore = createSearchStore({
+  key: 'documents',
+  fields: {
+    q: field.string({ max: 120 }, { persist: false }),
+    kind: field.string({ max: 120 }, { persist: false }),
+    issuer: field.string({ max: 120 }, { persist: false }),
+    year: field.string({ max: 12 }, { persist: false }),
+    taxYear: field.string({ max: 12 }, { persist: false }),
+    tag: field.string({ max: 120 }, { persist: false }),
+    attention: field.enum(ATTENTION_VALUES, 'all', { persist: false }),
+  },
+}).labels({ attention: ATTENTION_LABELS })
 
 export const bodyCompStore = createSearchStore({
   key: 'body-composition:window',

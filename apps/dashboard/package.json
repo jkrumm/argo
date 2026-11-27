@@ -44,6 +44,7 @@
     "lightweight-charts-drawing": "0.11.1",
     "maplibre-contour": "0.1.1",
     "maplibre-gl": "6.10.0",
+    "pdfjs-dist": "6.5.438",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^4.6.5",

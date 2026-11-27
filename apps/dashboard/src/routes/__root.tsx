@@ -106,6 +106,9 @@ function RootLayout() {
         const to = item.link.to ?? ''
         // This month is the section's index: exact, or it would shadow every sibling page.
         if (item.id === 'finance-month') return path.replace(/\/$/, '') === '/finance'
+        // The index owns its documents (`/documents/<id>`), not the area's other pages.
+        if (item.id === 'documents-index')
+          return /^\/documents(?!\/(?:scan|review)(?:\/|$))(?:\/|$)/.test(path)
         return to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`)
       }}
       badges={{ calendar: badges.calendar, m365: badges.m365 }}

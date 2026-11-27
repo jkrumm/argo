@@ -17,4 +17,6 @@ export const HYPERDX_IGNORE_URLS: RegExp[] = [
   /\.hot-update\./,
   /\/node_modules\/.vite\//,
   /\/api\/finance\//,
+  // Document requests carry the id (date, issuer, title) in the path.
+  /\/api\/paper\//,
 ]

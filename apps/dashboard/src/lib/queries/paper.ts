@@ -41,12 +41,25 @@ export const paperQueries = {
       queryFn: async () => unwrap(await api.paper.inbox.get()),
       refetchInterval: 60_000,
     }),
-  /** The document index: where the review form's suggestions (kinds, issuers) come from. */
+  /** The whole document index: the Index page, and the review form's suggestions (kinds, issuers). */
   index: () =>
     queryOptions({
       queryKey: [...paperQueries.all(), 'docs-index'] as const,
-      queryFn: async () => unwrap(await api.paper.docs.get({ query: { limit: 1000 } })),
+      queryFn: async () => unwrap(await api.paper.docs.get({ query: {} })),
       staleTime: 10 * 60_000,
+    }),
+  document: (id: string) =>
+    queryOptions({
+      queryKey: [...paperQueries.all(), 'document', id] as const,
+      queryFn: async () => unwrap(await api.paper.docs({ id }).get()),
+    }),
+  /** A document's extracted text, served as text/plain. */
+  documentText: (id: string) =>
+    queryOptions({
+      queryKey: [...paperQueries.all(), 'document-text', id] as const,
+      queryFn: async () => String(unwrap(await api.paper.docs({ id }).text.get())),
+      staleTime: 10 * 60_000,
+      retry: 1,
     }),
 }
 

@@ -32,6 +32,7 @@ import {
   astroStore,
   bodyCompStore,
   calendarStore,
+  documentsStore,
   finStore,
   garminStore,
   lineStore,
@@ -53,6 +54,7 @@ import {
   IconCoinEuro,
   IconCompass,
   IconCpu,
+  IconFiles,
   IconHeartbeat,
   IconInbox,
   IconMoonStars,
@@ -221,9 +223,15 @@ export const NAV = defineNav({
         link: linkOptions({ to: '/finance/tax', search: finStore.linkSearch }),
       },
     ]),
-    // The phone is the scanner's remote: Scan is a bottom tab. The Index page of this group is
-    // `/documents` (row argo-documents-ui) and joins as the first item.
+    // The index first (`/documents`); the phone is the scanner's remote, so Scan is a bottom tab.
     navGroup({ id: 'documents', label: 'Documents', icon: <IconScan size={ICON} /> }, [
+      {
+        id: 'documents-index',
+        label: 'Index',
+        short: 'Docs',
+        icon: <IconFiles size={ICON} />,
+        link: linkOptions({ to: '/documents', search: documentsStore.linkSearch }),
+      },
       {
         id: 'documents-scan',
         label: 'Scan',

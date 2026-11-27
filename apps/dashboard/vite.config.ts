@@ -1,10 +1,11 @@
-import { defineConfig, mergeConfig } from 'vite'
+import { defineConfig, mergeConfig, type Plugin } from 'vite'
 import { basaltAppPlugin, basaltViteConfig } from 'basalt-ui/vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
-import { resolve } from 'path'
-import { readFileSync } from 'fs'
+import { createRequire } from 'module'
+import { dirname, join, resolve, sep } from 'path'
+import { readdirSync, readFileSync } from 'fs'
 
 const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, 'package.json'), 'utf-8')) as {
   version: string
@@ -32,9 +33,47 @@ const basalt = basaltViteConfig({
   version: pkg.version,
 })
 
+/**
+ * pdf.js loads its image decoders, character maps and fallback fonts by URL at run time, so the
+ * folders it ships them in are served under `/pdfjs/`: emitted into the build, read from the package
+ * by the dev server.
+ */
+function pdfjsAssets(): Plugin {
+  const root = dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'))
+  const folders = ['wasm', 'cmaps', 'standard_fonts', 'iccs']
+  return {
+    name: 'argo-pdfjs-assets',
+    configureServer(server) {
+      server.middlewares.use('/pdfjs', (req, res, next) => {
+        const file = join(root, (req.url ?? '').split('?')[0] ?? '')
+        if (!folders.some((folder) => file.startsWith(join(root, folder) + sep))) return next()
+        try {
+          const body = readFileSync(file)
+          if (file.endsWith('.wasm')) res.setHeader('Content-Type', 'application/wasm')
+          res.end(body)
+        } catch {
+          next()
+        }
+      })
+    },
+    generateBundle() {
+      for (const folder of folders) {
+        for (const name of readdirSync(join(root, folder))) {
+          this.emitFile({
+            type: 'asset',
+            fileName: `pdfjs/${folder}/${name}`,
+            source: readFileSync(join(root, folder, name)),
+          })
+        }
+      }
+    },
+  }
+}
+
 export default defineConfig(
   mergeConfig(basalt, {
     plugins: [
+      pdfjsAssets(),
       TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
       react(),
       babel({ presets: [reactCompilerPreset()] }),
@@ -54,6 +93,8 @@ export default defineConfig(
             // Beyond the preset's `/api` denial: the OTel receiver paths must not
             // fall back to the app shell either.
             navigateFallbackDenylist: [/^\/api/, /^\/v1\//],
+            // pdf.js's decoder fallbacks are fetched only by the file that needs one.
+            globIgnores: ['**/node_modules/**/*', 'pdfjs/**'],
           },
         },
       }),

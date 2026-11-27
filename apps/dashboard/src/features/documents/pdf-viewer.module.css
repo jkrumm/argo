@@ -1,0 +1,13 @@
+/* A page is paper: white in both schemes, as the file is. */
+.page {
+  background: var(--mantine-color-white);
+  border-radius: var(--vx-radius-ctrl);
+  overflow: hidden;
+  box-shadow: var(--vx-shadow-card);
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

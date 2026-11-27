@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import { getToken } from '../../lib/auth'
+import { shotFetcher, shotState } from '../../lib/shot-state'
 
 /** A `/paper/*` file as a Blob. The API wants the bearer, which an `<img src>` cannot send. */
 export function usePaperBlob(path: string | null, version: string | number = '') {
@@ -14,10 +15,16 @@ export function usePaperBlob(path: string | null, version: string | number = '')
       // Lazy: `api-base` reads `window` at import, which the component tests do not have.
       const { apiBase } = await import('../../lib/api-base')
       const token = getToken()
-      const response = await fetch(`${apiBase}${path}`, {
+      const response = await shotFetcher(shotState())(`${apiBase}${path}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) {
+        // The API's own words, and the status for Argo's 401 handling.
+        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        throw Object.assign(new Error(body?.error ?? `HTTP ${response.status}`), {
+          status: response.status,
+        })
+      }
       return response.blob()
     },
   })
