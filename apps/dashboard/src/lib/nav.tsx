@@ -69,9 +69,9 @@ import {
 const ICON = 18
 
 /**
- * The three `mobile: 'tab'` destinations are the phone-first ones: Calendar (a daily glance, and
+ * The four `mobile: 'tab'` destinations are the phone-first ones: Calendar (a daily glance, and
  * one of the two badge-carrying rows), Garmin Health and Strength Tracker (logged at the gym, on
- * the phone). Everything else is either episodic (Astro Window, Reading) or a
+ * the phone) and Scan (the phone is the scanner's remote). Everything else is either episodic (Astro Window, Reading) or a
  * desk-and-a-big-screen surface (Usage Tracking, M365 Explorer, Body Composition, WalkingPad) and
  * lives one tap deeper under More — the same two taps they cost before this migration.
  */
