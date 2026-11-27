@@ -54,9 +54,11 @@ import {
   IconCompass,
   IconCpu,
   IconHeartbeat,
+  IconInbox,
   IconMoonStars,
   IconNetwork,
   IconRulerMeasure,
+  IconScan,
   IconServer,
   IconShieldCheck,
   IconShoe,
@@ -217,6 +219,25 @@ export const NAV = defineNav({
         short: 'Tax',
         icon: <IconShieldCheck size={ICON} />,
         link: linkOptions({ to: '/finance/tax', search: finStore.linkSearch }),
+      },
+    ]),
+    // The phone is the scanner's remote: Scan is a bottom tab. The Index page of this group is
+    // `/documents` (row argo-documents-ui) and joins as the first item.
+    navGroup({ id: 'documents', label: 'Documents', icon: <IconScan size={ICON} /> }, [
+      {
+        id: 'documents-scan',
+        label: 'Scan',
+        short: 'Scan',
+        mobile: 'tab',
+        icon: <IconScan size={ICON} />,
+        link: linkOptions({ to: '/documents/scan' }),
+      },
+      {
+        id: 'documents-review',
+        label: 'Review',
+        short: 'Review',
+        icon: <IconInbox size={ICON} />,
+        link: linkOptions({ to: '/documents/review' }),
       },
     ]),
     navGroup({ id: 'system', label: 'System', icon: <IconServer size={ICON} /> }, [
