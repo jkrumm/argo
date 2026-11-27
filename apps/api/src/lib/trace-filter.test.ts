@@ -17,6 +17,19 @@ describe('shouldTraceRequest', () => {
     }
   })
 
+  it('never opens a server span for /paper: the plugin would record documents', () => {
+    for (const path of [
+      '/paper/docs',
+      '/paper/docs?issuer=Acme',
+      '/paper/docs/2026-01-02-Acme_Policy/pdf',
+      '/paper/inbox',
+      '/paper/inbox/scan.pdf/decide',
+    ]) {
+      expect([path, traced(path)]).toEqual([path, false])
+    }
+    expect(traced('/paperwork')).toBe(true)
+  })
+
   it('keeps the existing exclusions and still traces everything else', () => {
     expect(traced('/')).toBe(false)
     expect(traced('/health')).toBe(false)

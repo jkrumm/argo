@@ -60,6 +60,17 @@ describe('redactHeaderAttributes', () => {
     expect(result['http.response.header.x-webhook-secret']).toBe('[redacted]')
   })
 
+  it('redacts a referer that names a document or its filters, and keeps any other', () => {
+    const referer = (value: string) =>
+      redactHeaderAttributes({ 'http.request.header.referer': value })[
+        'http.request.header.referer'
+      ]
+    expect(referer('https://argo.example.com/documents/2026-Acme')).toBe('[redacted]')
+    expect(referer('https://argo.example.com/documents?issuer=Acme')).toBe('[redacted]')
+    expect(referer('https://argo.example.com/documents')).toBe('https://argo.example.com/documents')
+    expect(referer('https://argo.example.com/calendar')).toBe('https://argo.example.com/calendar')
+  })
+
   it('leaves useful attributes untouched', () => {
     const attributes = {
       'http.route': '/workouts/:id',

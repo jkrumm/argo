@@ -67,6 +67,12 @@ const SENSITIVE_HEADER_NAME_PATTERN = /token|secret/i
 
 const HEADER_ATTRIBUTE_PREFIXES = ['http.request.header.', 'http.response.header.']
 
+// A call made from a document page names it in the referer (the id in the path, the filters in the
+// query), whatever route is being traced.
+function namesADocument(headerName: string, value: unknown): boolean {
+  return headerName === 'referer' && typeof value === 'string' && /\/documents[/?]/.test(value)
+}
+
 function isSensitiveHeaderName(headerName: string): boolean {
   const lower = headerName.toLowerCase()
   return REDACTED_HEADER_NAMES.has(lower) || SENSITIVE_HEADER_NAME_PATTERN.test(lower)
@@ -95,7 +101,7 @@ export function redactHeaderAttributes(attributes: Attributes): Attributes {
     if (!prefix) continue
 
     const headerName = lowerKey.slice(prefix.length)
-    if (!isSensitiveHeaderName(headerName)) continue
+    if (!isSensitiveHeaderName(headerName) && !namesADocument(headerName, attributes[key])) continue
 
     redacted ??= { ...attributes }
     redacted[key] = REDACTED_ATTRIBUTE_VALUE
