@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'bun:test'
-import { redactHeaderAttributes, REDACTED_HEADER_NAMES, resourceAttributes } from './telemetry.js'
+import type { ReadableSpan, SpanProcessor } from '@opentelemetry/sdk-trace-base'
+import {
+  redactHeaderAttributes,
+  REDACTED_HEADER_NAMES,
+  resourceAttributes,
+  ScrubbingSpanProcessor,
+} from './telemetry.js'
 
 describe('resourceAttributes', () => {
   const base = {
@@ -111,5 +117,51 @@ describe('redactHeaderAttributes', () => {
     expect(REDACTED_HEADER_NAMES.has('cookie')).toBe(true)
     expect(REDACTED_HEADER_NAMES.has('set-cookie')).toBe(true)
     expect(REDACTED_HEADER_NAMES.has('x-api-key')).toBe(true)
+  })
+})
+
+describe('ScrubbingSpanProcessor', () => {
+  function scrub(attributes: Record<string, unknown>): Record<string, unknown> {
+    const exported: Array<Record<string, unknown>> = []
+    const next: SpanProcessor = {
+      onStart: () => {},
+      onEnd: (span) => {
+        exported.push({ ...span.attributes })
+      },
+      forceFlush: () => Promise.resolve(),
+      shutdown: () => Promise.resolve(),
+    }
+    new ScrubbingSpanProcessor(next).onEnd({ attributes } as unknown as ReadableSpan)
+    const [first] = exported
+    if (!first) throw new Error('span was not passed on')
+    return first
+  }
+
+  it('drops request and response bodies and keeps their sizes', () => {
+    const result = scrub({
+      'http.route': '/calendar',
+      'http.request.body': '{"query":"x"}',
+      'http.request.body.size': 14,
+      'http.response.body': '{"events":[]}',
+      'http.response.body.size': 12,
+    })
+    expect(result).toEqual({
+      'http.route': '/calendar',
+      'http.request.body.size': 14,
+      'http.response.body.size': 12,
+    })
+  })
+
+  it('still redacts credential headers on a span that carries a body', () => {
+    const result = scrub({
+      'http.request.header.authorization': 'Bearer test-token',
+      'http.response.body': '{"ok":true}',
+    })
+    expect(result).toEqual({ 'http.request.header.authorization': '[redacted]' })
+  })
+
+  it('passes a span without body attributes through unchanged', () => {
+    const attributes = { 'http.route': '/health', 'http.response.status_code': 200 }
+    expect(scrub(attributes)).toEqual(attributes)
   })
 })

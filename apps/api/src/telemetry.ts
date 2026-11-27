@@ -110,14 +110,18 @@ export function redactHeaderAttributes(attributes: Attributes): Attributes {
   return redacted ?? attributes
 }
 
+// The Elysia plugin records every route's request and response body. The API answers calendar,
+// mail, chat, GitLab and Jira data, so bodies are dropped on every span; the `*.body.size` attributes stay.
+const BODY_ATTRIBUTE_KEYS = ['http.request.body', 'http.response.body'] as const
+
 /**
  * Wraps another SpanProcessor and scrubs credential-bearing header
- * attributes off every span in `onEnd`, before it reaches the wrapped
+ * attributes and request/response bodies off every span in `onEnd`, before it reaches the wrapped
  * processor (and therefore the exporter). Sits at the span-processing
  * layer so it holds no matter which instrumentation set the attribute —
  * see the D21 comment above `redactHeaderAttributes`.
  */
-class ScrubbingSpanProcessor implements SpanProcessor {
+export class ScrubbingSpanProcessor implements SpanProcessor {
   constructor(private readonly next: SpanProcessor) {}
 
   onStart(span: Span, parentContext: Context): void {
@@ -131,6 +135,7 @@ class ScrubbingSpanProcessor implements SpanProcessor {
         span.attributes[key] = value
       }
     }
+    for (const key of BODY_ATTRIBUTE_KEYS) delete span.attributes[key]
     this.next.onEnd(span)
   }
 

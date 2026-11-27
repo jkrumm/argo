@@ -4,7 +4,7 @@ Moved from `apps/api/AGENTS.md`. Read before changing OTel setup, env vars, the 
 
 ## Observability
 
-OpenTelemetry traces + logs ship to ClickStack via `@elysiajs/opentelemetry`. `src/telemetry.ts` is the single entry point — exports `telemetryConfig`, `tracer`, and a structured `log` helper. Outgoing fetch must go through `src/lib/traced-fetch.ts`; Drizzle is auto-instrumented in `src/db/index.ts` via `@kubiks/otel-drizzle`. Cron ticks wrap each tick in `context.with(ROOT_CONTEXT, …)` so they don't chain into one giant trace.
+OpenTelemetry traces + logs ship to ClickStack via `@elysiajs/opentelemetry`. `src/telemetry.ts` is the single entry point — exports `telemetryConfig`, `tracer`, and a structured `log` helper. `ScrubbingSpanProcessor` runs first on every span: credential headers are redacted, and `http.request.body` / `http.response.body` are dropped (the `*.body.size` attributes stay). Outgoing fetch must go through `src/lib/traced-fetch.ts`; Drizzle is auto-instrumented in `src/db/index.ts` via `@kubiks/otel-drizzle`. Cron ticks wrap each tick in `context.with(ROOT_CONTEXT, …)` so they don't chain into one giant trace.
 
 See `.claude/rules/observability.md` for the full pattern — when to add manual spans, the CORS allowlist for W3C propagation, cron naming convention, and the verification checklist.
 
